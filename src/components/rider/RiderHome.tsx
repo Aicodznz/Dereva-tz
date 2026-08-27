@@ -11,7 +11,7 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
-  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus
+  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -468,6 +468,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [earningsTab, setEarningsTab] = useState<'mwezi' | 'mwaka' | 'jumla'>('mwezi');
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
   const [isStreetHailModalOpen, setIsStreetHailModalOpen] = useState(false);
+  const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
+  const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail'>('bonus');
+  const [dismissedPromo, setDismissedPromo] = useState(false);
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -2333,7 +2336,7 @@ const getEndPin = (etaText: string) => {
             maxZoom={22}
             preferCanvas={false}
             style={{ height: '100%', width: '100%' }}
-            zoomControl={true}
+            zoomControl={false}
             attributionControl={false}
             touchZoom={true}
             doubleClickZoom={true}
@@ -2871,184 +2874,192 @@ const getEndPin = (etaText: string) => {
         )}
       </AnimatePresence>
 
-      {/* Floating Controls Column on the Right - Ultra Clean & Seamless Alignment */}
+      {/* Floating Controls Column on the Right - Ultra Clean, Minimalist & Modern */}
       {!isMinimized && (
-        <div className="absolute right-4 top-24 z-45 flex flex-col gap-2.5 items-center pointer-events-auto">
-          {/* AI Smart Heat Map Toggle Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowHeatMap(!showHeatMap)}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg transition-all ${
-              showHeatMap
-                ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white border-amber-400/60 shadow-orange-500/25'
-                : theme === 'dark'
-                ? 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-400 hover:text-amber-400'
-                : 'bg-white/90 border-neutral-200 text-neutral-600 hover:text-amber-600'
-            }`}
-            title="AI Smart Heatmap (Maeneo ya Uhitaji Mkubwa)"
-          >
-            <Flame className={`w-5 h-5 ${showHeatMap ? 'text-amber-100 animate-bounce' : 'text-amber-500'}`} />
-          </motion.button>
-          <AppDownloadButton 
-            variant="compact" 
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-600/15 border border-orange-500/20 text-orange-400 hover:bg-orange-600/25 shadow-lg active:scale-95 transition-all"
-          />
-          
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
-            className="w-10 h-10 bg-white/95 dark:bg-[#111118]/90 backdrop-blur-xl border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg flex items-center justify-center text-neutral-800 dark:text-white active:scale-95 transition-all"
-            title={theme === "dark" ? "Badili kwenda mwangaza" : "Badili kwenda giza"}
-          >
-            {theme === "dark" ? (
-              <Sun className="w-4 h-4 text-amber-500 animate-pulse" />
-            ) : (
-              <Moon className="w-4 h-4 text-indigo-500" />
+        <div className="absolute right-3.5 top-20 z-40 flex flex-col gap-2 items-end pointer-events-auto">
+          {/* Main Map Tools Flyout Menu */}
+          <AnimatePresence>
+            {showMapToolsMenu && (
+              <motion.div
+                initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-[#1e1e2e] p-2.5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.25)] flex flex-col gap-1.5 min-w-[170px] mb-1"
+              >
+                <div className="flex items-center justify-between px-1.5 pb-1 border-b border-neutral-100 dark:border-neutral-800/80">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Mipangilio ya Ramani</span>
+                  <button 
+                    onClick={() => setShowMapToolsMenu(false)}
+                    className="w-4 h-4 rounded flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  >
+                    <CloseX className="w-3 h-3" />
+                  </button>
+                </div>
+
+                {/* 1. Theme Toggle */}
+                <button
+                  onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwonekano</span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase text-neutral-400">
+                    {theme === 'dark' ? 'Giza' : 'Mwangaza'}
+                  </span>
+                </button>
+
+                {/* 2. Satellite Mode */}
+                <button
+                  onClick={() => setMapType(mapType === 'satellite' ? 'standard' : 'satellite')}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <MapIcon className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Satelaiti</span>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${mapType === 'satellite' ? 'bg-blue-500/15 text-blue-500' : 'text-neutral-400'}`}>
+                    {mapType === 'satellite' ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+
+                {/* 3. Audio & Voice Alerts */}
+                <button
+                  onClick={() => {
+                    const newSound = !driverAudioSettings.soundEnabled;
+                    const newVoice = !driverAudioSettings.voiceEnabled;
+                    const updated = {
+                      ...driverAudioSettings,
+                      soundEnabled: newSound,
+                      voiceEnabled: newVoice
+                    };
+                    setDriverAudioSettings(updated);
+                    saveAudioSettings(updated);
+                    if (newSound || newVoice) {
+                      DriverVoice.testVoice();
+                      toast.success("Sauti na milio ya dereva imewashwa!");
+                    } else {
+                      toast.info("Sauti na milio ya dereva imezimwa.");
+                    }
+                  }}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {driverAudioSettings.soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : <VolumeX className="w-3.5 h-3.5 text-neutral-400" />}
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Sauti / Mwongozo</span>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${driverAudioSettings.soundEnabled ? 'bg-emerald-500/15 text-emerald-500' : 'text-neutral-400'}`}>
+                    {driverAudioSettings.soundEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+
+                {/* 4. Road Hazards & Traffic Lights */}
+                <button
+                  onClick={() => {
+                    setShowRoadAlerts(!showRoadAlerts);
+                    toast.success(showRoadAlerts ? "Vituo vya barabara vimefichwa" : "Vituo vya barabara na taa za trafiki vimeoneshwa");
+                  }}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Hali ya Njia</span>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${showRoadAlerts ? 'bg-rose-500/15 text-rose-500' : 'text-neutral-400'}`}>
+                    {showRoadAlerts ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+
+                {/* 5. Earnings details button */}
+                <button
+                  onClick={() => {
+                    setShowEarningsModal(prev => !prev);
+                    setShowMapToolsMenu(false);
+                  }}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Ripoti ya Mapato</span>
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-neutral-400" />
+                </button>
+              </motion.div>
             )}
-          </motion.button>
+          </AnimatePresence>
 
-          {/* Satellite Map Toggle */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setMapType(mapType === 'satellite' ? 'standard' : 'satellite')}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-              mapType === 'satellite'
-                ? 'bg-[#7F77DD] border-[#7F77DD] text-white shadow-[0_0_12px_rgba(127,119,221,0.4)]'
-                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
-            }`}
-            title={mapType === 'satellite' ? "Badili kwenda Ramani Kawaida" : "Badili kwenda Ramani ya Satelaiti"}
-          >
-            <MapIcon className="w-4 h-4" />
-            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">
-              {mapType === 'satellite' ? 'Kawaida' : 'Satelaiti'}
-            </span>
-          </motion.button>
-
-          {/* Quick Driver Audio & Voice Navigation Alert Toggle */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              const newSound = !driverAudioSettings.soundEnabled;
-              const newVoice = !driverAudioSettings.voiceEnabled;
-              const updated = {
-                ...driverAudioSettings,
-                soundEnabled: newSound,
-                voiceEnabled: newVoice
-              };
-              setDriverAudioSettings(updated);
-              saveAudioSettings(updated);
-              if (newSound || newVoice) {
-                DriverVoice.testVoice();
-                toast.success("Sauti na milio ya dereva imewashwa!");
-              } else {
-                toast.info("Sauti na milio ya dereva imezimwa.");
-              }
-            }}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-              driverAudioSettings.soundEnabled || driverAudioSettings.voiceEnabled
-                ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.4)]'
-                : 'bg-neutral-800 border-neutral-700 text-neutral-400'
-            }`}
-            title="Washa / Zima Sauti ya Safari & Mwongozo wa Kiswahili"
-          >
-            {driverAudioSettings.soundEnabled || driverAudioSettings.voiceEnabled ? (
-              <Volume2 className="w-4 h-4 animate-pulse" />
-            ) : (
-              <VolumeX className="w-4 h-4" />
-            )}
-            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">
-              {driverAudioSettings.soundEnabled ? 'Sauti' : 'Kimya'}
-            </span>
-          </motion.button>
-
-
-          {/* Recenter & Auto-Follow Vehicle Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setAutoFollow(true);
-              setRecenterTrigger(Date.now());
-              setZoomAction({ type: 'auto', id: Date.now() });
-              toast.success("Ramani imelenga usafiri wako na kuanza kufuatilia!");
-            }}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-              autoFollow 
-                ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.45)]' 
-                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-emerald-500'
-            }`}
-            title="Lenga na Fuatilia Usafiri Wako (Auto-Follow)"
-          >
-            <Navigation2 className={`w-4 h-4 rotate-45 ${autoFollow ? 'text-white fill-white' : 'text-neutral-500'}`} />
-            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Usafiri</span>
-          </motion.button>
-
-          {/* Zoom In & Zoom Out Compact Button Pair */}
-          <div className="flex flex-col bg-white/95 dark:bg-[#111118]/90 border border-neutral-200/50 dark:border-[#1e1e2e] rounded-xl shadow-lg overflow-hidden backdrop-blur-xl">
+          {/* Core Right Side Actions (Clean & Compact Stack of 4) */}
+          <div className="flex flex-col gap-2 items-center bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-1.5 rounded-2xl shadow-lg">
+            {/* 1. Recenter / Auto-Follow Vehicle Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
-                setZoomAction({ type: 'in', id: Date.now() });
+                setAutoFollow(true);
+                setRecenterTrigger(Date.now());
+                setZoomAction({ type: 'auto', id: Date.now() });
+                toast.success("Ramani imelenga usafiri wako!");
               }}
-              className="w-10 h-8 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-emerald-500 hover:text-white transition-colors border-b border-neutral-200/50 dark:border-[#1e1e2e]"
-              title="Zoom In (Kuza Ramani)"
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                autoFollow 
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' 
+                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+              title="Lenga na Fuatilia Usafiri Wako (Auto-Follow)"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Navigation2 className={`w-4 h-4 rotate-45 ${autoFollow ? 'fill-white' : ''}`} />
             </motion.button>
+
+            {/* 2. Zoom In / Zoom Out Controls */}
+            <div className="flex flex-col border-t border-b border-neutral-200/60 dark:border-neutral-800/80 my-0.5 py-0.5">
+              <button
+                onClick={() => setZoomAction({ type: 'in', id: Date.now() })}
+                className="w-9 h-7 flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
+                title="Zoom In"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+              </button>
+              <button
+                onClick={() => setZoomAction({ type: 'out', id: Date.now() })}
+                className="w-9 h-7 flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
+                title="Zoom Out"
+              >
+                <Minus className="w-4 h-4 stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* 3. AI Smart Heat Map Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                setZoomAction({ type: 'out', id: Date.now() });
-              }}
-              className="w-10 h-8 flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-emerald-500 hover:text-white transition-colors"
-              title="Zoom Out (Punguza Ukubwa)"
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowHeatMap(!showHeatMap)}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                showHeatMap
+                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/30'
+                  : 'text-amber-500 hover:bg-amber-500/10'
+              }`}
+              title="AI Smart Heatmap (Maeneo ya Uhitaji)"
             >
-              <Minus className="w-4 h-4 stroke-[2.5]" />
+              <Flame className="w-4 h-4" />
+            </motion.button>
+
+            {/* 4. Layers & Map Settings Flyout Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowMapToolsMenu(prev => !prev)}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                showMapToolsMenu
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+              title="Mipangilio na Zana za Ramani"
+            >
+              <Layers className="w-4 h-4" />
             </motion.button>
           </div>
-
-          {/* Toggle Road Alerts (Taa, Kona, Matengenezo, Njia Imefungwa) */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setShowRoadAlerts(!showRoadAlerts);
-              toast.success(showRoadAlerts ? "Vituo vya trafiki, kona, na barabara zilizofungwa vimefichwa!" : "Vituo vya trafiki, kona, na barabara zilizofungwa vimeoneshwa kwenye ramani!");
-            }}
-            className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-              showRoadAlerts 
-                ? 'bg-[#ef4444] border-[#ef4444] text-white shadow-[0_0_12px_rgba(239,68,68,0.4)]' 
-                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
-            }`}
-            title="Onyesha / Ficha Taa za Trafiki, Kona, na Barabara"
-          >
-            <AlertTriangle className="w-4 h-4 animate-pulse" />
-            <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Hali Njia</span>
-          </motion.button>
-
-
-          {!activeRide && !incomingRequest && (
-            <>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowEarningsModal(prev => !prev)}
-                className={`w-10 h-10 border rounded-xl shadow-lg flex flex-col items-center justify-center transition-all ${
-                  showEarningsModal ? 'bg-[#7F77DD] border-[#7F77DD] text-white' : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-200/50 dark:border-[#1e1e2e] text-neutral-500 hover:text-neutral-850 dark:hover:text-white'
-                }`}
-                title="Tazama au ficha mapato ya leo"
-              >
-                {showEarningsModal ? <Eye className="w-3.5 h-3.5 animate-pulse" /> : <TrendingUp className="w-3.5 h-3.5" />}
-                <span className="text-[6px] font-black mt-0.5 uppercase tracking-tighter leading-none">Mapato</span>
-              </motion.button>
-            </>
-          )}
         </div>
       )}
 
@@ -3235,101 +3246,123 @@ const getEndPin = (etaText: string) => {
         </div>
       )}
 
-      {/* Stacked Driver Bottom Status & Incentive Widgets Container */}
+      {/* Sleek Master Driver Bottom Dock (Clean, Organized & Free of Clutter) */}
       {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
-        <div className="absolute bottom-20 sm:bottom-24 inset-x-3.5 max-w-sm mx-auto z-50 pointer-events-none flex flex-col items-center gap-2.5">
-          {/* Dynamic Daily Incentive & Surge Mini-Banner */}
-          <motion.div
-            key="incentive-mini-banner"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            onClick={() => onNavigateTab ? onNavigateTab('incentive') : null}
-            className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-orange-500/20 backdrop-blur-md flex items-center justify-between cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 text-white animate-bounce" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[8px] font-black uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-full">
-                    BONASI ZA LEO
+        <div className="absolute bottom-20 sm:bottom-24 inset-x-3.5 max-w-md mx-auto z-40 pointer-events-none flex flex-col items-center gap-2">
+          {/* 1. Slim Switchable / Dismissible Promo Pill */}
+          {!dismissedPromo && (
+            <motion.div
+              key="promo-ticker"
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 15, opacity: 0 }}
+              className="w-full bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] py-1.5 px-3 rounded-full shadow-lg flex items-center justify-between gap-2 pointer-events-auto select-none"
+            >
+              {activePromoTab === 'bonus' ? (
+                <div 
+                  onClick={() => onNavigateTab ? onNavigateTab('incentive') : null}
+                  className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer group"
+                >
+                  <span className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
+                    <Flame className="w-3 h-3 animate-bounce" />
                   </span>
-                  <span className="text-[9px] font-bold text-amber-100 truncate">🔥 +15% Surge Hai</span>
+                  <div className="flex items-center gap-1.5 min-w-0 text-left">
+                    <span className="text-[8.5px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider shrink-0">
+                      BONASI +15%
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 truncate">
+                      Kamilisha safari upate hadi TZS 20,000
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11px] font-black leading-tight mt-0.5 truncate">
-                  🎯 Kamilisha Safari upate hadi TZS 20,000
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black bg-white text-orange-600 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0 ml-2">
-              Fungua <ChevronRight className="w-3 h-3 stroke-[3]" />
-            </span>
-          </motion.div>
-
-          {/* Direct Passenger Onboarding / Street Hail Action Banner */}
-          <motion.div
-            key="street-hail-banner"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            onClick={() => setIsStreetHailModalOpen(true)}
-            className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-emerald-600/25 backdrop-blur-md flex items-center justify-between cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
-                <UserPlus className="w-4 h-4 text-white stroke-[2.5]" />
-              </span>
-              <div className="min-w-0 text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[7.5px] font-black uppercase tracking-wider bg-black/25 px-2 py-0.5 rounded-full">
-                    STREET HAIL
+              ) : (
+                <div 
+                  onClick={() => setIsStreetHailModalOpen(true)}
+                  className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer group"
+                >
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                    <Gift className="w-3 h-3" />
                   </span>
-                  <span className="text-[9px] font-bold text-emerald-100 truncate">
-                    🎁 Punguzo TZS 1,000
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0 text-left">
+                    <span className="text-[8.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider shrink-0">
+                      STREET HAIL
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 truncate">
+                      Pakia mteja papo hapo • Punguzo TZS 1,000
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11px] font-black leading-tight mt-0.5 truncate">
-                  Pakia & Alika Mteja Hapo Hapo
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black bg-white text-emerald-800 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0 ml-2">
-              Pakia <ChevronRight className="w-3 h-3 stroke-[3]" />
-            </span>
-          </motion.div>
+              )}
 
-          {/* Sleek Floating Status Pill - When Online & Waiting for requests */}
+              {/* Action buttons on the right of the slim promo pill */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActivePromoTab(prev => prev === 'bonus' ? 'streetHail' : 'bonus')}
+                  className="px-2 py-0.5 rounded-full text-[8.5px] font-black bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 transition-colors"
+                  title="Badili ofa"
+                >
+                  {activePromoTab === 'bonus' ? 'Ofa ya 2 ➔' : 'Ofa ya 1 ➔'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDismissedPromo(true)}
+                  className="w-5 h-5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors"
+                  title="Funga"
+                >
+                  <CloseX className="w-3 h-3" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* 2. Unified Master Driver Dock */}
           <motion.div 
-            key="waiting-pill"
+            key="master-dock"
             initial={{ y: 20, opacity: 0 }} 
             animate={{ y: 0, opacity: 1 }} 
             exit={{ y: 20, opacity: 0 }}
-            className="w-full bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] text-neutral-850 dark:text-white flex items-center justify-between pointer-events-auto gap-2"
+            className="w-full bg-white/95 dark:bg-[#111118]/95 backdrop-blur-2xl border border-neutral-200/70 dark:border-[#1e1e2e] p-2.5 sm:p-3 rounded-2xl shadow-[0_12px_35px_rgba(0,0,0,0.18)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.55)] text-neutral-850 dark:text-white flex items-center justify-between pointer-events-auto gap-2"
           >
+            {/* Status Indicator */}
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="relative flex h-2.5 w-2.5 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] sm:text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">ACTIVE</span>
-                <span className="text-[11px] sm:text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none truncate">Unangoja maombi ya safari...</span>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">ONLINE</span>
+                <span className="text-[11px] sm:text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none truncate">
+                  Unasubiri safari...
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center gap-2 bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2 rounded-xl">
-                <div className="flex flex-col items-center min-w-[28px]">
-                  <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
-                  <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
-                </div>
-                <div className="h-4 w-[1px] bg-neutral-200 dark:bg-neutral-800" />
-                <div className="flex flex-col items-center min-w-[28px]">
-                  <span className="text-[7px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
-                  <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
-                </div>
+
+            {/* Middle Stats Badge */}
+            <div className="flex items-center gap-2 bg-neutral-100/80 dark:bg-neutral-900/60 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2 rounded-xl shrink-0">
+              <div className="flex flex-col items-center min-w-[26px]">
+                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
+                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
               </div>
+              <div className="h-3.5 w-[1px] bg-neutral-300 dark:bg-neutral-800" />
+              <div className="flex flex-col items-center min-w-[26px]">
+                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
+                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
+              </div>
+            </div>
+
+            {/* Quick Actions (Street Hail + Offline) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsStreetHailModalOpen(true)}
+                className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
+                title="Pakia mteja papo hapo (Street Hail)"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Pakia</span>
+              </motion.button>
               
               <button 
                 onClick={toggleStatus}
