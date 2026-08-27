@@ -4133,43 +4133,6 @@ const getEndPin = (etaText: string) => {
                     </span>
                   </div>
 
-                  {/* Upgraded Modern Promo Card: Share Pata / Earn TZS 1,000 Coupons when no destination */}
-                  {!destination && (
-                    <motion.div 
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowShareModal(true)}
-                      className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.25)] border border-emerald-400/40 flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-                      
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/25 shadow-inner">
-                          <span className="text-xl group-hover:scale-110 transition-transform">🎁</span>
-                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight flex items-center gap-1.5">
-                            Share Pata
-                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
-                              Zawadi
-                            </span>
-                          </h4>
-                          <p className="text-[10px] sm:text-[11px] font-bold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
-                            <span>Earn TZS 1,000 Coupons</span>
-                            <span className="text-[9px] opacity-80">• Pata vocha papo hapo</span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
-                          <span>Alika</span>
-                          <Share2 className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
                   <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-[2rem] opacity-90" />
                     <div className="space-y-4">
@@ -5025,52 +4988,17 @@ const getEndPin = (etaText: string) => {
                     </span>
                     <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                   </button>
-
-                  {/* Bottom Navigation Tabs: Home, Rides, Account (when on initial search) */}
-                  {!destination && (
-                    <div className={`w-full pt-3 mt-1 border-t flex items-center justify-around select-none ${theme === 'dark' ? 'border-neutral-800/80 text-neutral-400' : 'border-neutral-100 text-neutral-500'}`}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStep("map");
-                          setDestination("");
-                        }}
-                        className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black text-[10px] transition-colors"
-                      >
-                        <Home className="w-5 h-5" />
-                        <span>Home</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/taxi/history")}
-                        className="flex flex-col items-center gap-1 font-bold text-[10px] hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
-                      >
-                        <Clock className="w-5 h-5" />
-                        <span>Rides</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate("/profile")}
-                        className="flex flex-col items-center gap-1 font-bold text-[10px] hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
-                      >
-                        <User className="w-5 h-5" />
-                        <span>Account</span>
-                      </button>
-                    </div>
-                  )}
-
-
                 </motion.div>
               )}
 
               {(isMinimized || isMapFullscreen) && (
                 <div className="w-full flex flex-col gap-2.5">
-                  {/* Modernized Floating Promo Card: Share Pata / Zawadi / Earn TZS 1,000 Coupons */}
+                  {/* Ultra-Sleek Modern Promo Card: Share Papo Hapo / Zawadi / Earn TZS 1,000 */}
                   {!destination && (
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.015 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -5082,29 +5010,31 @@ const getEndPin = (etaText: string) => {
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                       
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
-                          <span className="text-lg group-hover:scale-110 transition-transform">🎁</span>
-                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-white" />
+                        <div className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
+                          <span className="text-xl group-hover:scale-110 transition-transform">🎁</span>
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping border border-white" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight animate-swing">
-                              Share Pata
+                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight">
+                              Share Papo Hapo
                             </h4>
-                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-heartBeat">
-                              Zawadi
+                            <span className="text-[8.5px] bg-gradient-to-r from-amber-400 to-yellow-300 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-heartBeat flex items-center gap-1 border border-amber-300/60">
+                              <span className="inline-block animate-bounce">🎁</span>
+                              <span>Zawadi</span>
                             </span>
                           </div>
-                          <p className="text-[10.5px] font-black text-emerald-100 truncate mt-0.5 animate-gradientFlow">
-                            Earn TZS 1,000 Coupons
+                          <p className="text-[10.5px] font-extrabold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
+                            <span>Earn TZS 1,000 Coupons</span>
+                            <span className="text-[9px] text-emerald-200/90">• Vocha papo hapo</span>
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="px-2.5 py-1 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1 border border-white/25 transition-all shadow-xs animate-rubberBand">
+                        <div className="px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10.5px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
                           <span>Alika</span>
-                          <Share2 className="w-3 h-3 text-white group-hover:rotate-12 transition-transform" />
+                          <Share2 className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
                         </div>
                       </div>
                     </motion.div>
@@ -5919,7 +5849,7 @@ const getEndPin = (etaText: string) => {
           </div>
         )}
 
-        {/* Modern Share Pata / Earn TZS 1,000 Referral & Voucher Modal */}
+        {/* Modern Share Papo Hapo / Earn TZS 1,000 Referral & Voucher Modal */}
         {showShareModal && (
           <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
@@ -5938,7 +5868,7 @@ const getEndPin = (etaText: string) => {
                   </div>
                   <div>
                     <h3 className="text-base font-black tracking-tight flex items-center gap-2">
-                      Share Pata • Zawadi
+                      Share Papo Hapo • Zawadi
                       <span className="text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase">
                         TZS 1,000
                       </span>
@@ -5969,7 +5899,7 @@ const getEndPin = (etaText: string) => {
                   Jipatie Vocha ya TZS 1,000 kwa kila rafiki anayesafiri!
                 </h4>
                 <p className="text-xs text-emerald-100 leading-relaxed font-medium">
-                  Rafiki yako anapata <strong className="text-white font-black">punguzo la TZS 1,000</strong> kwenye safari yake ya kwanza, na wewe unazawadiwa <strong className="text-white font-black">TZS 1,000</strong> kwenye pochi yako ya Pata mara moja!
+                  Rafiki yako anapata <strong className="text-white font-black">punguzo la TZS 1,000</strong> kwenye safari yake ya kwanza, na wewe unazawadiwa <strong className="text-white font-black">TZS 1,000</strong> kwenye pochi yako ya Papo Hapo mara moja!
                 </p>
               </div>
 
@@ -5983,14 +5913,14 @@ const getEndPin = (etaText: string) => {
                 }`}>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-base font-black tracking-widest text-emerald-600 dark:text-emerald-400 animate-rubberBand">
-                      PATA-TZ1000
+                      PAPO-TZ1000
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard?.writeText("PATA-TZ1000");
-                      toast.success("Kodi ya mwaliko 'PATA-TZ1000' imenakiliwa! 📋");
+                      navigator.clipboard?.writeText("PAPO-TZ1000");
+                      toast.success("Kodi ya mwaliko 'PAPO-TZ1000' imenakiliwa! 📋");
                     }}
                     className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
                   >
@@ -6005,7 +5935,7 @@ const getEndPin = (etaText: string) => {
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `Habari! Tumia huduma ya usafiri wa Pata (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PATA-TZ1000. Fungua hapa: ${window.location.origin}`;
+                    const text = `Habari! Tumia huduma ya usafiri wa Papo Hapo (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PAPO-TZ1000. Fungua hapa: ${window.location.origin}`;
                     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
                     window.open(whatsappUrl, '_blank');
                     toast.success("Inafungua WhatsApp kushiriki mwaliko... 💬");
@@ -6019,10 +5949,10 @@ const getEndPin = (etaText: string) => {
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `Habari! Tumia huduma ya usafiri wa Pata (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PATA-TZ1000. Fungua hapa: ${window.location.origin}`;
+                    const text = `Habari! Tumia huduma ya usafiri wa Papo Hapo (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PAPO-TZ1000. Fungua hapa: ${window.location.origin}`;
                     if (navigator.share) {
                       navigator.share({
-                        title: 'Pata - Usafiri Haraka & Nafuu',
+                        title: 'Papo Hapo - Usafiri Haraka & Nafuu',
                         text: text,
                         url: window.location.origin,
                       }).catch(() => {});
