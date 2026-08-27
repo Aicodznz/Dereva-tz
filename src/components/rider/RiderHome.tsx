@@ -11,7 +11,7 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
-  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift
+  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -43,6 +43,7 @@ import IncomingOrderCard from './IncomingOrderCard';
 import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
+import StreetHailModal from './StreetHailModal';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
@@ -466,6 +467,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [showEarningsModal, setShowEarningsModal] = useState(false);
   const [earningsTab, setEarningsTab] = useState<'mwezi' | 'mwaka' | 'jumla'>('mwezi');
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
+  const [isStreetHailModalOpen, setIsStreetHailModalOpen] = useState(false);
 
   // States for adding a POI
   const [isAddPoiModalOpen, setIsAddPoiModalOpen] = useState(false);
@@ -3138,9 +3140,20 @@ const getEndPin = (etaText: string) => {
                   <Fuel className="w-5 h-5" />
                 </motion.button>
 
+                {/* 6. Street Hail / Pakia Mteja Papo Hapo */}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setIsStreetHailModalOpen(true)}
+                  className="w-10 h-10 rounded-full shadow-xl flex items-center justify-center bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 border-2 border-white text-white font-black shadow-emerald-500/40"
+                  title="Pakia & Alika Mteja Hapo Hapo (Street Hail)"
+                >
+                  <UserPlus className="w-5 h-5 stroke-[2.5]" />
+                </motion.button>
+
                 <div className="w-8 h-[1px] bg-neutral-200 dark:bg-neutral-800 my-0.5" />
 
-                {/* 6. Ongeza/Sajili Huduma (Paid Submission) */}
+                {/* 7. Ongeza/Sajili Huduma (Paid Submission) */}
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
@@ -3252,6 +3265,38 @@ const getEndPin = (etaText: string) => {
             </div>
             <span className="text-[10px] font-black bg-white text-orange-600 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0 ml-2">
               Fungua <ChevronRight className="w-3 h-3 stroke-[3]" />
+            </span>
+          </motion.div>
+
+          {/* Direct Passenger Onboarding / Street Hail Action Banner */}
+          <motion.div
+            key="street-hail-banner"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            onClick={() => setIsStreetHailModalOpen(true)}
+            className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white p-2.5 px-3.5 rounded-2xl shadow-xl shadow-emerald-600/25 backdrop-blur-md flex items-center justify-between cursor-pointer active:scale-95 transition-all pointer-events-auto border border-white/25"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
+                <UserPlus className="w-4 h-4 text-white stroke-[2.5]" />
+              </span>
+              <div className="min-w-0 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[7.5px] font-black uppercase tracking-wider bg-black/25 px-2 py-0.5 rounded-full">
+                    STREET HAIL
+                  </span>
+                  <span className="text-[9px] font-bold text-emerald-100 truncate">
+                    🎁 Punguzo TZS 1,000
+                  </span>
+                </div>
+                <p className="text-[11px] font-black leading-tight mt-0.5 truncate">
+                  Pakia & Alika Mteja Hapo Hapo
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black bg-white text-emerald-800 px-2.5 py-1 rounded-xl uppercase tracking-tighter shadow-sm flex items-center gap-1 shrink-0 ml-2">
+              Pakia <ChevronRight className="w-3 h-3 stroke-[3]" />
             </span>
           </motion.div>
 
@@ -3960,6 +4005,19 @@ const getEndPin = (etaText: string) => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Street Hail & Instant Direct Passenger Boarding Modal */}
+        <StreetHailModal
+          isOpen={isStreetHailModalOpen}
+          onClose={() => setIsStreetHailModalOpen(false)}
+          driverUser={user}
+          driverProfile={profile}
+          driverLocation={position}
+          onRideStarted={(rideId) => {
+            console.log("Direct street hail ride started:", rideId);
+            setIsStreetHailModalOpen(false);
+          }}
+        />
       </AnimatePresence>
     </div>
   );

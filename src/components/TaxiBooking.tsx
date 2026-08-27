@@ -57,6 +57,10 @@ import {
   MessageCircle,
   Languages,
   Globe,
+  Copy,
+  Gift,
+  Share2,
+  X,
 } from "lucide-react";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "../ThemeContext";
@@ -598,6 +602,7 @@ export default function TaxiBooking() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
   const [pickupNote, setPickupNote] = useState<string>('');
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
   // PapoShare Pooling State
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
@@ -3916,7 +3921,7 @@ const getEndPin = (etaText: string) => {
                   </AnimatePresence>
 
                   {/* Floating GPS Reticle Locate-Me Button */}
-                  {["map", "home"].includes(step) && (
+                  {["map", "home"].includes(step) && !isSpectator && (
                     <motion.button
                       key="floating-gps-reticle-btn"
                       initial={{ scale: 0.8, opacity: 0 }}
@@ -3932,14 +3937,21 @@ const getEndPin = (etaText: string) => {
                         handleCurrentLocation(false);
                         toast.success("Eneo lako limerejeshwa (GPS Recenter) 📍", { duration: 2000 });
                       }}
-                      className={`absolute ${destination ? 'bottom-80 sm:bottom-88' : 'bottom-64 sm:bottom-72'} right-4 sm:right-6 z-[42] w-12 h-12 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all pointer-events-auto ${
+                      className={`fixed sm:absolute z-[99999] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border cursor-pointer transition-all duration-300 pointer-events-auto group ${
+                        (isMinimized || isMapFullscreen)
+                          ? (!destination ? 'bottom-[136px] sm:bottom-[144px] right-4 sm:right-6' : 'bottom-24 sm:bottom-28 right-4 sm:right-6')
+                          : (destination ? 'bottom-[420px] sm:bottom-[440px] right-4 sm:right-6' : 'bottom-[430px] sm:bottom-[450px] right-4 sm:right-6')
+                      } ${
                         theme === 'dark' 
-                          ? 'bg-neutral-900/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/40' 
-                          : 'bg-white/95 border-neutral-200/80 text-neutral-800 hover:bg-neutral-50 shadow-neutral-400/30'
+                          ? 'bg-[#161622]/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/60' 
+                          : 'bg-white/95 border-neutral-200/90 text-neutral-800 hover:bg-neutral-50 shadow-neutral-900/20'
                       }`}
                       title="Weka ramani mahali nilipo (GPS Locate Me)"
                     >
-                      <LocateReticleIcon className="w-6 h-6" />
+                      <div className="relative flex items-center justify-center">
+                        <span className="absolute w-7 h-7 rounded-full bg-emerald-500/25 animate-ping group-active:scale-150 transition-transform pointer-events-none" />
+                        <LocateReticleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                      </div>
                     </motion.button>
                   )}
                 </div>
@@ -4056,9 +4068,11 @@ const getEndPin = (etaText: string) => {
               }}
               className={`absolute z-[9999] transition-all duration-300 ${
                 isMinimized || isMapFullscreen
-                  ? "bottom-8 left-4 right-4 mx-auto max-w-[340px] rounded-3xl border shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-2 cursor-pointer select-none active:scale-[0.98] hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)]"
-                  : "bottom-0 left-0 right-0 rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-5 pb-9 space-y-3.5"
-              } ${theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'}`}
+                  ? "bottom-6 left-4 right-4 mx-auto max-w-[360px] pointer-events-auto flex flex-col gap-2.5"
+                  : `bottom-0 left-0 right-0 rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-5 pb-9 space-y-3.5 ${
+                      theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'
+                    }`
+              }`}
             >
               {!isMinimized && !isMapFullscreen && (
                 <div
@@ -4098,41 +4112,41 @@ const getEndPin = (etaText: string) => {
                     </span>
                   </div>
 
-                  {/* Promo Card: Share Pata / Earn TZS 1,000 Coupons when no destination */}
+                  {/* Upgraded Modern Promo Card: Share Pata / Earn TZS 1,000 Coupons when no destination */}
                   {!destination && (
-                    <div 
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({
-                            title: 'Pata - Usafiri Haraka & Nafuu',
-                            text: 'Tumia Pata kupata usafiri na punguzo la TZS 1,000!',
-                            url: window.location.origin
-                          }).catch(() => {});
-                        } else {
-                          navigator.clipboard?.writeText(window.location.origin);
-                          toast.success("Kiunganishi cha mwaliko kimenakiliwa! Shiriki upate vocha ya TZS 1,000 🎉");
-                        }
-                      }}
-                      className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group overflow-hidden relative"
+                    <motion.div 
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowShareModal(true)}
+                      className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.25)] border border-emerald-400/40 flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
                     >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+                      
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/25 shadow-inner">
-                          <span className="text-xl">👥</span>
+                        <div className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/25 shadow-inner">
+                          <span className="text-xl group-hover:scale-110 transition-transform">🎁</span>
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-white" />
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight flex items-center gap-1.5">
                             Share Pata
-                            <span className="text-[8px] bg-white/25 px-1.5 py-0.5 rounded-full uppercase tracking-wider font-extrabold">Zawadi</span>
+                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                              Zawadi
+                            </span>
                           </h4>
-                          <p className="text-[10px] sm:text-[11px] font-bold text-emerald-100 truncate">
-                            Earn TZS 1,000 Coupons
+                          <p className="text-[10px] sm:text-[11px] font-bold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
+                            <span>Earn TZS 1,000 Coupons</span>
+                            <span className="text-[9px] opacity-80">• Pata vocha papo hapo</span>
                           </p>
                         </div>
                       </div>
-                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
-                        <ChevronRight className="w-4 h-4 text-white" />
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
+                          <span>Alika</span>
+                          <Share2 className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
+                        </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
 
                   <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
@@ -5029,40 +5043,90 @@ const getEndPin = (etaText: string) => {
               )}
 
               {(isMinimized || isMapFullscreen) && (
-                <div 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMapFullscreen(false);
-                    setIsMinimized(false);
-                    setSettingMode("destination");
-                  }}
-                  className="w-full px-2 py-1 flex items-center gap-3.5 select-none"
-                >
-                  <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                    theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500'
-                  }`}>
-                    <Search className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  </div>
+                <div className="w-full flex flex-col gap-2.5">
+                  {/* Modernized Floating Promo Card: Share Pata / Zawadi / Earn TZS 1,000 Coupons */}
+                  {!destination && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowShareModal(true);
+                      }}
+                      className="w-full p-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.3)] border border-emerald-400/40 backdrop-blur-xl flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
+                    >
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
+                      
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
+                          <span className="text-lg group-hover:scale-110 transition-transform">🎁</span>
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-white" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight">
+                              Share Pata
+                            </h4>
+                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                              Zawadi
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] font-bold text-emerald-100 truncate mt-0.5">
+                            Earn TZS 1,000 Coupons
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5">
-                      UNAKWENDA WAPI?
-                    </p>
-                    <p className={`text-[13px] font-black tracking-tight truncate ${
-                      destination
-                        ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800')
-                        : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500')
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="px-2.5 py-1 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1 border border-white/25 transition-all shadow-xs">
+                          <span>Alika</span>
+                          <Share2 className="w-3 h-3 text-white group-hover:rotate-12 transition-transform" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Search Destination Pill */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMapFullscreen(false);
+                      setIsMinimized(false);
+                      setSettingMode("destination");
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-3xl border shadow-[0_12px_40px_rgba(0,0,0,0.15)] flex items-center gap-3.5 select-none cursor-pointer active:scale-[0.98] hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)] transition-all ${
+                      theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'
+                    }`}
+                  >
+                    <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
+                      theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500'
                     }`}>
-                      {destination || "Andika hapa unapokwenda"}
-                    </p>
-                  </div>
+                      <Search className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    </div>
 
-                  <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                    theme === 'dark'
-                      ? 'bg-indigo-950/40 text-indigo-400'
-                      : 'bg-indigo-50/70 text-indigo-600'
-                  }`}>
-                    <Map className="w-4 h-4 animate-pulse" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5">
+                        UNAKWENDA WAPI?
+                      </p>
+                      <p className={`text-[13px] font-black tracking-tight truncate ${
+                        destination
+                          ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800')
+                          : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500')
+                      }`}>
+                        {destination || "Andika hapa unapokwenda"}
+                      </p>
+                    </div>
+
+                    <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
+                      theme === 'dark'
+                        ? 'bg-indigo-950/40 text-indigo-400'
+                        : 'bg-indigo-50/70 text-indigo-600'
+                    }`}>
+                      <Map className="w-4 h-4 animate-pulse" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -5830,6 +5894,147 @@ const getEndPin = (etaText: string) => {
                   </button>
                 </>
               )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modern Share Pata / Earn TZS 1,000 Referral & Voucher Modal */}
+        {showShareModal && (
+          <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className={`w-full max-w-md rounded-t-[32px] sm:rounded-[32px] p-6 shadow-2xl border max-h-[90dvh] overflow-y-auto space-y-5 ${
+                theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-100' : 'bg-white border-neutral-200 text-neutral-900'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-xl font-bold border border-emerald-500/20">
+                    🎁
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black tracking-tight flex items-center gap-2">
+                      Share Pata • Zawadi
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase">
+                        TZS 1,000
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-neutral-400 font-semibold">
+                      Alika marafiki na ujipatie vocha ya punguzo
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 flex items-center justify-center active:scale-95 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Highlight Promo Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-lg space-y-2 relative overflow-hidden">
+                <div className="absolute -right-2 -bottom-2 text-6xl opacity-15 pointer-events-none select-none">
+                  🎁
+                </div>
+                <span className="text-[9px] font-black uppercase bg-amber-400 text-neutral-950 px-2.5 py-0.5 rounded-full tracking-wider">
+                  Ofa ya Mwaliko
+                </span>
+                <h4 className="text-sm sm:text-base font-black leading-snug">
+                  Jipatie Vocha ya TZS 1,000 kwa kila rafiki anayesafiri!
+                </h4>
+                <p className="text-xs text-emerald-100 leading-relaxed font-medium">
+                  Rafiki yako anapata <strong className="text-white font-black">punguzo la TZS 1,000</strong> kwenye safari yake ya kwanza, na wewe unazawadiwa <strong className="text-white font-black">TZS 1,000</strong> kwenye pochi yako ya Pata mara moja!
+                </p>
+              </div>
+
+              {/* Referral Code Box */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider block">
+                  Kodi Yako ya Mwaliko (Referral Code)
+                </label>
+                <div className={`p-3 rounded-2xl border flex items-center justify-between ${
+                  theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-base font-black tracking-widest text-emerald-600 dark:text-emerald-400">
+                      PATA-TZ1000
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText("PATA-TZ1000");
+                      toast.success("Kodi ya mwaliko 'PATA-TZ1000' imenakiliwa! 📋");
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 active:scale-95 transition-all shadow-sm"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Nakili</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Habari! Tumia huduma ya usafiri wa Pata (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PATA-TZ1000. Fungua hapa: ${window.location.origin}`;
+                    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                    window.open(whatsappUrl, '_blank');
+                    toast.success("Inafungua WhatsApp kushiriki mwaliko... 💬");
+                  }}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Shiriki WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Habari! Tumia huduma ya usafiri wa Pata (Bodaboda, Bajaj & Teksi) na upate punguzo la TZS 1,000 kwenye safari yako ya kwanza kwa kutumia kodi yangu: PATA-TZ1000. Fungua hapa: ${window.location.origin}`;
+                    if (navigator.share) {
+                      navigator.share({
+                        title: 'Pata - Usafiri Haraka & Nafuu',
+                        text: text,
+                        url: window.location.origin
+                      }).catch(() => {});
+                    } else {
+                      navigator.clipboard?.writeText(text);
+                      toast.success("Ujumbe wa mwaliko umenakiliwa! Shiriki sasa hivi na marafiki 🎁");
+                    }
+                  }}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Njia Nyingine (Share)</span>
+                </button>
+              </div>
+
+              {/* Benefits breakdown */}
+              <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                theme === 'dark' ? 'bg-neutral-900/50 border-neutral-800/80 text-neutral-300' : 'bg-neutral-50/80 border-neutral-200/60 text-neutral-700'
+              }`}>
+                <p className="font-bold text-[10.5px] uppercase tracking-wider text-neutral-400">Jinsi Inavyofanya Kazi:</p>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-emerald-500 font-black">1.</span>
+                  <span>Tuma kodi au kiunganishi chako kwa marafiki na familia.</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-emerald-500 font-black">2.</span>
+                  <span>Rafiki akipanda safari yake ya kwanza, anapata punguzo la TZS 1,000.</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-emerald-500 font-black">3.</span>
+                  <span>Unapokea vocha ya TZS 1,000 ya papo hapo kutumia kwenye Bodaboda au Teksi!</span>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
