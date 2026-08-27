@@ -518,3 +518,447 @@
   animation-play-state: paused;
 }
 
+/* ==========================================================================
+   CSS TEXT ANIMATIONS SUITE (All 25 Animations from Design Spec)
+   ========================================================================== */
+
+/* 1. Swing */
+@keyframes textSwing {
+  20% { transform: rotate3d(0, 0, 1, 15deg); }
+  40% { transform: rotate3d(0, 0, 1, -10deg); }
+  60% { transform: rotate3d(0, 0, 1, 5deg); }
+  80% { transform: rotate3d(0, 0, 1, -5deg); }
+  to { transform: rotate3d(0, 0, 1, 0deg); }
+}
+.animate-swing, .text-anim-swing {
+  transform-origin: top center;
+  animation: textSwing 1.6s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 2. Jello */
+@keyframes textJello {
+  from, 11.1%, to { transform: translate3d(0, 0, 0); }
+  22.2% { transform: skewX(-12.5deg) skewY(-12.5deg); }
+  33.3% { transform: skewX(6.25deg) skewY(6.25deg); }
+  44.4% { transform: skewX(-3.125deg) skewY(-3.125deg); }
+  55.5% { transform: skewX(1.5625deg) skewY(1.5625deg); }
+  66.6% { transform: skewX(-0.78125deg) skewY(-0.78125deg); }
+  77.7% { transform: skewX(0.390625deg) skewY(0.390625deg); }
+  88.8% { transform: skewX(-0.1953125deg) skewY(-0.1953125deg); }
+}
+.animate-jello, .text-anim-jello {
+  transform-origin: center;
+  animation: textJello 1.6s infinite both;
+  display: inline-block;
+}
+
+/* 3. Wobble */
+@keyframes textWobble {
+  from { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(-15%, 0, 0) rotate3d(0, 0, 1, -4deg); }
+  30% { transform: translate3d(12%, 0, 0) rotate3d(0, 0, 1, 3deg); }
+  45% { transform: translate3d(-8%, 0, 0) rotate3d(0, 0, 1, -2deg); }
+  60% { transform: translate3d(4%, 0, 0) rotate3d(0, 0, 1, 1deg); }
+  75% { transform: translate3d(-1%, 0, 0) rotate3d(0, 0, 1, -1deg); }
+  to { transform: translate3d(0, 0, 0); }
+}
+.animate-wobble, .text-anim-wobble {
+  animation: textWobble 1.6s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 4. RubberBand */
+@keyframes textRubberBand {
+  from { transform: scale3d(1, 1, 1); }
+  30% { transform: scale3d(1.25, 0.75, 1); }
+  40% { transform: scale3d(0.75, 1.25, 1); }
+  50% { transform: scale3d(1.15, 0.85, 1); }
+  65% { transform: scale3d(0.95, 1.05, 1); }
+  75% { transform: scale3d(1.05, 0.95, 1); }
+  to { transform: scale3d(1, 1, 1); }
+}
+.animate-rubberBand, .text-anim-rubberBand {
+  animation: textRubberBand 1.6s infinite;
+  display: inline-block;
+}
+
+/* 5. ShakeX */
+@keyframes textShakeX {
+  from, to { transform: translate3d(0, 0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate3d(-8px, 0, 0); }
+  20%, 40%, 60%, 80% { transform: translate3d(8px, 0, 0); }
+}
+.animate-shakeX, .text-anim-shakeX {
+  animation: textShakeX 1.6s infinite;
+  display: inline-block;
+}
+
+/* 6. Flash */
+@keyframes textFlash {
+  from, 50%, to { opacity: 1; }
+  25%, 75% { opacity: 0.15; }
+}
+.animate-flash, .text-anim-flash {
+  animation: textFlash 1.6s infinite;
+  display: inline-block;
+}
+
+/* 7. LightSpeedInLeft */
+@keyframes textLightSpeedInLeft {
+  from {
+    transform: translate3d(-100%, 0, 0) skewX(20deg);
+    opacity: 0;
+  }
+  60% {
+    transform: skewX(-15deg);
+    opacity: 1;
+  }
+  80% {
+    transform: skewX(5deg);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-lightSpeedInLeft, .text-anim-lightSpeedInLeft {
+  animation: textLightSpeedInLeft 1.8s infinite ease-out;
+  display: inline-block;
+}
+
+/* 8. RotateIn */
+@keyframes textRotateIn {
+  from {
+    transform: rotate3d(0, 0, 1, -200deg);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+.animate-rotateIn, .text-anim-rotateIn {
+  transform-origin: center;
+  animation: textRotateIn 1.8s infinite;
+  display: inline-block;
+}
+
+/* 9. RollIn */
+@keyframes textRollIn {
+  from {
+    opacity: 0;
+    transform: translate3d(-100%, 0, 0) rotate3d(0, 0, 1, -120deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-rollIn, .text-anim-rollIn {
+  animation: textRollIn 1.8s infinite;
+  display: inline-block;
+}
+
+/* 10. JackInTheBox */
+@keyframes textJackInTheBox {
+  from {
+    opacity: 0;
+    transform: scale(0.1) rotate(30deg);
+    transform-origin: center bottom;
+  }
+  50% {
+    transform: rotate(-10deg);
+  }
+  70% {
+    transform: rotate(3deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-jackInTheBox, .text-anim-jackInTheBox {
+  animation: textJackInTheBox 1.8s infinite;
+  display: inline-block;
+}
+
+/* 11. BounceIn */
+@keyframes textBounceIn {
+  from, 20%, 40%, 60%, 80%, to {
+    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+  }
+  0% {
+    opacity: 0;
+    transform: scale3d(0.3, 0.3, 0.3);
+  }
+  20% {
+    transform: scale3d(1.1, 1.1, 1.1);
+  }
+  40% {
+    transform: scale3d(0.9, 0.9, 0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: scale3d(1.03, 1.03, 1.03);
+  }
+  80% {
+    transform: scale3d(0.97, 0.97, 0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+.animate-bounceIn, .text-anim-bounceIn {
+  animation: textBounceIn 1.8s infinite;
+  display: inline-block;
+}
+
+/* 12. SlideInUp */
+@keyframes textSlideInUp {
+  from {
+    transform: translate3d(0, 100%, 0);
+    visibility: visible;
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+.animate-slideInUp, .text-anim-slideInUp {
+  animation: textSlideInUp 1.8s infinite ease-out;
+  display: inline-block;
+}
+
+/* 13. FadeUp */
+@keyframes textFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  20%, 80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+.animate-fadeUp, .text-anim-fadeUp {
+  animation: textFadeUp 3s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 14. Typing & Cursor Blink */
+@keyframes textTyping {
+  0%, 10% { width: 0; }
+  70%, 90% { width: 100%; }
+  100% { width: 0; }
+}
+@keyframes cursorBlink {
+  50% { border-color: transparent; }
+}
+.animate-typing, .text-anim-typing {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid currentColor;
+  animation: textTyping 4s steps(20) infinite, cursorBlink 0.6s infinite;
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+/* 15. Gradient Flow */
+@keyframes textGradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.animate-gradientFlow, .text-anim-gradientFlow, .text-gradient-flow {
+  background: linear-gradient(90deg, #10b981, #06b6d4, #8b5cf6, #ec4899, #f59e0b, #10b981);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textGradientFlow 6s linear infinite;
+  display: inline-block;
+}
+
+/* 16. Slide Reveal */
+@keyframes textSlideReveal {
+  0% {
+    clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%);
+    opacity: 0;
+  }
+  30%, 70% {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+    opacity: 1;
+  }
+  100% {
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+    opacity: 0;
+  }
+}
+.animate-slideReveal, .text-anim-slideReveal {
+  animation: textSlideReveal 3s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 17. Neon Pulse */
+@keyframes textNeonPulse {
+  from {
+    text-shadow: 0 0 4px #10b981, 0 0 10px #10b981, 0 0 18px #10b981;
+    opacity: 0.85;
+  }
+  to {
+    text-shadow: 0 0 8px #34d399, 0 0 20px #34d399, 0 0 35px #059669;
+    opacity: 1;
+  }
+}
+.animate-neonPulse, .text-anim-neonPulse, .text-neon-pulse {
+  animation: textNeonPulse 2s infinite alternate ease-in-out;
+  display: inline-block;
+}
+
+/* 18. Wave (Letter bounce wave) */
+@keyframes textWave {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-wave, .text-anim-wave {
+  animation: textWave 1.2s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 19. Flip */
+@keyframes textFlip {
+  from {
+    transform: perspective(400px) scale3d(1, 1, 1) translate3d(0, 0, 0) rotate3d(0, 1, 0, -360deg);
+    animation-timing-function: ease-out;
+  }
+  40% {
+    transform: perspective(400px) scale3d(1, 1, 1) translate3d(0, 0, 150px) rotate3d(0, 1, 0, -190deg);
+    animation-timing-function: ease-out;
+  }
+  50% {
+    transform: perspective(400px) scale3d(1, 1, 1) translate3d(0, 0, 150px) rotate3d(0, 1, 0, -170deg);
+    animation-timing-function: ease-in;
+  }
+  80% {
+    transform: perspective(400px) scale3d(0.95, 0.95, 0.95) translate3d(0, 0, 0) rotate3d(0, 1, 0, 0deg);
+    animation-timing-function: ease-in;
+  }
+  to {
+    transform: perspective(400px) scale3d(1, 1, 1) translate3d(0, 0, 0) rotate3d(0, 1, 0, 0deg);
+    animation-timing-function: ease-in;
+  }
+}
+.animate-flip, .text-anim-flip {
+  animation: textFlip 1.8s infinite;
+  backface-visibility: visible;
+  display: inline-block;
+}
+
+/* 20. Tada */
+@keyframes textTada {
+  from { transform: scale3d(1, 1, 1); }
+  10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg); }
+  30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg); }
+  40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg); }
+  to { transform: scale3d(1, 1, 1); }
+}
+.animate-tada, .text-anim-tada {
+  animation: textTada 1.6s infinite;
+  display: inline-block;
+}
+
+/* 21. Bounce */
+@keyframes textBounce {
+  from, 20%, 53%, 80%, to {
+    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+    transform: translate3d(0, -18px, 0);
+  }
+  70% {
+    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
+    transform: translate3d(0, -9px, 0);
+  }
+  90% {
+    transform: translate3d(0, -3px, 0);
+  }
+}
+.animate-bounce-text, .text-anim-bounce {
+  animation: textBounce 1.7s infinite;
+  transform-origin: center bottom;
+  display: inline-block;
+}
+
+/* 22. HeadShake */
+@keyframes textHeadShake {
+  0% { transform: translateX(0); }
+  6.5% { transform: translateX(-6px) rotateY(-9deg); }
+  18.5% { transform: translateX(5px) rotateY(7deg); }
+  31.5% { transform: translateX(-3px) rotateY(-5deg); }
+  43.5% { transform: translateX(2px) rotateY(3deg); }
+  50% { transform: translateX(0); }
+}
+.animate-headShake, .text-anim-headShake {
+  animation: textHeadShake 1.4s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 23. ZoomIn */
+@keyframes textZoomIn {
+  from {
+    opacity: 0;
+    transform: scale3d(0.3, 0.3, 0.3);
+  }
+  50% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale3d(1, 1, 1);
+  }
+}
+.animate-zoomIn, .text-anim-zoomIn {
+  animation: textZoomIn 1.5s infinite ease-out;
+  display: inline-block;
+}
+
+/* 24. HeartBeat */
+@keyframes textHeartBeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.2); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.2); }
+  70% { transform: scale(1); }
+}
+.animate-heartBeat, .text-anim-heartBeat {
+  animation: textHeartBeat 1.3s infinite ease-in-out;
+  display: inline-block;
+}
+
+/* 25. FadeIn */
+@keyframes textFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fadeIn-text, .text-anim-fadeIn {
+  animation: textFadeIn 1.4s infinite alternate ease-in;
+  display: inline-block;
+}
+

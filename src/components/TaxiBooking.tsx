@@ -61,8 +61,10 @@ import {
   Gift,
   Share2,
   X,
+  Sparkles,
 } from "lucide-react";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
+import { TextAnimationShowcaseModal } from "./TextAnimationShowcase";
 import { useTheme } from "../ThemeContext";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
 import Chat from "./Chat";
@@ -603,6 +605,7 @@ export default function TaxiBooking() {
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
   const [pickupNote, setPickupNote] = useState<string>('');
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [showAnimShowcase, setShowAnimShowcase] = useState<boolean>(false);
 
   // PapoShare Pooling State
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
@@ -3366,6 +3369,24 @@ const getEndPin = (etaText: string) => {
 
                             <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
 
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                setShowAnimShowcase(true);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Sparkles className="w-4 h-4 text-pink-500 animate-pulse" />
+                                <span>Text Animations (25 CSS)</span>
+                              </div>
+                              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                                Live
+                              </span>
+                            </button>
+
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
+
                             {/* App download section inside dropdown */}
                             <div className={`px-1.5 py-1.5 ${theme === 'dark' ? 'bg-[#0d0d12]' : 'bg-neutral-50'}`}>
                               <AppDownloadButton 
@@ -5067,21 +5088,21 @@ const getEndPin = (etaText: string) => {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight">
+                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight animate-swing">
                               Share Pata
                             </h4>
-                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                            <span className="text-[8px] bg-amber-400 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-heartBeat">
                               Zawadi
                             </span>
                           </div>
-                          <p className="text-[10.5px] font-bold text-emerald-100 truncate mt-0.5">
+                          <p className="text-[10.5px] font-black text-emerald-100 truncate mt-0.5 animate-gradientFlow">
                             Earn TZS 1,000 Coupons
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="px-2.5 py-1 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1 border border-white/25 transition-all shadow-xs">
+                        <div className="px-2.5 py-1 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1 border border-white/25 transition-all shadow-xs animate-rubberBand">
                           <span>Alika</span>
                           <Share2 className="w-3 h-3 text-white group-hover:rotate-12 transition-transform" />
                         </div>
@@ -5108,7 +5129,7 @@ const getEndPin = (etaText: string) => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5">
+                      <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5 animate-neonPulse">
                         UNAKWENDA WAPI?
                       </p>
                       <p className={`text-[13px] font-black tracking-tight truncate ${
@@ -5961,7 +5982,7 @@ const getEndPin = (etaText: string) => {
                   theme === 'dark' ? 'bg-neutral-900 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
                 }`}>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-base font-black tracking-widest text-emerald-600 dark:text-emerald-400">
+                    <span className="font-mono text-base font-black tracking-widest text-emerald-600 dark:text-emerald-400 animate-rubberBand">
                       PATA-TZ1000
                     </span>
                   </div>
@@ -6003,7 +6024,7 @@ const getEndPin = (etaText: string) => {
                       navigator.share({
                         title: 'Pata - Usafiri Haraka & Nafuu',
                         text: text,
-                        url: window.location.origin
+                        url: window.location.origin,
                       }).catch(() => {});
                     } else {
                       navigator.clipboard?.writeText(text);
@@ -6037,6 +6058,16 @@ const getEndPin = (etaText: string) => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* 25 CSS Text Animation Showcase Modal */}
+      <AnimatePresence>
+        {showAnimShowcase && (
+          <TextAnimationShowcaseModal
+            isOpen={showAnimShowcase}
+            onClose={() => setShowAnimShowcase(false)}
+          />
         )}
       </AnimatePresence>
 

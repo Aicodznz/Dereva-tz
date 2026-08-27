@@ -214,13 +214,13 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                     </div>
-                    <h2 className="text-[11px] font-black text-indigo-500 tracking-wider uppercase leading-none">
+                    <h2 className="text-[11px] font-black text-indigo-500 tracking-wider uppercase leading-none animate-fadeIn-text">
                       {isShareMode ? `Kutafuta Abiria wa Njia Moja (${poolCountdown}s)` : `${t('searching_driver')}${dots}`}
                     </h2>
                   </div>
 
                   {isShareMode && (
-                    <span className="text-[8.5px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    <span className="text-[8.5px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 animate-heartBeat">
                       Detour: ≤{ride?.maxDetourBudgetMinutes || 3} min
                     </span>
                   )}
