@@ -249,6 +249,17 @@ const BikeSVG = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const LocateReticleIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none">
+    <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="2" />
+    <line x1="12" y1="1.5" x2="12" y2="4.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <line x1="12" y1="19.5" x2="12" y2="22.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <line x1="1.5" y1="12" x2="4.5" y2="12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <line x1="19.5" y1="12" x2="22.5" y2="12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    <circle cx="12" cy="12" r="3.2" fill="#10a349" />
+  </svg>
+);
+
 const MapEvents = ({
   onMapClick,
   onInteraction,
@@ -3363,93 +3374,129 @@ const getEndPin = (etaText: string) => {
                     </AnimatePresence>
                   </div>
 
-                  {/* Center Search Bar */}
-                  <div className={`flex-1 flex items-center h-9 sm:h-11 backdrop-blur-xl rounded-lg sm:rounded-xl shadow-md px-2 sm:px-3 gap-1.5 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
-                    <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                    
-                    <input
-                      type="text"
-                      value={pickup}
-                      onChange={(e) => {
-                        setPickup(e.target.value);
-                        setIsAutoLocated(false);
-                        setSettingMode("pickup");
-                        geocodeAddress(e.target.value);
-                      }}
-                      onFocus={() => {
-                        setSettingMode("pickup");
-                      }}
-                      placeholder={t('search_pickup_placeholder')}
-                      className={`flex-1 bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
-                    />
-
-                    {isAutoLocated && (
-                      <span className="shrink-0 text-[8px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase animate-pulse">
-                        Auto
-                      </span>
-                    )}
-
-                    {/* Automatic GPS locator button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsAutoLocated(true);
-                        setAutoFollow(true);
-                        handleCurrentLocation(false);
-                      }}
-                      className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md flex items-center justify-center active:scale-90 transition-all ${
-                        isAutoLocated 
-                          ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
-                          : (theme === 'dark' ? "bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800" : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40")
-                      }`}
-                      title="Tafuta mahali ulipo kiotomatiki kwa GPS"
-                    >
-                      <Navigation2 className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoLocated ? "rotate-45" : ""}`} />
-                    </button>
-
-                    {/* Autocomplete predictions for top search bar */}
-                    {settingMode === "pickup" && suggestions.length > 0 && (
-                      <div className={`absolute left-0 right-0 top-full mt-2 z-[99999] border shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
-                        <div className={`px-4 py-2 border-b text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
-                          Maeneo Yaliyopatikana
-                        </div>
-                        {suggestions.map((s, i) => {
-                          const displayName = s.display_name || "";
-                          const parts = displayName.split(",");
-                          const mainName = parts[0] || "Eneo Lisilojulikana";
-                          const subName = parts.slice(1).join(",").trim() || "Chagua eneo hili";
-                          
-                          return (
-                            <button
-                              key={`top-suggest-${displayName}-${i}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                selectSuggestion(s);
-                              }}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                              }}
-                              className={`w-full text-left p-3.5 flex items-center gap-3 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
-                            >
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
-                                <MapPin className="w-4 h-4" />
-                              </div>
-                              <div className="flex-1 overflow-hidden">
-                                <p className={`text-xs font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
-                                  {mainName}
-                                </p>
-                                <p className={`text-[10px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                                  {subName}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
+                  {/* Center Search / Active Route Bar */}
+                  {destination ? (
+                    <div className={`flex-1 flex items-center h-10 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-md px-2.5 sm:px-3 gap-2 pointer-events-auto border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800 text-neutral-200' : 'bg-white/95 border-neutral-200/80 text-neutral-800'}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDestination("");
+                          setSettingMode("destination");
+                        }}
+                        className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-90 transition-all text-neutral-600 dark:text-neutral-300"
+                        title="Badili Eneo la Hatima"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1 flex items-center gap-1.5 min-w-0 font-bold text-xs">
+                        <span className="truncate max-w-[42%] text-neutral-700 dark:text-neutral-300">
+                          {pickup ? pickup.split(',')[0] : 'Pickup'}
+                        </span>
+                        <span className="text-emerald-500 font-black shrink-0">→</span>
+                        <span className="truncate max-w-[45%] text-emerald-600 dark:text-emerald-400 font-extrabold">
+                          {destination.split(',')[0]}
+                        </span>
                       </div>
-                    )}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddStopInput(true);
+                          toast.info("Weka kituo cha ziada njiani (Add Stop) ➕");
+                        }}
+                        className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-neutral-600 dark:text-neutral-300 hover:text-emerald-600 flex items-center justify-center font-bold text-sm shrink-0 active:scale-90 transition-all border border-neutral-200/60 dark:border-neutral-700/60"
+                        title="Ongeza Kituo (Add stop)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={`flex-1 flex items-center h-9 sm:h-11 backdrop-blur-xl rounded-lg sm:rounded-xl shadow-md px-2 sm:px-3 gap-1.5 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
+                      <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      
+                      <input
+                        type="text"
+                        value={pickup}
+                        onChange={(e) => {
+                          setPickup(e.target.value);
+                          setIsAutoLocated(false);
+                          setSettingMode("pickup");
+                          geocodeAddress(e.target.value);
+                        }}
+                        onFocus={() => {
+                          setSettingMode("pickup");
+                        }}
+                        placeholder={t('search_pickup_placeholder')}
+                        className={`flex-1 bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
+                      />
+
+                      {isAutoLocated && (
+                        <span className="shrink-0 text-[8px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase animate-pulse">
+                          Auto
+                        </span>
+                      )}
+
+                      {/* Automatic GPS locator button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsAutoLocated(true);
+                          setAutoFollow(true);
+                          handleCurrentLocation(false);
+                        }}
+                        className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md flex items-center justify-center active:scale-90 transition-all ${
+                          isAutoLocated 
+                            ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
+                            : (theme === 'dark' ? "bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800" : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40")
+                        }`}
+                        title="Tafuta mahali ulipo kiotomatiki kwa GPS"
+                      >
+                        <Navigation2 className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoLocated ? "rotate-45" : ""}`} />
+                      </button>
+
+                      {/* Autocomplete predictions for top search bar */}
+                      {settingMode === "pickup" && suggestions.length > 0 && (
+                        <div className={`absolute left-0 right-0 top-full mt-2 z-[99999] border shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
+                          <div className={`px-4 py-2 border-b text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
+                            Maeneo Yaliyopatikana
+                          </div>
+                          {suggestions.map((s, i) => {
+                            const displayName = s.display_name || "";
+                            const parts = displayName.split(",");
+                            const mainName = parts[0] || "Eneo Lisilojulikana";
+                            const subName = parts.slice(1).join(",").trim() || "Chagua eneo hili";
+                            
+                            return (
+                              <button
+                                key={`top-suggest-${displayName}-${i}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  selectSuggestion(s);
+                                }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                                className={`w-full text-left p-3.5 flex items-center gap-3 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
+                              >
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
+                                  <MapPin className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                  <p className={`text-xs font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                                    {mainName}
+                                  </p>
+                                  <p className={`text-[10px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                                    {subName}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3867,6 +3914,34 @@ const getEndPin = (etaText: string) => {
                       </motion.button>
                     )}
                   </AnimatePresence>
+
+                  {/* Floating GPS Reticle Locate-Me Button */}
+                  {["map", "home"].includes(step) && (
+                    <motion.button
+                      key="floating-gps-reticle-btn"
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoLocated(true);
+                        setAutoFollow(true);
+                        setMapRefitTrigger(Date.now());
+                        handleCurrentLocation(false);
+                        toast.success("Eneo lako limerejeshwa (GPS Recenter) 📍", { duration: 2000 });
+                      }}
+                      className={`absolute ${destination ? 'bottom-80 sm:bottom-88' : 'bottom-64 sm:bottom-72'} right-4 sm:right-6 z-[42] w-12 h-12 rounded-full flex items-center justify-center shadow-xl border cursor-pointer transition-all pointer-events-auto ${
+                        theme === 'dark' 
+                          ? 'bg-neutral-900/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/40' 
+                          : 'bg-white/95 border-neutral-200/80 text-neutral-800 hover:bg-neutral-50 shadow-neutral-400/30'
+                      }`}
+                      title="Weka ramani mahali nilipo (GPS Locate Me)"
+                    >
+                      <LocateReticleIcon className="w-6 h-6" />
+                    </motion.button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -4023,6 +4098,43 @@ const getEndPin = (etaText: string) => {
                     </span>
                   </div>
 
+                  {/* Promo Card: Share Pata / Earn TZS 1,000 Coupons when no destination */}
+                  {!destination && (
+                    <div 
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: 'Pata - Usafiri Haraka & Nafuu',
+                            text: 'Tumia Pata kupata usafiri na punguzo la TZS 1,000!',
+                            url: window.location.origin
+                          }).catch(() => {});
+                        } else {
+                          navigator.clipboard?.writeText(window.location.origin);
+                          toast.success("Kiunganishi cha mwaliko kimenakiliwa! Shiriki upate vocha ya TZS 1,000 🎉");
+                        }
+                      }}
+                      className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 text-white shadow-md flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group overflow-hidden relative"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/25 shadow-inner">
+                          <span className="text-xl">👥</span>
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight flex items-center gap-1.5">
+                            Share Pata
+                            <span className="text-[8px] bg-white/25 px-1.5 py-0.5 rounded-full uppercase tracking-wider font-extrabold">Zawadi</span>
+                          </h4>
+                          <p className="text-[10px] sm:text-[11px] font-bold text-emerald-100 truncate">
+                            Earn TZS 1,000 Coupons
+                          </p>
+                        </div>
+                      </div>
+                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:translate-x-0.5 transition-transform">
+                        <ChevronRight className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-[2rem] opacity-90" />
                     <div className="space-y-4">
@@ -4031,12 +4143,12 @@ const getEndPin = (etaText: string) => {
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${settingMode === "destination" ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${settingMode === "destination" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
                         >
                           <Search className="w-4 h-4" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-indigo-500 dark:text-indigo-400 mb-1">
+                          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400 mb-1">
                             {t('where_to_go')}
                           </p>
                           <input
@@ -4059,7 +4171,7 @@ const getEndPin = (etaText: string) => {
                               setIsMapFullscreen(true);
                               toast.success(`${t('select_location')} ${t('on_map')}! 📍`);
                             }}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-indigo-950/50 border-indigo-900/40 text-indigo-400 hover:bg-indigo-900/80 hover:text-indigo-300' : 'bg-indigo-50/80 border-indigo-100 text-indigo-600 hover:bg-indigo-100/90 hover:text-indigo-700'}`}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-emerald-950/50 border-emerald-900/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-emerald-300' : 'bg-emerald-50/80 border-emerald-100 text-emerald-600 hover:bg-emerald-100/90 hover:text-emerald-700'}`}
                             title={t('on_map')}
                           >
                             <Map className="w-4 h-4 group-hover:scale-105 transition-transform" />
@@ -4093,11 +4205,11 @@ const getEndPin = (etaText: string) => {
                               }}
                               className={`w-full text-left p-4 flex items-center gap-4 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
                             >
-                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
+                              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-emerald-400 group-hover:bg-emerald-950/40' : 'bg-neutral-100 text-emerald-600 group-hover:bg-emerald-50'} group-hover:scale-105`}>
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="flex-1 overflow-hidden">
-                                <p className={`text-sm font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                                <p className={`text-sm font-bold truncate group-hover:text-emerald-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                                   {mainName}
                                 </p>
                                 <p className={`text-[11px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
@@ -4111,7 +4223,24 @@ const getEndPin = (etaText: string) => {
                     )}
                   </div>
 
-                  {/* Compact slide banner of active promotional banners styled beautifully as a separate element */}
+                  {/* 36% OFF Promotion Applied Ribbon when destination is set */}
+                  {destination && (
+                    <div className="w-full px-3.5 py-2.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/25 flex items-center justify-between text-emerald-700 dark:text-emerald-300 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          36% OFF
+                        </span>
+                        <span className="text-xs font-bold">
+                          Promotion applied
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                        Okoa hadi TZS 1,000
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Compact slide banner of active promotional banners */}
                   {(() => {
                     const isHomepageOnly = config.taxiBannerPlacement === 'homepage';
                     const showBannerHere = isHomepageOnly ? !destination : true;
@@ -4833,13 +4962,13 @@ const getEndPin = (etaText: string) => {
                       }
                     }}
                     disabled={isCreatingRide || !destination || suggestions.length > 0}
-                    className={`w-full h-16 rounded-3xl font-black italic uppercase text-xs tracking-[0.2em] flex items-center justify-between px-8 sm:px-10 transition-all duration-300 active:scale-95 relative overflow-hidden group shadow-lg ${
+                    className={`w-full h-14 sm:h-16 rounded-2xl font-black italic uppercase text-xs sm:text-sm tracking-wider flex items-center justify-between px-6 sm:px-8 transition-all duration-300 active:scale-98 relative overflow-hidden group shadow-lg ${
                       (!destination || suggestions.length > 0)
                         ? "bg-neutral-200 dark:bg-neutral-850 text-neutral-400 dark:text-neutral-500 border border-neutral-300/20 dark:border-neutral-800 cursor-not-allowed opacity-80"
-                        : "bg-gradient-to-r from-indigo-600 via-[#7F77DD] to-purple-600 text-white shadow-[0_8px_30px_rgba(99,102,241,0.25)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.4)] hover:scale-[1.01]"
+                        : "bg-[#10a349] hover:bg-[#0d8a3e] text-white shadow-[0_8px_25px_rgba(16,163,73,0.3)] hover:shadow-[0_12px_32px_rgba(16,163,73,0.45)] hover:scale-[1.01]"
                     }`}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                     <span className="relative z-10 flex items-center gap-2">
                       {destination ? (
                         selectedRide ? (
@@ -4861,6 +4990,39 @@ const getEndPin = (etaText: string) => {
                     </span>
                     <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
                   </button>
+
+                  {/* Bottom Navigation Tabs: Home, Rides, Account (when on initial search) */}
+                  {!destination && (
+                    <div className={`w-full pt-3 mt-1 border-t flex items-center justify-around select-none ${theme === 'dark' ? 'border-neutral-800/80 text-neutral-400' : 'border-neutral-100 text-neutral-500'}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep("map");
+                          setDestination("");
+                        }}
+                        className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black text-[10px] transition-colors"
+                      >
+                        <Home className="w-5 h-5" />
+                        <span>Home</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/taxi/history")}
+                        className="flex flex-col items-center gap-1 font-bold text-[10px] hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+                      >
+                        <Clock className="w-5 h-5" />
+                        <span>Rides</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/profile")}
+                        className="flex flex-col items-center gap-1 font-bold text-[10px] hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+                      >
+                        <User className="w-5 h-5" />
+                        <span>Account</span>
+                      </button>
+                    </div>
+                  )}
 
 
                 </motion.div>
