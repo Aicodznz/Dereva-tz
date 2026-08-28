@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Package, FileText, Smartphone, Box, Pill, Dog, 
   User, Phone, ChevronRight, ArrowLeft, 
-  Clock, CreditCard, ShieldCheck, Info, AlertTriangle, Search, Map
+  Clock, CreditCard, ShieldCheck, Info, AlertTriangle, Search, Map, Truck, Home, Wrench
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -21,6 +21,7 @@ const categoryConfig: Record<string, {
   desc: string,
   type: ParcelCategory
 }> = {
+  house_shifting: { title: 'House Shifting', icon: Truck, color: 'bg-emerald-600', baseFare: 45000, desc: 'Kuhamisha Nyumba & Ofisi / Canter, Malori, Wapagazi na Mafundi Samani.', type: 'house_shifting' },
   gifts: { title: 'Zawadi', icon: Package, color: 'bg-pink-500', baseFare: 5000, desc: 'Tuma zawadi kwa uangalifu mkubwa.', type: 'gift' },
   documents: { title: 'Hati', icon: FileText, color: 'bg-blue-500', baseFare: 3000, desc: 'Uwasilishaji wa haraka wa nyaraka.', type: 'document' },
   electronics: { title: 'Elektroniki', icon: Smartphone, color: 'bg-amber-500', baseFare: 7000, desc: 'Vifaa vya kielektroniki, salama zaidi.', type: 'electronics' },

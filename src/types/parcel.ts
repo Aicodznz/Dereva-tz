@@ -14,7 +14,8 @@ export type ParcelCategory =
   | 'electronics' 
   | 'package' 
   | 'medicine' 
-  | 'pet_supplies';
+  | 'pet_supplies'
+  | 'house_shifting';
 
 export interface Location {
   lat: number;

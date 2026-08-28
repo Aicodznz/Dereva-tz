@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, FileText, Smartphone, Box, Pill, Dog, MapPin, Navigation, ArrowRight, X } from 'lucide-react';
+import { Package, FileText, Smartphone, Box, Pill, Dog, MapPin, Navigation, ArrowRight, X, Truck } from 'lucide-react';
 import { Parcel, ParcelCategory } from '../../../types/parcel';
 import { useAcceptParcel } from '../../../hooks/parcel/partner/useAcceptParcel';
 import { toast } from 'sonner';
@@ -16,6 +16,13 @@ const categoryConfig: Record<ParcelCategory, {
   desc: string,
   bg: string 
 }> = {
+  house_shifting: {
+    icon: Truck,
+    color: '#059669',
+    title: 'HOUSE SHIFTING',
+    desc: 'Movers & Packers, Malori na Wapagazi',
+    bg: 'from-emerald-600/20 to-transparent'
+  },
   gift: { 
     icon: Package, 
     color: '#D4537E', 

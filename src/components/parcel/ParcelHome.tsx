@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, FileText, Smartphone, Box, Pill, Dog, 
   ChevronRight, ArrowLeft, ShieldCheck, Clock, MapPin,
-  TrendingUp, CheckCircle2
+  TrendingUp, CheckCircle2, Truck, Home
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
@@ -11,10 +11,11 @@ import { collection, query, where, onSnapshot, limit } from 'firebase/firestore'
 import { db } from '../../firebase';
 
 const categories = [
-  { id: 'gifts', label: 'Gifts', sub: 'Send heartfelt presents', icon: Package, color: 'bg-pink-500', img: 'https://images.unsplash.com/photo-1549465220-1d8c9708458c?w=600&h=400&fit=crop' },
-  { id: 'documents', label: 'Documents', sub: 'From IDs to forms', icon: FileText, color: 'bg-blue-500', img: 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=600&h=400&fit=crop' },
+  { id: 'house_shifting', label: 'House Shifting', sub: 'Kuhamisha Nyumba & Ofisi / Movers & Canter 🚚', icon: Truck, color: 'bg-emerald-600', img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&h=400&fit=crop', badge: 'POPULAR' },
+  { id: 'gifts', label: 'Gifts & Presents', sub: 'Send heartfelt presents', icon: Package, color: 'bg-pink-500', img: 'https://images.unsplash.com/photo-1549465220-1d8c9708458c?w=600&h=400&fit=crop' },
+  { id: 'documents', label: 'Documents', sub: 'From IDs to legal forms', icon: FileText, color: 'bg-blue-500', img: 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?w=600&h=400&fit=crop' },
   { id: 'electronics', label: 'Electronics', sub: 'Safeguard your gadgets', icon: Smartphone, color: 'bg-amber-500', img: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=600&h=400&fit=crop' },
-  { id: 'package', label: 'Package', sub: 'Small or large packages', icon: Box, color: 'bg-neutral-500', img: 'https://images.unsplash.com/photo-1566576721346-d4a3b4eaad5b?w=600&h=400&fit=crop' },
+  { id: 'package', label: 'Package & Boxes', sub: 'Small or large packages', icon: Box, color: 'bg-neutral-500', img: 'https://images.unsplash.com/photo-1566576721346-d4a3b4eaad5b?w=600&h=400&fit=crop' },
   { id: 'medicines', label: 'Medicines', sub: 'Medical essentials fast', icon: Pill, color: 'bg-red-500', img: 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=600&h=400&fit=crop' },
   { id: 'pet_supplies', label: 'Pet Supplies', sub: 'Furry friend needs', icon: Dog, color: 'bg-green-500', img: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&h=400&fit=crop' }
 ];

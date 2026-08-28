@@ -9,7 +9,7 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ChevronLeft, Megaphone, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home, Printer, Ticket
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -557,11 +557,13 @@ export default function CustomerDashboard() {
     { id: 'teksi', label: 'PapoRide', icon: Car, color: 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600', sub: 'Agiza gari, boda au bajaji 🚕', category: 'taxi', badge: 'ONLY1K' },
     { id: 'chakula', label: 'PapoFood', icon: Utensils, color: 'bg-gradient-to-br from-red-400 via-red-500 to-rose-600', sub: 'Chakula kutoka migahawa 🍔', category: 'restaurant', badge: 'ONLY1K' },
     { id: 'sokoni', label: 'PapoMart', icon: ShoppingCart, color: 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600', sub: 'Nunua bidhaa za sokoni 🛒', category: 'grocery', badge: 'ONLY1K' },
-    { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600', sub: 'Tuma vifurushi 📦', category: 'parcel', badge: 'ONLY1K' },
+    { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600', sub: 'Tuma vifurushi na House Shifting 📦', category: 'parcel', badge: 'ONLY1K' },
     { id: 'dawa', label: 'PapoMed', icon: Pill, color: 'bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600', sub: 'Dawa na huduma za afya 💊', category: 'pharmacy', badge: 'ONLY1K' },
     { id: 'saluni', label: 'PapoStyle', icon: Scissors, color: 'bg-gradient-to-br from-pink-400 via-pink-500 to-rose-600', sub: 'Saluni na beauty services 💇', category: 'salon', badge: 'ONLY1K' },
     { id: 'fundi', label: 'PapoFix', icon: Wrench, color: 'bg-gradient-to-br from-amber-500 via-orange-600 to-yellow-700', sub: 'Home Services, Mafundi na Booking 🛠️', category: 'handyman', badge: 'BOOKING' },
     { id: 'hoteli', label: 'PapoStay', icon: Hotel, color: 'bg-gradient-to-br from-indigo-400 via-indigo-600 to-purple-700', sub: 'Booking hoteli, nyumba na malazi 🏨', category: 'hotel', badge: 'ONLY6K' },
+    { id: 'print', label: 'PapoPrint', icon: Printer, color: 'bg-gradient-to-br from-blue-500 via-indigo-600 to-sky-700', sub: 'Kuchapa nyaraka & stationery 🖨️', category: 'stationery', badge: 'PRINT' },
+    { id: 'matukio', label: 'PapoTicket', icon: Ticket, color: 'bg-gradient-to-br from-orange-500 via-amber-600 to-red-600', sub: 'Tiketi za mechi & matamasha 🎟️', category: 'events', badge: 'EVENTS' },
     { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-gradient-to-br from-orange-500 via-red-600 to-amber-700', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
     { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-gradient-to-br from-teal-400 via-teal-600 to-emerald-700', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
     { id: 'maduka', label: 'PapoMall', icon: ShoppingBag, color: 'bg-gradient-to-br from-purple-400 via-purple-600 to-violet-700', sub: 'Soko la mtandaoni 🛍️', category: 'ecommerce' },
@@ -1361,7 +1363,21 @@ export default function CustomerDashboard() {
                     </button>
                   ) : (
                     <Link 
-                      to={isUnderMaintenance ? '#' : (service.id === 'teksi' ? '/taxi' : service.id === 'car_rental' ? '/car-rental' : service.id === 'vifurushi' ? '/service/vifurushi' : `/service/${service.id}`)}
+                      to={
+                        isUnderMaintenance 
+                          ? '#' 
+                          : service.id === 'teksi' 
+                          ? '/taxi' 
+                          : service.id === 'car_rental' 
+                          ? '/car-rental' 
+                          : service.id === 'print'
+                          ? '/print'
+                          : service.id === 'matukio'
+                          ? '/events'
+                          : service.id === 'vifurushi' 
+                          ? '/service/vifurushi' 
+                          : `/service/${service.id}`
+                      }
                       onClick={handleServiceClick}
                       className="flex flex-col items-center text-center group gap-3 relative"
                     >

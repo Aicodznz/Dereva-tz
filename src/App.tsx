@@ -32,6 +32,8 @@ import RegisterVendor from './components/auth/RegisterVendor';
 
 import TaxiBooking from './components/TaxiBooking';
 import CarRental from './components/CarRental';
+import PrintService from './components/PrintService';
+import EventsBooking from './components/EventsBooking';
 import ParcelPartnerController from './components/parcel/partner/ParcelPartnerController';
 import ParcelRequestFlow from './components/parcel/ParcelRequestFlow';
 import ParcelHome from './components/parcel/ParcelHome';
@@ -389,6 +391,10 @@ function AppContent() {
             <Route path="/vendor/:id" element={<VendorStore />} />
             <Route path="/taxi" element={<TaxiBooking />} />
             <Route path="/car-rental" element={<CarRental />} />
+            <Route path="/print" element={<PrintService />} />
+            <Route path="/service/print" element={<PrintService />} />
+            <Route path="/events" element={<EventsBooking />} />
+            <Route path="/service/matukio" element={<EventsBooking />} />
             <Route path="/taxi/history" element={<PrivateRoute><TaxiHistory /></PrivateRoute>} />
             <Route path="/service/vifurushi" element={<PrivateRoute><ParcelHome /></PrivateRoute>} />
             <Route path="/parcel/history" element={<PrivateRoute><ParcelHistory /></PrivateRoute>} />

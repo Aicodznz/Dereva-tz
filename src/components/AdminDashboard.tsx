@@ -23,7 +23,7 @@ import {
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Moon, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown,
-  Volume2, Play, Upload
+  Volume2, Play, Upload, Smartphone
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -33,6 +33,8 @@ import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } fr
 import { TwilioResponderTab } from './TwilioResponderTab';
 import { MetaMcpHub } from './admin/MetaMcpHub';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
+import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
+import { AppModulesStudio } from './admin/AppModulesStudio';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -118,7 +120,7 @@ interface ProductWithVendor extends Product {
   hidden?: boolean;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp' | 'page_canvas' | 'app_modules';
 
 interface Coupon {
   id?: string;
@@ -1133,6 +1135,13 @@ export default function AdminDashboard() {
       ]
     },
     {
+      title: "🎨 Muonekano & Canvas (Design)",
+      items: [
+        { id: 'page_canvas', label: 'Page Canvas (Widgets)', icon: LayoutGrid },
+        { id: 'app_modules', label: 'App Modules Studio', icon: Smartphone },
+      ]
+    },
+    {
       title: "Usimamizi (Management)",
       items: [
         { id: 'vendors', label: t('admin_businesses') || 'Businesses', icon: Store },
@@ -1389,6 +1398,18 @@ export default function AdminDashboard() {
                 <p className="text-white/40 text-[10px] font-bold uppercase">Successful conversions</p>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+
+        {activeTab === 'page_canvas' && (
+          <motion.div key="page_canvas" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <WidgetCanvasBuilder />
+          </motion.div>
+        )}
+
+        {activeTab === 'app_modules' && (
+          <motion.div key="app_modules" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <AppModulesStudio />
           </motion.div>
         )}
 
