@@ -3960,8 +3960,8 @@ const getEndPin = (etaText: string) => {
                       }}
                       className={`fixed sm:absolute z-[99999] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border cursor-pointer transition-all duration-300 pointer-events-auto group ${
                         (isMinimized || isMapFullscreen)
-                          ? (!destination ? 'bottom-[136px] sm:bottom-[144px] right-4 sm:right-6' : 'bottom-24 sm:bottom-28 right-4 sm:right-6')
-                          : (destination ? 'bottom-[420px] sm:bottom-[440px] right-4 sm:right-6' : 'bottom-[430px] sm:bottom-[450px] right-4 sm:right-6')
+                          ? (!destination ? 'bottom-[195px] sm:bottom-[205px] right-4 sm:right-6' : 'bottom-[110px] sm:bottom-[120px] right-4 sm:right-6')
+                          : (destination ? 'bottom-[440px] sm:bottom-[460px] right-4 sm:right-6' : 'bottom-[450px] sm:bottom-[470px] right-4 sm:right-6')
                       } ${
                         theme === 'dark' 
                           ? 'bg-[#161622]/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/60' 
