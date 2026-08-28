@@ -26,8 +26,14 @@ const destinationIcon = new L.Icon({
   iconAnchor: [17, 35],
 });
 
-const MapController = ({ location, destination }: { location: [number, number], destination?: {lat:number, lng:number} }) => {
+const MapController = ({ location, destination, onMapReady }: { location: [number, number], destination?: {lat:number, lng:number}, onMapReady?: (map: L.Map) => void }) => {
   const map = useMap();
+  
+  useEffect(() => {
+    if (onMapReady) {
+      onMapReady(map);
+    }
+  }, [map, onMapReady]);
   
   useEffect(() => {
     if (destination) {
@@ -46,6 +52,7 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
   const partnerLoc = location || { lat: -6.7924, lng: 39.2083 }; // Default Dar center
   const [route, setRoute] = useState<[number, number][]>([]);
   const { theme, resolvedTheme } = useTheme();
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
     if (destination && partnerLoc) {
@@ -124,8 +131,34 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
           />
         )}
 
-        <MapController location={[partnerLoc.lat, partnerLoc.lng]} destination={destination} />
+        <MapController 
+          location={[partnerLoc.lat, partnerLoc.lng]} 
+          destination={destination} 
+          onMapReady={(m) => { mapRef.current = m; }}
+        />
       </MapContainer>
+
+      {/* Floating GPS Recenter Button for Parcel Partner */}
+      <button
+        onClick={() => {
+          if (mapRef.current) {
+            mapRef.current.flyTo([partnerLoc.lat, partnerLoc.lng], 17, { animate: true });
+          }
+        }}
+        className="absolute bottom-6 right-4 z-[400] w-12 h-12 rounded-full bg-white dark:bg-[#111118] border border-neutral-200 dark:border-neutral-700 shadow-xl flex items-center justify-center cursor-pointer active:scale-90 transition-transform"
+        title="Lenga Eneo Lako"
+      >
+        <div className="w-9 h-9 rounded-full bg-emerald-500/15 dark:bg-emerald-500/25 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="7" />
+            <circle cx="12" cy="12" r="2.8" fill="currentColor" />
+            <line x1="12" y1="1.5" x2="12" y2="4.5" />
+            <line x1="12" y1="19.5" x2="12" y2="22.5" />
+            <line x1="1.5" y1="12" x2="4.5" y2="12" />
+            <line x1="19.5" y1="12" x2="22.5" y2="12" />
+          </svg>
+        </div>
+      </button>
     </div>
   );
 };
