@@ -1115,7 +1115,7 @@ export default function LocationPicker({
                           ? getPickupPinIcon() 
                           : currentMode === 'delivery' 
                           ? getDeliveryPinIcon() 
-                          : getStandardLocationPinIcon()
+                          : CurrentLocationPulseIcon
                       }
                       onPositionChange={(pos) => {
                         reverseGeocode(pos.lat, pos.lng);
@@ -1127,7 +1127,7 @@ export default function LocationPicker({
                       }} 
                     />
 
-                    {userOrigin && (
+                    {userOrigin && (currentMode === 'pickup' || currentMode === 'delivery') && (
                       <Marker 
                         position={userOrigin} 
                         icon={CurrentLocationPulseIcon}
