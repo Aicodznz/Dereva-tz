@@ -23,7 +23,7 @@ import {
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Moon, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown,
-  Volume2, Play, Upload, Smartphone
+  Volume2, Play, Upload, Smartphone, Sparkles
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -35,6 +35,7 @@ import { MetaMcpHub } from './admin/MetaMcpHub';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
 import { AppModulesStudio } from './admin/AppModulesStudio';
+import { CssAnimatedTextStudio } from './admin/CssAnimatedTextStudio';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -120,7 +121,7 @@ interface ProductWithVendor extends Product {
   hidden?: boolean;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp' | 'page_canvas' | 'app_modules';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp' | 'page_canvas' | 'app_modules' | 'text_animations';
 
 interface Coupon {
   id?: string;
@@ -1139,6 +1140,7 @@ export default function AdminDashboard() {
       items: [
         { id: 'page_canvas', label: 'Page Canvas (Widgets)', icon: LayoutGrid },
         { id: 'app_modules', label: 'App Modules Studio', icon: Smartphone },
+        { id: 'text_animations', label: 'CSS Text Suite (25)', icon: Sparkles },
       ]
     },
     {
@@ -1410,6 +1412,12 @@ export default function AdminDashboard() {
         {activeTab === 'app_modules' && (
           <motion.div key="app_modules" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <AppModulesStudio />
+          </motion.div>
+        )}
+
+        {activeTab === 'text_animations' && (
+          <motion.div key="text_animations" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <CssAnimatedTextStudio />
           </motion.div>
         )}
 
