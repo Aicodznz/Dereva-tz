@@ -64,7 +64,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
-import { TextAnimationShowcaseModal } from "./TextAnimationShowcase";
 import { useTheme } from "../ThemeContext";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
 import Chat from "./Chat";
@@ -605,7 +604,6 @@ export default function TaxiBooking() {
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
   const [pickupNote, setPickupNote] = useState<string>('');
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
-  const [showAnimShowcase, setShowAnimShowcase] = useState<boolean>(false);
 
   // PapoShare Pooling State
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
@@ -3362,26 +3360,8 @@ const getEndPin = (etaText: string) => {
                                 <Languages className="w-4 h-4 text-emerald-500" />
                                 <span>{language === "sw" ? "English" : language === "en" ? "العربية" : "Kiswahili"}</span>
                               </div>
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                 {language.toUpperCase()}
-                              </span>
-                            </button>
-
-                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
-
-                            <button
-                              onClick={() => {
-                                setShowMenu(false);
-                                setShowAnimShowcase(true);
-                              }}
-                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center justify-between transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-indigo-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-indigo-600 hover:bg-neutral-50'}`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Sparkles className="w-4 h-4 text-pink-500 animate-pulse" />
-                                <span>Text Animations (25 CSS)</span>
-                              </div>
-                              <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
-                                Live
                               </span>
                             </button>
 
@@ -5988,16 +5968,6 @@ const getEndPin = (etaText: string) => {
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* 25 CSS Text Animation Showcase Modal */}
-      <AnimatePresence>
-        {showAnimShowcase && (
-          <TextAnimationShowcaseModal
-            isOpen={showAnimShowcase}
-            onClose={() => setShowAnimShowcase(false)}
-          />
         )}
       </AnimatePresence>
 

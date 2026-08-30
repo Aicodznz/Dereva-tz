@@ -1,12 +1,23 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Sparkles, Copy, Check, Play, Pause, RefreshCw, Sliders, 
   Code2, Eye, ShieldAlert, Zap, Layout, Monitor, Flame,
   Compass, Award, Rocket, Moon, Sun, Search, Filter,
-  Share2, ArrowUpRight, Palette, Layers, Terminal, Lock
+  Share2, ArrowUpRight, Palette, Layers, Terminal, Lock,
+  Settings, CheckSquare, Square, Save, RotateCcw, Power,
+  CheckCircle2, ShoppingCart, Tag, Navigation, Hotel,
+  Store, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { 
+  APP_SECTION_SLOTS, 
+  AppSectionSlot, 
+  SlotAssignmentMap, 
+  loadSlotAssignments, 
+  saveSlotAssignments, 
+  getDefaultSlotAssignments 
+} from '../../services/textAnimationSettings';
 
 export interface TextAnimationItem {
   id: string;
@@ -1006,7 +1017,9 @@ export const TEXT_ANIMATIONS_DATA: TextAnimationItem[] = [
 ];
 
 export function CssAnimatedTextStudio() {
+  const [studioTab, setStudioTab] = useState<'gallery' | 'slots_manager'>('gallery');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [slotCategoryFilter, setSlotCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [customTestText, setCustomTestText] = useState<string>('');
   const [bgMode, setBgMode] = useState<'dark' | 'black' | 'light' | 'gradient' | 'grid'>('dark');
@@ -1015,6 +1028,90 @@ export function CssAnimatedTextStudio() {
   const [copiedHtmlId, setCopiedHtmlId] = useState<string | null>(null);
   const [selectedAnimationForModal, setSelectedAnimationForModal] = useState<TextAnimationItem | null>(null);
   const [activeTabCode, setActiveTabCode] = useState<'css' | 'tailwind' | 'usage'>('css');
+  const [expandedCardSlotId, setExpandedCardSlotId] = useState<string | null>(null);
+
+  // Slot Assignments state
+  const [slotAssignments, setSlotAssignments] = useState<SlotAssignmentMap>(() => loadSlotAssignments());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Keep in sync with local storage if re-opened
+    const loaded = loadSlotAssignments();
+    setSlotAssignments(loaded);
+  }, []);
+
+  const handleToggleSlotPermission = (slotId: string, animationId: string) => {
+    setSlotAssignments(prev => {
+      const current = prev[slotId] || { enabled: false, animationId, customText: '' };
+      const isCurrentlyThis = current.animationId === animationId && current.enabled;
+      
+      const updated: SlotAssignmentMap = {
+        ...prev,
+        [slotId]: {
+          ...current,
+          enabled: !isCurrentlyThis,
+          animationId: animationId
+        }
+      };
+      saveSlotAssignments(updated);
+      return updated;
+    });
+    setHasUnsavedChanges(false);
+    toast.success('Mipangilio ya sehemu imesasishwa!');
+  };
+
+  const handleUpdateSlotAssignment = (slotId: string, updates: Partial<{ enabled: boolean; animationId: string; customText: string }>) => {
+    setSlotAssignments(prev => {
+      const current = prev[slotId] || { enabled: true, animationId: 'shimmer-gold', customText: '' };
+      const updated: SlotAssignmentMap = {
+        ...prev,
+        [slotId]: {
+          ...current,
+          ...updates
+        }
+      };
+      saveSlotAssignments(updated);
+      return updated;
+    });
+    toast.success('Sehemu imesasishwa kikamilifu!');
+  };
+
+  const handleSaveAllSlots = () => {
+    saveSlotAssignments(slotAssignments);
+    setHasUnsavedChanges(false);
+    toast.success('✅ Mipangilio yote ya Sehemu za App (App Slots) imehifadhiwa salama!');
+  };
+
+  const handleResetToDefaults = () => {
+    const def = getDefaultSlotAssignments();
+    setSlotAssignments(def);
+    saveSlotAssignments(def);
+    toast.success('🔄 Mipangilio imerudishwa kwenye mapendekezo ya awali!');
+  };
+
+  const handleEnableAllSlots = () => {
+    setSlotAssignments(prev => {
+      const updated: SlotAssignmentMap = {};
+      Object.keys(prev).forEach(k => {
+        updated[k] = { ...prev[k], enabled: true };
+      });
+      saveSlotAssignments(updated);
+      return updated;
+    });
+    toast.success('Sehemu zote za App zimewashwa!');
+  };
+
+  const handleDisableAllSlots = () => {
+    setSlotAssignments(prev => {
+      const updated: SlotAssignmentMap = {};
+      Object.keys(prev).forEach(k => {
+        updated[k] = { ...prev[k], enabled: false };
+      });
+      saveSlotAssignments(updated);
+      return updated;
+    });
+    toast.info('Sehemu zote za michoro zimezimwa.');
+  };
 
   const filteredAnimations = useMemo(() => {
     return TEXT_ANIMATIONS_DATA.filter((item) => {
@@ -1027,6 +1124,17 @@ export function CssAnimatedTextStudio() {
       return matchCat && matchSearch;
     });
   }, [activeCategory, searchQuery]);
+
+  const filteredSlots = useMemo(() => {
+    return APP_SECTION_SLOTS.filter(slot => {
+      const matchCat = slotCategoryFilter === 'all' || slot.category === slotCategoryFilter;
+      const matchSearch = 
+        slot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        slot.swahiliName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        slot.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }, [slotCategoryFilter, searchQuery]);
 
   const handleCopyCss = (item: TextAnimationItem) => {
     navigator.clipboard.writeText(item.cssKeyframes);
@@ -1058,6 +1166,224 @@ export function CssAnimatedTextStudio() {
     }
   };
 
+  // Helper to render live simulation of an App Slot
+  const renderSlotLiveSimulator = (slot: AppSectionSlot) => {
+    const config = slotAssignments[slot.id] || { enabled: true, animationId: slot.defaultAnimationId, customText: slot.sampleText };
+    const animObj = TEXT_ANIMATIONS_DATA.find(a => a.id === config.animationId) || TEXT_ANIMATIONS_DATA[0];
+    const textToDisplay = config.customText?.trim() || slot.sampleText;
+
+    if (!config.enabled) {
+      return (
+        <div className="p-4 bg-neutral-900/80 rounded-2xl border border-dashed border-neutral-800 flex items-center justify-center text-neutral-500 text-xs font-semibold py-8">
+          <Power className="w-4 h-4 mr-2 opacity-50" />
+          Animation imezimwa kwenye sehemu hii (Inaonyesha maandishi ya kawaida)
+        </div>
+      );
+    }
+
+    const renderAnimatedElement = (extraClass = '', customStyle: React.CSSProperties = {}) => {
+      if (animObj.id === 'wave-text-cascade') {
+        return (
+          <div className={`anim-wave-text ${extraClass}`} style={customStyle}>
+            {textToDisplay.split('').map((c, i) => (
+              <span key={i}>{c === ' ' ? '\u00A0' : c}</span>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <div className={`${animObj.cssClassName} ${extraClass}`} style={customStyle}>
+          {textToDisplay}
+        </div>
+      );
+    };
+
+    switch (slot.id) {
+      case 'promo_hero_banner':
+        return (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 p-5 text-white shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="px-2.5 py-0.5 rounded-full bg-black/40 text-[10px] font-black uppercase tracking-wider backdrop-blur-md">
+                🔥 FLASH PROMO
+              </span>
+              <span className="text-xs font-bold opacity-80">Dakika 30 Zimebaki</span>
+            </div>
+            <div className="mt-3 text-lg sm:text-xl font-black">
+              {renderAnimatedElement('drop-shadow-md font-black')}
+            </div>
+            <p className="text-xs text-white/90 font-medium mt-1">
+              Tumia kodi ya kuponi <span className="font-mono font-bold bg-white/20 px-1.5 py-0.5 rounded">PAPO50</span> wakati wa kulipa.
+            </p>
+          </div>
+        );
+
+      case 'order_now_cta':
+        return (
+          <div className="p-4 bg-[#141420] rounded-2xl border border-neutral-800 flex items-center justify-center">
+            <button className="w-full max-w-md py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-sm sm:text-base shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 transition-transform active:scale-95">
+              <ShoppingCart className="w-5 h-5" />
+              {renderAnimatedElement('text-white font-black text-sm sm:text-base')}
+            </button>
+          </div>
+        );
+
+      case 'coupon_reward_badge':
+        return (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-[#0d2818] to-teal-950/80 border border-emerald-500/30 flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl">
+                🎁
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-emerald-400 block tracking-wider">
+                  SHARE PAPO HAPO • ZAWADI
+                </span>
+                <div className="text-xs sm:text-sm font-black">
+                  {renderAnimatedElement('font-bold')}
+                </div>
+              </div>
+            </div>
+            <button className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs rounded-xl shadow shrink-0">
+              ALIKA ↗
+            </button>
+          </div>
+        );
+
+      case 'driver_vip_badge':
+        return (
+          <div className="p-4 bg-[#181828] border border-amber-500/30 rounded-2xl flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-lg">
+                  JD
+                </div>
+                <span className="absolute -bottom-1 -right-1 px-1 py-0.2 bg-black text-[9px] font-black text-amber-400 rounded-md border border-amber-500/40">
+                  5.0★
+                </span>
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Juma Daudi (Toyota Crown)</h4>
+                <div className="mt-0.5">
+                  {renderAnimatedElement('text-xs font-bold')}
+                </div>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black">
+              VIP EXPERT
+            </span>
+          </div>
+        );
+
+      case 'gps_live_hud':
+        return (
+          <div className="relative overflow-hidden rounded-2xl bg-[#090b14] border border-cyan-500/40 p-4 shadow-xl">
+            <div className="flex items-center justify-between text-[11px] text-cyan-400 font-mono pb-2 border-b border-cyan-900/40">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                LIVE GPS TELEMETRY
+              </span>
+              <span>-6.8161° S, 39.2804° E</span>
+            </div>
+            <div className="py-3 text-center">
+              {renderAnimatedElement('text-sm sm:text-base font-black font-mono')}
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-neutral-400 pt-1">
+              <span>Muda wa Kufika: <strong className="text-white">Dakika 4</strong></span>
+              <span>Umbali: <strong className="text-white">1.8 km</strong></span>
+            </div>
+          </div>
+        );
+
+      case 'trip_complete_screen':
+        return (
+          <div className="p-5 bg-gradient-to-b from-[#1b1028] to-[#12121e] border border-purple-500/30 rounded-2xl text-center space-y-2 shadow-xl">
+            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl">
+              ✓
+            </div>
+            <div className="text-base sm:text-lg font-black">
+              {renderAnimatedElement('font-black')}
+            </div>
+            <p className="text-xs text-neutral-300 font-medium">
+              Malipo ya <strong className="text-emerald-400 font-bold">TZS 8,500</strong> yamekamilika kupitia M-Pesa. Asante kwa kusafiri na Papo Hapo!
+            </p>
+          </div>
+        );
+
+      case 'night_flash_deals':
+        return (
+          <div className="p-4 bg-[#0a0a14] border border-pink-500/40 rounded-2xl shadow-xl flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-500/40 text-pink-400 text-[10px] font-black uppercase">
+                🌙 NIGHT OWL SPECIAL
+              </span>
+              <div className="text-sm sm:text-base font-black">
+                {renderAnimatedElement('font-black')}
+              </div>
+            </div>
+            <span className="text-2xl">🛵</span>
+          </div>
+        );
+
+      case 'wallet_security_header':
+        return (
+          <div className="p-4 bg-[#07120e] border border-emerald-500/40 rounded-2xl shadow-xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg">
+                💳
+              </div>
+              <div>
+                <span className="text-[10px] text-neutral-400 font-mono">SALIO LA WALLET: TZS 145,000</span>
+                <div className="text-xs sm:text-sm font-bold">
+                  {renderAnimatedElement('font-mono font-bold')}
+                </div>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-xl bg-emerald-500 text-black text-xs font-black">
+              TOP-UP +
+            </span>
+          </div>
+        );
+
+      case 'papo_stay_luxury':
+        return (
+          <div className="p-5 bg-gradient-to-r from-[#17141e] via-[#211a2c] to-[#17141e] border border-amber-500/20 rounded-2xl shadow-xl text-center space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
+              PAPO STAY • EXECUTIVE COLLECTION
+            </span>
+            <div className="text-sm sm:text-lg font-black">
+              {renderAnimatedElement('font-black uppercase')}
+            </div>
+            <p className="text-xs text-neutral-400">Vyumba kuanzia TZS 80,000 / usiku • Masaki, Mikocheni & Slipway</p>
+          </div>
+        );
+
+      case 'grand_opening_alert':
+        return (
+          <div className="p-4 bg-[#1f120e] border border-orange-500/40 rounded-2xl shadow-xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎉</span>
+              <div>
+                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">HABARI MPYA</span>
+                <div className="text-xs sm:text-sm font-bold">
+                  {renderAnimatedElement('font-bold')}
+                </div>
+              </div>
+            </div>
+            <button className="px-3 py-1 bg-orange-500 text-white font-bold text-xs rounded-lg">
+              Tazama
+            </button>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="p-4 bg-[#12121e] rounded-2xl border border-neutral-800 text-center">
+            {renderAnimatedElement('text-sm font-bold')}
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Dynamic Embedded CSS Stylesheet for all 25 Animations */}
@@ -1073,32 +1399,95 @@ export function CssAnimatedTextStudio() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider">
               <Lock className="w-3.5 h-3.5" />
-              Admin Exclusive Studio • 25 Animations
+              Admin Exclusive Studio • 25 Animations & Slot Permissions
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white flex items-center gap-3">
               <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-orange-500 shrink-0 animate-pulse" />
               CSS Animated Text Suite
             </h1>
             <p className="text-sm sm:text-base text-neutral-300 font-medium leading-relaxed">
-              Mkusanyiko kamili wa michoro 25 ya maandishi (Hardware-Accelerated CSS Text Animations) yenye miongozo ya maeneo sahihi ya kutumia kwenye app, kanuni kamili za CSS, na kioo cha majaribio ya papo hapo (*Live Preview*).
+              Mkusanyiko kamili wa michoro 25 ya maandishi (CSS Animations) yenye chaguo maalum la **Kuruhusu na Kupanga Sehemu za App (App Slots)**, kioo cha majaribio ya papo hapo (*Live UI Simulator*), na kanuni safi za CSS.
             </p>
           </div>
 
-          {/* Quick Stats Pill */}
+          {/* Top Quick Actions Bar */}
           <div className="flex flex-wrap items-center gap-3 bg-neutral-900/90 border border-neutral-800 p-3 rounded-2xl backdrop-blur-md">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 font-black text-sm">
               <Zap className="w-4 h-4" />
               <span>25 Animations</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs">
-              <Award className="w-4 h-4" />
-              <span>60 FPS GPU Ready</span>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>10 App Slots</span>
             </div>
+            <button
+              onClick={handleSaveAllSlots}
+              className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/25 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            >
+              <Save className="w-3.5 h-3.5" />
+              Hifadhi Mipangilio
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Global Interactive Controls Bar */}
+      {/* Main Studio View Switcher Tabs */}
+      <div className="flex items-center justify-between flex-wrap gap-3 bg-[#11111c] border border-neutral-800 p-2 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setStudioTab('gallery')}
+            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              studioTab === 'gallery'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                : 'bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Mkusanyiko wa Animations (25 Cards)</span>
+          </button>
+
+          <button
+            onClick={() => setStudioTab('slots_manager')}
+            className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              studioTab === 'slots_manager'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                : 'bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-emerald-400" />
+            <span>Ruhusu Sehemu za App (10 Slots & Live Simulator)</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px]">
+              Active
+            </span>
+          </button>
+        </div>
+
+        {studioTab === 'slots_manager' && (
+          <div className="flex items-center gap-2 pr-2">
+            <button
+              onClick={handleEnableAllSlots}
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold rounded-lg transition-all"
+            >
+              Washa Sehemu Zote
+            </button>
+            <button
+              onClick={handleDisableAllSlots}
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 text-xs font-bold rounded-lg transition-all"
+            >
+              Zima Zote
+            </button>
+            <button
+              onClick={handleResetToDefaults}
+              className="px-3 py-1.5 bg-[#201a28] hover:bg-neutral-800 border border-purple-500/30 text-purple-300 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Rudisha Chaguo-Msingi
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* GLOBAL CONTROLS BAR */}
       <div className="bg-[#12121c] border border-neutral-800/80 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           
@@ -1118,7 +1507,7 @@ export function CssAnimatedTextStudio() {
               {customTestText && (
                 <button
                   onClick={() => setCustomTestText('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-white bg-neutral-800 px-2 py-0.5 rounded-md"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400 hover:text-white bg-neutral-800 px-2 py-0.5 rounded-md cursor-pointer"
                 >
                   Clear
                 </button>
@@ -1139,7 +1528,7 @@ export function CssAnimatedTextStudio() {
               <button
                 key={preset}
                 onClick={() => setCustomTestText(preset)}
-                className="px-2.5 py-1.5 bg-[#1e1e2f] hover:bg-orange-500/20 hover:border-orange-500/50 border border-neutral-700 text-xs font-bold text-neutral-300 hover:text-orange-400 rounded-lg transition-all"
+                className="px-2.5 py-1.5 bg-[#1e1e2f] hover:bg-orange-500/20 hover:border-orange-500/50 border border-neutral-700 text-xs font-bold text-neutral-300 hover:text-orange-400 rounded-lg transition-all cursor-pointer"
               >
                 {preset}
               </button>
@@ -1180,7 +1569,7 @@ export function CssAnimatedTextStudio() {
                 <button
                   key={m.id}
                   onClick={() => setBgMode(m.id as any)}
-                  className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all ${
+                  className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
                     bgMode === m.id
                       ? 'bg-orange-500 text-white shadow-md'
                       : 'bg-[#1e1e2e] text-neutral-400 hover:text-white border border-neutral-700'
@@ -1195,14 +1584,16 @@ export function CssAnimatedTextStudio() {
 
           {/* Search Filter */}
           <div className="sm:col-span-2">
-            <span className="block text-xs font-bold text-neutral-400 mb-1.5">Tafuta Animation au Sehemu:</span>
+            <span className="block text-xs font-bold text-neutral-400 mb-1.5">
+              {studioTab === 'gallery' ? 'Tafuta Animation:' : 'Tafuta Sehemu ya App:'}
+            </span>
             <div className="relative">
               <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tafuta kwa jina (mfano: Neon, Gold, Glitch, Driver, Flash Sale)..."
+                placeholder={studioTab === 'gallery' ? "Tafuta kwa jina (Neon, Gold, Glitch, Driver)..." : "Tafuta sehemu (Bango Kuu, Kitufe cha Agiza, Vocha)..."}
                 className="w-full bg-[#1a1a28] border border-neutral-700 text-white placeholder-neutral-500 pl-9 pr-4 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-orange-500"
               />
             </div>
@@ -1210,146 +1601,411 @@ export function CssAnimatedTextStudio() {
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-        {[
-          { id: 'all', label: 'Animations Zote (25)', icon: Zap },
-          { id: 'promo', label: 'Mabango & Ofa (Promo & Deals)', icon: Flame },
-          { id: 'neon', label: 'Neon & Usiku (Night Mode)', icon: Sparkles },
-          { id: 'cyber', label: 'Tech & GPS (Cyber/Matrix)', icon: Terminal },
-          { id: 'dynamic', label: 'Mwendo & Miondoko (Kinetic)', icon: Rocket },
-          { id: 'elegant', label: 'Kifahari & VIP (Luxury)', icon: Award },
-        ].map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all cursor-pointer ${
-              activeCategory === cat.id
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
-                : 'bg-[#141420] text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-700'
-            }`}
-          >
-            <cat.icon className="w-3.5 h-3.5" />
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid of 25 Animated Text Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredAnimations.map((anim, index) => {
-          const displayText = customTestText.trim() || anim.defaultText;
-          return (
-            <div
-              key={anim.id}
-              className="bg-[#12121d] border border-neutral-800/90 hover:border-neutral-700 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between transition-all duration-300 group"
-            >
-              {/* Card Header Bar */}
-              <div className="p-4 border-b border-neutral-800/80 bg-[#161624] flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 font-black text-xs flex items-center justify-center">
-                    {index + 1}
-                  </span>
-                  <div>
-                    <h3 className="font-bold text-white text-sm group-hover:text-orange-400 transition-colors">
-                      {anim.name}
-                    </h3>
-                    <p className="text-[11px] text-neutral-400 font-medium">
-                      {anim.swahiliName}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-[10px] font-bold text-neutral-300 uppercase">
-                  {anim.category}
-                </span>
-              </div>
-
-              {/* Live Preview Display Box */}
-              <div 
-                className={`p-6 sm:p-8 min-h-[150px] flex items-center justify-center text-center transition-all duration-300 relative overflow-hidden ${getCardBgClass()}`}
+      {/* ========================================================================= */}
+      {/* TAB 1: 25 ANIMATION CARDS GALLERY WITH PER-CARD SLOT PERMISSION TOGGLES */}
+      {/* ========================================================================= */}
+      {studioTab === 'gallery' && (
+        <div className="space-y-6">
+          {/* Category Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+            {[
+              { id: 'all', label: 'Animations Zote (25)', icon: Zap },
+              { id: 'promo', label: 'Mabango & Ofa (Promo & Deals)', icon: Flame },
+              { id: 'neon', label: 'Neon & Usiku (Night Mode)', icon: Sparkles },
+              { id: 'cyber', label: 'Tech & GPS (Cyber/Matrix)', icon: Terminal },
+              { id: 'dynamic', label: 'Mwendo & Miondoko (Kinetic)', icon: Rocket },
+              { id: 'elegant', label: 'Kifahari & VIP (Luxury)', icon: Award },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-2 transition-all cursor-pointer ${
+                  activeCategory === cat.id
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                    : 'bg-[#141420] text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-700'
+                }`}
               >
-                {/* Special rendering for Wave text requiring span wrappers */}
-                {anim.id === 'wave-text-cascade' ? (
-                  <div className="anim-wave-text" style={{ fontSize: `${fontSize}px` }}>
-                    {displayText.split('').map((char, i) => (
-                      <span key={i}>{char === ' ' ? '\u00A0' : char}</span>
-                    ))}
-                  </div>
-                ) : (
-                  <div 
-                    className={anim.cssClassName}
-                    style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
-                  >
-                    {displayText}
-                  </div>
-                )}
-              </div>
+                <cat.icon className="w-3.5 h-3.5" />
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
-              {/* Best UI Locations & Usage Guide */}
-              <div className="p-4 bg-[#141422] border-t border-neutral-800/70 space-y-3">
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5" />
-                    Maeneo Yanayofaa Kutumika (Best Places):
-                  </span>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {anim.recommendedPlaces.map((place, pIdx) => (
-                      <div key={pIdx} className="flex items-start gap-2 bg-[#1b1b2c] p-2 rounded-xl border border-neutral-800/70 text-xs">
-                        <span className="text-sm shrink-0">{place.icon}</span>
-                        <div>
-                          <strong className="text-neutral-200 font-semibold block">{place.title}</strong>
-                          <span className="text-[11px] text-neutral-400 leading-tight">{place.description}</span>
+          {/* Grid of 25 Animated Text Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredAnimations.map((anim, index) => {
+              const displayText = customTestText.trim() || anim.defaultText;
+              
+              // Check how many slots have this animation active
+              const activeSlotsForThisAnim = Object.entries(slotAssignments).filter(
+                ([_, val]) => val.enabled && val.animationId === anim.id
+              ).map(([slotId]) => APP_SECTION_SLOTS.find(s => s.id === slotId)).filter(Boolean);
+
+              const isSlotDrawerOpen = expandedCardSlotId === anim.id;
+
+              return (
+                <div
+                  key={anim.id}
+                  className="bg-[#12121d] border border-neutral-800/90 hover:border-neutral-700 rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between transition-all duration-300 group"
+                >
+                  {/* Card Header Bar */}
+                  <div className="p-4 border-b border-neutral-800/80 bg-[#161624] flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 font-black text-xs flex items-center justify-center">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <h3 className="font-bold text-white text-sm group-hover:text-orange-400 transition-colors">
+                          {anim.name}
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 font-medium">
+                          {anim.swahiliName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {activeSlotsForThisAnim.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-black text-emerald-400">
+                          {activeSlotsForThisAnim.length} Sehemu
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 text-[10px] font-bold text-neutral-300 uppercase">
+                        {anim.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Live Preview Display Box */}
+                  <div 
+                    className={`p-6 sm:p-8 min-h-[150px] flex items-center justify-center text-center transition-all duration-300 relative overflow-hidden ${getCardBgClass()}`}
+                  >
+                    {/* Special rendering for Wave text requiring span wrappers */}
+                    {anim.id === 'wave-text-cascade' ? (
+                      <div className="anim-wave-text" style={{ fontSize: `${fontSize}px` }}>
+                        {displayText.split('').map((char, i) => (
+                          <span key={i}>{char === ' ' ? '\u00A0' : char}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div 
+                        className={anim.cssClassName}
+                        style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
+                      >
+                        {displayText}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Best UI Locations & Usage Guide */}
+                  <div className="p-4 bg-[#141422] border-t border-neutral-800/70 space-y-3">
+                    
+                    {/* Active Permission Banner */}
+                    <div className="flex items-center justify-between bg-[#19192b] px-3 py-2 rounded-xl border border-neutral-800">
+                      <div className="flex items-center gap-2">
+                        <Compass className="w-4 h-4 text-orange-400" />
+                        <span className="text-xs font-bold text-neutral-200">
+                          Ruhusa kwenye Sehemu za App:
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setExpandedCardSlotId(isSlotDrawerOpen ? null : anim.id)}
+                        className={`text-xs font-bold px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                          isSlotDrawerOpen 
+                            ? 'bg-orange-500 text-white' 
+                            : 'bg-neutral-800 hover:bg-neutral-700 text-orange-400'
+                        }`}
+                      >
+                        <span>{activeSlotsForThisAnim.length > 0 ? `${activeSlotsForThisAnim.length} Imeruhusiwa` : 'Panga Sehemu'}</span>
+                        {isSlotDrawerOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    </div>
+
+                    {/* Interactive Expandable Slot Assignment Drawer */}
+                    {isSlotDrawerOpen && (
+                      <div className="p-3 bg-[#10101a] border border-orange-500/30 rounded-xl space-y-2.5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between pb-1 border-b border-neutral-800">
+                          <span className="text-[11px] font-bold text-orange-400 uppercase">
+                            Chagua Sehemu za App Zinazoruhusiwa:
+                          </span>
+                          <span className="text-[10px] text-neutral-400 font-medium">Bonyeza kuwasha/kuzima</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto no-scrollbar pr-1">
+                          {APP_SECTION_SLOTS.map((slot) => {
+                            const isAllowed = slotAssignments[slot.id]?.enabled && slotAssignments[slot.id]?.animationId === anim.id;
+                            return (
+                              <button
+                                key={slot.id}
+                                onClick={() => handleToggleSlotPermission(slot.id, anim.id)}
+                                className={`w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition-all cursor-pointer ${
+                                  isAllowed
+                                    ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold'
+                                    : 'bg-[#181826] hover:bg-neutral-800/80 border border-neutral-800 text-neutral-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span>{slot.icon}</span>
+                                  <span>{slot.swahiliName}</span>
+                                </div>
+                                <div>
+                                  {isAllowed ? (
+                                    <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded">
+                                      <Check className="w-3 h-3" /> Imewashwa
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-neutral-500 font-medium">
+                                      Ruhusu
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Recommended Placement Tips */}
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        Inapopendekezwa Zaidi:
+                      </span>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {anim.recommendedPlaces.slice(0, 2).map((place, pIdx) => (
+                          <div key={pIdx} className="flex items-start gap-2 bg-[#1b1b2c] p-2 rounded-xl border border-neutral-800/70 text-xs">
+                            <span className="text-sm shrink-0">{place.icon}</span>
+                            <div>
+                              <strong className="text-neutral-200 font-semibold block">{place.title}</strong>
+                              <span className="text-[11px] text-neutral-400 leading-tight">{place.description}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Performance & Best For Tag */}
+                    <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800/60">
+                      <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                        <Zap className="w-3 h-3" /> {anim.performance}
+                      </span>
+                      <span className="text-neutral-400 font-medium">
+                        {anim.bestFor}
+                      </span>
+                    </div>
+
+                    {/* Action Buttons: Copy CSS, Copy HTML, Inspect Modal */}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <button
+                        onClick={() => handleCopyCss(anim)}
+                        className="py-2 px-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-white border border-orange-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        {copiedId === anim.id ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedId === anim.id ? 'Imenakiliwa' : 'Copy CSS'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleCopyTailwind(anim)}
+                        className="py-2 px-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        {copiedHtmlId === anim.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Code2 className="w-3.5 h-3.5" />}
+                        <span>React/HTML</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedAnimationForModal(anim);
+                          setActiveTabCode('css');
+                        }}
+                        className="py-2 px-2.5 rounded-xl bg-[#1e1e30] hover:bg-neutral-700 text-neutral-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Tazama Code</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                {/* Performance & Best For Tag */}
-                <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800/60">
-                  <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                    <Zap className="w-3 h-3" /> {anim.performance}
-                  </span>
-                  <span className="text-neutral-400 font-medium">
-                    {anim.bestFor}
-                  </span>
-                </div>
-
-                {/* Action Buttons: Copy CSS, Copy HTML, Inspect Modal */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <button
-                    onClick={() => handleCopyCss(anim)}
-                    className="py-2 px-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-400 hover:text-white border border-orange-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    {copiedId === anim.id ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedId === anim.id ? 'Imenakiliwa' : 'Copy CSS'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleCopyTailwind(anim)}
-                    className="py-2 px-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    {copiedHtmlId === anim.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Code2 className="w-3.5 h-3.5" />}
-                    <span>React/HTML</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setSelectedAnimationForModal(anim);
-                      setActiveTabCode('css');
-                    }}
-                    className="py-2 px-2.5 rounded-xl bg-[#1e1e30] hover:bg-neutral-700 text-neutral-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Tazama Code</span>
-                  </button>
-                </div>
-              </div>
+      {/* ========================================================================= */}
+      {/* TAB 2: APP SLOTS PERMISSION MANAGER & REALISTIC LIVE UI SIMULATOR */}
+      {/* ========================================================================= */}
+      {studioTab === 'slots_manager' && (
+        <div className="space-y-6">
+          
+          {/* Explanation Banner */}
+          <div className="p-5 bg-gradient-to-r from-[#171424] via-[#1a172c] to-[#141220] rounded-2xl border border-purple-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                <Compass className="w-5 h-5 text-orange-400" />
+                Usimamizi wa Sehemu za App (App Slot Permissions & Live Simulator)
+              </h3>
+              <p className="text-xs sm:text-sm text-neutral-300">
+                Hapa unaweza kuruhusu, kuzima, au kubadilisha mchoro wa maandishi (Animation) utakaotumika kwenye kila sehemu ya Papo Hapo App. Kila sehemu inaonyesha sampuli ya kioo halisi (*Live UI Mockup*).
+              </p>
             </div>
-          );
-        })}
-      </div>
+
+            <button
+              onClick={handleSaveAllSlots}
+              className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-orange-500/30 flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              Hifadhi Sehemu Zote
+            </button>
+          </div>
+
+          {/* Slots List with Live Interactive Simulator */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredSlots.map((slot) => {
+              const currentConfig = slotAssignments[slot.id] || {
+                enabled: true,
+                animationId: slot.defaultAnimationId,
+                customText: slot.sampleText
+              };
+              const activeAnim = TEXT_ANIMATIONS_DATA.find(a => a.id === currentConfig.animationId) || TEXT_ANIMATIONS_DATA[0];
+
+              return (
+                <div
+                  key={slot.id}
+                  className={`rounded-3xl border transition-all duration-300 overflow-hidden flex flex-col justify-between shadow-xl ${
+                    currentConfig.enabled
+                      ? 'bg-[#12121f] border-neutral-700/80 hover:border-orange-500/50'
+                      : 'bg-[#0f0f18] border-neutral-800 opacity-75'
+                  }`}
+                >
+                  {/* Slot Header Bar */}
+                  <div className="p-5 border-b border-neutral-800/80 bg-[#161626] flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-xl flex items-center justify-center shrink-0">
+                        {slot.icon}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-black text-white text-sm sm:text-base">
+                            {slot.swahiliName}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 text-[10px] font-bold">
+                            {slot.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-400">
+                          {slot.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Master Slot Enable / Disable Toggle Switch */}
+                    <button
+                      onClick={() => handleUpdateSlotAssignment(slot.id, { enabled: !currentConfig.enabled })}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        currentConfig.enabled ? 'bg-emerald-500' : 'bg-neutral-700'
+                      }`}
+                      title={currentConfig.enabled ? 'Imeruhusiwa (Bonyeza kuzima)' : 'Imezimwa (Bonyeza kuwasha)'}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          currentConfig.enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Slot Settings & Animation Picker */}
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Animation Picker Dropdown */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
+                          Mchoro wa Maandishi (Active Animation):
+                        </label>
+                        <select
+                          disabled={!currentConfig.enabled}
+                          value={currentConfig.animationId}
+                          onChange={(e) => handleUpdateSlotAssignment(slot.id, { animationId: e.target.value })}
+                          className="w-full bg-[#1b1b2d] border border-neutral-700 text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-orange-500 disabled:opacity-50 cursor-pointer"
+                        >
+                          {TEXT_ANIMATIONS_DATA.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({a.swahiliName})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Custom Slot Text Input */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
+                          Maandishi ya Sehemu Hii (Custom Text):
+                        </label>
+                        <input
+                          type="text"
+                          disabled={!currentConfig.enabled}
+                          value={currentConfig.customText !== undefined ? currentConfig.customText : slot.sampleText}
+                          onChange={(e) => handleUpdateSlotAssignment(slot.id, { customText: e.target.value })}
+                          placeholder={slot.sampleText}
+                          className="w-full bg-[#1b1b2d] border border-neutral-700 text-white placeholder-neutral-500 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-orange-500 disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Active Animation Quick Pill */}
+                    <div className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-[#181829] border border-neutral-800">
+                      <span className="text-neutral-400 font-medium flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+                        Mtindo Ulioruhusiwa: <strong className="text-white">{activeAnim.name}</strong>
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        {currentConfig.enabled ? '🟢 Imeruhusiwa' : '⚪ Imezimwa'}
+                      </span>
+                    </div>
+
+                    {/* REALISTIC LIVE SIMULATOR FOR THIS SECTION */}
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" />
+                        Kioo Halisi cha Muonekano (Live Component Simulator):
+                      </span>
+                      <div className="p-3 bg-[#0a0a12] border border-neutral-800 rounded-2xl">
+                        {renderSlotLiveSimulator(slot)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Slot Footer Bar */}
+                  <div className="p-4 bg-[#141424] border-t border-neutral-800/80 flex items-center justify-between text-xs">
+                    <button
+                      onClick={() => handleUpdateSlotAssignment(slot.id, { 
+                        animationId: slot.defaultAnimationId, 
+                        customText: slot.sampleText,
+                        enabled: true 
+                      })}
+                      className="text-neutral-400 hover:text-orange-400 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Rudisha ya Awali ({slot.name})
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedAnimationForModal(activeAnim);
+                        setActiveTabCode('usage');
+                      }}
+                      className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Code2 className="w-3.5 h-3.5" />
+                      Tazama Code
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Code Inspection & Integration Modal */}
       <AnimatePresence>
@@ -1375,7 +2031,7 @@ export function CssAnimatedTextStudio() {
 
                 <button
                   onClick={() => setSelectedAnimationForModal(null)}
-                  className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center cursor-pointer"
                 >
                   ✕
                 </button>
@@ -1395,7 +2051,7 @@ export function CssAnimatedTextStudio() {
               <div className="flex border-b border-neutral-800 bg-[#141420] px-5 gap-4">
                 <button
                   onClick={() => setActiveTabCode('css')}
-                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
                     activeTabCode === 'css'
                       ? 'border-orange-500 text-orange-400'
                       : 'border-transparent text-neutral-400 hover:text-white'
@@ -1406,7 +2062,7 @@ export function CssAnimatedTextStudio() {
                 </button>
                 <button
                   onClick={() => setActiveTabCode('tailwind')}
-                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
                     activeTabCode === 'tailwind'
                       ? 'border-orange-500 text-orange-400'
                       : 'border-transparent text-neutral-400 hover:text-white'
@@ -1417,7 +2073,7 @@ export function CssAnimatedTextStudio() {
                 </button>
                 <button
                   onClick={() => setActiveTabCode('usage')}
-                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+                  className={`py-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
                     activeTabCode === 'usage'
                       ? 'border-orange-500 text-orange-400'
                       : 'border-transparent text-neutral-400 hover:text-white'
@@ -1434,7 +2090,7 @@ export function CssAnimatedTextStudio() {
                   <div className="relative">
                     <button
                       onClick={() => handleCopyCss(selectedAnimationForModal)}
-                      className="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
+                      className="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       Nakili CSS
@@ -1449,7 +2105,7 @@ export function CssAnimatedTextStudio() {
                   <div className="relative">
                     <button
                       onClick={() => handleCopyTailwind(selectedAnimationForModal)}
-                      className="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
+                      className="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       Nakili JSX
