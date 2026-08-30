@@ -4,7 +4,8 @@ import {
   UserPlus, MapPin, Navigation, Car, Bike, Sparkles, 
   Share2, QrCode, Phone, User, DollarSign, CheckCircle2, 
   ArrowRight, X, Clock, Compass, ShieldCheck, ChevronRight,
-  TrendingUp, Download, Copy, AlertCircle, RefreshCw
+  TrendingUp, Download, Copy, AlertCircle, RefreshCw,
+  Users, UsersRound, SplitSquareVertical, BadgePercent
 } from 'lucide-react';
 import { db } from '../../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -59,6 +60,8 @@ export default function StreetHailModal({
   const [vehicleType, setVehicleType] = useState<string>(
     defaultVehicleType.includes('bajaj') ? 'bajaj' : (defaultVehicleType.includes('car') || defaultVehicleType.includes('taxi') ? 'taxi' : 'boda')
   );
+  const [rideMode, setRideMode] = useState<'solo' | 'paposhare'>('paposhare');
+  const [poolingSeats, setPoolingSeats] = useState<number>(1);
   
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ussd' | 'wallet'>('cash');
   const [isStartingTrip, setIsStartingTrip] = useState(false);
@@ -74,8 +77,8 @@ export default function StreetHailModal({
   useEffect(() => {
     if (driverLocation) {
       setPickupCoords(driverLocation);
-      // Reverse geocode driver position
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${driverLocation[0]}&lon=${driverLocation[1]}&zoom=18&addressdetails=1`)
+      // Reverse geocode driver position using proxy
+      fetch(`/api/geo/reverse?lat=${driverLocation[0]}&lon=${driverLocation[1]}&zoom=18`)
         .then(res => res.json())
         .then(data => {
           if (data && data.display_name) {
@@ -99,8 +102,8 @@ export default function StreetHailModal({
     const timer = setTimeout(async () => {
       setIsSearchingDest(true);
       try {
-        const query = `${destSearch.trim()}, Tanzania`;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=tz`);
+        const query = destSearch.trim();
+        const res = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setDestSuggestions(data);
@@ -110,7 +113,7 @@ export default function StreetHailModal({
       } finally {
         setIsSearchingDest(false);
       }
-    }, 350);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [destSearch]);
@@ -134,7 +137,7 @@ export default function StreetHailModal({
 
   const tripDurationMinutes = Math.max(5, Math.round(tripDistanceKm * 2.8));
 
-  // Compute live fare based on vehicle and distance
+  // Compute live fare based on vehicle, mode, and distance
   const getFareBreakdown = () => {
     let base = 500;
     let ratePerKm = 700;
@@ -158,14 +161,21 @@ export default function StreetHailModal({
     // Round to nearest 500 TZS
     const roundedNormalFare = Math.ceil(calculatedRaw / 500) * 500;
     
+    // PapoShare Pooling discount: 40% discount for rider
+    const isShared = rideMode === 'paposhare';
+    const poolingDiscount = isShared ? Math.round(roundedNormalFare * (poolingSeats === 2 ? 0.25 : 0.40)) : 0;
+    
     // Welcome discount for new passenger onboarding
-    const discountAmount = welcomeDiscountApplied ? Math.min(1000, roundedNormalFare - minFare) : 0;
-    const finalPayableFare = Math.max(minFare, roundedNormalFare - discountAmount);
+    const discountAmount = welcomeDiscountApplied ? Math.min(500, roundedNormalFare - minFare) : 0;
+    const totalDiscount = poolingDiscount + discountAmount;
+    const finalPayableFare = Math.max(isShared ? Math.round(minFare * 0.6) : minFare, roundedNormalFare - totalDiscount);
 
     return {
       normalFare: roundedNormalFare,
-      discount: discountAmount,
-      finalFare: finalPayableFare
+      poolingDiscount,
+      discount: totalDiscount,
+      finalFare: finalPayableFare,
+      isPapoShare: isShared
     };
   };
 
@@ -238,6 +248,31 @@ export default function StreetHailModal({
         status: 'on_trip', // Direct active trip!
         isStreetHail: true,
         isDirectOnboard: true,
+        isPapoShare: fareInfo.isPapoShare,
+        rideMode: rideMode,
+        poolingSeats: poolingSeats,
+        poolingSavings: fareInfo.poolingDiscount,
+        availableSeatsLeft: vehicleType === 'boda' ? 0 : vehicleType === 'bajaj' ? (3 - poolingSeats) : (4 - poolingSeats),
+        coRiders: [
+          {
+            passengerName: cleanPassengerName,
+            passengerPhone: cleanPhone,
+            seats: poolingSeats,
+            destination: selectedDest.name,
+            fare: fareInfo.finalFare,
+            joinedAt: new Date().toISOString()
+          }
+        ],
+        stops: [
+          {
+            name: selectedDest.name,
+            address: selectedDest.address,
+            lat: selectedDest.lat,
+            lng: selectedDest.lng,
+            passenger: cleanPassengerName,
+            type: 'dropoff'
+          }
+        ],
         welcomeBonusGiven: true,
         driverInfo: {
           id: driverUser.uid,
@@ -279,17 +314,24 @@ export default function StreetHailModal({
     }
   };
 
+  const [qrType, setQrType] = useState<'instant' | 'referral'>('instant');
+  const [isFullscreenQr, setIsFullscreenQr] = useState(false);
+
+  const instantRideUrl = `${window.location.origin}/instant-ride/${driverUser?.uid || 'papo'}`;
   const referralUrl = `${window.location.origin}/?ref=${driverUser?.uid || 'papo'}&promo=KARIBU1000`;
+  const activeQrUrl = qrType === 'instant' ? instantRideUrl : referralUrl;
 
   const handleShareWhatsApp = () => {
     const driverName = driverProfile?.name || 'Dereva';
-    const message = `Habari! Panda nami leo (${driverName}) kwa safari salama na ya bei nafuu kupitia Pata! Pata punguzo la TZS 1,000 la safari yako ya kwanza kwa kubofya kiunganishi hiki:\n${referralUrl}`;
+    const message = qrType === 'instant'
+      ? `Habari! Omba usafiri wangu papo hapo bila kuhitaji app wala kujisajili kwa kubofya kiunganishi hiki:\n${instantRideUrl}`
+      : `Habari! Panda nami leo (${driverName}) kwa safari salama na ya bei nafuu kupitia Papo Hapo! Pata punguzo la TZS 1,000 la safari yako ya kwanza kwa kubofya kiunganishi hiki:\n${referralUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(referralUrl);
-    toast.success("Kiunganishi cha mualiko kimenakiliwa! Shiriki na wateja wako.");
+    navigator.clipboard.writeText(activeQrUrl);
+    toast.success("Kiunganishi kimenakiliwa! Shiriki na mteja wako.");
   };
 
   if (!isOpen) return null;
@@ -619,6 +661,76 @@ export default function StreetHailModal({
                   </div>
                 </div>
 
+                {/* Ride Mode Selector: PapoShare vs Solo */}
+                <div className="space-y-2 pt-1">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-neutral-500 flex items-center justify-between">
+                    <span>Aina ya Safari (Ride Mode)</span>
+                    <span className="text-[9px] font-extrabold text-emerald-500 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Okoa hadi 40%
+                    </span>
+                  </label>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRideMode('paposhare')}
+                      className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                        rideMode === 'paposhare'
+                          ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500'
+                          : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-base">👥</span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-500 text-black">
+                          Inapendekezwa
+                        </span>
+                      </div>
+                      <p className="text-xs font-black mt-1">PapoShare Pooling</p>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Gawana njia & nauli</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRideMode('solo')}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        rideMode === 'solo'
+                          ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500'
+                          : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      <span className="text-base">👤</span>
+                      <p className="text-xs font-black mt-1">Safari Binafsi (Solo)</p>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Chombo kizima chako</p>
+                    </button>
+                  </div>
+
+                  {/* Seat selector if PapoShare */}
+                  {rideMode === 'paposhare' && vehicleType !== 'boda' && (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                      <span className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300">
+                        Idadi ya Viti vya Mteja:
+                      </span>
+                      <div className="flex gap-1.5">
+                        {[1, 2].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setPoolingSeats(s)}
+                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                              poolingSeats === s
+                                ? 'bg-emerald-600 text-white shadow-sm'
+                                : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                            }`}
+                          >
+                            {s} {s === 1 ? 'Kiti (-40%)' : 'Viti (-25%)'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Fare Summary & Payment Method */}
                 <div className="p-4 rounded-3xl bg-neutral-900 dark:bg-black text-white border border-neutral-800 space-y-3 shadow-lg">
                   <div className="flex items-center justify-between text-xs">
@@ -626,12 +738,21 @@ export default function StreetHailModal({
                     <span className="font-black text-emerald-400">{tripDistanceKm} KM • ~{tripDurationMinutes} dk</span>
                   </div>
 
+                  {fareInfo.isPapoShare && fareInfo.poolingDiscount > 0 && (
+                    <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
+                      <span className="flex items-center gap-1">
+                        <span>👥 Punguzo la PapoShare (Gawana):</span>
+                      </span>
+                      <span>- TZS {fareInfo.poolingDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+
                   {welcomeDiscountApplied && (
                     <div className="flex items-center justify-between text-xs text-amber-300">
                       <span className="flex items-center gap-1">
                         <span>🎁 Punguzo la Mteja Mpya:</span>
                       </span>
-                      <span className="font-bold">- TZS {fareInfo.discount.toLocaleString()}</span>
+                      <span className="font-bold">- TZS {(welcomeDiscountApplied ? 500 : 0).toLocaleString()}</span>
                     </div>
                   )}
 
@@ -646,7 +767,7 @@ export default function StreetHailModal({
                         <span className="text-2xl font-black text-white tracking-tight">
                           TZS {fareInfo.finalFare.toLocaleString()}
                         </span>
-                        {welcomeDiscountApplied && (
+                        {fareInfo.discount > 0 && (
                           <span className="text-xs text-neutral-500 line-through font-bold">
                             {fareInfo.normalFare.toLocaleString()}
                           </span>
@@ -709,6 +830,35 @@ export default function StreetHailModal({
 
             {activeTab === 'qr' && (
               <div className="space-y-4 text-center">
+                {/* QR Type Selector */}
+                <div className="flex bg-neutral-200/80 dark:bg-neutral-800/80 p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setQrType('instant')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                      qrType === 'instant'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+                    }`}
+                  >
+                    <span>⚡</span>
+                    <span>Safari Papo Hapo (Bila App)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQrType('referral')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                      qrType === 'referral'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+                    }`}
+                  >
+                    <span>🎁</span>
+                    <span>Mualiko wa App</span>
+                  </button>
+                </div>
+
                 <div className="p-5 rounded-3xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 flex flex-col items-center space-y-4">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
                     <QrCode className="w-6 h-6 stroke-[2.5]" />
@@ -716,18 +866,20 @@ export default function StreetHailModal({
 
                   <div>
                     <h4 className="text-sm font-black tracking-tight">
-                      Mualiko wa QR Code ya Dereva
+                      {qrType === 'instant' ? 'QR ya Mteja Kupanda Papo Hapo' : 'QR ya Mualiko wa Programu'}
                     </h4>
                     <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto mt-0.5">
-                      Mteja anapochanganua (scan) QR hii kwa kamera yake, atafungua programu na kupata vocha ya <b>TZS 1,000</b> papo hapo!
+                      {qrType === 'instant'
+                        ? 'Mteja asiye na App anapochanganua (scan) QR hii, ataweka anapokwenda na kufanya selfie ya usalama, kisha safari inaanza hapo hapo!'
+                        : 'Mteja anapochanganua QR hii, atafungua programu na kupata vocha ya TZS 1,000 papo hapo!'}
                     </p>
                   </div>
 
                   {/* QR Code Frame */}
-                  <div className="p-4 bg-white rounded-3xl shadow-xl border-4 border-emerald-500/30 flex flex-col items-center">
+                  <div className="p-4 bg-white rounded-3xl shadow-xl border-4 border-emerald-500/30 flex flex-col items-center relative group">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(referralUrl)}&color=059669`}
-                      alt="Driver Referral QR Code"
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(activeQrUrl)}&color=059669`}
+                      alt="Driver QR Code"
                       className="w-48 h-48 rounded-xl object-contain"
                     />
                     <div className="mt-3 flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
@@ -735,9 +887,17 @@ export default function StreetHailModal({
                       <span>•</span>
                       <span>{driverProfile?.name || 'Dereva'}</span>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsFullscreenQr(true)}
+                      className="mt-2 text-[10px] font-black text-emerald-600 hover:text-emerald-700 underline"
+                    >
+                      🔍 Kuza QR Skrini Nzima
+                    </button>
                   </div>
 
-                  {/* Share buttons */}
+                  {/* Share & Print buttons */}
                   <div className="grid grid-cols-2 gap-2.5 w-full max-w-xs">
                     <button
                       type="button"
@@ -757,7 +917,81 @@ export default function StreetHailModal({
                       <span>Nakili Link</span>
                     </button>
                   </div>
+
+                  {/* Printable Sticker Link */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const printWin = window.open('', '_blank');
+                      if (printWin) {
+                        printWin.document.write(`
+                          <!DOCTYPE html>
+                          <html>
+                          <head>
+                            <title>Stika ya Gari / Boda - ${driverProfile?.vehiclePlate || 'Papo Hapo'}</title>
+                            <style>
+                              body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; }
+                              .card { background: white; padding: 32px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 320px; border: 4px solid #059669; }
+                              h2 { margin: 0 0 8px 0; color: #111827; font-size: 20px; }
+                              p { color: #6b7280; font-size: 12px; margin-bottom: 20px; }
+                              .qr-box { background: #ecfdf5; padding: 16px; border-radius: 16px; display: inline-block; margin-bottom: 16px; }
+                              .plate { background: #059669; color: white; padding: 6px 14px; border-radius: 9999px; font-weight: bold; font-size: 14px; display: inline-block; }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="card">
+                              <h2>⚡ SAFARI PAPO HAPO</h2>
+                              <p>Skani QR Code hii kwa kamera yako kuomba usafiri sasa hivi — <b>Bila App wala Usajili!</b></p>
+                              <div class="qr-box">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(instantRideUrl)}&color=059669" width="220" height="220" />
+                              </div>
+                              <div class="plate">${driverProfile?.vehiclePlate || 'T 123 ABC'} • ${driverProfile?.name || 'Dereva Rasmi'}</div>
+                            </div>
+                            <script>window.onload = function() { window.print(); };</script>
+                          </body>
+                          </html>
+                        `);
+                        printWin.document.close();
+                      }
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-black text-xs flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Pakua / Print Stika ya Kwenye Gari</span>
+                  </button>
                 </div>
+
+                {/* Fullscreen QR Modal */}
+                {isFullscreenQr && (
+                  <div className="fixed inset-0 z-[999999] bg-black/95 flex flex-col items-center justify-center p-6 text-white space-y-6">
+                    <button
+                      type="button"
+                      onClick={() => setIsFullscreenQr(false)}
+                      className="absolute top-6 right-6 w-12 h-12 rounded-full bg-neutral-800 text-white flex items-center justify-center text-xl font-bold"
+                    >
+                      ✕
+                    </button>
+                    <div className="text-center space-y-2">
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase border border-emerald-500/30">
+                        Onyesha Mteja Askani
+                      </span>
+                      <h3 className="text-2xl font-black">Scan Safari Papo Hapo</h3>
+                      <p className="text-sm text-neutral-400">Mteja hahitaji App wala kujisajili</p>
+                    </div>
+
+                    <div className="p-6 bg-white rounded-3xl shadow-2xl">
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(activeQrUrl)}&color=059669`}
+                        alt="Fullscreen QR"
+                        className="w-72 h-72 object-contain"
+                      />
+                    </div>
+
+                    <div className="px-5 py-2 rounded-full bg-neutral-900 border border-neutral-800 text-sm font-black text-emerald-400">
+                      🏷️ {driverProfile?.vehiclePlate || 'T 123 ABC'} • {driverProfile?.name || 'Dereva'}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

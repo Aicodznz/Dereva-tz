@@ -107,12 +107,12 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
       } else if (order.customerLocation && typeof order.customerLocation.lat === 'number' && typeof order.customerLocation.lng === 'number') {
         setCustomerLocation([order.customerLocation.lat, order.customerLocation.lng]);
       } else if (order.deliveryAddress) {
-        // Try to geocode the delivery address using OpenStreetMap Nominatim
+        // Try to geocode the delivery address using /api/geo/search
         try {
           const query = encodeURIComponent(order.deliveryAddress);
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+          const response = await fetch(`/api/geo/search?q=${query}&limit=1`);
           const data = await response.json();
-          if (data && data.length > 0) {
+          if (Array.isArray(data) && data.length > 0) {
             const lat = parseFloat(data[0].lat);
             const lon = parseFloat(data[0].lon);
             setCustomerLocation([lat, lon]);

@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-// Using initializeFirestore for stable connection
+
+// Initialize Firestore with robust long-polling transport for cloud container / sandbox preview resilience
 export const db = initializeFirestore(app, {
   ignoreUndefinedProperties: true,
+  experimentalForceLongPolling: true,
 }, (firebaseConfig as any).firestoreDatabaseId || '(default)');
 
 export const storage = getStorage(app);
@@ -42,6 +44,8 @@ interface FirestoreErrorInfo {
   }
 }
 
+let lastOfflineToastTime = 0;
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
@@ -58,7 +62,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  }
+  };
   
   const errorMessage = error instanceof Error ? error.message : String(error);
   const isOffline = errorMessage.includes('unavailable') || 
@@ -72,14 +76,18 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   if (errorMessage.includes('Quota limit exceeded') || errorMessage.includes('resource-exhausted')) {
     toast.error("Quota ya Firestore imeisha kwaleo. Tafadhali jaribu tena kesho.", {
       description: "Limit ya database ya bure imefikiwa.",
-      duration: Infinity,
+      duration: 10000,
     });
   } else if (isOffline) {
-    // Show a subtle warning toast rather than an intrusive error
-    toast.info("Unatumia Mfumo bila Mtandao (Offline Mode).", {
-      description: "Data zako zitatunzwa kwenye kifaa chako hadi mtandao urudi.",
-      duration: 5000
-    });
+    // Only notify once every 60 seconds to prevent alert noise
+    const now = Date.now();
+    if (now - lastOfflineToastTime > 60000) {
+      lastOfflineToastTime = now;
+      toast.info("Unatumia Mfumo bila Mtandao (Offline Mode).", {
+        description: "Data zako zitatunzwa kwenye kifaa chako hadi mtandao urudi.",
+        duration: 4000
+      });
+    }
   }
 
   if (isOffline || isPermissionError) {

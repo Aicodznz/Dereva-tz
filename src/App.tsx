@@ -21,6 +21,7 @@ import TableSession from './components/TableSession';
 import Checkout from './components/Checkout';
 import PublicStatusDisplay from './components/PublicStatusDisplay';
 import PublicReceiptVerification from './components/PublicReceiptVerification';
+import InstantQrRide from './components/public/InstantQrRide';
 import { Toaster } from '@/components/ui/sonner';
 
 import Login from './components/auth/Login';
@@ -369,11 +370,16 @@ function AppContent() {
       </AnimatePresence>
 
       <Routes>
-        {/* Auth Routes */}
+        {/* Auth & Public Scan Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/staff/login" element={<StaffLogin />} />
       <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
       <Route path="/verify-receipt/:id" element={<PublicReceiptVerification />} />
+      <Route path="/instant-ride/:driverId" element={<InstantQrRide />} />
+      <Route path="/instant-ride" element={<InstantQrRide />} />
+      <Route path="/ride/qr/:driverId" element={<InstantQrRide />} />
+      <Route path="/ride/qr" element={<InstantQrRide />} />
+      <Route path="/instant-ride/trip/:rideId" element={<InstantQrRide />} />
       <Route path="/register" element={<RegisterChoice />} />
       <Route path="/register/customer" element={<RegisterCustomer />} />
       <Route path="/register/driver" element={<RegisterDriver />} />
