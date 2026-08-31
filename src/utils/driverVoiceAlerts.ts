@@ -214,6 +214,26 @@ export const playBonusClaimSound = () => {
 };
 
 // Swahili Natural Speech Synthesis Engine
+export const formatDistanceSwahili = (meters: number): string => {
+  if (meters >= 1000) {
+    const km = meters / 1000;
+    if (km >= 10) {
+      return `kilometa ${Math.round(km)}`;
+    }
+    const rounded = Math.round(km * 10) / 10;
+    if (Number.isInteger(rounded)) {
+      return `kilometa ${rounded}`;
+    }
+    const parts = rounded.toString().split('.');
+    return `kilometa ${parts[0]} nukta ${parts[1]}`;
+  }
+  if (meters >= 100) {
+    const roundedMeters = Math.round(meters / 50) * 50;
+    return `mita ${roundedMeters}`;
+  }
+  return `mita ${Math.max(10, Math.round(meters / 10) * 10)}`;
+};
+
 export const speakSwahili = (text: string, force: boolean = false) => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   const settings = getDefaultAudioSettings();
@@ -224,13 +244,14 @@ export const speakSwahili = (text: string, force: boolean = false) => {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
+    utterance.lang = 'sw-TZ';
+    utterance.rate = 0.96;
     utterance.pitch = 1.05;
     utterance.volume = force ? 1.0 : settings.volume;
 
     // Search for Swahili voice or fallback to default
     const voices = window.speechSynthesis.getVoices();
-    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.name.toLowerCase().includes('swahili'));
+    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.name.toLowerCase().includes('swahili') || v.name.toLowerCase().includes('tanzania') || v.name.toLowerCase().includes('kenya'));
     if (swVoice) {
       utterance.voice = swVoice;
     }
@@ -240,6 +261,145 @@ export const speakSwahili = (text: string, force: boolean = false) => {
     console.warn("Swahili TTS speech error:", err);
   }
 };
+
+// Swahili Navigation Voice Assistant Tracker for Driver Live Navigation
+class SwahiliNavigationTracker {
+  private spokenMilestones: Set<string> = new Set();
+  private lastSpokenTime: number = 0;
+  private currentTripId: string = '';
+
+  public reset(tripId: string = '') {
+    this.spokenMilestones.clear();
+    this.lastSpokenTime = 0;
+    this.currentTripId = tripId;
+  }
+
+  // Generate natural Swahili maneuver text
+  public generateManeuverPrompt(
+    distanceMeters: number, 
+    maneuverType: 'left' | 'right' | 'straight' | 'u_turn' | 'arrive' | 'roundabout', 
+    roadName?: string
+  ): string {
+    const distText = formatDistanceSwahili(distanceMeters);
+    const cleanRoad = roadName && roadName.trim() && !roadName.toLowerCase().includes('unnamed') ? ` kuelekea ${roadName.trim()}` : '';
+
+    if (maneuverType === 'arrive' || distanceMeters <= 50) {
+      if (maneuverType === 'arrive') {
+        return `Umewasili eneo la mwisho wa safari.${cleanRoad ? ` ${roadName}.` : ''} Mshushe abiria salama.`;
+      }
+      if (maneuverType === 'left') return `Sasa ingia kushoto${cleanRoad}.`;
+      if (maneuverType === 'right') return `Sasa kata kulia${cleanRoad}.`;
+      if (maneuverType === 'u_turn') return `Geuza chombo (U-turn) sasa.`;
+      return `Endelea moja kwa moja.`;
+    }
+
+    if (distanceMeters >= 1000) {
+      // e.g. "Baada ya kilometa 2 kata kulia kuelekea Sam Nujoma Road"
+      if (maneuverType === 'right') return `Baada ya ${distText}, kata kulia${cleanRoad}.`;
+      if (maneuverType === 'left') return `Baada ya ${distText}, ingia kushoto${cleanRoad}.`;
+      if (maneuverType === 'roundabout') return `Baada ya ${distText}, utaingia kwenye mzunguko wa barabara${cleanRoad}.`;
+      return `Baada ya ${distText}, endelea moja kwa moja${cleanRoad}.`;
+    }
+
+    // Between 100m and 999m (e.g. "Mbele mita 500 ingia kushoto")
+    if (distanceMeters >= 200) {
+      if (maneuverType === 'right') return `Mbele ${distText}, kata kulia${cleanRoad}.`;
+      if (maneuverType === 'left') return `Mbele ${distText}, ingia kushoto${cleanRoad}.`;
+      if (maneuverType === 'roundabout') return `Mbele ${distText}, ingia kwenye mzunguko${cleanRoad}.`;
+      return `Mbele ${distText}, endelea moja kwa moja${cleanRoad}.`;
+    }
+
+    // 50m to 199m
+    if (maneuverType === 'right') return `Mbele ${distText}, jitayarishe kukata kulia${cleanRoad}.`;
+    if (maneuverType === 'left') return `Mbele ${distText}, jitayarishe kuingia kushoto${cleanRoad}.`;
+    return `Mbele ${distText}, endelea na njia hii.`;
+  }
+
+  // Check and trigger voice prompts intelligently
+  public checkAndAnnounce(params: {
+    tripId?: string;
+    totalRemainingMeters: number;
+    nextStepMeters?: number;
+    maneuverType?: 'left' | 'right' | 'straight' | 'u_turn' | 'arrive' | 'roundabout';
+    roadName?: string;
+    destinationName?: string;
+    isPapoShare?: boolean;
+    nextStopName?: string;
+    force?: boolean;
+  }) {
+    const { 
+      tripId = '', 
+      totalRemainingMeters, 
+      nextStepMeters, 
+      maneuverType = 'straight', 
+      roadName, 
+      destinationName,
+      isPapoShare,
+      nextStopName,
+      force = false 
+    } = params;
+
+    if (tripId && tripId !== this.currentTripId) {
+      this.reset(tripId);
+    }
+
+    const now = Date.now();
+    // Minimum 4 seconds between regular voice navigation prompts unless forced
+    if (!force && now - this.lastSpokenTime < 4500) {
+      return;
+    }
+
+    // 1. Check Remaining Trip Milestones (e.g., 3000m, 1000m, 500m, Arrival)
+    const tripMilestoneGates = [
+      { key: 'trip_5km', threshold: 5000, max: 5300, text: 'Imebaki kilometa 5 kufika mwisho wa safari.' },
+      { key: 'trip_3km', threshold: 3000, max: 3250, text: 'Imebaki kilometa 3 kufika mwisho wa safari.' },
+      { key: 'trip_2km', threshold: 2000, max: 2200, text: 'Imebaki kilometa 2 kufika mwisho wa safari.' },
+      { key: 'trip_1km', threshold: 1000, max: 1150, text: 'Imebaki kilometa 1 kufika mwisho wa safari.' },
+      { key: 'trip_500m', threshold: 500, max: 600, text: 'Imebaki mita 500 kufika eneo la kushusha abiria.' },
+      { key: 'trip_arrived', threshold: 0, max: 60, text: isPapoShare && nextStopName 
+          ? `Umewasili kituo cha kushusha ${nextStopName}.` 
+          : `Umewasili eneo la mwisho wa safari ${destinationName ? `la ${destinationName}` : ''}. Mshushe abiria salama.` 
+      }
+    ];
+
+    for (const gate of tripMilestoneGates) {
+      if (totalRemainingMeters <= gate.max && totalRemainingMeters >= gate.threshold) {
+        if (!this.spokenMilestones.has(gate.key)) {
+          this.spokenMilestones.add(gate.key);
+          this.lastSpokenTime = now;
+          speakSwahili(gate.text, force);
+          return;
+        }
+      }
+    }
+
+    // 2. Check Next Turn Maneuver Milestones
+    if (nextStepMeters !== undefined && maneuverType && maneuverType !== 'straight') {
+      const stepMilestoneGates = [
+        { key: `step_3km_${maneuverType}`, min: 2800, max: 3100, dist: 3000 },
+        { key: `step_2km_${maneuverType}`, min: 1900, max: 2150, dist: 2000 },
+        { key: `step_1km_${maneuverType}`, min: 950, max: 1100, dist: 1000 },
+        { key: `step_500m_${maneuverType}`, min: 450, max: 550, dist: 500 },
+        { key: `step_200m_${maneuverType}`, min: 170, max: 230, dist: 200 },
+        { key: `step_50m_${maneuverType}`, min: 20, max: 60, dist: 50 }
+      ];
+
+      for (const stepGate of stepMilestoneGates) {
+        if (nextStepMeters <= stepGate.max && nextStepMeters >= stepGate.min) {
+          if (!this.spokenMilestones.has(stepGate.key)) {
+            this.spokenMilestones.add(stepGate.key);
+            this.lastSpokenTime = now;
+            const prompt = this.generateManeuverPrompt(nextStepMeters, maneuverType, roadName);
+            speakSwahili(prompt, force);
+            return;
+          }
+        }
+      }
+    }
+  }
+}
+
+export const swahiliNavTracker = new SwahiliNavigationTracker();
 
 // High-level Helper Action Triggers for Driver Flow
 export const DriverVoice = {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Navigation2, 
@@ -19,9 +19,19 @@ import {
   Languages,
   Sparkles,
   Radio,
-  Navigation
+  Navigation,
+  Sliders,
+  Play,
+  X
 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
+import { 
+  swahiliNavTracker, 
+  speakSwahili, 
+  formatDistanceSwahili,
+  getDefaultAudioSettings,
+  saveAudioSettings 
+} from '../../utils/driverVoiceAlerts';
 
 export interface RouteStepProp {
   distance: number;
@@ -226,32 +236,64 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     }
   }, [routeSteps, driverLocation, distMeters, destinationName, formattedDist, useSwahili]);
 
+  const [showVoiceTester, setShowVoiceTester] = useState(false);
+  const [audioConfig, setAudioConfig] = useState(() => getDefaultAudioSettings());
+
+  // Handle automatic Swahili voice navigation announcements as the vehicle moves
+  useEffect(() => {
+    if (!useSwahili || isVoiceMuted || !audioConfig.voiceEnabled) return;
+
+    const maneuverTypeMap: Record<string, 'left' | 'right' | 'straight' | 'arrive'> = {
+      left: 'left',
+      right: 'right',
+      straight: 'straight',
+      check: 'arrive'
+    };
+
+    const maneuver = maneuverTypeMap[currentManeuver.icon] || 'straight';
+    const nextStepMeters = currentManeuver.stepMeters || distMeters;
+
+    swahiliNavTracker.checkAndAnnounce({
+      tripId: ride.id,
+      totalRemainingMeters: distMeters,
+      nextStepMeters: nextStepMeters,
+      maneuverType: maneuver,
+      roadName: currentManeuver.subTitle,
+      destinationName: destinationName,
+      isPapoShare: (ride as any).poolingMode === 'share',
+      nextStopName: (ride as any).currentDropoffRiderName,
+      force: false
+    });
+  }, [distMeters, currentManeuver, ride.id, useSwahili, isVoiceMuted, audioConfig.voiceEnabled, destinationName, ride]);
+
   // AI Live Audio & Context-Aware Voice Guidance Generator
   const handleSparkleAiClick = useCallback(() => {
     // Generate context-rich speech response
     let responseText = '';
     const meters = currentManeuver.stepMeters || distMeters;
     const destStr = destinationName || 'eneo la safari';
+    const distText = formatDistanceSwahili(meters);
+    const totalDistText = formatDistanceSwahili(distMeters);
 
     if (useSwahili) {
       if (distMeters <= 70) {
-        responseText = `Mkuu, umewasili ${destStr}. Mshushe abiria salama.`;
+        responseText = `Mkuu, umewasili eneo la mwisho wa safari ${destStr}. Mshushe abiria salama.`;
       } else if (currentManeuver.icon === 'right') {
-        responseText = `Umebaki mita ${meters} kabla ya kupinda kulia kuelekea ${currentManeuver.subTitle}. Trafiki ni shwari, muda wa kufika ni dakika ${etaMins}.`;
+        responseText = `Baada ya ${distText}, kata kulia kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
       } else if (currentManeuver.icon === 'left') {
-        responseText = `Umebaki mita ${meters} kabla ya kupinda kushoto kuelekea ${currentManeuver.subTitle}. Endelea kwa umakini.`;
+        responseText = `Baada ya ${distText}, ingia kushoto kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
       } else {
-        responseText = `Endelea mbele kuelekea ${currentManeuver.subTitle}. Umebakiwa na ${formattedDist}, takriban dakika ${etaMins} kufika.`;
+        responseText = `Endelea moja kwa moja kwa ${distText} kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
       }
     } else {
       if (distMeters <= 70) {
         responseText = `You have arrived at ${destStr}.`;
       } else if (currentManeuver.icon === 'right') {
-        responseText = `In ${meters} meters, turn right onto ${currentManeuver.subTitle}. Traffic is clear, ETA is ${etaMins} minutes.`;
+        responseText = `In ${distText}, turn right onto ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
       } else if (currentManeuver.icon === 'left') {
-        responseText = `In ${meters} meters, turn left onto ${currentManeuver.subTitle}.`;
+        responseText = `In ${distText}, turn left onto ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
       } else {
-        responseText = `Head northwest toward ${currentManeuver.subTitle}. ${formattedDist} remaining, ETA ${etaMins} minutes.`;
+        responseText = `Continue straight for ${distText} toward ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
       }
     }
 
@@ -259,26 +301,10 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     setShowAssistantTip(true);
     setIsAiSpeaking(true);
 
-    // Speak using Web Speech Synthesis API directly with Swahili / English voice
-    try {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(responseText);
-        utterance.lang = useSwahili ? 'sw-TZ' : 'en-US';
-        utterance.rate = 0.95;
-        utterance.pitch = 1.05;
-        utterance.volume = 1.0;
-        utterance.onend = () => setIsAiSpeaking(false);
-        utterance.onerror = () => setIsAiSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-      } else if (onSpeak) {
-        onSpeak(responseText);
-      }
-    } catch (e) {
-      console.warn('SpeechSynthesis error:', e);
-      setIsAiSpeaking(false);
-    }
-  }, [currentManeuver, distMeters, destinationName, useSwahili, etaMins, formattedDist, onSpeak]);
+    // Speak using Swahili engine directly
+    speakSwahili(responseText, true);
+    setTimeout(() => setIsAiSpeaking(false), 5000);
+  }, [currentManeuver, distMeters, destinationName, useSwahili, etaMins]);
 
   return (
     <div 
@@ -360,6 +386,23 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                 )}
               </button>
 
+              {/* Audio / Voice Navigation Controls Button */}
+              <button
+                onClick={() => setShowVoiceTester(true)}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                  audioConfig.voiceEnabled && !isVoiceMuted
+                    ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                    : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                }`}
+                title="Sauti ya Kiswahili & Majaribio (Voice Settings)"
+              >
+                {audioConfig.voiceEnabled && !isVoiceMuted ? (
+                  <Volume2 className="w-4 h-4" />
+                ) : (
+                  <VolumeX className="w-4 h-4" />
+                )}
+              </button>
+
               {/* Language Switch */}
               <button
                 onClick={() => setUseSwahili(!useSwahili)}
@@ -380,6 +423,129 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
           </div>
 
         </div>
+
+        {/* Swahili Voice Navigation Settings & Test Modal */}
+        <AnimatePresence>
+          {showVoiceTester && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="mt-2.5 p-4 bg-neutral-900/98 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-emerald-500/30 text-white"
+            >
+              <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-white">Sauti ya Kiswahili kwa Dereva</h3>
+                    <p className="text-[10px] text-neutral-400">Swahili Turn-by-Turn Voice Navigation & Alerts</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowVoiceTester(false)}
+                  className="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Master Voice Toggle */}
+              <div className="flex items-center justify-between p-2.5 rounded-2xl bg-neutral-800/80 mb-3 border border-neutral-700/60">
+                <div className="flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold">Mwongozo wa Sauti (Voice Nav)</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = { ...audioConfig, voiceEnabled: !audioConfig.voiceEnabled };
+                    setAudioConfig(next);
+                    saveAudioSettings(next);
+                    if (next.voiceEnabled) {
+                      speakSwahili("Sauti ya mwongozo wa ramani imewashwa.", true);
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-xl text-xs font-black transition-all ${
+                    audioConfig.voiceEnabled
+                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/30'
+                      : 'bg-neutral-700 text-neutral-400'
+                  }`}
+                >
+                  {audioConfig.voiceEnabled ? 'IMEWASHWA' : 'IMEZIMWA'}
+                </button>
+              </div>
+
+              {/* Volume Slider */}
+              <div className="p-2.5 rounded-2xl bg-neutral-800/80 mb-3 border border-neutral-700/60">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="text-neutral-300 font-medium">Kiwango cha Sauti (Volume)</span>
+                  <span className="font-mono font-bold text-emerald-400">{Math.round(audioConfig.volume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={audioConfig.volume}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    const next = { ...audioConfig, volume: val };
+                    setAudioConfig(next);
+                    saveAudioSettings(next);
+                  }}
+                  className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+              </div>
+
+              {/* Sample Voice Quick Test Phrases */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                  JARIBU SAMPULI ZA MAELEKEZO YA SAUTI:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {[
+                    { label: 'Kilometa 2 kata kulia', text: 'Baada ya kilometa 2, kata kulia kuelekea Sam Nujoma Road.' },
+                    { label: 'Kilometa 3 ingia kushoto', text: 'Baada ya kilometa 3, ingia kushoto kuelekea Ali Hassan Mwinyi Road.' },
+                    { label: 'Imebaki kilometa 3', text: 'Imebaki kilometa 3 kufika mwisho wa safari.' },
+                    { label: 'Mbele mita 500 ingia kushoto', text: 'Mbele mita 500, ingia kushoto.' },
+                    { label: 'Sasa kata kulia', text: 'Sasa kata kulia.' },
+                    { label: 'Umewasili mwisho wa safari', text: 'Umewasili eneo la mwisho wa safari. Mshushe abiria salama.' },
+                  ].map((sample, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        speakSwahili(sample.text, true);
+                      }}
+                      className="p-2 rounded-xl bg-neutral-800/90 hover:bg-neutral-700/90 border border-neutral-700/70 text-left flex items-center justify-between gap-2 group transition-all active:scale-98"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-neutral-200 block truncate group-hover:text-emerald-400">
+                          {sample.label}
+                        </span>
+                        <span className="text-[9px] text-neutral-400 truncate block">
+                          {sample.text}
+                        </span>
+                      </div>
+                      <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                        <Play className="w-3 h-3 fill-emerald-400" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-neutral-800 text-center">
+                <button
+                  onClick={() => setShowVoiceTester(false)}
+                  className="w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black tracking-wider uppercase transition-colors shadow-lg shadow-emerald-600/30"
+                >
+                  HIFADHI & ENDELEA NA SAFARI
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* AI Assistant Audio/Text Tip Popup */}
         <AnimatePresence>
