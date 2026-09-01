@@ -2587,11 +2587,71 @@ const getEndPin = (etaText: string) => {
 
                   // For driver_arrived or other active steps, show the full upcoming trip route animated
                   return (
-                    <AnimatedRoute
-                      positions={fullTripRoute}
-                      color="#2563EB"
-                      showTrafficSegments={true}
-                    />
+                    <>
+                      <AnimatedRoute
+                        positions={fullTripRoute}
+                        color="#2563EB"
+                        showTrafficSegments={true}
+                      />
+                      {/* On-Road 3D Floating Turn Callout Marker (Google Maps Exact Match) */}
+                      {steps && steps.length > 0 && (() => {
+                        const activeTurnStep = steps.find(s => s.distance > 15 && s.distance < 1200 && s.location);
+                        if (!activeTurnStep) return null;
+                        const instr = activeTurnStep.instruction.toLowerCase();
+                        const isLeft = instr.includes('left') || instr.includes('kushoto');
+                        const isRight = instr.includes('right') || instr.includes('kulia');
+                        const symbol = isLeft ? '↖' : isRight ? '↗' : '↑';
+                        const roadName = activeTurnStep.instruction.replace(/^(Head|Turn|Continue|Merge|Keep|Ingia|Kata|Endelea)\s*(left|right|straight|onto|kushoto|kulia)?\s*/i, '').trim() || 'Njia Kuu';
+                        
+                        const turnCalloutIcon = L.divIcon({
+                          html: `
+                            <div style="
+                              background: #1E40AF;
+                              color: white;
+                              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                              font-weight: 800;
+                              font-size: 11px;
+                              padding: 4px 10px;
+                              border-radius: 14px;
+                              box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+                              border: 2px solid white;
+                              white-space: nowrap;
+                              display: flex;
+                              align-items: center;
+                              gap: 6px;
+                              position: relative;
+                              transform: translate(-50%, -120%);
+                              pointer-events: none;
+                            ">
+                              <span style="font-size: 13px; font-weight: 900; color: #93C5FD;">${symbol}</span>
+                              <span style="letter-spacing: -0.2px;">${roadName.length > 20 ? roadName.substring(0, 20) + '...' : roadName}</span>
+                              <div style="
+                                position: absolute;
+                                bottom: -6px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                width: 0;
+                                height: 0;
+                                border-left: 5px solid transparent;
+                                border-right: 5px solid transparent;
+                                border-top: 6px solid #1E40AF;
+                              "></div>
+                            </div>
+                          `,
+                          className: 'on-road-turn-callout',
+                          iconSize: [0, 0],
+                          iconAnchor: [0, 0]
+                        });
+
+                        return (
+                          <Marker
+                            key={`turn-step-${activeTurnStep.location[0]}-${activeTurnStep.location[1]}`}
+                            position={[activeTurnStep.location[0], activeTurnStep.location[1]]}
+                            icon={turnCalloutIcon}
+                          />
+                        );
+                      })()}
+                    </>
                   );
                 })()}
               </>

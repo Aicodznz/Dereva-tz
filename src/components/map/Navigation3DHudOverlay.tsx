@@ -324,90 +324,70 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       >
         <div className="flex flex-col items-start drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
           
-          {/* Main Dark Teal Green Card Container (#005953 / #004742) */}
-          <div className="bg-[#005953] text-white p-3 sm:p-4 w-full rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 shadow-lg border border-[#004e46]">
+          {/* Main Dark Green Navigation Card Container (Google Maps Exact Match: #0E6E45) */}
+          <div className="bg-[#0E6E45] text-white p-3.5 sm:p-4 w-full rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3.5 shadow-2xl border border-[#0A5C36]">
             
-            {/* Maneuver Arrow & Main Instruction Text */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-              
-              {/* White Navigation Arrow with Dashed Stem (Exact Match) */}
-              <div className="w-12 h-12 flex items-center justify-center shrink-0">
+            {/* Maneuver Arrow & Distance Block */}
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Maneuver Direction Icon */}
+              <div className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center">
                 {currentManeuver.icon === 'straight' && (
-                  <svg className="w-10 h-10 text-white fill-current" viewBox="0 0 28 28">
-                    {/* Arrow Head */}
+                  <svg className="w-9 h-9 sm:w-10 sm:h-10 text-white fill-current" viewBox="0 0 28 28">
                     <path d="M14 2L6 10h5v4h6v-4h5L14 2z" />
-                    {/* Dashed Vertical Stem */}
                     <rect x="11.5" y="16" width="5" height="4" rx="1" />
                     <rect x="11.5" y="22" width="5" height="4" rx="1" />
                   </svg>
                 )}
                 {currentManeuver.icon === 'right' && (
-                  <CornerUpRight className="w-10 h-10 text-white stroke-[3]" />
+                  <CornerUpRight className="w-9 h-9 sm:w-10 sm:h-10 text-white stroke-[3.5]" />
                 )}
                 {currentManeuver.icon === 'left' && (
-                  <CornerUpLeft className="w-10 h-10 text-white stroke-[3]" />
+                  <CornerUpLeft className="w-9 h-9 sm:w-10 sm:h-10 text-white stroke-[3.5]" />
                 )}
                 {currentManeuver.icon === 'check' && (
-                  <CheckCircle2 className="w-10 h-10 text-emerald-300 stroke-[3]" />
+                  <CheckCircle2 className="w-9 h-9 sm:w-10 sm:h-10 text-emerald-300 stroke-[3.5]" />
                 )}
               </div>
 
-              {/* Main Instruction Headline */}
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight truncate">
-                  {currentManeuver.mainText}
-                </h1>
-                {currentManeuver.subTitle && (
-                  <p className="text-[11px] sm:text-xs text-[#a7f3d0] font-medium truncate mt-0.5 opacity-90">
-                    {currentManeuver.subTitle}
-                  </p>
-                )}
+              {/* Distance Display (e.g. 500m / 2.4 km) */}
+              <div className="flex flex-col">
+                <span className="text-xl sm:text-2xl font-black tracking-tight leading-none text-white font-mono">
+                  {currentManeuver.distFormatted.replace('In ', '')}
+                </span>
               </div>
             </div>
 
-            {/* Right-Side Google AI Sparkle Star Button (Interactive Audio Response) */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Street / Route Headline Block */}
+            <div className="min-w-0 flex-1 pl-1">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-tight truncate">
+                {currentManeuver.subTitle || currentManeuver.mainText}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100/90 font-semibold truncate mt-0.5">
+                {currentManeuver.mainText}
+              </p>
+            </div>
+
+            {/* Right-Side Quick Actions & Audio Controls */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Instant Audio Speaker Test Button */}
               <button
-                onClick={handleSparkleAiClick}
-                className={`w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all text-[#2563EB] relative ${
-                  isAiSpeaking ? 'ring-4 ring-blue-300 ring-offset-1 animate-pulse' : ''
-                }`}
-                title="Bofya kupata mwongozo wa sauti wa Papo AI"
+                onClick={() => {
+                  const sampleText = useSwahili
+                    ? `Baada ya ${currentManeuver.distFormatted.replace('In ', '')}, ${currentManeuver.mainText.toLowerCase()} kuelekea ${currentManeuver.subTitle || 'mbele'}.`
+                    : `In ${currentManeuver.distFormatted.replace('In ', '')}, ${currentManeuver.mainText} onto ${currentManeuver.subTitle || 'ahead'}.`;
+                  speakSwahili(sampleText, true, currentManeuver.icon === 'right' ? 'right' : currentManeuver.icon === 'left' ? 'left' : 'straight');
+                }}
+                className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition-all border border-white/20"
+                title="Sikiliza Maelekezo ya Sauti (Test Swahili Voice)"
               >
-                {/* 4-Point Blue Diamond / Sparkle Star */}
-                <svg className="w-6 h-6 fill-[#2563EB] text-[#2563EB]" viewBox="0 0 24 24">
-                  <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-                </svg>
-                {isAiSpeaking && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
-                  </span>
-                )}
+                <Volume2 className="w-5 h-5 text-white" />
               </button>
 
-              {/* Audio / Voice Navigation Controls Button */}
+              {/* Settings / Switch button */}
               <button
                 onClick={() => setShowVoiceTester(true)}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                  audioConfig.voiceEnabled && !isVoiceMuted
-                    ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
-                    : 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
-                }`}
-                title="Sauti ya Kiswahili & Majaribio (Voice Settings)"
-              >
-                {audioConfig.voiceEnabled && !isVoiceMuted ? (
-                  <Volume2 className="w-4 h-4" />
-                ) : (
-                  <VolumeX className="w-4 h-4" />
-                )}
-              </button>
-
-              {/* Language Switch */}
-              <button
-                onClick={() => setUseSwahili(!useSwahili)}
-                className="text-[9px] font-black uppercase bg-black/20 hover:bg-black/40 text-white px-2 py-1.5 rounded-xl transition-all"
-                title="Badili Lugha / Switch Language"
+                className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/30 text-white flex items-center justify-center transition-all text-[10px] font-black"
+                title="Mipangilio ya Sauti"
               >
                 {useSwahili ? 'SW' : 'EN'}
               </button>
@@ -415,10 +395,13 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
           </div>
 
-          {/* Connected Secondary Maneuver Badge: "Then ↱" (Directly underneath on the left) */}
-          <div className="bg-[#004742] text-white px-4 py-1.5 rounded-xl mt-1 shadow-md flex items-center gap-2 border border-[#003833]">
-            <span className="text-sm font-bold tracking-wide text-white">
-              {currentManeuver.nextTurn}
+          {/* Connected Secondary Maneuver Badge: "Then ↖" / "Kisha ↖" */}
+          <div className="bg-[#084A2C] text-white px-3.5 py-1 rounded-xl mt-1.5 shadow-md flex items-center gap-1.5 border border-[#063B23]">
+            <span className="text-xs font-black tracking-wide text-emerald-200">
+              {useSwahili ? 'Kisha' : 'Then'}
+            </span>
+            <span className="text-xs font-bold text-white">
+              {currentManeuver.icon === 'left' ? '↖' : currentManeuver.icon === 'right' ? '↗' : '↑'}
             </span>
           </div>
 

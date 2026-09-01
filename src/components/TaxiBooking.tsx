@@ -5097,7 +5097,7 @@ const getEndPin = (etaText: string) => {
               className="absolute inset-0 z-[70] bg-transparent pointer-events-none"
             >
               <DriverFoundScreen
-                onNext={() => setStep("found")}
+                onNext={() => setStep("arriving")}
                 isMinimized={isMapFullscreen}
               />
             </motion.div>

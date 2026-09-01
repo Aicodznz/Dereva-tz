@@ -1,38 +1,60 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { speakSwahili, unlockAudioContext } from '../utils/driverVoiceAlerts';
 
 export const useVoiceNavigation = () => {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [isMuted, setIsMuted] = useState(true); // default to muted/unlocked state or as required
-  const synthRef = useRef(window.speechSynthesis);
+  const [isUnlocked, setIsUnlocked] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   const unlock = useCallback(() => {
-    // MUST be called from a user gesture (button tap)
-    const silent = new SpeechSynthesisUtterance(' ');
-    silent.volume = 0;
-    synthRef.current.speak(silent);
-    setIsUnlocked(true);
-    setIsMuted(false);
+    try {
+      unlockAudioContext();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        const silent = new SpeechSynthesisUtterance(' ');
+        silent.volume = 0.01;
+        window.speechSynthesis.speak(silent);
+      }
+      setIsUnlocked(true);
+      setIsMuted(false);
+    } catch (e) {
+      console.warn("Audio unlock error:", e);
+    }
   }, []);
 
-  const speak = useCallback((text: string) => {
-    if (!isUnlocked || isMuted) return;
-    synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'sw-TZ';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    synthRef.current.speak(utterance);
-  }, [isUnlocked, isMuted]);
+  useEffect(() => {
+    const handleGlobalInteraction = () => {
+      unlock();
+    };
+
+    window.addEventListener('click', handleGlobalInteraction, { once: true });
+    window.addEventListener('touchstart', handleGlobalInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleGlobalInteraction);
+      window.removeEventListener('touchstart', handleGlobalInteraction);
+    };
+  }, [unlock]);
+
+  const speak = useCallback((text: string, force: boolean = false) => {
+    if (isMuted && !force) return;
+    speakSwahili(text, force);
+  }, [isMuted]);
 
   const toggleMute = useCallback(() => {
-    if (!isUnlocked) {
-      unlock();
-    } else {
-      setIsMuted(prev => !prev);
-      synthRef.current.cancel();
-    }
-  }, [isUnlocked, unlock]);
+    setIsMuted(prev => {
+      const next = !prev;
+      if (!next) {
+        unlock();
+        speakSwahili("Sauti ya maelekezo imewashwa.", true);
+      } else {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      }
+      return next;
+    });
+  }, [unlock]);
 
-  return { isUnlocked, isMuted, speak, toggleMute };
+  return { isUnlocked, isMuted, speak, toggleMute, unlock };
 };
+

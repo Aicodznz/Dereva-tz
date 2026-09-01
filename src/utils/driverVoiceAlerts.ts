@@ -38,15 +38,109 @@ export const saveAudioSettings = (settings: DriverAudioSettings) => {
 };
 
 // Web Audio synthesizer for loud, multi-frequency dispatch sirens (audible through street traffic and helmets)
+let globalAudioCtx: AudioContext | null = null;
+
+export const getAudioContext = (): AudioContext | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    if (!globalAudioCtx) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        globalAudioCtx = new AudioCtx();
+      }
+    }
+    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+      globalAudioCtx.resume().catch(() => {});
+    }
+    return globalAudioCtx;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const unlockAudioContext = () => {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.resume();
+    } catch (e) {}
+  }
+};
+
+// Subtle modern Google Maps navigation turn chime (high-low or low-high 2-tone pulse)
+export const playNavTurnChime = (type: 'left' | 'right' | 'straight' | 'arrive' = 'straight') => {
+  const settings = getDefaultAudioSettings();
+  if (!settings.soundEnabled && !settings.voiceEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'right') {
+      // Rising double blip: 800Hz -> 1200Hz
+      osc.frequency.setValueAtTime(784, now);
+      osc.frequency.setValueAtTime(1046, now + 0.08);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.2 * settings.volume, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.start(now);
+      osc.stop(now + 0.19);
+    } else if (type === 'left') {
+      // Descending double blip: 1046Hz -> 784Hz
+      osc.frequency.setValueAtTime(1046, now);
+      osc.frequency.setValueAtTime(784, now + 0.08);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.2 * settings.volume, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.start(now);
+      osc.stop(now + 0.19);
+    } else if (type === 'arrive') {
+      // Arrived 3-tone chime: 523 -> 659 -> 784
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.frequency.setValueAtTime(freq, now + i * 0.1);
+        g.gain.setValueAtTime(0.001, now + i * 0.1);
+        g.gain.linearRampToValueAtTime(0.22 * settings.volume, now + i * 0.1 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
+        o.start(now + i * 0.1);
+        o.stop(now + i * 0.1 + 0.32);
+      });
+    } else {
+      // Straight gentle navigation blip: 880Hz
+      osc.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.18 * settings.volume, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    }
+  } catch (e) {
+    console.warn("Nav turn chime audio error:", e);
+  }
+};
+
 export const playDispatchAlarm = (customVolume?: number) => {
   const settings = getDefaultAudioSettings();
   if (!settings.soundEnabled && customVolume === undefined) return;
   const vol = customVolume ?? settings.volume;
 
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = getAudioContext();
+    if (!ctx) return;
     const now = ctx.currentTime;
 
     // Dual-tone urgent alert pattern: 880Hz (A5) -> 1320Hz (E6) repeating 3 times
@@ -234,29 +328,92 @@ export const formatDistanceSwahili = (meters: number): string => {
   return `mita ${Math.max(10, Math.round(meters / 10) * 10)}`;
 };
 
-export const speakSwahili = (text: string, force: boolean = false) => {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+// Voice caching to ensure instant speech synthesis on mobile browsers
+let cachedVoices: SpeechSynthesisVoice[] = [];
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    cachedVoices = window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      cachedVoices = window.speechSynthesis.getVoices();
+    };
+  } catch (e) {}
+}
+
+export const speakSwahili = (text: string, force: boolean = false, maneuverIcon?: 'left' | 'right' | 'straight' | 'arrive') => {
+  if (typeof window === 'undefined') return;
   const settings = getDefaultAudioSettings();
   if (!settings.voiceEnabled && !force) return;
 
   try {
-    // Cancel previous ongoing utterances to speak urgent navigation prompts immediately
-    window.speechSynthesis.cancel();
+    unlockAudioContext();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'sw-TZ';
-    utterance.rate = 0.96;
-    utterance.pitch = 1.05;
-    utterance.volume = force ? 1.0 : settings.volume;
-
-    // Search for Swahili voice or fallback to default
-    const voices = window.speechSynthesis.getVoices();
-    const swVoice = voices.find(v => v.lang.startsWith('sw') || v.name.toLowerCase().includes('swahili') || v.name.toLowerCase().includes('tanzania') || v.name.toLowerCase().includes('kenya'));
-    if (swVoice) {
-      utterance.voice = swVoice;
+    // 1. Play high-clarity navigation chime immediately
+    if (maneuverIcon) {
+      playNavTurnChime(maneuverIcon);
+    } else if (text.toLowerCase().includes('kulia')) {
+      playNavTurnChime('right');
+    } else if (text.toLowerCase().includes('kushoto')) {
+      playNavTurnChime('left');
+    } else if (text.toLowerCase().includes('mwisho') || text.toLowerCase().includes('wasili')) {
+      playNavTurnChime('arrive');
+    } else {
+      playNavTurnChime('straight');
     }
 
-    window.speechSynthesis.speak(utterance);
+    if (!('speechSynthesis' in window)) return;
+
+    // 2. Resume & Cancel any stuck utterance
+    window.speechSynthesis.resume();
+    window.speechSynthesis.cancel();
+
+    // 3. Prepare Speech Utterance
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.94;
+    utterance.pitch = 1.02;
+    utterance.volume = force ? 1.0 : Math.max(0.8, settings.volume);
+
+    // Refresh voices if empty
+    if (cachedVoices.length === 0) {
+      cachedVoices = window.speechSynthesis.getVoices();
+    }
+
+    // Try finding Swahili voice
+    const swVoice = cachedVoices.find(v => 
+      v.lang.startsWith('sw') || 
+      v.name.toLowerCase().includes('swahili') || 
+      v.name.toLowerCase().includes('tanzania') || 
+      v.name.toLowerCase().includes('kenya')
+    );
+
+    if (swVoice) {
+      utterance.voice = swVoice;
+      utterance.lang = swVoice.lang;
+    } else {
+      // Fallback: If no dedicated Swahili voice pack installed on device,
+      // use standard default voice with Swahili text
+      utterance.lang = 'sw-TZ';
+      const defaultVoice = cachedVoices.find(v => v.default) || cachedVoices[0];
+      if (defaultVoice) {
+        utterance.voice = defaultVoice;
+      }
+    }
+
+    // Handle speech end / errors
+    utterance.onerror = (e) => {
+      console.warn("SpeechSynthesis error:", e);
+    };
+
+    // Small timeout to allow the chime tone to lead into the voice naturally
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("SpeechSynthesis speak error:", err);
+      }
+    }, 150);
+
   } catch (err) {
     console.warn("Swahili TTS speech error:", err);
   }
