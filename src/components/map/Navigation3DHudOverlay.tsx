@@ -308,7 +308,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
   return (
     <div 
-      className="absolute inset-x-0 top-0 z-[500] pointer-events-none flex flex-col items-start font-sans"
+      className="fixed inset-x-0 top-0 z-[600] pointer-events-none flex flex-col items-start font-sans"
       style={{
         transform: 'translate3d(0,0,0)',
         backfaceVisibility: 'hidden',
@@ -320,7 +320,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         initial={{ y: -60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 20, stiffness: 170 }}
-        className="pt-3 px-3.5 sm:pt-4 sm:px-4 pointer-events-auto max-w-lg w-full"
+        className="pt-2 sm:pt-3 px-3 sm:px-4 pointer-events-auto max-w-lg w-full"
       >
         <div className="flex flex-col items-start drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
           

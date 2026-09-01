@@ -3436,6 +3436,37 @@ const getEndPin = (etaText: string) => {
         </div>
       )}
 
+      {/* Top Google Maps Turn-by-Turn Navigation HUD for Driver */}
+      {isOnline && activeRide && !showPayment && !showRating && (
+        <Navigation3DHudOverlay
+          ride={activeRide as any}
+          isDriver={true}
+          driverLocation={{ lat: position[0], lng: position[1] }}
+          targetLocation={activeRide.status === 'on_trip' ? activeRide.destination : activeRide.pickup}
+          routeSteps={steps}
+          is3DMode={is3DMode}
+          onToggle3D={() => setIs3DMode(!is3DMode)}
+          isHeadingUp={isHeadingUp}
+          onToggleHeadingUp={() => setIsHeadingUp(!isHeadingUp)}
+          onRecenter={() => {
+            setAutoFollow(true);
+            setRecenterTrigger(prev => prev + 1);
+          }}
+          onOpenChat={() => {
+            setSearchParams({ to: activeRide.customerId });
+            setIsChatOpen(true);
+          }}
+          isVoiceMuted={isMuted}
+          onToggleVoice={toggleMute}
+          onSpeak={speak}
+          driverPhoto={profile?.photoURL || user?.photoURL}
+          driverName={(profile as any)?.name || profile?.displayName || user?.displayName || 'Dereva'}
+          driverRating={profile?.rating || 5.0}
+          onProfileClick={onProfileClick}
+          activeViewersCount={Object.keys((activeRide as any).viewers || {}).length}
+        />
+      )}
+
       {/* Interactive Bottom Sheet Container - Only for active states */}
       {isOnline && (incomingRequest || activeRide || incomingOrder) && (
         <motion.div 
@@ -3482,47 +3513,18 @@ const getEndPin = (etaText: string) => {
             )}
 
             {activeRide && !showPayment && !showRating && (
-              <>
-                <Navigation3DHudOverlay
-                  ride={activeRide as any}
-                  isDriver={true}
-                  driverLocation={{ lat: position[0], lng: position[1] }}
-                  targetLocation={activeRide.status === 'on_trip' ? activeRide.destination : activeRide.pickup}
-                  routeSteps={steps}
-                  is3DMode={is3DMode}
-                  onToggle3D={() => setIs3DMode(!is3DMode)}
-                  isHeadingUp={isHeadingUp}
-                  onToggleHeadingUp={() => setIsHeadingUp(!isHeadingUp)}
-                  onRecenter={() => {
-                    setAutoFollow(true);
-                    setRecenterTrigger(prev => prev + 1);
-                  }}
-                  onOpenChat={() => {
-                    setSearchParams({ to: activeRide.customerId });
-                    setIsChatOpen(true);
-                  }}
-                  isVoiceMuted={isMuted}
-                  onToggleVoice={toggleMute}
-                  onSpeak={speak}
-                  driverPhoto={profile?.photoURL || user?.photoURL}
-                  driverName={(profile as any)?.name || profile?.displayName || user?.displayName || 'Dereva'}
-                  driverRating={profile?.rating || 5.0}
-                  onProfileClick={onProfileClick}
-                  activeViewersCount={Object.keys((activeRide as any).viewers || {}).length}
-                />
-                <DriverTripSheet 
-                  ride={activeRide as any}
-                  onArrive={() => handleUpdateStatus('driver_arrived')}
-                  onStart={() => handleUpdateStatus('on_trip')}
-                  onComplete={handleComplete}
-                  onMessage={() => {
-                    setSearchParams({ to: activeRide.customerId });
-                    setIsChatOpen(true);
-                  }}
-                  isMinimized={isTripMinimized}
-                  onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
-                />
-              </>
+              <DriverTripSheet 
+                ride={activeRide as any}
+                onArrive={() => handleUpdateStatus('driver_arrived')}
+                onStart={() => handleUpdateStatus('on_trip')}
+                onComplete={handleComplete}
+                onMessage={() => {
+                  setSearchParams({ to: activeRide.customerId });
+                  setIsChatOpen(true);
+                }}
+                isMinimized={isTripMinimized}
+                onToggleMinimize={() => setIsTripMinimized(!isTripMinimized)}
+              />
             )}
 
             {activeRide && showPayment && (
