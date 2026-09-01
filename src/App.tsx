@@ -42,6 +42,7 @@ import ParcelHistory from './components/parcel/ParcelHistory';
 import TaxiHistory from './components/tegex/TaxiHistory';
 
 import DeliveryRobotManager from './components/DeliveryRobotManager';
+import SuperServicesHub from './components/services/SuperServicesHub';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -392,6 +393,9 @@ function AppContent() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/table/:vendorId/:tableId" element={<TableSession />} />
+            <Route path="/services" element={<SuperServicesHub />} />
+            <Route path="/services-hub" element={<SuperServicesHub />} />
+            <Route path="/services/:serviceId" element={<SuperServicesHub />} />
             <Route path="/service/:id" element={<ServiceDetail />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/vendor/:id" element={<VendorStore />} />
