@@ -1,28 +1,22 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Navigation2, 
   CornerUpRight, 
   CornerUpLeft, 
   ArrowUp, 
-  RotateCcw, 
+  Flag,
+  Crosshair,
   Volume2, 
   VolumeX, 
-  ShieldAlert, 
-  MessageSquare, 
-  Compass, 
-  Gauge, 
-  Eye, 
-  Layers, 
-  CheckCircle2,
-  AlertTriangle,
-  Languages,
-  Sparkles,
   Radio,
   Navigation,
-  Sliders,
+  Compass,
   Play,
-  X
+  X,
+  Maximize2,
+  ChevronRight,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { 
@@ -87,23 +81,23 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 }) => {
   const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
   const isOnTrip = ride.status === 'on_trip';
-  const [useSwahili, setUseSwahili] = useState(true);
-  const [showAssistantTip, setShowAssistantTip] = useState(false);
-  const [aiSpokenText, setAiSpokenText] = useState<string>('');
-  const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [useSwahili, setUseSwahili] = useState(false); // Default to English matching screenshots, with one-tap Swahili switch
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [showVoiceTester, setShowVoiceTester] = useState(false);
+  const [audioConfig, setAudioConfig] = useState(() => getDefaultAudioSettings());
 
   // Target destination details
   const destinationName = isArriving 
-    ? ((ride.pickup as any)?.name || ride.pickup?.address || 'Eneo la Mteja') 
-    : ((ride.destination as any)?.name || ride.destination?.address || 'Eneo la Kushusha');
+    ? ((ride.pickup as any)?.name || ride.pickup?.address || 'Pickup Location') 
+    : ((ride.destination as any)?.name || ride.destination?.address || 'Destination');
 
-  // Calculate distance in meters / km
+  // Calculate distance in meters / km & ETA
   const { distMeters, formattedDist, etaMins } = useMemo(() => {
     const loc1 = driverLocation || ride.driverLocation;
     const loc2 = targetLocation || (isArriving ? ride.pickup : ride.destination);
 
     if (!loc1 || !loc2) {
-      return { distMeters: 450, formattedDist: '450m', etaMins: 3 };
+      return { distMeters: 450, formattedDist: '450 m', etaMins: 3 };
     }
 
     const R = 6371e3;
@@ -119,129 +113,209 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     const meters = Math.round(R * c);
 
     const formatted = meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
-    const mins = Math.max(1, Math.round((meters / 1000) / 0.5)); // ~30 km/h avg
+    const mins = Math.max(1, Math.round((meters / 1000) / 0.45)); // ~27-30 km/h urban traffic speed
 
     return { distMeters: meters, formattedDist: formatted, etaMins: mins };
   }, [driverLocation, targetLocation, ride.driverLocation, ride.pickup, ride.destination, isArriving]);
 
-  // Simulated live speed calculation if no custom speed passed
-  const [speed, setSpeed] = useState<number>(customSpeed || 42);
+  // ETA Clock Time (e.g. 2:49 pm, 11:56 am)
+  const etaClockTime = useMemo(() => {
+    const d = new Date(Date.now() + etaMins * 60 * 1000);
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const minsStr = minutes < 10 ? '0' + minutes : minutes;
+    return `${hours}:${minsStr} ${ampm}`;
+  }, [etaMins]);
 
-  useEffect(() => {
-    if (typeof customSpeed === 'number') {
-      setSpeed(customSpeed);
-      return;
-    }
-    const interval = setInterval(() => {
-      setSpeed(prev => {
-        const delta = Math.floor(Math.random() * 5) - 2;
-        const nextSpeed = Math.min(65, Math.max(22, prev + delta));
-        return nextSpeed;
-      });
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [customSpeed]);
-
-  // Dynamic realistic Maneuver Turn Logic matching Google Maps Turn-by-Turn
+  // Dynamic realistic Maneuver Turn Logic matching screenshots
   const currentManeuver = useMemo(() => {
     // 1. Real Routing Data Steps (from OSRM / Directions API)
     if (routeSteps && routeSteps.length > 0 && driverLocation) {
-      const activeStep = routeSteps.find((step) => {
+      let activeIndex = 0;
+      const activeStep = routeSteps.find((step, idx) => {
         const dLat = (step.location[0] - driverLocation.lat) * 111000;
         const dLng = (step.location[1] - driverLocation.lng) * 111000 * Math.cos((driverLocation.lat * Math.PI) / 180);
         const dist = Math.sqrt(dLat * dLat + dLng * dLng);
-        return dist > 15;
+        if (dist > 15) {
+          activeIndex = idx;
+          return true;
+        }
+        return false;
       }) || routeSteps[0];
+
+      // Next step after active
+      const nextStep = routeSteps[activeIndex + 1];
+      let nextTurnText = 'Turn left';
+      if (nextStep) {
+        const nextInstr = nextStep.instruction.toLowerCase();
+        if (nextInstr.includes('left') || nextInstr.includes('kushoto')) nextTurnText = 'Turn left';
+        else if (nextInstr.includes('right') || nextInstr.includes('kulia')) nextTurnText = 'Turn right';
+        else if (nextInstr.includes('dest') || nextInstr.includes('arrive') || nextInstr.includes('fika')) nextTurnText = 'Arrive at destination';
+        else nextTurnText = 'Continue straight';
+      } else {
+        nextTurnText = 'Arrive at destination';
+      }
 
       if (activeStep) {
         const instr = activeStep.instruction.toLowerCase();
         let icon: 'straight' | 'left' | 'right' | 'check' = 'straight';
-        let mainTextEn = 'Head northwest';
-        let mainTextSw = 'Elekea kaskazini magharibi';
-        let nextTurnEn = 'Then ↱';
-        let nextTurnSw = 'Kisha ↱';
+        let mainTextEn = 'Continue';
+        let mainTextSw = 'Endelea';
 
         if (instr.includes('left') || instr.includes('kushoto')) {
           icon = 'left';
           mainTextEn = 'Turn left';
           mainTextSw = 'Pinda kushoto';
-          nextTurnEn = 'Then ↑';
-          nextTurnSw = 'Kisha ↑';
         } else if (instr.includes('right') || instr.includes('kulia')) {
           icon = 'right';
           mainTextEn = 'Turn right';
           mainTextSw = 'Pinda kulia';
-          nextTurnEn = 'Then ↑';
-          nextTurnSw = 'Kisha ↑';
-        } else if (instr.includes('destination') || instr.includes('arrive') || instr.includes('fika')) {
+        } else if (instr.includes('destination') || instr.includes('arrive') || instr.includes('fika') || distMeters <= 70) {
           icon = 'check';
           mainTextEn = 'Arrive at destination';
-          mainTextSw = 'Umewasili eneo lengwa';
-          nextTurnEn = 'Done';
-          nextTurnSw = 'Umekamilisha';
+          mainTextSw = 'Fika eneo lengwa';
+          nextTurnText = 'Arrive at destination';
+        } else {
+          // Continue onto road
+          const roadName = activeStep.instruction
+            .replace(/^(Head|Turn|Continue|Merge|Keep|Ingia|Kata|Endelea)\s*(left|right|straight|onto|kushoto|kulia)?\s*/i, '')
+            .trim();
+          if (roadName) {
+            mainTextEn = `Continue onto ${roadName.length > 20 ? roadName.substring(0, 18) + '...' : roadName}`;
+            mainTextSw = `Endelea na ${roadName.length > 20 ? roadName.substring(0, 18) + '...' : roadName}`;
+          } else {
+            mainTextEn = 'Continue';
+            mainTextSw = 'Endelea mbele';
+          }
         }
 
-        const cleanTitle = activeStep.instruction
+        const cleanSub = activeStep.instruction
           .replace(/^(Head|Turn|Continue|Merge|Keep|Ingia|Kata|Endelea)\s*(left|right|straight|onto|kushoto|kulia)?\s*/i, '')
           .trim() || destinationName;
 
         return {
           icon,
           mainText: useSwahili ? mainTextSw : mainTextEn,
-          nextTurn: useSwahili ? nextTurnSw : nextTurnEn,
-          subTitle: cleanTitle.length > 28 ? `${cleanTitle.substring(0, 28)}...` : cleanTitle,
+          subTitle: cleanSub.length > 28 ? `${cleanSub.substring(0, 28)}...` : cleanSub,
+          nextTurnText: useSwahili ? (nextTurnText === 'Turn left' ? 'Pinda kushoto' : nextTurnText === 'Turn right' ? 'Pinda kulia' : 'Fika eneo la safari') : nextTurnText,
           distFormatted: activeStep.distance >= 1000 ? `${(activeStep.distance / 1000).toFixed(1)} km` : `${Math.round(activeStep.distance)} m`,
           stepMeters: Math.round(activeStep.distance),
         };
       }
     }
 
-    // 2. High-Fidelity Fallback matching the user's screenshot
+    // 2. High-Fidelity Fallback matching the 5 exact uploaded images
     if (distMeters <= 70) {
       return {
         icon: 'check' as const,
-        mainText: useSwahili ? 'Umefika eneo la mteja' : 'Arrive at destination',
-        nextTurn: useSwahili ? 'Kamilisha' : 'Done',
+        mainText: useSwahili ? 'Fika eneo la mteja' : 'Arrive at destination',
         subTitle: destinationName,
+        nextTurnText: useSwahili ? 'Fika eneo la safari' : 'Arrive at destination',
         distFormatted: formattedDist,
         stepMeters: distMeters,
       };
-    } else if (distMeters <= 300) {
+    } else if (distMeters <= 350) {
       return {
         icon: 'right' as const,
         mainText: useSwahili ? 'Pinda kulia' : 'Turn right',
-        nextTurn: useSwahili ? 'Kisha ↑' : 'Then ↑',
-        subTitle: 'Sam Nujoma Rd / Bagamoyo Rd',
-        distFormatted: `In ${formattedDist}`,
+        subTitle: 'Bagamoyo Rd / Sam Nujoma Rd',
+        nextTurnText: useSwahili ? 'Pinda kushoto' : 'Turn left',
+        distFormatted: formattedDist,
         stepMeters: distMeters,
       };
-    } else if (distMeters <= 650) {
+    } else if (distMeters <= 750) {
       return {
         icon: 'left' as const,
         mainText: useSwahili ? 'Pinda kushoto' : 'Turn left',
-        nextTurn: useSwahili ? 'Kisha ↱' : 'Then ↱',
-        subTitle: 'Morogoro Road / EPZ Gate',
-        distFormatted: `In ${formattedDist}`,
+        subTitle: 'Morogoro Road / EPZ',
+        nextTurnText: useSwahili ? 'Pinda kulia' : 'Turn right',
+        distFormatted: formattedDist,
         stepMeters: distMeters,
       };
     } else {
       return {
         icon: 'straight' as const,
-        mainText: useSwahili ? 'Elekea kaskazini magharibi' : 'Head northwest',
-        nextTurn: useSwahili ? 'Kisha ↱' : 'Then ↱',
-        subTitle: 'Sam Nujoma Rd / Nelson Mandela Rd',
+        mainText: useSwahili ? 'Endelea na Sam Nujoma' : 'Continue onto Sam Nujoma Rd',
+        subTitle: 'Sam Nujoma Rd',
+        nextTurnText: useSwahili ? 'Pinda kushoto' : 'Turn left',
         distFormatted: formattedDist,
         stepMeters: distMeters,
       };
     }
   }, [routeSteps, driverLocation, distMeters, destinationName, formattedDist, useSwahili]);
 
-  const [showVoiceTester, setShowVoiceTester] = useState(false);
-  const [audioConfig, setAudioConfig] = useState(() => getDefaultAudioSettings());
+  // Live speed handling (0 when stationary, or live GPS / realistic vehicle movement)
+  const [speed, setSpeed] = useState<number>(() => {
+    if (typeof customSpeed === 'number') return customSpeed;
+    return 0;
+  });
 
-  // Handle automatic Swahili voice navigation announcements as the vehicle moves
   useEffect(() => {
-    if (!useSwahili || isVoiceMuted || !audioConfig.voiceEnabled) return;
+    if (typeof customSpeed === 'number') {
+      setSpeed(customSpeed);
+      return;
+    }
+    // Realistic simulation speed if no hardware GPS speed: 0 when arriving or parked, 25-45 when moving
+    const isStationary = distMeters <= 40;
+    if (isStationary) {
+      setSpeed(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setSpeed(prev => {
+        if (prev === 0) return 18;
+        const delta = Math.floor(Math.random() * 5) - 2;
+        return Math.min(60, Math.max(12, prev + delta));
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [customSpeed, distMeters]);
+
+  // Theme Accent Matching Exact Screenshots:
+  // - Flag/Destination: Purple (#7C3AED / bg-purple-600)
+  // - Turn Right: Green (#10B981 / bg-emerald-600)
+  // - Turn Left: Blue (#2563EB / bg-blue-600)
+  // - Straight: Blue (#2563EB / bg-blue-600) or Purple (#7C3AED / bg-purple-600)
+  const themeAccent = useMemo(() => {
+    if (currentManeuver.icon === 'check' || distMeters <= 70) {
+      return {
+        iconBg: 'bg-purple-600 text-white',
+        pillBg: 'bg-purple-600 text-white',
+        targetColor: 'text-purple-600 dark:text-purple-400',
+        badgeText: 'Arriving',
+      };
+    }
+    if (currentManeuver.icon === 'right') {
+      return {
+        iconBg: 'bg-emerald-600 text-white',
+        pillBg: 'bg-emerald-600 text-white',
+        targetColor: 'text-emerald-600 dark:text-emerald-400',
+        badgeText: 'Arriving',
+      };
+    }
+    if (currentManeuver.icon === 'left') {
+      return {
+        iconBg: 'bg-blue-600 text-white',
+        pillBg: 'bg-blue-600 text-white',
+        targetColor: 'text-blue-600 dark:text-blue-400',
+        badgeText: 'Arriving',
+      };
+    }
+    // Continue
+    return {
+      iconBg: 'bg-blue-600 text-white',
+      pillBg: 'bg-blue-600 text-white',
+      targetColor: 'text-blue-600 dark:text-blue-400',
+      badgeText: 'Arriving',
+    };
+  }, [currentManeuver.icon, distMeters]);
+
+  // Handle automatic Swahili / English voice navigation announcements as the vehicle moves
+  useEffect(() => {
+    if (isVoiceMuted || !audioConfig.voiceEnabled) return;
 
     const maneuverTypeMap: Record<string, 'left' | 'right' | 'straight' | 'arrive'> = {
       left: 'left',
@@ -264,157 +338,258 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       nextStopName: (ride as any).currentDropoffRiderName,
       force: false
     });
-  }, [distMeters, currentManeuver, ride.id, useSwahili, isVoiceMuted, audioConfig.voiceEnabled, destinationName, ride]);
+  }, [distMeters, currentManeuver, ride.id, isVoiceMuted, audioConfig.voiceEnabled, destinationName, ride]);
 
-  // AI Live Audio & Context-Aware Voice Guidance Generator
-  const handleSparkleAiClick = useCallback(() => {
-    // Generate context-rich speech response
-    let responseText = '';
-    const meters = currentManeuver.stepMeters || distMeters;
-    const destStr = destinationName || 'eneo la safari';
-    const distText = formatDistanceSwahili(meters);
-    const totalDistText = formatDistanceSwahili(distMeters);
-
-    if (useSwahili) {
-      if (distMeters <= 70) {
-        responseText = `Mkuu, umewasili eneo la mwisho wa safari ${destStr}. Mshushe abiria salama.`;
-      } else if (currentManeuver.icon === 'right') {
-        responseText = `Baada ya ${distText}, kata kulia kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
-      } else if (currentManeuver.icon === 'left') {
-        responseText = `Baada ya ${distText}, ingia kushoto kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
-      } else {
-        responseText = `Endelea moja kwa moja kwa ${distText} kuelekea ${currentManeuver.subTitle}. Imebaki ${totalDistText} kufika mwisho wa safari.`;
-      }
-    } else {
-      if (distMeters <= 70) {
-        responseText = `You have arrived at ${destStr}.`;
-      } else if (currentManeuver.icon === 'right') {
-        responseText = `In ${distText}, turn right onto ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
-      } else if (currentManeuver.icon === 'left') {
-        responseText = `In ${distText}, turn left onto ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
-      } else {
-        responseText = `Continue straight for ${distText} toward ${currentManeuver.subTitle}. Remaining distance is ${totalDistText}.`;
-      }
-    }
-
-    setAiSpokenText(responseText);
-    setShowAssistantTip(true);
-    setIsAiSpeaking(true);
-
-    // Speak using Swahili engine directly
-    speakSwahili(responseText, true);
-    setTimeout(() => setIsAiSpeaking(false), 5000);
-  }, [currentManeuver, distMeters, destinationName, useSwahili, etaMins]);
+  const handleSpeakCurrentManeuver = useCallback(() => {
+    const text = useSwahili
+      ? `${currentManeuver.mainText}. Imebaki ${formattedDist}.`
+      : `${currentManeuver.mainText}. Remaining distance is ${formattedDist}.`;
+    speakSwahili(text, true);
+  }, [currentManeuver, formattedDist, useSwahili]);
 
   return (
     <div 
-      className="fixed inset-x-0 top-0 z-[600] pointer-events-none flex flex-col items-start font-sans"
+      className="fixed inset-x-0 top-0 z-[600] pointer-events-none flex flex-col items-center font-sans px-3 sm:px-4 pt-2.5 sm:pt-3.5"
       style={{
         transform: 'translate3d(0,0,0)',
         backfaceVisibility: 'hidden',
         willChange: 'transform, opacity',
       }}
     >
-      {/* --- TOP FULL-WIDTH GOOGLE MAPS NAVIGATION HEADER (EXACT MATCH TO USER SCREENSHOT) --- */}
-      <motion.div 
-        initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 170 }}
-        className="pt-2 sm:pt-3 px-3 sm:px-4 pointer-events-auto max-w-lg w-full"
-      >
-        <div className="flex flex-col items-start drop-shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
-          
-          {/* Main Dark Green Navigation Card Container (Google Maps Exact Match: #0E6E45) */}
-          <div className="bg-[#0E6E45] text-white p-3.5 sm:p-4 w-full rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3.5 shadow-2xl border border-[#0A5C36]">
-            
-            {/* Maneuver Arrow & Distance Block */}
-            <div className="flex items-center gap-3 shrink-0">
-              {/* Maneuver Direction Icon */}
-              <div className="w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center">
-                {currentManeuver.icon === 'straight' && (
-                  <svg className="w-9 h-9 sm:w-10 sm:h-10 text-white fill-current" viewBox="0 0 28 28">
-                    <path d="M14 2L6 10h5v4h6v-4h5L14 2z" />
-                    <rect x="11.5" y="16" width="5" height="4" rx="1" />
-                    <rect x="11.5" y="22" width="5" height="4" rx="1" />
-                  </svg>
-                )}
-                {currentManeuver.icon === 'right' && (
-                  <CornerUpRight className="w-9 h-9 sm:w-10 sm:h-10 text-white stroke-[3.5]" />
-                )}
-                {currentManeuver.icon === 'left' && (
-                  <CornerUpLeft className="w-9 h-9 sm:w-10 sm:h-10 text-white stroke-[3.5]" />
-                )}
-                {currentManeuver.icon === 'check' && (
-                  <CheckCircle2 className="w-9 h-9 sm:w-10 sm:h-10 text-emerald-300 stroke-[3.5]" />
-                )}
+      <div className="w-full max-w-md sm:max-w-lg pointer-events-auto">
+        <AnimatePresence mode="wait">
+          {!isMinimized ? (
+            /* --- EXPANDED NAVIGATION CARD (100% EXACT MATCH TO USER SCREENSHOTS) --- */
+            <motion.div
+              key="expanded-hud"
+              initial={{ y: -30, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -20, opacity: 0, scale: 0.96 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 240 }}
+              className="bg-white dark:bg-neutral-900 rounded-[26px] p-3.5 sm:p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)] border border-neutral-200/90 dark:border-neutral-800"
+            >
+              {/* TOP ROW: Icon Box, Instruction Title + Road Subtitle, Badges (Arriving, Target, Red X) */}
+              <div className="flex items-center justify-between gap-3">
+                {/* Left Accent Icon Box */}
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${themeAccent.iconBg}`}>
+                  {currentManeuver.icon === 'check' && (
+                    <Flag className="w-6 h-6 text-white fill-white" />
+                  )}
+                  {currentManeuver.icon === 'right' && (
+                    <CornerUpRight className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                  )}
+                  {currentManeuver.icon === 'left' && (
+                    <CornerUpLeft className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                  )}
+                  {currentManeuver.icon === 'straight' && (
+                    <ArrowUp className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                  )}
+                </div>
+
+                {/* Instruction & Road Name */}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-white leading-tight truncate">
+                    {currentManeuver.mainText}
+                  </h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium truncate mt-0.5">
+                    {currentManeuver.subTitle}
+                  </p>
+                </div>
+
+                {/* Right Action Badges */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Status Pill Badge ("Arriving") */}
+                  <div className={`px-3 py-1 rounded-full text-xs font-black shadow-sm tracking-wide ${themeAccent.pillBg}`}>
+                    {themeAccent.badgeText}
+                  </div>
+
+                  {/* Recenter Target Icon */}
+                  {onRecenter && (
+                    <button
+                      onClick={onRecenter}
+                      className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-transform active:scale-90"
+                      title="Lenga Gari Kwenye Ramani (Recenter GPS)"
+                    >
+                      <Crosshair className={`w-5 h-5 ${themeAccent.targetColor}`} />
+                    </button>
+                  )}
+
+                  {/* Audio Quick Test */}
+                  <button
+                    onClick={handleSpeakCurrentManeuver}
+                    className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 dark:text-neutral-400 transition-transform active:scale-90"
+                    title="Sikiliza Maelekezo (Voice Guidance)"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+
+                  {/* Red X Dismiss / Minimize */}
+                  <button
+                    onClick={() => setIsMinimized(true)}
+                    className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/40 text-red-500 hover:text-red-600 transition-transform active:scale-90"
+                    title="Punguza Mwonekano (Minimize Card)"
+                  >
+                    <X className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                </div>
               </div>
 
-              {/* Distance Display (e.g. 500m / 2.4 km) */}
-              <div className="flex flex-col">
-                <span className="text-xl sm:text-2xl font-black tracking-tight leading-none text-white font-mono">
-                  {currentManeuver.distFormatted.replace('In ', '')}
-                </span>
+              {/* MIDDLE ROW: 4 Columns (REMAIN, ETA, TIME, KM/H) */}
+              <div className="grid grid-cols-4 items-center pt-2.5 sm:pt-3 pb-1 border-t border-neutral-100 dark:border-neutral-800/80 mt-2.5 sm:mt-3 gap-1 sm:gap-2">
+                {/* Column 1: REMAIN */}
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                    REMAIN
+                  </span>
+                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                    {distMeters <= 70 ? 'Arriving' : formattedDist}
+                  </span>
+                </div>
+
+                {/* Column 2: ETA */}
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                    ETA
+                  </span>
+                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                    {etaClockTime}
+                  </span>
+                </div>
+
+                {/* Column 3: TIME */}
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                    TIME
+                  </span>
+                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                    {distMeters <= 70 ? '< 1 min' : `${etaMins} min`}
+                  </span>
+                </div>
+
+                {/* Column 4: KM/H Distinct Mint Box (Exact match to screenshots) */}
+                <div className="bg-[#ecfdf5] dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl px-2 sm:px-3 py-1 sm:py-1.5 flex flex-col items-center justify-center min-w-[56px]">
+                  <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase leading-none">
+                    KM/H
+                  </span>
+                  <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono leading-tight mt-0.5">
+                    {speed}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Street / Route Headline Block */}
-            <div className="min-w-0 flex-1 pl-1">
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white leading-tight truncate">
-                {currentManeuver.subTitle || currentManeuver.mainText}
-              </h1>
-              <p className="text-xs sm:text-sm text-emerald-100/90 font-semibold truncate mt-0.5">
-                {currentManeuver.mainText}
-              </p>
-            </div>
+              {/* BOTTOM ROW: Next Maneuver Preview ("• THEN Turn left") */}
+              <div className="flex items-center justify-between pt-2 border-t border-neutral-100 dark:border-neutral-800/60 mt-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 inline-block shadow-sm" />
+                  <span className="text-[11px] sm:text-xs font-bold text-neutral-600 dark:text-neutral-300 truncate">
+                    • {useSwahili ? 'KISHA' : 'THEN'} {currentManeuver.nextTurnText}
+                  </span>
+                </div>
 
-            {/* Right-Side Quick Actions & Audio Controls */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Instant Audio Speaker Test Button */}
-              <button
-                onClick={() => {
-                  const sampleText = useSwahili
-                    ? `Baada ya ${currentManeuver.distFormatted.replace('In ', '')}, ${currentManeuver.mainText.toLowerCase()} kuelekea ${currentManeuver.subTitle || 'mbele'}.`
-                    : `In ${currentManeuver.distFormatted.replace('In ', '')}, ${currentManeuver.mainText} onto ${currentManeuver.subTitle || 'ahead'}.`;
-                  speakSwahili(sampleText, true, currentManeuver.icon === 'right' ? 'right' : currentManeuver.icon === 'left' ? 'left' : 'straight');
-                }}
-                className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition-all border border-white/20"
-                title="Sikiliza Maelekezo ya Sauti (Test Swahili Voice)"
-              >
-                <Volume2 className="w-5 h-5 text-white" />
-              </button>
+                {/* Auxiliary quick buttons: Language & Voice Tester */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setUseSwahili(prev => !prev)}
+                    className="px-1.5 py-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[10px] font-bold text-neutral-600 dark:text-neutral-300 transition-colors"
+                    title="Badili Lugha (SW / EN)"
+                  >
+                    {useSwahili ? 'SW' : 'EN'}
+                  </button>
+                  <button
+                    onClick={() => setShowVoiceTester(prev => !prev)}
+                    className="p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors"
+                    title="Mipangilio ya Sauti"
+                  >
+                    <Radio className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            /* --- MINIMIZED COMPACT FLOATING BAR (Tap to expand) --- */
+            <motion.button
+              key="minimized-hud"
+              onClick={() => setIsMinimized(false)}
+              initial={{ y: -20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: -20, opacity: 0, scale: 0.95 }}
+              className="w-full bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl px-3 py-2 shadow-xl border border-neutral-200/90 dark:border-neutral-800 flex items-center justify-between gap-2.5 text-left active:scale-98 transition-all"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${themeAccent.iconBg}`}>
+                  {currentManeuver.icon === 'check' ? (
+                    <Flag className="w-4 h-4 text-white fill-white" />
+                  ) : currentManeuver.icon === 'right' ? (
+                    <CornerUpRight className="w-4 h-4 text-white stroke-[3]" />
+                  ) : currentManeuver.icon === 'left' ? (
+                    <CornerUpLeft className="w-4 h-4 text-white stroke-[3]" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4 text-white stroke-[3]" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-neutral-800 dark:text-white truncate">
+                    {currentManeuver.mainText} • {distMeters <= 70 ? 'Arriving' : formattedDist}
+                  </p>
+                  <p className="text-[10px] text-neutral-500 truncate">
+                    ETA {etaClockTime} ({etaMins} min)
+                  </p>
+                </div>
+              </div>
 
-              {/* Settings / Switch button */}
-              <button
-                onClick={() => setShowVoiceTester(true)}
-                className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/30 text-white flex items-center justify-center transition-all text-[10px] font-black"
-                title="Mipangilio ya Sauti"
-              >
-                {useSwahili ? 'SW' : 'EN'}
-              </button>
-            </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="bg-[#ecfdf5] dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl px-2 py-0.5 text-center">
+                  <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 block leading-none">KM/H</span>
+                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono leading-tight">{speed}</span>
+                </div>
+                <div className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-          </div>
+        {/* FLOATING QUICK MAP CONTROLS (3D, Heading-Up, Recenter) Underneath the Card */}
+        <div className="flex items-center justify-end gap-2 mt-2">
+          {onToggleHeadingUp && (
+            <button
+              onClick={onToggleHeadingUp}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold shadow-md flex items-center gap-1 transition-all border ${
+                isHeadingUp 
+                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-600/20' 
+                  : 'bg-white/90 dark:bg-neutral-800/90 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200'
+              }`}
+              title={isHeadingUp ? "Mwelekeo wa Gari (Heading-Up)" : "Kaskazini Juu (North-Up)"}
+            >
+              <Navigation className={`w-3.5 h-3.5 ${isHeadingUp ? 'fill-white' : ''}`} />
+              <span>{isHeadingUp ? 'Heading-Up' : 'North-Up'}</span>
+            </button>
+          )}
 
-          {/* Connected Secondary Maneuver Badge: "Then ↖" / "Kisha ↖" */}
-          <div className="bg-[#084A2C] text-white px-3.5 py-1 rounded-xl mt-1.5 shadow-md flex items-center gap-1.5 border border-[#063B23]">
-            <span className="text-xs font-black tracking-wide text-emerald-200">
-              {useSwahili ? 'Kisha' : 'Then'}
-            </span>
-            <span className="text-xs font-bold text-white">
-              {currentManeuver.icon === 'left' ? '↖' : currentManeuver.icon === 'right' ? '↗' : '↑'}
-            </span>
-          </div>
-
+          {onToggle3D && (
+            <button
+              onClick={onToggle3D}
+              className={`px-2.5 py-1 rounded-xl text-xs font-black shadow-md transition-all border ${
+                is3DMode 
+                  ? 'bg-blue-600 border-blue-500 text-white shadow-blue-600/20' 
+                  : 'bg-white/90 dark:bg-neutral-800/90 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200'
+              }`}
+              title={is3DMode ? "Badili kuwa 2D" : "Badili kuwa 3D"}
+            >
+              {is3DMode ? '3D View' : '2D Map'}
+            </button>
+          )}
         </div>
 
-        {/* Swahili Voice Navigation Settings & Test Modal */}
+        {/* SWAHILI & ENGLISH VOICE NAVIGATION SETTINGS MODAL */}
         <AnimatePresence>
           {showVoiceTester && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="mt-2.5 p-4 bg-neutral-900/98 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-emerald-500/30 text-white"
+              className="mt-2.5 p-4 bg-neutral-900/98 backdrop-blur-2xl rounded-3xl shadow-2xl border border-emerald-500/30 text-white"
             >
               <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5 mb-3">
                 <div className="flex items-center gap-2">
@@ -422,8 +597,8 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                     <Volume2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-sm text-white">Sauti ya Kiswahili kwa Dereva</h3>
-                    <p className="text-[10px] text-neutral-400">Swahili Turn-by-Turn Voice Navigation & Alerts</p>
+                    <h3 className="font-extrabold text-sm text-white">Mwongozo wa Sauti (Voice Navigation)</h3>
+                    <p className="text-[10px] text-neutral-400">Swahili Turn-by-Turn Audio Guidance & Alerts</p>
                   </div>
                 </div>
                 <button
@@ -484,22 +659,18 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               {/* Sample Voice Quick Test Phrases */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
-                  JARIBU SAMPULI ZA MAELEKEZO YA SAUTI:
+                  JARIBU MAELEKEZO YA SAUTI:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {[
-                    { label: 'Kilometa 2 kata kulia', text: 'Baada ya kilometa 2, kata kulia kuelekea Sam Nujoma Road.' },
-                    { label: 'Kilometa 3 ingia kushoto', text: 'Baada ya kilometa 3, ingia kushoto kuelekea Ali Hassan Mwinyi Road.' },
-                    { label: 'Imebaki kilometa 3', text: 'Imebaki kilometa 3 kufika mwisho wa safari.' },
-                    { label: 'Mbele mita 500 ingia kushoto', text: 'Mbele mita 500, ingia kushoto.' },
-                    { label: 'Sasa kata kulia', text: 'Sasa kata kulia.' },
-                    { label: 'Umewasili mwisho wa safari', text: 'Umewasili eneo la mwisho wa safari. Mshushe abiria salama.' },
+                    { label: 'Pinda kulia', text: 'Mbele mita 300, pinda kulia kuelekea Sam Nujoma Road.' },
+                    { label: 'Pinda kushoto', text: 'Mbele mita 500, pinda kushoto kuelekea Morogoro Road.' },
+                    { label: 'Endelea mbele', text: 'Endelea mbele kwa kilometa 2 kuelekea Bagamoyo Road.' },
+                    { label: 'Fika eneo la safari', text: 'Umewasili eneo la safari. Mshushe abiria salama.' },
                   ].map((sample, idx) => (
                     <button
                       key={idx}
-                      onClick={() => {
-                        speakSwahili(sample.text, true);
-                      }}
+                      onClick={() => speakSwahili(sample.text, true)}
                       className="p-2 rounded-xl bg-neutral-800/90 hover:bg-neutral-700/90 border border-neutral-700/70 text-left flex items-center justify-between gap-2 group transition-all active:scale-98"
                     >
                       <div className="min-w-0">
@@ -529,127 +700,6 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* AI Assistant Audio/Text Tip Popup */}
-        <AnimatePresence>
-          {showAssistantTip && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-2 p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-blue-200 dark:border-blue-800 text-xs flex items-center justify-between gap-3 text-slate-800 dark:text-slate-100"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-blue-600 dark:text-blue-400 text-[10px] uppercase tracking-wider flex items-center gap-1">
-                    <span>Papo AI Live Navigator</span>
-                    {isAiSpeaking && <span className="animate-pulse text-emerald-500 font-bold">● Inazungumza</span>}
-                  </p>
-                  <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 mt-0.5">
-                    {aiSpokenText || `Njia hii haina foleni kwa sasa. Utafika baada ya ${etaMins} dk.`}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowAssistantTip(false);
-                  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                  setIsAiSpeaking(false);
-                }}
-                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg shrink-0"
-              >
-                Funga
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-      </motion.div>
-
-      {/* --- FLOATING SPEEDOMETER, AUTO-ROTATE HEADING CONTROLS & ETA BAR --- */}
-      <div className="w-full px-3.5 sm:px-4 mt-2.5 flex items-center justify-between pointer-events-none">
-        {/* Speedometer Badge (Left) */}
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="pointer-events-auto bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-1.5 shadow-lg flex items-center gap-2.5"
-        >
-          <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center">
-            <Gauge className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-base font-black font-mono leading-none text-slate-900 dark:text-white">
-                {speed}
-              </span>
-              <span className="text-[8px] font-bold text-slate-500 uppercase">
-                km/h
-              </span>
-            </div>
-            <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tighter block">
-              Trafiki Salama
-            </span>
-          </div>
-        </motion.div>
-
-        {/* ETA & Controls (Right) */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          {/* Trip ETA pill */}
-          <div className="bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-2xl shadow-lg flex items-center gap-2">
-            <div className="text-right">
-              <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
-                {etaMins} dk ({formattedDist})
-              </span>
-              <span className="text-[8px] font-bold text-slate-500 uppercase">
-                Muda wa Kufika
-              </span>
-            </div>
-          </div>
-
-          {/* Heading-Up vs North-Up Auto-Rotate Compass Mode Toggle Button */}
-          {onToggleHeadingUp && (
-            <button
-              onClick={onToggleHeadingUp}
-              className={`w-9 h-9 rounded-2xl border text-xs font-black shadow-lg flex items-center justify-center active:scale-90 transition-all ${
-                isHeadingUp 
-                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-emerald-500/20' 
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
-              }`}
-              title={isHeadingUp ? "Mwelekeo wa Gari (Heading-Up) - Washa North-Up" : "Kaskazini Juu (North-Up) - Washa Heading-Up"}
-            >
-              <Navigation className={`w-4 h-4 transition-transform ${isHeadingUp ? 'fill-white' : ''}`} />
-            </button>
-          )}
-
-          {/* Recenter Button */}
-          {onRecenter && (
-            <button
-              onClick={onRecenter}
-              className="w-9 h-9 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-lg text-blue-600 dark:text-blue-400 flex items-center justify-center active:scale-90 transition-transform"
-              title="Lenga Gari Kwenye Ramani"
-            >
-              <Compass className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* 3D / 2D Toggle */}
-          {onToggle3D && (
-            <button
-              onClick={onToggle3D}
-              className={`w-9 h-9 rounded-2xl border text-xs font-black shadow-lg flex items-center justify-center active:scale-90 transition-transform ${
-                is3DMode 
-                  ? 'bg-blue-600 border-blue-500 text-white' 
-                  : 'bg-white dark:bg-[#0f172a] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
-              }`}
-              title={is3DMode ? "Badili kuwa 2D" : "Badili kuwa 3D"}
-            >
-              {is3DMode ? '3D' : '2D'}
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

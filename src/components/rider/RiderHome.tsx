@@ -483,6 +483,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'mobile'>('wallet');
   const [mobileNumber, setMobileNumber] = useState('');
   const [isSubmittingPoi, setIsSubmittingPoi] = useState(false);
+  const [driverGpsSpeed, setDriverGpsSpeed] = useState<number>(0);
 
   // Real-time POIs state from Firestore
   const [firestorePois, setFirestorePois] = useState<any[]>([]);
@@ -1713,6 +1714,11 @@ const getEndPin = (etaText: string) => {
             const prev = prevPosRef.current;
             let shouldUpdate = true;
             let currentBearing = vehicleHeadingRef.current;
+
+            // Direct device GPS speed if available
+            if (typeof pos.coords.speed === 'number' && !isNaN(pos.coords.speed) && pos.coords.speed >= 0) {
+              setDriverGpsSpeed(Math.round(pos.coords.speed * 3.6));
+            }
 
             // Direct device GPS heading if available
             if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
@@ -3443,6 +3449,7 @@ const getEndPin = (etaText: string) => {
           isDriver={true}
           driverLocation={{ lat: position[0], lng: position[1] }}
           targetLocation={activeRide.status === 'on_trip' ? activeRide.destination : activeRide.pickup}
+          currentSpeed={driverGpsSpeed}
           routeSteps={steps}
           is3DMode={is3DMode}
           onToggle3D={() => setIs3DMode(!is3DMode)}
