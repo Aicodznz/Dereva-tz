@@ -62,7 +62,20 @@ import {
   Share2,
   X,
   Sparkles,
+  Heart,
+  Bookmark,
+  Briefcase,
 } from "lucide-react";
+import { SavedAddressesModal } from "./tegex/SavedAddressesModal";
+import { FavoriteDriversModal } from "./tegex/FavoriteDriversModal";
+import { 
+  SavedAddress, 
+  FavoriteDriver, 
+  getLocalSavedAddresses, 
+  getLocalFavoriteDrivers,
+  fetchSavedAddresses,
+  fetchFavoriteDrivers
+} from "../utils/customerPreferences";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "../ThemeContext";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
@@ -624,6 +637,88 @@ export default function TaxiBooking() {
   const [userLivePos, setUserLivePos] = useState<[number, number] | null>(null);
 
   const [taxiBanners, setTaxiBanners] = useState<{ id?: string; title: string; sub: string; img: string; active?: boolean }[]>([]);
+
+  // Saved Addresses and Favorite Drivers state
+  const [showSavedAddressesModal, setShowSavedAddressesModal] = useState(false);
+  const [showFavoriteDriversModal, setShowFavoriteDriversModal] = useState(false);
+  const [savedAddressesList, setSavedAddressesList] = useState<SavedAddress[]>(() => getLocalSavedAddresses());
+  const [favoriteDriversList, setFavoriteDriversList] = useState<FavoriteDriver[]>(() => getLocalFavoriteDrivers());
+  const [preferredDriver, setPreferredDriver] = useState<FavoriteDriver | null>(null);
+
+  // Sync saved addresses and favorite drivers
+  useEffect(() => {
+    const listAddr = getLocalSavedAddresses();
+    setSavedAddressesList(listAddr);
+    const listDrv = getLocalFavoriteDrivers();
+    setFavoriteDriversList(listDrv);
+
+    if (user?.uid) {
+      fetchSavedAddresses(user.uid).then(res => {
+        if (res && res.length > 0) setSavedAddressesList(res);
+      });
+      fetchFavoriteDrivers(user.uid).then(res => {
+        if (res && res.length > 0) setFavoriteDriversList(res);
+      });
+    }
+
+    const handleAddrUpdate = (e: any) => {
+      if (e.detail) setSavedAddressesList(e.detail);
+    };
+    const handleDrvUpdate = (e: any) => {
+      if (e.detail) setFavoriteDriversList(e.detail);
+    };
+
+    window.addEventListener('paporide_addresses_updated', handleAddrUpdate);
+    window.addEventListener('paporide_drivers_updated', handleDrvUpdate);
+    return () => {
+      window.removeEventListener('paporide_addresses_updated', handleAddrUpdate);
+      window.removeEventListener('paporide_drivers_updated', handleDrvUpdate);
+    };
+  }, [user?.uid]);
+
+  const handleSelectSavedAddress = async (
+    address: string,
+    coords?: { lat: number; lng: number },
+    mode: 'destination' | 'pickup' = 'destination'
+  ) => {
+    if (mode === 'destination') {
+      setDestination(address);
+      if (coords) {
+        setDestPos([coords.lat, coords.lng]);
+      } else {
+        try {
+          const res = await fetch(`/api/geo/search?q=${encodeURIComponent(address)}&limit=1&countrycodes=tz`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.length > 0) {
+              setDestPos([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+            }
+          }
+        } catch (e) {}
+      }
+      setStep('map');
+      setIsMinimized(false);
+      setSettingMode('destination');
+    } else {
+      setPickup(address);
+      if (coords) {
+        setPickupPos([coords.lat, coords.lng]);
+      }
+    }
+  };
+
+  const handleSelectDriverForBooking = (driver: FavoriteDriver) => {
+    setPreferredDriver(driver);
+    if (driver.vehicleType) {
+      const match = rideOptions.find(opt => opt.id === driver.vehicleType);
+      if (match) {
+        setSelectedRide(match);
+      }
+    }
+    setStep('map');
+    setIsMinimized(false);
+    setSettingMode('destination');
+  };
 
   useEffect(() => {
     const bannersRef = collection(db, "banners");
@@ -2648,6 +2743,10 @@ const getEndPin = (etaText: string) => {
           sharedSavings: isEligibleForPooling ? sharedSavings : 0,
           originalSoloFare: rawBasePrice + stopsExtra - discount,
           poolStatus: isEligibleForPooling ? 'matching' : 'solo_fallback',
+          preferredDriverId: preferredDriver ? (preferredDriver.driverId || preferredDriver.id) : null,
+          preferredDriverName: preferredDriver ? preferredDriver.name : null,
+          preferredDriverPhone: preferredDriver ? preferredDriver.phone : null,
+          preferredDriverPlate: preferredDriver ? preferredDriver.vehiclePlate : null,
         }
       );
 
@@ -3987,13 +4086,51 @@ const getEndPin = (etaText: string) => {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => navigate("/taxi/history")}
-                  className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-md active:scale-95 transition-all ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-300 hover:bg-neutral-900/60' : 'bg-white border-neutral-200/80 text-neutral-800 hover:bg-neutral-50'}`}
-                  title="Historia ya Safari"
-                >
-                  <Clock size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSavedAddressesModal(true)}
+                    className={`h-11 px-3 rounded-2xl border flex items-center gap-1.5 shadow-md active:scale-95 transition-all text-xs font-black ${
+                      theme === 'dark' 
+                        ? 'bg-[#111118] border-neutral-800 text-neutral-200 hover:border-indigo-500/50' 
+                        : 'bg-white border-neutral-200/80 text-neutral-800 hover:border-indigo-400'
+                    }`}
+                    title="Maeneo Yangu Yaliyohifadhiwa"
+                  >
+                    <MapPin className="w-4 h-4 text-indigo-500" />
+                    <span className="hidden sm:inline">Maeneo</span>
+                    {savedAddressesList.length > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                        {savedAddressesList.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setShowFavoriteDriversModal(true)}
+                    className={`h-11 px-3 rounded-2xl border flex items-center gap-1.5 shadow-md active:scale-95 transition-all text-xs font-black ${
+                      theme === 'dark' 
+                        ? 'bg-[#111118] border-neutral-800 text-neutral-200 hover:border-rose-500/50' 
+                        : 'bg-white border-neutral-200/80 text-neutral-800 hover:border-rose-400'
+                    }`}
+                    title="Madereva Ninaowapenda"
+                  >
+                    <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                    <span className="hidden sm:inline">Madereva</span>
+                    {favoriteDriversList.length > 0 && (
+                      <span className="w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">
+                        {favoriteDriversList.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => navigate("/taxi/history")}
+                    className={`w-11 h-11 rounded-2xl border flex items-center justify-center shadow-md active:scale-95 transition-all ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-300 hover:bg-neutral-900/60' : 'bg-white border-neutral-200/80 text-neutral-800 hover:bg-neutral-50'}`}
+                    title="Historia ya Safari"
+                  >
+                    <Clock size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className={`border rounded-[32px] p-6 shadow-xl space-y-5 ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200/80'}`}>
@@ -4041,6 +4178,48 @@ const getEndPin = (etaText: string) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Quick Saved Addresses Bar */}
+                <div className="space-y-2 pt-1 border-t border-neutral-150 dark:border-neutral-800/80">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 flex items-center gap-1">
+                      <Bookmark className="w-3 h-3 text-indigo-500" />
+                      Maeneo Yangu ya Haraka
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSavedAddressesModal(true)}
+                      className="text-[10.5px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      {savedAddressesList.length === 0 ? '+ Hifadhi Eneo' : 'Tazama Yote'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {savedAddressesList.slice(0, 4).map((addr) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => handleSelectSavedAddress(addr.address, addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : undefined, 'destination')}
+                        className={`px-3 py-2 rounded-xl border flex items-center gap-1.5 text-xs font-bold shrink-0 active:scale-95 transition-all ${
+                          theme === 'dark' 
+                            ? 'bg-neutral-900/80 border-neutral-800 text-neutral-200 hover:border-indigo-500' 
+                            : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:border-indigo-400 shadow-2xs'
+                        }`}
+                      >
+                        <span>{addr.category === 'home' ? '🏠' : addr.category === 'work' ? '🏢' : '📍'}</span>
+                        <span className="truncate max-w-[120px]">{addr.label}</span>
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setShowSavedAddressesModal(true)}
+                      className="px-3 py-2 rounded-xl border-2 border-dashed border-indigo-500/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold shrink-0 hover:border-indigo-500 flex items-center gap-1 transition-colors"
+                    >
+                      + Ongeza Eneo
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => {
                     console.log("Order now click");
@@ -4052,6 +4231,61 @@ const getEndPin = (etaText: string) => {
                   {t('book_ride').toUpperCase()}
                 </button>
               </div>
+
+              {/* Favorite Driver Feature Card */}
+              {favoriteDriversList.length > 0 ? (
+                <div className={`p-4 rounded-3xl border shadow-md space-y-2.5 ${
+                  theme === 'dark' ? 'bg-[#141420] border-neutral-800' : 'bg-gradient-to-r from-rose-50/70 to-neutral-50 border-rose-100'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider">
+                      <Heart className="w-3.5 h-3.5 fill-rose-500" />
+                      Dereva Wangu Ninayempenda
+                    </div>
+                    <button
+                      onClick={() => setShowFavoriteDriversModal(true)}
+                      className="text-[10px] font-bold text-neutral-400 hover:text-neutral-200"
+                    >
+                      Tazama Wote ({favoriteDriversList.length})
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center font-black border border-rose-500/20 shrink-0">
+                        {favoriteDriversList[0].vehicleType === 'bike' ? '🏍️' : favoriteDriversList[0].vehicleType === 'bajaj' ? '🛺' : '🚗'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-black truncate">{favoriteDriversList[0].name}</h4>
+                        <p className="text-[11px] text-neutral-500 font-mono truncate">{favoriteDriversList[0].vehiclePlate} • ⭐ {favoriteDriversList[0].rating?.toFixed(1) || '5.0'}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleSelectDriverForBooking(favoriteDriversList[0])}
+                      className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black uppercase tracking-wider active:scale-95 transition-all shrink-0 shadow-xs"
+                    >
+                      Agiza Naye
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => setShowFavoriteDriversModal(true)}
+                  className={`p-4 rounded-3xl border border-dashed cursor-pointer hover:shadow-md transition-all flex items-center justify-between gap-3 ${
+                    theme === 'dark' ? 'bg-neutral-900/40 border-neutral-800 hover:border-rose-500/40' : 'bg-rose-50/40 border-rose-200/80 hover:border-rose-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center border border-rose-500/20">
+                      <Heart className="w-5 h-5 fill-rose-500" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black">Madereva Ninaowapenda</h4>
+                      <p className="text-[10.5px] text-neutral-400">Hifadhi madereva unaowaamini kwa safari za kipaumbele</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-rose-500 underline shrink-0">+ Ongeza</span>
+                </div>
+              )}
             </motion.div>
           )}
           {step === "map" && !isSpectator && (
@@ -4200,6 +4434,73 @@ const getEndPin = (etaText: string) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Quick Bar: Saved Addresses & Favorite Drivers in Map view */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowSavedAddressesModal(true)}
+                      className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-wider shrink-0 active:scale-95 transition-all ${
+                        theme === 'dark' ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-300 hover:bg-indigo-900/50' : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                      }`}
+                      title="Fungua Maeneo Yangu"
+                    >
+                      <MapPin className="w-3 h-3 text-indigo-500" />
+                      <span>Maeneo Yangu ({savedAddressesList.length})</span>
+                    </button>
+
+                    {savedAddressesList.slice(0, 3).map((addr) => (
+                      <button
+                        key={addr.id}
+                        type="button"
+                        onClick={() => handleSelectSavedAddress(addr.address, addr.lat && addr.lng ? { lat: addr.lat, lng: addr.lng } : undefined, 'destination')}
+                        className={`px-3 py-1.5 rounded-xl border flex items-center gap-1 text-[10.5px] font-bold shrink-0 active:scale-95 transition-all ${
+                          destination === addr.address
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : (theme === 'dark' ? 'bg-neutral-900/80 border-neutral-800 text-neutral-300 hover:border-neutral-700' : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 shadow-2xs')
+                        }`}
+                      >
+                        <span>{addr.category === 'home' ? '🏠' : addr.category === 'work' ? '🏢' : '📍'}</span>
+                        <span className="truncate max-w-[100px]">{addr.label}</span>
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFavoriteDriversModal(true)}
+                      className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-wider shrink-0 active:scale-95 transition-all ${
+                        preferredDriver 
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                          : (theme === 'dark' ? 'bg-rose-950/40 border-rose-800/60 text-rose-300 hover:bg-rose-900/50' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100')
+                      }`}
+                      title="Chagua Dereva Unayempenda"
+                    >
+                      <Heart className={`w-3 h-3 ${preferredDriver ? 'fill-white text-white' : 'fill-rose-500 text-rose-500'}`} />
+                      <span>{preferredDriver ? `Dereva: ${preferredDriver.name}` : `Dereva Mpendwa (${favoriteDriversList.length})`}</span>
+                    </button>
+                  </div>
+
+                  {/* Preferred Driver Active Banner if selected */}
+                  {preferredDriver && (
+                    <div className="w-full px-3.5 py-2 rounded-2xl bg-rose-500/10 dark:bg-rose-950/30 border border-rose-500/30 flex items-center justify-between text-rose-700 dark:text-rose-300 shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Heart className="w-4 h-4 fill-rose-500 text-rose-500 shrink-0" />
+                        <div className="text-xs truncate">
+                          <span className="font-black">Safari na Dereva Mpendwa:</span> {preferredDriver.name} ({preferredDriver.vehiclePlate})
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreferredDriver(null);
+                          toast.info('Dereva mpendwa ameondolewa kwenye safari hii');
+                        }}
+                        className="text-[10.5px] font-black text-rose-600 dark:text-rose-400 hover:underline shrink-0 ml-2"
+                      >
+                        Ondoa
+                      </button>
+                    </div>
+                  )}
 
                   {/* 36% OFF Promotion Applied Ribbon when destination is set */}
                   {destination && (
@@ -5970,6 +6271,24 @@ const getEndPin = (etaText: string) => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Saved Addresses Modal (Maeneo Yangu) */}
+      <SavedAddressesModal
+        isOpen={showSavedAddressesModal}
+        onClose={() => setShowSavedAddressesModal(false)}
+        onSelectAddress={handleSelectSavedAddress}
+        userId={user?.uid}
+        currentLocationName={pickup}
+        currentLocationCoords={pickupPos}
+      />
+
+      {/* Favorite Drivers Modal (Madereva Ninaowapenda) */}
+      <FavoriteDriversModal
+        isOpen={showFavoriteDriversModal}
+        onClose={() => setShowFavoriteDriversModal(false)}
+        onSelectDriverForBooking={handleSelectDriverForBooking}
+        userId={user?.uid}
+      />
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -35,6 +35,10 @@ export function useCreateRide() {
       sharedSavings?: number;
       originalSoloFare?: number;
       poolStatus?: 'matching' | 'matched' | 'solo_fallback' | 'completed';
+      preferredDriverId?: string | null;
+      preferredDriverName?: string | null;
+      preferredDriverPhone?: string | null;
+      preferredDriverPlate?: string | null;
     }
   ) => {
     setIsLoading(true);
@@ -82,6 +86,10 @@ export function useCreateRide() {
         originalSoloFare: options?.originalSoloFare || fare,
         poolStatus: options?.shareMode === 'share' ? 'matching' : 'solo_fallback',
         sharedRidersCount: options?.shareMode === 'share' ? 1 : 1,
+        preferredDriverId: options?.preferredDriverId || null,
+        preferredDriverName: options?.preferredDriverName || null,
+        preferredDriverPhone: options?.preferredDriverPhone || null,
+        preferredDriverPlate: options?.preferredDriverPlate || null,
       };
 
       const docRef = await addDoc(collection(db, 'rides'), rideData);

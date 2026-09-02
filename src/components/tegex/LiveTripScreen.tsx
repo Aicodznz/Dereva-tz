@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2, Home } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2, Home, Heart } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { useRouting } from '../../hooks/useRouting';
@@ -11,6 +11,11 @@ import { toast } from 'sonner';
 import { useTheme } from '../../ThemeContext';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
 import { ShareTripModal } from '../common/ShareTripModal';
+import { 
+  getLocalFavoriteDrivers, 
+  saveCustomerFavoriteDriver, 
+  removeCustomerFavoriteDriver 
+} from '../../utils/customerPreferences';
 
 interface LiveTripScreenProps {
   ride: Ride;
@@ -76,6 +81,42 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showShareModal, setShowShareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
+
+  const [isFavDriver, setIsFavDriver] = React.useState(() => {
+    const list = getLocalFavoriteDrivers();
+    return list.some(d => (ride.driverId && d.driverId === ride.driverId) || (ride.driverInfo?.phone && d.phone === ride.driverInfo.phone));
+  });
+
+  const toggleFavDriver = async () => {
+    if (!ride.driverInfo?.name) {
+      toast.error('Taarifa za dereva hazijapatikana');
+      return;
+    }
+    if (isFavDriver) {
+      const list = getLocalFavoriteDrivers();
+      const match = list.find(d => (ride.driverId && d.driverId === ride.driverId) || (ride.driverInfo?.phone && d.phone === ride.driverInfo.phone));
+      if (match) {
+        await removeCustomerFavoriteDriver(match.id, ride.customerId);
+        setIsFavDriver(false);
+        toast.info(`${ride.driverInfo.name} ameondolewa kwenye madereva unaowapenda.`);
+      }
+    } else {
+      await saveCustomerFavoriteDriver({
+        driverId: ride.driverId,
+        name: ride.driverInfo.name,
+        phone: ride.driverInfo.phone || '0700000000',
+        photo: ride.driverInfo.photo,
+        vehicleType: ride.vehicleType || 'mini',
+        vehiclePlate: ride.driverInfo.vehicle?.plate || 'T 842 DKP',
+        vehicleModel: ride.driverInfo.vehicle?.model || 'Toyota IST',
+        vehicleColor: ride.driverInfo.vehicle?.color,
+        rating: ride.driverInfo.rating || 5,
+        notes: 'Dereva mstaarabu na anayejali abiria.',
+      }, ride.customerId);
+      setIsFavDriver(true);
+      toast.success(`${ride.driverInfo.name} amehifadhiwa kwenye Madereva Ninaowapenda! ❤️`);
+    }
+  };
 
   // Active viewer calculations (supporting both legacy timestamps and modern name objects)
   const { activeViewersCount, activeViewerNames } = useMemo(() => {
@@ -281,6 +322,18 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                           <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                           <span className="text-[8.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.9'}</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={toggleFavDriver}
+                          className={`p-1 rounded-full border transition-all active:scale-90 shrink-0 ${
+                            isFavDriver
+                              ? 'bg-rose-500/15 border-rose-500/30 text-rose-500'
+                              : 'border-transparent text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10'
+                          }`}
+                          title={isFavDriver ? 'Dereva Mpendwa (Saved to Favorites)' : 'Hifadhi Dereva Huyu (Add to Favorites)'}
+                        >
+                          <Heart className={`w-3 h-3 ${isFavDriver ? 'fill-rose-500 text-rose-500' : ''}`} />
+                        </button>
                       </div>
                       
                       {/* Vehicle & Plate details */}

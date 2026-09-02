@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
-import { Star, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, CheckCircle2, Heart } from 'lucide-react';
+import { toast } from 'sonner';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from '../../ThemeContext';
+import { 
+  getLocalFavoriteDrivers, 
+  saveCustomerFavoriteDriver, 
+  removeCustomerFavoriteDriver 
+} from '../../utils/customerPreferences';
 
 interface RatingScreenProps {
   ride: Ride;
@@ -14,8 +20,54 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
   const [hovered, setHovered] = useState(0);
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
   const [comment, setComment] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+
+  useEffect(() => {
+    const list = getLocalFavoriteDrivers();
+    const isFav = list.some(
+      d => (ride.driverId && d.driverId === ride.driverId) || (ride.driverInfo?.phone && d.phone === ride.driverInfo.phone)
+    );
+    setIsFavorite(isFav);
+  }, [ride]);
+
+  const handleToggleFavorite = async () => {
+    if (!ride.driverInfo?.name) {
+      toast.error('Taarifa za dereva hazijapatikana');
+      return;
+    }
+
+    if (isFavorite) {
+      const list = getLocalFavoriteDrivers();
+      const match = list.find(
+        d => (ride.driverId && d.driverId === ride.driverId) || (ride.driverInfo?.phone && d.phone === ride.driverInfo.phone)
+      );
+      if (match) {
+        await removeCustomerFavoriteDriver(match.id, ride.customerId);
+        setIsFavorite(false);
+        toast.info(`${ride.driverInfo.name} ameondolewa kwenye madereva unaowapenda.`);
+      }
+    } else {
+      await saveCustomerFavoriteDriver(
+        {
+          driverId: ride.driverId,
+          name: ride.driverInfo.name,
+          phone: ride.driverInfo.phone || '0700000000',
+          photo: ride.driverInfo.photo,
+          vehicleType: ride.vehicleType || 'mini',
+          vehiclePlate: ride.driverInfo.vehicle?.plate || 'T 842 DKP',
+          vehicleModel: ride.driverInfo.vehicle?.model || 'Toyota IST',
+          vehicleColor: ride.driverInfo.vehicle?.color,
+          rating: ride.driverInfo.rating || 5,
+          notes: 'Alitoa huduma nzuri na salama.',
+        },
+        ride.customerId
+      );
+      setIsFavorite(true);
+      toast.success(`${ride.driverInfo.name} amehifadhiwa kwenye Madereva Ninaowapenda! ❤️`);
+    }
+  };
 
   const chips = ['Salama', 'Haraka', 'Rafiki', 'Gari Safi', 'Njia Nzuri', 'Mpole'];
 
@@ -75,6 +127,22 @@ export const RatingScreen: React.FC<RatingScreenProps> = ({ ride, onSubmit, onSk
             </button>
           ))}
         </div>
+
+        {/* Favorite Driver Toggle Pill */}
+        <button
+          type="button"
+          onClick={handleToggleFavorite}
+          className={`px-3 py-1.5 rounded-full text-[10.5px] font-black uppercase tracking-wider flex items-center gap-1.5 border transition-all active:scale-95 shadow-xs ${
+            isFavorite 
+              ? 'bg-rose-600 text-white border-rose-600 shadow-rose-500/25'
+              : (theme === 'dark' 
+                ? 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-rose-500/50 hover:text-rose-400' 
+                : 'bg-white border-neutral-200 text-neutral-700 hover:border-rose-300 hover:text-rose-600')
+          }`}
+        >
+          <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-white text-white' : 'text-rose-500'}`} />
+          <span>{isFavorite ? 'Dereva Wangu Mpendwa ❤️' : 'Hifadhi Dereva Ninayempenda'}</span>
+        </button>
 
         {/* Chips Selector */}
         <div className="w-full">
