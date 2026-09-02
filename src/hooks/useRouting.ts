@@ -5,6 +5,10 @@ export interface RouteStep {
   duration: number;
   instruction: string;
   location: [number, number];
+  type?: string;
+  modifier?: string;
+  name?: string;
+  coordIndex?: number;
 }
 
 export interface RouteData {
@@ -230,8 +234,11 @@ export function useRouting(
               // Adjust step directions if available to reflect sliced steps
               const cachedSteps = lastFetchedRef.current.data.steps;
               const slicedSteps = cachedSteps.filter((s) => {
+                if (typeof s.coordIndex === 'number') {
+                  return s.coordIndex >= closestIndex - 1;
+                }
                 const distToStep = getDistMeters(currentPickup, s.location);
-                return distToStep > 30; // steps further than 30m ahead
+                return distToStep > 20;
               });
 
               const nextData: RouteData = {
@@ -364,11 +371,48 @@ export function useRouting(
           route.legs.forEach((leg: any) => {
             if (leg.steps && Array.isArray(leg.steps)) {
               leg.steps.forEach((step: any) => {
+                const maneuverType = (step.maneuver?.type || '').toLowerCase();
+                const modifier = (step.maneuver?.modifier || '').toLowerCase();
+                const streetName = (step.name || '').trim();
+                const stepLoc: [number, number] = [step.maneuver?.location[1], step.maneuver?.location[0]];
+
+                let instruction = '';
+                if (maneuverType === 'arrive') {
+                  instruction = 'Arrive at destination';
+                } else if (maneuverType === 'depart') {
+                  instruction = streetName ? `Head towards ${streetName}` : 'Depart';
+                } else if (modifier.includes('left')) {
+                  instruction = streetName ? `Turn left onto ${streetName}` : 'Turn left';
+                } else if (modifier.includes('right')) {
+                  instruction = streetName ? `Turn right onto ${streetName}` : 'Turn right';
+                } else if (modifier.includes('straight') || maneuverType === 'continue' || maneuverType === 'new name') {
+                  instruction = streetName ? `Continue onto ${streetName}` : 'Continue';
+                } else if (modifier) {
+                  instruction = `${maneuverType} ${modifier} ${streetName ? 'onto ' + streetName : ''}`.trim();
+                } else {
+                  instruction = streetName ? `Continue onto ${streetName}` : (maneuverType || 'Continue');
+                }
+
+                // Find closest point along route coords for precise slicing
+                let minStepDist = Infinity;
+                let stepIdx = 0;
+                for (let ci = 0; ci < interpolatedCoords.length; ci++) {
+                  const d = getDistMeters(stepLoc, interpolatedCoords[ci]);
+                  if (d < minStepDist) {
+                    minStepDist = d;
+                    stepIdx = ci;
+                  }
+                }
+
                 steps.push({
                   distance: step.distance,
                   duration: step.duration,
-                  instruction: (step.maneuver?.type || '') + " " + (step.name || ""),
-                  location: [step.maneuver?.location[1], step.maneuver?.location[0]],
+                  instruction,
+                  location: stepLoc,
+                  type: maneuverType,
+                  modifier,
+                  name: streetName,
+                  coordIndex: stepIdx,
                 });
               });
             }
