@@ -1748,6 +1748,11 @@ export default function TaxiBooking() {
   useEffect(() => {
     const paramRideId = searchParams.get("rideId");
     if (paramRideId) {
+      // If unauthenticated or guest spectator, redirect smoothly to the dedicated public tracker
+      if (!user || user.isAnonymous) {
+        navigate(`/track?rideId=${paramRideId}`, { replace: true });
+        return;
+      }
       console.log("[TaxiBooking] Loading shared ride from url param:", paramRideId);
       setRideId(paramRideId);
       setIsRestoring(false);

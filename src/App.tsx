@@ -43,6 +43,7 @@ import TaxiHistory from './components/tegex/TaxiHistory';
 
 import DeliveryRobotManager from './components/DeliveryRobotManager';
 import SuperServicesHub from './components/services/SuperServicesHub';
+import PublicLiveTripTracker from './components/tegex/PublicLiveTripTracker';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -67,6 +68,11 @@ function AppContent() {
   const { user, profile, loading } = useAuth();
   const { config, loading: configLoading } = useBusinessConfig();
   const [showSplash, setShowSplash] = React.useState(() => {
+    // Immediately bypass splash for live tracking or verification links
+    const path = window.location.pathname;
+    if (path.startsWith('/track') || path.startsWith('/safari/track') || path.startsWith('/status/') || path.startsWith('/verify-receipt/')) {
+      return false;
+    }
     // Show splash once per tab session for smooth PWA/user experience
     const shown = sessionStorage.getItem('app_splash_screen_shown');
     return !shown;
@@ -376,6 +382,9 @@ function AppContent() {
       <Route path="/staff/login" element={<StaffLogin />} />
       <Route path="/status/:vendorId" element={<PublicStatusDisplay />} />
       <Route path="/verify-receipt/:id" element={<PublicReceiptVerification />} />
+      <Route path="/track/:rideId" element={<PublicLiveTripTracker />} />
+      <Route path="/track" element={<PublicLiveTripTracker />} />
+      <Route path="/safari/track" element={<PublicLiveTripTracker />} />
       <Route path="/instant-ride/:driverId" element={<InstantQrRide />} />
       <Route path="/instant-ride" element={<InstantQrRide />} />
       <Route path="/ride/qr/:driverId" element={<InstantQrRide />} />
@@ -392,6 +401,9 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/track/:rideId" element={<PublicLiveTripTracker />} />
+            <Route path="/track" element={<PublicLiveTripTracker />} />
+            <Route path="/taxi/track" element={<PublicLiveTripTracker />} />
             <Route path="/table/:vendorId/:tableId" element={<TableSession />} />
             <Route path="/services" element={<SuperServicesHub />} />
             <Route path="/services-hub" element={<SuperServicesHub />} />

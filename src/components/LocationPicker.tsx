@@ -193,6 +193,7 @@ interface LocationPickerProps {
   title?: string;
   subtitle?: string;
   arRouteId?: string | null;
+  zIndex?: string;
 }
 
 function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
@@ -297,7 +298,8 @@ export default function LocationPicker({
   pickerType,
   title,
   subtitle,
-  arRouteId = null 
+  arRouteId = null,
+  zIndex,
 }: LocationPickerProps) {
   const navigate = useNavigate();
   const { config: businessConfig } = useBusinessConfig();
@@ -882,7 +884,7 @@ export default function LocationPicker({
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+      <div className={`fixed inset-0 ${zIndex || 'z-[2000]'} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm`}>
         <motion.div 
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
