@@ -2942,7 +2942,11 @@ const getEndPin = (etaText: string) => {
 
       {/* Floating Controls Column on the Right - Ultra Clean, Minimalist & Modern */}
       {!isMinimized && (
-        <div className="absolute right-3.5 top-20 z-40 flex flex-col gap-2 items-end pointer-events-auto">
+        <div className={`absolute right-3.5 z-40 flex flex-col gap-2 items-end pointer-events-auto transition-all duration-300 ${
+          isOnline && activeRide && !showPayment && !showRating
+            ? 'top-[215px] sm:top-[225px]'
+            : 'top-20'
+        }`}>
           {/* Main Map Tools Flyout Menu */}
           <AnimatePresence>
             {showMapToolsMenu && (
@@ -2951,7 +2955,7 @@ const getEndPin = (etaText: string) => {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 20, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-[#1e1e2e] p-2.5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.25)] flex flex-col gap-1.5 min-w-[170px] mb-1"
+                className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-[#1e1e2e] p-2.5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.25)] flex flex-col gap-1.5 min-w-[185px] mb-1"
               >
                 <div className="flex items-center justify-between px-1.5 pb-1 border-b border-neutral-100 dark:border-neutral-800/80">
                   <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Mipangilio ya Ramani</span>
@@ -2991,7 +2995,43 @@ const getEndPin = (etaText: string) => {
                   </span>
                 </button>
 
-                {/* 3. Audio & Voice Alerts */}
+                {/* 3. 3D Mode Toggle */}
+                <button
+                  onClick={() => {
+                    const nextMode = !is3DMode;
+                    setIs3DMode(nextMode);
+                    toast.success(nextMode ? "Mwonekano wa 3D umewashwa!" : "Mwonekano wa 2D umewashwa.");
+                  }}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwonekano wa 3D</span>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${is3DMode ? 'bg-purple-500/15 text-purple-500 font-bold' : 'text-neutral-400'}`}>
+                    {is3DMode ? '3D' : '2D'}
+                  </span>
+                </button>
+
+                {/* 4. Heading-Up / North-Up Toggle */}
+                <button
+                  onClick={() => {
+                    const nextHeading = !isHeadingUp;
+                    setIsHeadingUp(nextHeading);
+                    toast.success(nextHeading ? "Mwelekeo wa gari (Heading-Up) umewashwa!" : "Kaskazini (North-Up) imewashwa.");
+                  }}
+                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Compass className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwelekeo wa Njia</span>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${isHeadingUp ? 'bg-emerald-500/15 text-emerald-500 font-bold' : 'text-neutral-400'}`}>
+                    {isHeadingUp ? 'Heading' : 'North'}
+                  </span>
+                </button>
+
+                {/* 5. Audio & Voice Alerts */}
                 <button
                   onClick={() => {
                     const newSound = !driverAudioSettings.soundEnabled;
@@ -3021,7 +3061,7 @@ const getEndPin = (etaText: string) => {
                   </span>
                 </button>
 
-                {/* 4. Road Hazards & Traffic Lights */}
+                {/* 6. Road Hazards & Traffic Lights */}
                 <button
                   onClick={() => {
                     setShowRoadAlerts(!showRoadAlerts);
@@ -3038,7 +3078,7 @@ const getEndPin = (etaText: string) => {
                   </span>
                 </button>
 
-                {/* 5. Earnings details button */}
+                {/* 7. Earnings details button */}
                 <button
                   onClick={() => {
                     setShowEarningsModal(prev => !prev);
@@ -3131,7 +3171,11 @@ const getEndPin = (etaText: string) => {
 
       {/* Floating Driver Services Column on the Left - Collapse/Expand Panel */}
       {!isMinimized && (
-        <div className="absolute left-4 top-24 z-45 flex flex-col gap-2.5 items-center pointer-events-auto">
+        <div className={`absolute left-4 z-45 flex flex-col gap-2.5 items-center pointer-events-auto transition-all duration-300 ${
+          isOnline && activeRide && !showPayment && !showRating
+            ? 'top-[215px] sm:top-[225px]'
+            : 'top-24'
+        }`}>
           {/* Expanded Container */}
           <AnimatePresence>
             {!poisCollapsed && (

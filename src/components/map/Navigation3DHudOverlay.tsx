@@ -164,7 +164,13 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
     }
 
     let sub = street;
-    if (!sub || sub.toLowerCase() === 'depart' || sub.toLowerCase() === 'continue' || sub.toLowerCase() === 'turn') {
+    if (!sub || ['depart', 'continue', 'turn', 'head', 'none', 'route'].includes(sub.toLowerCase())) {
+      const cleaned = step.instruction
+        ?.replace(/^(Head|Turn|Continue|Merge|Keep|Ingia|Kata|Endelea|Depart)\s*(left|right|straight|onto|kushoto|kulia|from|north|south|east|west)?\s*/i, '')
+        .trim();
+      sub = (cleaned && !['depart', 'continue', 'turn', 'head'].includes(cleaned.toLowerCase())) ? cleaned : destinationName;
+    }
+    if (!sub || sub.toLowerCase() === 'depart') {
       sub = destinationName;
     }
 
@@ -361,7 +367,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         iconBg: 'bg-purple-600 text-white',
         pillBg: 'bg-purple-600 text-white',
         targetColor: 'text-purple-600 dark:text-purple-400',
-        badgeText: 'Arriving',
+        badgeText: useSwahili ? 'Inafika' : 'Arriving',
       };
     }
     if (currentManeuver.icon === 'right') {
@@ -369,7 +375,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         iconBg: 'bg-emerald-600 text-white',
         pillBg: 'bg-emerald-600 text-white',
         targetColor: 'text-emerald-600 dark:text-emerald-400',
-        badgeText: 'Arriving',
+        badgeText: null,
       };
     }
     if (currentManeuver.icon === 'left') {
@@ -377,16 +383,16 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
         iconBg: 'bg-blue-600 text-white',
         pillBg: 'bg-blue-600 text-white',
         targetColor: 'text-blue-600 dark:text-blue-400',
-        badgeText: 'Arriving',
+        badgeText: null,
       };
     }
     return {
       iconBg: 'bg-blue-600 text-white',
       pillBg: 'bg-blue-600 text-white',
       targetColor: 'text-blue-600 dark:text-blue-400',
-      badgeText: 'Arriving',
+      badgeText: null,
     };
-  }, [currentManeuver.icon, distMeters]);
+  }, [currentManeuver.icon, distMeters, useSwahili]);
 
   // Next Turn Preview Accent matching the next maneuver
   const nextTurnAccent = useMemo(() => {
@@ -457,7 +463,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               transition={{ type: 'spring', damping: 22, stiffness: 240 }}
               className="bg-white dark:bg-neutral-900 rounded-[26px] p-3.5 sm:p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)] border border-neutral-200/90 dark:border-neutral-800"
             >
-              {/* TOP ROW: Icon Box, Instruction Title + Road Subtitle, Badges (Arriving, Target, Red X) */}
+              {/* TOP ROW: Icon Box, Instruction Title + Road Subtitle, Badges (Arriving, Red X) */}
               <div className="flex items-center justify-between gap-3">
                 {/* Left Accent Icon Box */}
                 <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${themeAccent.iconBg}`}>
@@ -475,9 +481,9 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                   )}
                 </div>
 
-                {/* Instruction & Road / Destination Subtitle */}
-                <div className="min-w-0 flex-1 pr-1">
-                  <h2 className="text-[15px] sm:text-[17px] font-black text-neutral-900 dark:text-white leading-tight truncate">
+                {/* Instruction & Road / Destination Subtitle - Plenty of room, no truncation */}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-[15px] sm:text-[17px] font-black text-neutral-900 dark:text-white leading-tight break-words line-clamp-1">
                     {currentManeuver.mainText}
                   </h2>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 font-semibold truncate mt-0.5">
@@ -487,20 +493,11 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
                 {/* Right Action Badges (Arriving pill, Recenter target, Red X) */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Status Pill Badge ("Arriving") */}
-                  <div className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm tracking-wide ${themeAccent.pillBg}`}>
-                    {themeAccent.badgeText}
-                  </div>
-
-                  {/* Recenter Target Icon */}
-                  {onRecenter && (
-                    <button
-                      onClick={onRecenter}
-                      className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-transform active:scale-90"
-                      title="Lenga Gari Kwenye Ramani (Recenter GPS)"
-                    >
-                      <Crosshair className={`w-5 h-5 ${themeAccent.targetColor}`} />
-                    </button>
+                  {/* Status Pill Badge (Shown when Arriving) */}
+                  {themeAccent.badgeText && (
+                    <div className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm tracking-wide ${themeAccent.pillBg}`}>
+                      {themeAccent.badgeText}
+                    </div>
                   )}
 
                   {/* Red X Dismiss / Minimize */}
