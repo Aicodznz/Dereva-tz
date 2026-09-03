@@ -28,6 +28,7 @@ import {
   Phone,
   MessageSquare,
   Car,
+  AlertCircle,
   Activity,
   ShieldCheck,
   User,
@@ -572,6 +573,8 @@ interface RideOption {
   imageUrl?: string;
   capacity?: number;
   maintenance?: boolean;
+  available?: boolean;
+  unavailabilityReason?: string;
 }
 
 // --- MAIN COMPONENT ---
@@ -2569,6 +2572,16 @@ const getEndPin = (etaText: string) => {
       return;
     }
 
+    if (selectedRide.available === false) {
+      toast.error(`Usafiri wa ${selectedRide.name} haukupatikana kwa sasa. Tafadhali chagua usafiri mwingine unaopatikana.`);
+      return;
+    }
+
+    if (selectedRide.maintenance) {
+      toast.error(`Usafiri wa ${selectedRide.name} uko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
+      return;
+    }
+
     // Check geofence restrictions before launching search
     const rules = getPricingRules();
     const cityData = rules[selectedCity] || rules["Dar es Salaam"];
@@ -3125,9 +3138,11 @@ const getEndPin = (etaText: string) => {
 
         // Calculate dynamic ETA based on actual physical distance to the closest driver of this type
         let closestDriverDist = Infinity;
+        let matchingDriversCount = 0;
         if (drivers && drivers.length > 0) {
           drivers.forEach((d) => {
             if (d.vehicleType === id) {
+              matchingDriversCount++;
               const dist = getDistanceLocal([d.lat, d.lng], pickupPos);
               if (dist < closestDriverDist) {
                 closestDriverDist = dist;
@@ -3146,6 +3161,12 @@ const getEndPin = (etaText: string) => {
           calculatedEta = speedIndex + stableHash;
         }
 
+        const isMaintenance = val?.maintenance === true;
+        const isExplicitlyUnavailable = val?.available === false || val?.isAvailable === false || val?.status === 'unavailable';
+        const isDriverMissing = val?.requireOnlineDriver === true && matchingDriversCount === 0;
+
+        const isAvailable = !isMaintenance && !isExplicitlyUnavailable && !isDriverMissing;
+
         return {
           id: id,
           name: val?.name || id,
@@ -3157,7 +3178,9 @@ const getEndPin = (etaText: string) => {
           image: val?.image || "🚗",
           imageUrl: val?.imageUrl || "",
           capacity: val?.capacity !== undefined ? val.capacity : (id === 'mini' ? 4 : id === 'bajaj' ? 3 : 1),
-          maintenance: val?.maintenance === true,
+          maintenance: isMaintenance,
+          available: isAvailable,
+          unavailabilityReason: (isExplicitlyUnavailable || isDriverMissing) ? "Haikupatikana" : isMaintenance ? "Matengenezo" : undefined,
           discount: id === 'mini' ? "PUNGUZO 3K" : undefined
         };
       });
@@ -3174,7 +3197,7 @@ const getEndPin = (etaText: string) => {
       if (matched && (!selectedRide || selectedRide.id !== matched.id)) {
         setSelectedRide(matched);
       } else if (!selectedRide || !rideOptions.some(r => r.id === selectedRide.id)) {
-        const available = rideOptions.find(r => !r.maintenance) || rideOptions[0];
+        const available = rideOptions.find(r => !r.maintenance && r.available !== false) || rideOptions[0];
         setSelectedRide(available);
       }
     }
@@ -4605,21 +4628,31 @@ const getEndPin = (etaText: string) => {
                                   toast.error(`La hasha! Huduma ya ${ride.name} iko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
                                   return;
                                 }
+                                if (ride.available === false) {
+                                  toast.error(`Usafiri wa ${ride.name} haukupatikana kwa sasa. Tafadhali chagua usafiri mwingine unaopatikana.`);
+                                  return;
+                                }
                                 setSelectedRide(ride);
                               }}
                               className={`min-w-[130px] sm:min-w-[145px] max-w-[155px] flex-1 snap-start shrink-0 p-3 sm:p-3.5 rounded-[22px] border-2 transition-all duration-300 flex flex-col items-center justify-between gap-2 relative overflow-hidden group ${
                                 ride.maintenance 
                                   ? (theme === 'dark' ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-900/40 bg-amber-950/20" : "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50") :
+                                ride.available === false
+                                  ? (theme === 'dark' ? "opacity-75 grayscale-[35%] pointer-events-auto border-rose-900/50 bg-rose-950/20 hover:border-rose-700" : "opacity-85 grayscale-[20%] pointer-events-auto border-rose-400/40 bg-rose-50/60 hover:border-rose-400") :
                                 isSelected
                                   ? (theme === 'dark' ? "bg-indigo-950/30 border-indigo-500 shadow-md scale-[1.02]" : "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]")
                                   : (theme === 'dark' ? "bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/80" : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50")
                               }`}
                             >
-                              {ride.maintenance && (
+                              {ride.maintenance ? (
                                 <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none">
                                   Matengenezo
                                 </div>
-                              )}
+                              ) : ride.available === false ? (
+                                <div className="absolute top-0 inset-x-0 bg-rose-600 text-white font-black uppercase text-[7px] text-center tracking-widest py-0.5 z-20 leading-none shadow-xs">
+                                  Haikupatikana
+                                </div>
+                              ) : null}
 
                               {isSelected && (
                                 <motion.div
@@ -4635,6 +4668,10 @@ const getEndPin = (etaText: string) => {
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (ride.available === false) {
+                                    toast.error(`Usafiri wa ${ride.name} haukupatikana kwa sasa.`);
+                                    return;
+                                  }
                                   setSelectedRide(ride);
                                   setShowBreakdownModal(true);
                                 }}
@@ -4690,13 +4727,20 @@ const getEndPin = (etaText: string) => {
                                 >
                                   {ride.name}
                                 </h4>
-                                <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors whitespace-nowrap ${
-                                  isSelected 
-                                    ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
-                                    : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
-                                }`}>
-                                  TZS {ride.price.toLocaleString()}
-                                </h3>
+                                {ride.available === false ? (
+                                  <div className="flex flex-col items-center mt-0.5">
+                                    <span className="text-[9px] line-through text-neutral-400/80 leading-none">TZS {ride.price.toLocaleString()}</span>
+                                    <span className="text-[9.5px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-tight leading-tight mt-0.5">Haikupatikana</span>
+                                  </div>
+                                ) : (
+                                  <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors whitespace-nowrap ${
+                                    isSelected 
+                                      ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
+                                      : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
+                                  }`}>
+                                    TZS {ride.price.toLocaleString()}
+                                  </h3>
+                                )}
                               </div>
                               
                               {/* Information of capacity and ETA */}
@@ -4705,10 +4749,17 @@ const getEndPin = (etaText: string) => {
                                   <Users className="w-3 h-3 text-indigo-500 shrink-0" />
                                   <span>Abiria {ride.capacity}</span>
                                 </div>
-                                <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
-                                  <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
-                                  <span>{ride.eta} min</span>
-                                </div>
+                                {ride.available === false ? (
+                                  <div className="flex items-center gap-1 text-rose-500 dark:text-rose-400 font-extrabold whitespace-nowrap">
+                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-500" />
+                                    <span>Haikupatikana</span>
+                                  </div>
+                                ) : (
+                                  <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
+                                    <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
+                                    <span>{ride.eta} min</span>
+                                  </div>
+                                )}
                               </div>
                             </button>
                           );
@@ -5228,6 +5279,14 @@ const getEndPin = (etaText: string) => {
                       if (justSelectedRef.current) return;
                       console.log("Confirm button click");
                       if (destination && selectedRide) {
+                        if (selectedRide.available === false) {
+                          toast.error(`Usafiri wa ${selectedRide.name} haukupatikana kwa sasa. Tafadhali chagua usafiri mwingine unaopatikana.`);
+                          return;
+                        }
+                        if (selectedRide.maintenance) {
+                          toast.error(`Usafiri wa ${selectedRide.name} uko kwenye matengenezo kwa sasa. Tafadhali chagua usafiri mwingine.`);
+                          return;
+                        }
                         const defaultName = profile?.displayName || auth.currentUser?.displayName || "";
                         let defaultPhone = profile?.phoneNumber || "";
                         if (defaultPhone.startsWith("+255")) {
@@ -5249,6 +5308,10 @@ const getEndPin = (etaText: string) => {
                     className={`w-full h-14 sm:h-16 rounded-2xl font-black italic uppercase text-xs sm:text-sm tracking-wider flex items-center justify-between px-6 sm:px-8 transition-all duration-300 active:scale-98 relative overflow-hidden group shadow-lg ${
                       (!destination || suggestions.length > 0)
                         ? "bg-neutral-200 dark:bg-neutral-850 text-neutral-400 dark:text-neutral-500 border border-neutral-300/20 dark:border-neutral-800 cursor-not-allowed opacity-80"
+                        : selectedRide?.available === false
+                        ? "bg-rose-600 hover:bg-rose-700 text-white shadow-[0_8px_25px_rgba(225,29,72,0.35)]"
+                        : selectedRide?.maintenance
+                        ? "bg-amber-600 hover:bg-amber-700 text-white shadow-[0_8px_25px_rgba(217,119,6,0.35)]"
                         : "bg-[#10a349] hover:bg-[#0d8a3e] text-white shadow-[0_8px_25px_rgba(16,163,73,0.3)] hover:shadow-[0_12px_32px_rgba(16,163,73,0.45)] hover:scale-[1.01]"
                     }`}
                   >
@@ -5256,15 +5319,27 @@ const getEndPin = (etaText: string) => {
                     <span className="relative z-10 flex items-center gap-2">
                       {destination ? (
                         selectedRide ? (
-                          <div className="flex items-center gap-2 text-left">
-                            <span>
-                              THIBITISHA {selectedRide.name.toUpperCase()}
-                              {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') && shareMode === 'share' ? ' (PAPOSHARE)' : ''}
-                            </span>
-                            <span className="text-[10px] normal-case tracking-normal px-2 py-0.5 rounded-full bg-white/20 font-bold hidden sm:inline-block">
-                              {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : '💳 Kadi'}
-                            </span>
-                          </div>
+                          selectedRide.available === false ? (
+                            <div className="flex items-center gap-2 text-left text-white">
+                              <AlertCircle className="w-5 h-5 text-white animate-pulse shrink-0" />
+                              <span>USAFIRI WA {selectedRide.name.toUpperCase()} HAUKUPATIKANA</span>
+                            </div>
+                          ) : selectedRide.maintenance ? (
+                            <div className="flex items-center gap-2 text-left text-white">
+                              <AlertCircle className="w-5 h-5 text-white animate-pulse shrink-0" />
+                              <span>{selectedRide.name.toUpperCase()} IKO KWENYE MATENGENEZO</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-left">
+                              <span>
+                                THIBITISHA {selectedRide.name.toUpperCase()}
+                                {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') && shareMode === 'share' ? ' (PAPOSHARE)' : ''}
+                              </span>
+                              <span className="text-[10px] normal-case tracking-normal px-2 py-0.5 rounded-full bg-white/20 font-bold hidden sm:inline-block">
+                                {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : '💳 Kadi'}
+                              </span>
+                            </div>
+                          )
                         ) : (
                           "CHAGUA USAFIRI"
                         )
@@ -5555,17 +5630,16 @@ const getEndPin = (etaText: string) => {
         {step === "timeout" && (
           <div className="absolute inset-0 z-[100] bg-[#0a0a0f] flex flex-col items-center justify-center p-8 text-center">
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center text-red-500 mb-8 border border-red-500/30">
-              <CloseX className="w-10 h-10" />
+              <AlertCircle className="w-10 h-10" />
             </div>
             <h2 className="text-2xl font-black text-[#f0eeff] mb-4">
-              Hakuna Dereva Karibu Nawe Sasa Hivi
+              Usafiri Haukupatikana
             </h2>
-            <p className="text-[#6b6b8a] text-sm font-bold mb-12">
-              Samahani, madereva wetu wote wako mbali kwa sasa. Tafadhali jaribu
-              tena baada ya muda mfupi.
+            <p className="text-[#8A8FA8] text-sm font-semibold mb-12 max-w-md">
+              Samahani, usafiri wa {selectedRide?.name || 'Gari'} haukupatikana katika eneo lako kwa sasa. Madereva wote wako mbali au wanahudumia wateja wengine. Tafadhali jaribu tena au chagua aina nyingine ya usafiri.
             </p>
 
-            <div className="w-full space-y-4">
+            <div className="w-full max-w-xs space-y-4">
               <button
                 onClick={handleRetry}
                 className="w-full h-14 bg-white text-[#0a0a0f] rounded-[50px] font-black uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-transform"
@@ -5579,7 +5653,7 @@ const getEndPin = (etaText: string) => {
                 }}
                 className="w-full text-[10px] font-black text-[#6b6b8a] uppercase tracking-widest py-4 transition-colors hover:text-[#f0eeff]"
               >
-                Ghairi
+                Chagua Usafiri Mwingine
               </button>
             </div>
           </div>

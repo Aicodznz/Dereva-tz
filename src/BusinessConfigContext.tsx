@@ -67,7 +67,8 @@ const defaultConfig: BusinessConfig = {
       image: "🚗",
       imageType: "emoji",
       imageUrl: "",
-      mapMarkerUrl: ""
+      mapMarkerUrl: "",
+      available: true
     },
     bajaj: {
       id: "bajaj",
@@ -77,7 +78,8 @@ const defaultConfig: BusinessConfig = {
       image: "🛺",
       imageType: "emoji",
       imageUrl: "",
-      mapMarkerUrl: ""
+      mapMarkerUrl: "",
+      available: true
     },
     bike: {
       id: "bike",
@@ -87,7 +89,8 @@ const defaultConfig: BusinessConfig = {
       image: "🏍️",
       imageType: "emoji",
       imageUrl: "",
-      mapMarkerUrl: ""
+      mapMarkerUrl: "",
+      available: true
     },
     rental: {
       id: "rental",
@@ -97,7 +100,8 @@ const defaultConfig: BusinessConfig = {
       image: "🔑🚗",
       imageType: "emoji",
       imageUrl: "",
-      mapMarkerUrl: ""
+      mapMarkerUrl: "",
+      available: true
     }
   }
 };

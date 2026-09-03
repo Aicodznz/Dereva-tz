@@ -4374,6 +4374,56 @@ export default function AdminDashboard() {
                                 {v.maintenance === true ? "Matengenezo ON" : "Matengenezo OFF"}
                               </button>
                             </div>
+
+                            {/* Toggle 3: Availability (Unapatikana / Haikupatikana) */}
+                            <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-2 mt-1">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 uppercase">Upatikanaji (Available)</span>
+                                <span className="text-[7.5px] text-neutral-400">Iwapo usafiri upo au haupo</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, available: v.available === false ? true : false }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase transition-all ${
+                                  v.available !== false
+                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                    : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-extrabold"
+                                }`}
+                              >
+                                {v.available !== false ? "Unapatikana" : "Haikupatikana"}
+                              </button>
+                            </div>
+
+                            {/* Toggle 4: Check Online Drivers */}
+                            <div className="flex items-center justify-between border-t border-neutral-100 dark:border-neutral-800 pt-2 mt-1">
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 uppercase">Kagua Madereva Walio Karibu</span>
+                                <span className="text-[7.5px] text-neutral-400">Weka 'Haikupatikana' iwapo hakuna dereva</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = {
+                                    ...businessConfig.vehicles,
+                                    [id]: { ...v, requireOnlineDriver: !v.requireOnlineDriver }
+                                  };
+                                  setBusinessConfig({ ...businessConfig, vehicles: updated });
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-[8px] font-black uppercase transition-all ${
+                                  v.requireOnlineDriver
+                                    ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
+                                    : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600"
+                                }`}
+                              >
+                                {v.requireOnlineDriver ? "Ukaguzi ON" : "Ukaguzi OFF"}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
