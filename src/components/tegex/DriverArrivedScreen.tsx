@@ -285,21 +285,21 @@ export const DriverArrivedScreen: React.FC<DriverArrivedScreenProps> = ({ ride, 
                  </button>
                </div>
              )}
-
-            {/* Share Trip Modal */}
-            <ShareTripModal
-              isOpen={showShareModal}
-              onClose={() => setShowShareModal(false)}
-              rideId={ride.id || "TGX-8821"}
-              pickupAddress={ride.pickup.address}
-              dropoffAddress={ride.destination.address}
-              driverName={ride.driverInfo?.name}
-              vehiclePlate={ride.driverInfo?.vehicle?.plate}
-              vehicleModel={ride.driverInfo?.vehicle?.model}
-            />
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Share Trip Modal (placed outside draggable sheet so touches and clicks work reliably) */}
+      <ShareTripModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        rideId={ride.id || "TGX-8821"}
+        pickupAddress={ride.pickup.address}
+        dropoffAddress={ride.destination.address}
+        driverName={ride.driverInfo?.name}
+        vehiclePlate={ride.driverInfo?.vehicle?.plate}
+        vehicleModel={ride.driverInfo?.vehicle?.model}
+      />
 
       <AnimatePresence>
         {!showDetails && !isMinimized && (

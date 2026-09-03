@@ -243,9 +243,30 @@ export default function PublicLiveTripTracker() {
   };
 
   // Copy share URL
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const url = window.location.href;
-    navigator.clipboard.writeText(url);
+    let success = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(url);
+        success = true;
+      } catch (e) {
+        console.warn('Clipboard API failed, using fallback:', e);
+      }
+    }
+    if (!success) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        success = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (e) {}
+    }
     setCopied(true);
     toast.success('Link ya safari imenakiliwa!');
     setTimeout(() => setCopied(false), 2500);
