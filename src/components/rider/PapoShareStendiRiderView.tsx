@@ -55,6 +55,13 @@ export default function PapoShareStendiRiderView({
     passenger: StandPassenger;
   } | null>(null);
 
+  // Live timer tick for departure countdown
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Real-time listener for active stand routes
   useEffect(() => {
     setLoading(true);
@@ -196,6 +203,15 @@ export default function PapoShareStendiRiderView({
 
     if (res.success) {
       toast.success("🎉 Kiti kimethibitishwa kikamilifu! Dereva amearifiwa.");
+      try {
+        localStorage.setItem(
+          'papo_active_stand_trip',
+          JSON.stringify({
+            routeId: bookingRoute.id,
+            passengerId: passengerData.passengerId
+          })
+        );
+      } catch (e) {}
       setMyConfirmedRoute({
         route: bookingRoute,
         passenger: passengerData
@@ -513,6 +529,23 @@ export default function PapoShareStendiRiderView({
                 )}
               </div>
 
+              {/* Departure Countdown / Schedule Info */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  {(() => {
+                    if (route.departureTargetTimestamp) {
+                      const diff = route.departureTargetTimestamp - nowMs;
+                      if (diff <= 0) return '⏳ Muda wa kuondoka umewadia!';
+                      const m = Math.floor(diff / 60000);
+                      const s = Math.floor((diff % 60000) / 1000);
+                      return `Ondoka stendi: dk ${m}:${s < 10 ? '0' : ''}${s} zilizobaki`;
+                    }
+                    return route.departureTimeText || '⚡ Huondoka gari likijaa tu viti vyote';
+                  })()}
+                </span>
+              </div>
+
               {/* Bottom Row: Price & Action */}
               <div className="flex items-center justify-between pt-1">
                 <div>
@@ -584,6 +617,12 @@ export default function PapoShareStendiRiderView({
                 <span className="text-neutral-500 font-bold">Chombo:</span>
                 <span className="font-bold uppercase text-neutral-900 dark:text-white">
                   {bookingRoute.vehicleType === 'boda' ? '🏍️ Pikipiki' : bookingRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-neutral-200 dark:border-neutral-800">
+                <span className="text-neutral-500 font-bold">Ratiba:</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  {bookingRoute.departureTimeText || '⚡ Huondoka gari likijaa'}
                 </span>
               </div>
             </div>

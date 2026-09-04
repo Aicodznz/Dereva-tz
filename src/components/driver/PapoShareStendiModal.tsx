@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, MapPin, Navigation, Users, DollarSign, 
   CheckCircle2, AlertCircle, Phone, MessageSquare, 
   Play, Pause, Trash2, Edit3, Sparkles, ShieldCheck,
   ChevronRight, Car, Compass, ArrowRight, Check, Map as MapIcon,
-  Plus, Minus, RefreshCw
+  Plus, Minus, RefreshCw, Clock, Bell, Volume2, Timer
 } from 'lucide-react';
 import { 
   StandPoolingRoute, 
   StandLocation, 
   StandPricingModel, 
+  StandDepartureEstimate,
   POPULAR_STANDS, 
   POPULAR_DESTINATIONS,
   createOrUpdateStandRoute, 
@@ -20,6 +21,7 @@ import {
   getDistanceKm
 } from '../../services/standPoolingService';
 import LocationPicker from '../LocationPicker';
+import { playSyntheticImportant } from '../../utils/soundAlert';
 import { toast } from 'sonner';
 
 interface PapoShareStendiModalProps {
@@ -76,6 +78,10 @@ export default function PapoShareStendiModal({
   );
   const [pricingModel, setPricingModel] = useState<StandPricingModel>('custom_fixed');
   const [fixedFare, setFixedFare] = useState<number>(2500);
+  const [departureEstimate, setDepartureEstimate] = useState<StandDepartureEstimate>('when_full');
+
+  // Track passenger count for sound & haptic alert when rider books
+  const prevPassengerCountRef = useRef<number | null>(null);
 
   // Map Picker State
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
@@ -128,6 +134,29 @@ export default function PapoShareStendiModal({
         setStandSearchInput(route.standLocation?.name || '');
         setSelectedDestination(route.destination);
         setDestSearchInput(route.destination?.name || '');
+        if (route.departureEstimate) {
+          setDepartureEstimate(route.departureEstimate);
+        }
+
+        // Check if a new passenger booked a seat -> trigger audio chime + vibration
+        const bookedPassengers = (route.passengers || []).filter(p => p.status === 'booked');
+        const currentCount = bookedPassengers.length;
+        if (prevPassengerCountRef.current !== null && currentCount > prevPassengerCountRef.current) {
+          playSyntheticImportant();
+          if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+            try {
+              navigator.vibrate([250, 100, 250]);
+            } catch (e) {}
+          }
+          const latest = bookedPassengers[bookedPassengers.length - 1];
+          toast.success(
+            `🔔 ABIRIA MPYA KIJIWENI! ${latest?.passengerName || 'Abiria'} amehifadhi siti ${latest?.seats || 1} kuelekea ${latest?.dropoffName}!`,
+            { duration: 6000 }
+          );
+        }
+        prevPassengerCountRef.current = currentCount;
+      } else {
+        prevPassengerCountRef.current = null;
       }
     });
     return () => unsubscribe();
@@ -193,6 +222,21 @@ export default function PapoShareStendiModal({
         chosenVehicleType === 'boda' ? 'Pikipiki Boxer / TVS' :
         chosenVehicleType === 'bajaj' ? 'Bajaji TVS King' : 'Toyota Passo';
 
+      // Departure calculation
+      let departureTimeText = '⚡ Huondoka likijaa tu';
+      let departureTargetTimestamp: number | undefined = undefined;
+
+      if (departureEstimate === 'in_5_min') {
+        departureTimeText = '⏱️ Ondoka dk 5';
+        departureTargetTimestamp = Date.now() + 5 * 60 * 1000;
+      } else if (departureEstimate === 'in_10_min') {
+        departureTimeText = '⏱️ Ondoka dk 10';
+        departureTargetTimestamp = Date.now() + 10 * 60 * 1000;
+      } else if (departureEstimate === 'in_15_min') {
+        departureTimeText = '⏱️ Ondoka dk 15';
+        departureTargetTimestamp = Date.now() + 15 * 60 * 1000;
+      }
+
       await createOrUpdateStandRoute(driverId, {
         driverName,
         driverPhone,
@@ -213,6 +257,9 @@ export default function PapoShareStendiModal({
         occupiedSeats: 0,
         passengers: [],
         status: 'boarding',
+        departureEstimate,
+        departureTimeText,
+        departureTargetTimestamp: departureTargetTimestamp || null as any,
         notes: 'Safari ya PapoShare kuanzia stendi/kijiweni'
       });
 
@@ -224,10 +271,61 @@ export default function PapoShareStendiModal({
     }
   };
 
+  // Live timer tick for departure countdown
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const remainingCountdownText = useMemo(() => {
+    if (!activeRoute?.departureTargetTimestamp) return null;
+    const diff = activeRoute.departureTargetTimestamp - nowMs;
+    if (diff <= 0) return '⏳ Muda umefika wa kuondoka!';
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    return `⏳ Ondoka baada ya: ${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+  }, [activeRoute?.departureTargetTimestamp, nowMs]);
+
+  // Driver updates departure time while route is active
+  const handleUpdateDepartureLive = async (newEstimate: StandDepartureEstimate) => {
+    if (!activeRoute) return;
+    try {
+      let departureTimeText = '⚡ Huondoka likijaa tu';
+      let departureTargetTimestamp: number | undefined = undefined;
+
+      if (newEstimate === 'in_5_min') {
+        departureTimeText = '⏱️ Ondoka dk 5';
+        departureTargetTimestamp = Date.now() + 5 * 60 * 1000;
+      } else if (newEstimate === 'in_10_min') {
+        departureTimeText = '⏱️ Ondoka dk 10';
+        departureTargetTimestamp = Date.now() + 10 * 60 * 1000;
+      } else if (newEstimate === 'in_15_min') {
+        departureTimeText = '⏱️ Ondoka dk 15';
+        departureTargetTimestamp = Date.now() + 15 * 60 * 1000;
+      }
+
+      await createOrUpdateStandRoute(driverId, {
+        departureEstimate: newEstimate,
+        departureTimeText,
+        departureTargetTimestamp: departureTargetTimestamp || null as any,
+      });
+      setDepartureEstimate(newEstimate);
+      toast.success(`Muda wa kuondoka umesasishwa: ${departureTimeText}`);
+    } catch (e) {
+      toast.error("Imeshindikana kusasisha muda wa kuondoka.");
+    }
+  };
+
   const handleStartTrip = async () => {
     if (!activeRoute) return;
     try {
-      await updateStandRouteStatus(driverId, 'started');
+      const startLoc = currentGpsPosition
+        ? { lat: currentGpsPosition[0], lng: currentGpsPosition[1] }
+        : { lat: activeRoute.standLocation.lat, lng: activeRoute.standLocation.lng };
+      await updateStandRouteStatus(driverId, 'started', {
+        driverLocation: { ...startLoc, heading: 0 }
+      });
       toast.success("🚀 Safari imeanza! Abiria wote wamearifiwa.");
     } catch (err) {
       toast.error("Imeshindikana kuanza safari.");
@@ -415,6 +513,43 @@ export default function PapoShareStendiModal({
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Departure Countdown & Quick Schedule Adjustment */}
+                    <div className="bg-white dark:bg-[#181826] p-3.5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                            Ratiba ya Kuondoka
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                          {remainingCountdownText || activeRoute.departureTimeText || '⚡ Huondoka likijaa tu'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1 pt-0.5">
+                        {[
+                          { id: 'when_full', label: '⚡ Nikijaza' },
+                          { id: 'in_5_min', label: '⏱️ Dk 5' },
+                          { id: 'in_10_min', label: '⏱️ Dk 10' },
+                          { id: 'in_15_min', label: '⏱️ Dk 15' },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleUpdateDepartureLive(item.id as StandDepartureEstimate)}
+                            className={`py-1.5 px-1 rounded-lg text-[9.5px] font-black transition-all border text-center ${
+                              (activeRoute.departureEstimate || 'when_full') === item.id
+                                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
+                                : 'bg-neutral-50 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700/60 hover:bg-neutral-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -861,6 +996,48 @@ export default function PapoShareStendiModal({
                         </span>
                       </div>
                     )}
+                  </div>
+
+                  {/* 5. RATIBA YA KUONDOKA STENDI (DEPARTURE SCHEDULE) */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                          Muda wa Kuondoka Stendi
+                        </label>
+                      </div>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        {departureEstimate === 'when_full' ? '⚡ Nikijaza tu' : `⏱️ ${departureEstimate.replace('in_', 'Dk ').replace('_min', ' zilizobaki')}`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: 'when_full', label: '⚡ Nikijaza Tu', desc: 'Viti vikikamilika' },
+                        { id: 'in_5_min', label: '⏱️ Dakika 5', desc: 'Ondoka baada ya dk 5' },
+                        { id: 'in_10_min', label: '⏱️ Dakika 10', desc: 'Ondoka baada ya dk 10' },
+                        { id: 'in_15_min', label: '⏱️ Dakika 15', desc: 'Ondoka baada ya dk 15' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setDepartureEstimate(item.id as StandDepartureEstimate)}
+                          className={`p-2.5 rounded-xl border text-left transition-all ${
+                            departureEstimate === item.id
+                              ? 'bg-amber-500/10 border-amber-500 ring-1 ring-amber-500'
+                              : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100'
+                          }`}
+                        >
+                          <span className="text-xs font-black block text-neutral-900 dark:text-white">
+                            {item.label}
+                          </span>
+                          <span className="text-[9.5px] text-neutral-400 block mt-0.5">
+                            {item.desc}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Summary & Publish CTA Button */}

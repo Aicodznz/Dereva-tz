@@ -15,6 +15,7 @@ import { db } from '../firebase';
 
 export type StandPricingModel = 'custom_fixed' | 'system_km';
 export type StandRouteStatus = 'boarding' | 'full' | 'started' | 'completed' | 'cancelled';
+export type StandDepartureEstimate = 'when_full' | 'in_5_min' | 'in_10_min' | 'in_15_min';
 
 export interface StandLocation {
   name: string;
@@ -61,6 +62,11 @@ export interface StandPoolingRoute {
   occupiedSeats: number;
   passengers: StandPassenger[];
   status: StandRouteStatus;
+  departureEstimate?: StandDepartureEstimate;
+  departureTimeText?: string;
+  departureTargetTimestamp?: number;
+  driverLocation?: { lat: number; lng: number; heading?: number; updatedAt?: any };
+  routeCoords?: [number, number][];
   notes?: string;
   createdAt?: any;
   updatedAt?: any;
@@ -411,5 +417,122 @@ export async function cancelStandPassengerSeat(
       status: newAvailable > 0 ? 'boarding' : data.status,
       updatedAt: serverTimestamp(),
     });
+  });
+}
+
+/**
+ * Driver updates live GPS location on stand route
+ */
+export async function updateStandDriverLocation(
+  driverId: string,
+  location: { lat: number; lng: number; heading?: number }
+): Promise<void> {
+  const routeRef = doc(db, 'stand_pooling_routes', driverId);
+  try {
+    await updateDoc(routeRef, {
+      driverLocation: {
+        lat: location.lat,
+        lng: location.lng,
+        heading: location.heading ?? 0,
+        timestamp: new Date().toISOString()
+      },
+      updatedAt: serverTimestamp()
+    });
+  } catch (err) {
+    // Non-critical, ignore if route closed
+  }
+}
+
+/**
+ * Real-time listener for the passenger/rider's active stand pooling trip
+ */
+export function listenRiderActiveStandRoute(
+  userId: string | null | undefined,
+  callback: (route: StandPoolingRoute | null, passenger: StandPassenger | null) => void
+): () => void {
+  let savedTripMeta: { routeId: string; passengerId: string } | null = null;
+  try {
+    const raw = localStorage.getItem('papo_active_stand_trip');
+    if (raw) savedTripMeta = JSON.parse(raw);
+  } catch (e) {
+    console.warn("Error reading papo_active_stand_trip", e);
+  }
+
+  // If we have a saved route ID, listen to that route document directly for zero latency
+  if (savedTripMeta?.routeId) {
+    const routeRef = doc(db, 'stand_pooling_routes', savedTripMeta.routeId);
+    const unsubDoc = onSnapshot(routeRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as StandPoolingRoute;
+        data.id = docSnap.id;
+
+        const pass = (data.passengers || []).find(
+          (p) =>
+            (savedTripMeta && p.passengerId === savedTripMeta.passengerId) ||
+            (userId && p.passengerId === userId)
+        );
+
+        if (data.isActive && ['boarding', 'full', 'started'].includes(data.status) && pass && pass.status === 'booked') {
+          callback(data, pass);
+          return;
+        } else if (data.status === 'completed' && pass) {
+          callback(data, pass);
+          return;
+        }
+      }
+
+      // If no longer valid or cancelled, remove cached entry
+      try {
+        localStorage.removeItem('papo_active_stand_trip');
+      } catch {}
+      callback(null, null);
+    }, (err) => {
+      console.warn("Error listening to saved stand route", err);
+      callback(null, null);
+    });
+
+    return unsubDoc;
+  }
+
+  // Fallback: query active routes if no local storage or user opened app elsewhere
+  const q = query(
+    collection(db, 'stand_pooling_routes'),
+    where('isActive', '==', true)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    let matchedRoute: StandPoolingRoute | null = null;
+    let matchedPassenger: StandPassenger | null = null;
+
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as StandPoolingRoute;
+      data.id = docSnap.id;
+      if (['boarding', 'full', 'started'].includes(data.status)) {
+        const pass = (data.passengers || []).find(
+          (p) => userId && p.passengerId === userId && p.status === 'booked'
+        );
+        if (pass) {
+          matchedRoute = data;
+          matchedPassenger = pass;
+        }
+      }
+    });
+
+    if (matchedRoute && matchedPassenger) {
+      try {
+        localStorage.setItem(
+          'papo_active_stand_trip',
+          JSON.stringify({
+            routeId: (matchedRoute as StandPoolingRoute).id,
+            passengerId: (matchedPassenger as StandPassenger).passengerId
+          })
+        );
+      } catch {}
+    }
+
+    callback(matchedRoute, matchedPassenger);
+  }, (err) => {
+    console.warn("Error querying active stand routes for rider", err);
+    callback(null, null);
   });
 }

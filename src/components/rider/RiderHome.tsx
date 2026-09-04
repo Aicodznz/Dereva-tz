@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Polyline, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -45,6 +45,8 @@ import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import StreetHailModal from './StreetHailModal';
 import PapoShareStendiModal from '../driver/PapoShareStendiModal';
+import { listenDriverActiveStandRoute, updateStandDriverLocation, StandPoolingRoute } from '../../services/standPoolingService';
+import { playSyntheticImportant } from '../../utils/soundAlert';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
@@ -470,6 +472,43 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
   const [isStreetHailModalOpen, setIsStreetHailModalOpen] = useState(false);
   const [isPapoShareStendiModalOpen, setIsPapoShareStendiModalOpen] = useState(false);
+  const [activeDriverStandRoute, setActiveDriverStandRoute] = useState<StandPoolingRoute | null>(null);
+  const prevDashboardPassengerCountRef = useRef<number | null>(null);
+
+  // Real-time listener for driver's active PapoShare Stendi route
+  useEffect(() => {
+    const driverUid = user?.uid || (profile as any)?.id;
+    if (!driverUid) return;
+    const unsubscribe = listenDriverActiveStandRoute(driverUid, (route) => {
+      setActiveDriverStandRoute(route);
+      if (route && route.isActive && route.status === 'boarding') {
+        const booked = (route.passengers || []).filter(p => p.status === 'booked');
+        const count = booked.length;
+        if (prevDashboardPassengerCountRef.current !== null && count > prevDashboardPassengerCountRef.current) {
+          playSyntheticImportant();
+          if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+            try { navigator.vibrate([250, 100, 250]); } catch (e) {}
+          }
+          const newest = booked[booked.length - 1];
+          toast.success(
+            `🔔 ABIRIA MPYA KIJIWENI! ${newest?.passengerName || 'Abiria'} amehifadhi siti (${newest?.seats || 1}) kuelekea ${newest?.dropoffName}!`,
+            {
+              duration: 8000,
+              action: {
+                label: 'Fungua Safari',
+                onClick: () => setIsPapoShareStendiModalOpen(true)
+              }
+            }
+          );
+        }
+        prevDashboardPassengerCountRef.current = count;
+      } else {
+        prevDashboardPassengerCountRef.current = null;
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.uid, (profile as any)?.id]);
+
   const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
   const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail' | 'stendi'>('bonus');
   const [dismissedPromo, setDismissedPromo] = useState(false);
@@ -1776,6 +1815,10 @@ const getEndPin = (etaText: string) => {
 
               if (activeRide) {
                 updateDriverLocation(loc.lat, loc.lng, currentBearing);
+              }
+
+              if (activeDriverStandRoute && (activeDriverStandRoute.status === 'started' || activeDriverStandRoute.status === 'boarding')) {
+                updateStandDriverLocation(user.uid, { lat: loc.lat, lng: loc.lng, heading: currentBearing });
               }
 
               try {
@@ -3469,11 +3512,19 @@ const getEndPin = (etaText: string) => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsPapoShareStendiModalOpen(true)}
-                className="h-8 px-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
+                className={`h-8 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors ${
+                  activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white ring-2 ring-emerald-400 ring-offset-1 dark:ring-offset-black animate-pulse'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+                }`}
                 title="PapoShare Stendi (Tangaza viti kijiweni)"
               >
                 <span className="text-xs">🚕</span>
-                <span className="hidden xs:inline">Stendi</span>
+                {activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding' ? (
+                  <span>Stendi ({activeDriverStandRoute.availableSeats} viti)</span>
+                ) : (
+                  <span className="hidden xs:inline">Stendi</span>
+                )}
               </motion.button>
 
               <motion.button

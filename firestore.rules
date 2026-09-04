@@ -179,7 +179,12 @@ service cloud.firestore {
     }
     // 24. STAND POOLING ROUTES (PAPOSHARE STENDI)
     match /stand_pooling_routes/{routeId} {
-      allow read, write: if true;
+      // Anyone can browse routes to view available seats and departure schedule
+      allow read: if true;
+      // Drivers publish and update status/seats; riders reserve seats via transaction
+      allow create, update: if true;
+      // Driver or admin can close/remove route
+      allow delete: if isSignedIn() && (request.auth.uid == routeId || isAdmin());
     }
 
     // Default deny for safety

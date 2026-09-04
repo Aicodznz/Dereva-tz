@@ -4,6 +4,7 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Popup,
   Polyline,
   useMap,
   useMapEvents,
@@ -118,6 +119,14 @@ import { LiveTripScreen } from "./tegex/LiveTripScreen";
 import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
+import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
+import { 
+  listenActiveStandRoutes, 
+  listenRiderActiveStandRoute, 
+  cancelStandPassengerSeat, 
+  StandPoolingRoute, 
+  StandPassenger 
+} from "../services/standPoolingService";
 import { AnimatedRoute } from "./map/AnimatedRoute";
 import { SmoothDriverMarker } from "./map/SmoothDriverMarker";
 import AppDownloadButton from "./AppDownloadButton";
@@ -309,6 +318,56 @@ const MapEvents = ({
 
 const isValidCoord = (pos: any): pos is [number, number] => {
   return Array.isArray(pos) && pos.length >= 2 && typeof pos[0] === 'number' && typeof pos[1] === 'number' && !isNaN(pos[0]) && !isNaN(pos[1]);
+};
+
+const StandTripMapFollower = ({
+  activeStandTrip,
+  trigger,
+}: {
+  activeStandTrip: { route: StandPoolingRoute; passenger: StandPassenger } | null;
+  trigger?: number;
+}) => {
+  const map = useMap();
+  const lastStateRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!activeStandTrip) return;
+    const r = activeStandTrip.route;
+    const p = activeStandTrip.passenger;
+    const driverLat = r.driverLocation?.lat ?? r.standLocation.lat;
+    const driverLng = r.driverLocation?.lng ?? r.standLocation.lng;
+    const dropLat = p?.dropoffLat ?? r.destination.lat;
+    const dropLng = p?.dropoffLng ?? r.destination.lng;
+
+    const stateKey = `${r.status}_${r.id}_${trigger || 0}`;
+    if (lastStateRef.current !== stateKey) {
+      lastStateRef.current = stateKey;
+      try {
+        const bounds = L.latLngBounds([
+          [driverLat, driverLng],
+          [dropLat, dropLng],
+        ]);
+        map.fitBounds(bounds, {
+          padding: [80, 80],
+          maxZoom: 16,
+          animate: true,
+          duration: 1.2,
+        });
+      } catch (e) {}
+    } else if (r.status === "started" && r.driverLocation) {
+      try {
+        map.panTo([driverLat, driverLng], { animate: true, duration: 0.8 });
+      } catch (e) {}
+    }
+  }, [
+    activeStandTrip?.route?.status,
+    activeStandTrip?.route?.driverLocation?.lat,
+    activeStandTrip?.route?.driverLocation?.lng,
+    trigger,
+    map,
+  ]);
+
+  return null;
 };
 
 const MapControl = ({
@@ -629,6 +688,94 @@ export default function TaxiBooking() {
   const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
   const [verifiedOnlySharing, setVerifiedOnlySharing] = useState<boolean>(false);
   const [allowBodaParcelAddon, setAllowBodaParcelAddon] = useState<boolean>(true);
+  const [activeStandRoutes, setActiveStandRoutes] = useState<StandPoolingRoute[]>([]);
+  const [selectedMapStandRoute, setSelectedMapStandRoute] = useState<StandPoolingRoute | null>(null);
+
+  useEffect(() => {
+    const unsub = listenActiveStandRoutes((routes) => {
+      setActiveStandRoutes(
+        routes.filter(
+          (r) =>
+            r.isActive &&
+            r.status === 'boarding' &&
+            Number(r.availableSeats) > 0 &&
+            r.standLocation?.lat &&
+            r.standLocation?.lng
+        )
+      );
+    });
+    return () => unsub();
+  }, []);
+
+  const [activeStandTrip, setActiveStandTrip] = useState<{
+    route: StandPoolingRoute;
+    passenger: StandPassenger;
+  } | null>(null);
+  const [standTripRouteCoords, setStandTripRouteCoords] = useState<[number, number][]>([]);
+  const [recenterStandTrigger, setRecenterStandTrigger] = useState<number>(0);
+
+  // Real-time listener for passenger's active stendi trip
+  useEffect(() => {
+    const unsub = listenRiderActiveStandRoute(user?.uid, (route, passenger) => {
+      if (route && passenger) {
+        setActiveStandTrip({ route, passenger });
+      } else {
+        setActiveStandTrip(null);
+      }
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Road geometry calculation for active stendi trip
+  useEffect(() => {
+    if (!activeStandTrip) {
+      setStandTripRouteCoords([]);
+      return;
+    }
+    const r = activeStandTrip.route;
+    const p = activeStandTrip.passenger;
+    const startLat = r.driverLocation?.lat ?? r.standLocation.lat;
+    const startLng = r.driverLocation?.lng ?? r.standLocation.lng;
+    const destLat = p?.dropoffLat ?? r.destination.lat;
+    const destLng = p?.dropoffLng ?? r.destination.lng;
+
+    let isMounted = true;
+    const fetchStendiRoads = async () => {
+      try {
+        const startStr = `${startLng},${startLat}`;
+        const destStr = `${destLng},${destLat}`;
+        const res = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${startStr};${destStr}?overview=full&geometries=geojson`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.routes && data.routes[0]?.geometry?.coordinates && isMounted) {
+            const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+              (c: [number, number]) => [c[1], c[0]]
+            );
+            setStandTripRouteCoords(coords);
+            return;
+          }
+        }
+      } catch (e) {
+        // Fallback
+      }
+      if (isMounted) {
+        setStandTripRouteCoords(generateSimulatedRoads([startLat, startLng], [destLat, destLng]));
+      }
+    };
+
+    fetchStendiRoads();
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeStandTrip?.route?.id,
+    activeStandTrip?.route?.driverLocation?.lat,
+    activeStandTrip?.route?.driverLocation?.lng,
+    activeStandTrip?.passenger?.dropoffLat,
+    activeStandTrip?.passenger?.dropoffLng,
+  ]);
 
   const scrollVehicles = (direction: 'left' | 'right') => {
     if (vehicleScrollRef.current) {
@@ -2365,6 +2512,44 @@ const getEndPin = (etaText: string) => {
     return icon;
   };
 
+  const getStandRouteMarkerPin = (route: StandPoolingRoute) => {
+    const isDark = theme === "dark";
+    const vehicleEmoji = route.vehicleType === 'boda' ? '🏍️' : route.vehicleType === 'bajaj' ? '🛺' : '🚗';
+    const seatsBadge = `${route.availableSeats} viti`;
+    const routeName = `${(route.standLocation.name || 'Stendi').split(',')[0]} ➔ ${(route.destination.name || 'Mwisho').split(',')[0]}`;
+    const priceDisplay = route.pricingModel === 'custom_fixed'
+      ? `TZS ${route.fixedPricePerSeat?.toLocaleString()}`
+      : `TZS ${(route.systemFarePerSeat || 2500).toLocaleString()}`;
+    const departureText = route.departureEstimate === 'when_full' ? '⚡ Likijaa' : (route.departureTimeText || '⏱️ Haraka');
+
+    return L.divIcon({
+      className: "custom-stand-marker-pin",
+      html: `
+        <div class="relative flex flex-col items-center select-none cursor-pointer transform hover:scale-105 transition-all" style="width: 155px;">
+          <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white rounded-full text-[8px] font-black uppercase tracking-wider shadow-lg border border-white/60 whitespace-nowrap">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping"></span>
+            <span>${vehicleEmoji} STENDI: ${seatsBadge}</span>
+          </div>
+          <div class="w-full mt-1 ${isDark ? 'bg-[#161622] text-white border-emerald-500/40' : 'bg-white text-slate-900 border-emerald-500/50'} border-2 rounded-xl p-1.5 shadow-xl flex flex-col gap-0.5">
+            <div class="flex items-center justify-between text-[7.5px] font-bold">
+              <span class="text-neutral-400 truncate max-w-[85px]">${route.driverName}</span>
+              <span class="text-emerald-500 font-black">${priceDisplay}</span>
+            </div>
+            <span class="text-[8.5px] font-black truncate">${routeName}</span>
+            <div class="flex items-center justify-between text-[7px] text-amber-500 font-bold pt-0.5 border-t border-neutral-100 dark:border-neutral-800">
+              <span class="truncate max-w-[90px]">${departureText}</span>
+              <span class="text-emerald-500 underline font-black shrink-0">Weka ➔</span>
+            </div>
+          </div>
+          <div class="w-2.5 h-2.5 ${isDark ? 'bg-[#161622]' : 'bg-white'} rotate-45 -mt-1.5 border-r-2 border-b-2 border-emerald-500/40 shadow-xs"></div>
+        </div>
+      `,
+      iconSize: [155, 72],
+      iconAnchor: [77, 72],
+      popupAnchor: [0, -68]
+    });
+  };
+
   const geocodeAddress = (query: string) => {
     if (searchTimer) clearTimeout(searchTimer);
 
@@ -3739,6 +3924,10 @@ const getEndPin = (etaText: string) => {
                       isMapFullscreen={isMapFullscreen}
                       mapRefitTrigger={mapRefitTrigger}
                     />
+                    <StandTripMapFollower
+                      activeStandTrip={activeStandTrip}
+                      trigger={recenterStandTrigger}
+                    />
                     {(() => {
                       const activeDriverHeading = (driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading ?? 0;
                       return (
@@ -3839,6 +4028,156 @@ const getEndPin = (etaText: string) => {
                             isAssignedDriver={false}
                           />
                         ))}
+
+                    {/* Live PapoShare Stendi Vehicle & Stand Markers on Map */}
+                    {(step === "home" || step === "map") &&
+                      activeStandRoutes.map((stRoute) => {
+                        if (!stRoute.standLocation?.lat || !stRoute.standLocation?.lng) return null;
+                        return (
+                          <Marker
+                            key={`stand-route-${stRoute.id || stRoute.driverId}`}
+                            position={[stRoute.standLocation.lat, stRoute.standLocation.lng]}
+                            icon={getStandRouteMarkerPin(stRoute)}
+                            eventHandlers={{
+                              click: () => {
+                                setSelectedMapStandRoute(stRoute);
+                              }
+                            }}
+                          >
+                            <Popup className="custom-stendi-popup" closeButton={true}>
+                              <div className="p-2 min-w-[210px] text-slate-900 space-y-1.5 font-sans">
+                                <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
+                                  <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
+                                    <span>{stRoute.vehicleType === 'boda' ? '🏍️ Pikipiki' : stRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}</span>
+                                    <span>• {stRoute.vehiclePlate || 'T 240 ABC'}</span>
+                                  </span>
+                                  <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full">
+                                    {stRoute.availableSeats} viti vimebaki
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-black leading-tight text-neutral-900">
+                                  {stRoute.standLocation.name} ➔ {stRoute.destination.name}
+                                </div>
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="text-neutral-500">Dereva: <b>{stRoute.driverName}</b></span>
+                                  <span className="text-emerald-700 font-black">
+                                    TZS {(stRoute.pricingModel === 'custom_fixed' ? stRoute.fixedPricePerSeat : (stRoute.systemFarePerSeat || 2500))?.toLocaleString()} / kiti
+                                  </span>
+                                </div>
+                                <div className="text-[9.5px] text-amber-800 font-bold bg-amber-50 border border-amber-200 p-1.5 rounded-lg flex items-center gap-1">
+                                  <span>⏰</span>
+                                  <span>{stRoute.departureTimeText || '⚡ Huondoka likijaa tu'}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPickup(stRoute.standLocation.name);
+                                    setPickupPos([stRoute.standLocation.lat, stRoute.standLocation.lng]);
+                                    setDestination(stRoute.destination.name);
+                                    setDestPos([stRoute.destination.lat, stRoute.destination.lng]);
+                                    setShareMode('share');
+                                    setPapoShareSubOption('stendi');
+                                    setSelectedMapStandRoute(null);
+                                    setStep('map');
+                                    toast.success(`Umechagua kujiunga na gari la ${stRoute.driverName} kuelekea ${stRoute.destination.name}`);
+                                  }}
+                                  className="w-full mt-1.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[10.5px] font-black uppercase tracking-wider text-center shadow-md cursor-pointer transition-all active:scale-95"
+                                >
+                                  CHAGUA SAFARI HII ➔
+                                </button>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        );
+                      })}
+
+                    {/* Active PapoShare Stendi Trip Route & Live Driver / Stop Markers */}
+                    {activeStandTrip && (() => {
+                      const r = activeStandTrip.route;
+                      const p = activeStandTrip.passenger;
+                      const driverLat = r.driverLocation?.lat ?? r.standLocation.lat;
+                      const driverLng = r.driverLocation?.lng ?? r.standLocation.lng;
+                      const heading = r.driverLocation?.heading ?? 0;
+
+                      return (
+                        <React.Fragment key={`active-stendi-tracking-${r.id}`}>
+                          {/* Real Road Animated Route Polyline */}
+                          {standTripRouteCoords && standTripRouteCoords.length > 1 && (
+                            <AnimatedRoute
+                              positions={standTripRouteCoords}
+                              color="#10B981"
+                            />
+                          )}
+
+                          {/* Driver Vehicle Marker (Moving with heading) */}
+                          <SmoothDriverMarker
+                            position={[driverLat, driverLng]}
+                            heading={heading}
+                            vehicleType={r.vehicleType}
+                            driverId={`stendi-${r.driverId}`}
+                            customVehicle={config?.vehicles?.[r.vehicleType]}
+                            theme={theme === "dark" ? "dark" : "light"}
+                            isAssignedDriver={true}
+                          />
+
+                          {/* Live Driver Floating Tag */}
+                          <Marker
+                            position={[driverLat, driverLng]}
+                            icon={L.divIcon({
+                              className: 'active-stand-driver-callout',
+                              html: `
+                                <div style="transform: translate(-50%, -120%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                                  <div style="background: ${r.status === 'started' ? '#059669' : '#0284c7'}; color: #ffffff; padding: 4px 10px; border-radius: 9999px; font-size: 10.5px; font-weight: 900; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border: 2px solid #ffffff; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
+                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 9999px; background: #ffffff;"></span>
+                                    <span>${r.driverName} • ${r.status === 'started' ? 'Njiani 🚀' : 'Kijiweni'}</span>
+                                  </div>
+                                  <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid ${r.status === 'started' ? '#059669' : '#0284c7'};"></div>
+                                </div>
+                              `,
+                              iconSize: [0, 0]
+                            })}
+                          />
+
+                          {/* Pickup Location Marker */}
+                          {p && p.pickupLat && p.pickupLng && (
+                            <Marker
+                              position={[p.pickupLat, p.pickupLng]}
+                              icon={L.divIcon({
+                                className: 'active-stand-pickup-pin',
+                                html: `
+                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
+                                    <div style="background: #10B981; color: white; padding: 3px 8px; border-radius: 8px; font-size: 9.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 1.5px solid white;">
+                                      📍 Kupandia: ${p.pickupName || r.standLocation.name}
+                                    </div>
+                                    <div style="width: 10px; height: 10px; background: #10B981; border: 2px solid white; border-radius: 50%; margin-top: 2px; box-shadow: 0 0 6px #10B981;"></div>
+                                  </div>
+                                `,
+                                iconSize: [0, 0]
+                              })}
+                            />
+                          )}
+
+                          {/* Dropoff Location Marker */}
+                          {p && p.dropoffLat && p.dropoffLng && (
+                            <Marker
+                              position={[p.dropoffLat, p.dropoffLng]}
+                              icon={L.divIcon({
+                                className: 'active-stand-dropoff-pin',
+                                html: `
+                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
+                                    <div style="background: #EF4444; color: white; padding: 3px 8px; border-radius: 8px; font-size: 9.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 1.5px solid white;">
+                                      🏁 Kushukia: ${p.dropoffName || r.destination.name}
+                                    </div>
+                                    <div style="width: 10px; height: 10px; background: #EF4444; border: 2px solid white; border-radius: 50%; margin-top: 2px; box-shadow: 0 0 6px #EF4444;"></div>
+                                  </div>
+                                `,
+                                iconSize: [0, 0]
+                              })}
+                            />
+                          )}
+                        </React.Fragment>
+                      );
+                    })()}
 
                     {activeRide ? (
                       (() => {
@@ -4318,7 +4657,34 @@ const getEndPin = (etaText: string) => {
               )}
             </motion.div>
           )}
-          {step === "map" && !isSpectator && (
+
+          {/* Active PapoShare Stendi Live Tracker Screen */}
+          {activeStandTrip && !isSpectator && (
+            <div className="absolute bottom-6 left-4 right-4 z-[10000] pointer-events-none flex justify-center">
+              <PapoShareStendiLiveTracker
+                route={activeStandTrip.route}
+                passenger={activeStandTrip.passenger}
+                onCenterMap={() => setRecenterStandTrigger((prev) => prev + 1)}
+                onCancelBooking={() => {
+                  try {
+                    localStorage.removeItem('papo_active_stand_trip');
+                  } catch {}
+                  setActiveStandTrip(null);
+                  toast.info("Booking ya stendi imeghairiwa.");
+                }}
+                onCloseOrFinish={() => {
+                  try {
+                    localStorage.removeItem('papo_active_stand_trip');
+                  } catch {}
+                  setActiveStandTrip(null);
+                  toast.success("Safari imekamilika! Karibu tena.");
+                }}
+                theme={theme === 'dark' ? 'dark' : 'light'}
+              />
+            </div>
+          )}
+
+          {step === "map" && !isSpectator && !activeStandTrip && (
             <motion.div
               key="map-ui"
               initial={{ y: "100%", opacity: 0 }}
@@ -4952,7 +5318,10 @@ const getEndPin = (etaText: string) => {
                                   onSelectAutomaticMatch={() => setPapoShareSubOption('auto')}
                                   onSelectSolo={() => setShareMode('solo')}
                                   onTripConfirmed={(route, passenger) => {
-                                    toast.success(`Booking ya stendi imethibitishwa kwa ${route.driverName}!`);
+                                    setActiveStandTrip({ route, passenger });
+                                    setRecenterStandTrigger((prev) => prev + 1);
+                                    setStep('map');
+                                    toast.success(`🎉 Booking ya stendi imethibitishwa kwa ${route.driverName}! Njia na dereva vinafuatiliwa sasa kwenye ramani.`);
                                   }}
                                 />
                               )}
