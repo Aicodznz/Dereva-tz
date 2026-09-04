@@ -47,7 +47,7 @@ export interface StandPoolingRoute {
   driverPhoto?: string;
   driverRating?: number;
   isVerifiedDriver?: boolean;
-  vehicleType: 'bajaj' | 'mini';
+  vehicleType: 'boda' | 'bajaj' | 'mini';
   vehiclePlate?: string;
   vehicleModel?: string;
   isActive: boolean;
@@ -118,9 +118,13 @@ export function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: nu
  * Calculates system km fare for a seat in PapoShare Stendi
  * Standard affordable per-seat formula for Bajaji & Mini
  */
-export function calculateStandSystemKmFare(distanceKm: number, vehicleType: 'bajaj' | 'mini'): number {
+export function calculateStandSystemKmFare(distanceKm: number, vehicleType: 'boda' | 'bajaj' | 'mini'): number {
   const dist = Math.max(1, distanceKm);
-  if (vehicleType === 'bajaj') {
+  if (vehicleType === 'boda') {
+    // Boda base per seat: 1,000 + 350 per km rounded to nearest 500
+    const raw = 1000 + dist * 350;
+    return Math.max(1000, Math.round(raw / 500) * 500);
+  } else if (vehicleType === 'bajaj') {
     // Base per seat: 1,000 + 400 per km rounded to nearest 500
     const raw = 1000 + dist * 420;
     return Math.max(1000, Math.round(raw / 500) * 500);
@@ -168,8 +172,8 @@ export function matchRiderToStandRoute(
   const driverVecX = destLng - standLng;
   const driverVecY = destLat - standLat;
 
-  const riderVecX = riderDropoff.lng - riderPickup.lat;
-  const riderVecY = riderDropoff.lat - riderPickup.lng;
+  const riderVecX = riderDropoff.lng - riderPickup.lng;
+  const riderVecY = riderDropoff.lat - riderPickup.lat;
 
   // Angle check: driver heading vs rider heading
   const dot = driverVecX * riderVecX + driverVecY * riderVecY;
@@ -314,7 +318,7 @@ export async function reserveStandSeatTransaction(
       const currentAvailable = Number(routeData.availableSeats) || 0;
 
       if (currentAvailable < requestedSeats) {
-        throw new Error(`Viti havitoshi. Viti vilivyobaki ni ${currentAvailable} pekee.`);
+        throw new Error("Samahani, kiti hiki kimechukuliwa. Tafadhali chagua safari nyingine.");
       }
 
       const newAvailable = currentAvailable - requestedSeats;

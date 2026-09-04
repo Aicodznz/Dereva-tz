@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, MapPin, Navigation, Users, DollarSign, 
   CheckCircle2, AlertCircle, Phone, MessageSquare, 
   Play, Pause, Trash2, Edit3, Sparkles, ShieldCheck,
-  ChevronRight, Car, Compass, ArrowRight, Check
+  ChevronRight, Car, Compass, ArrowRight, Check, Map as MapIcon,
+  Plus, Minus, RefreshCw
 } from 'lucide-react';
 import { 
   StandPoolingRoute, 
@@ -18,6 +19,7 @@ import {
   calculateStandSystemKmFare,
   getDistanceKm
 } from '../../services/standPoolingService';
+import LocationPicker from '../LocationPicker';
 import { toast } from 'sonner';
 
 interface PapoShareStendiModalProps {
@@ -38,21 +40,79 @@ export default function PapoShareStendiModal({
   const driverId = driverUser?.uid || driverProfile?.id || 'demo_driver';
   const driverName = driverProfile?.displayName || driverUser?.displayName || 'Dereva';
   const driverPhone = driverProfile?.phoneNumber || driverProfile?.phone || '';
-  const vehicleType = (driverProfile?.vehicleType === 'mini' ? 'mini' : 'bajaj') as 'bajaj' | 'mini';
+
+  // 1. AUTO-DETECT VEHICLE TYPE
+  const detectedVehicleType = useMemo<'boda' | 'bajaj' | 'mini'>(() => {
+    const raw = (
+      driverProfile?.vehicleType || 
+      driverProfile?.category || 
+      driverProfile?.serviceType ||
+      driverUser?.vehicleType || 
+      ''
+    ).toLowerCase();
+
+    if (raw.includes('boda') || raw.includes('piki') || raw.includes('motorcycle') || raw.includes('bike')) {
+      return 'boda';
+    }
+    if (raw.includes('bajaj') || raw.includes('rickshaw') || raw.includes('tuktuk')) {
+      return 'bajaj';
+    }
+    return 'mini'; // default to mini / car
+  }, [driverProfile, driverUser]);
 
   const [activeRoute, setActiveRoute] = useState<StandPoolingRoute | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Form State
   const [selectedStand, setSelectedStand] = useState<StandLocation>(POPULAR_STANDS[0]);
-  const [customStandName, setCustomStandName] = useState('');
-  const [selectedDestination, setSelectedDestination] = useState<StandLocation>(POPULAR_DESTINATIONS[0]);
-  const [customDestName, setCustomDestName] = useState('');
+  const [standSearchInput, setStandSearchInput] = useState(POPULAR_STANDS[0].name);
 
-  const [chosenVehicleType, setChosenVehicleType] = useState<'bajaj' | 'mini'>(vehicleType);
-  const [totalSeats, setTotalSeats] = useState<number>(vehicleType === 'mini' ? 4 : 3);
+  const [selectedDestination, setSelectedDestination] = useState<StandLocation>(POPULAR_DESTINATIONS[0]);
+  const [destSearchInput, setDestSearchInput] = useState(POPULAR_DESTINATIONS[0].name);
+
+  const [chosenVehicleType, setChosenVehicleType] = useState<'boda' | 'bajaj' | 'mini'>(detectedVehicleType);
+  const [totalSeats, setTotalSeats] = useState<number>(
+    detectedVehicleType === 'boda' ? 1 : detectedVehicleType === 'mini' ? 4 : 3
+  );
   const [pricingModel, setPricingModel] = useState<StandPricingModel>('custom_fixed');
   const [fixedFare, setFixedFare] = useState<number>(2500);
+
+  // Map Picker State
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapPickerTarget, setMapPickerTarget] = useState<'stand' | 'destination'>('stand');
+
+  // Keep chosenVehicleType in sync if profile updates and no active custom selection
+  useEffect(() => {
+    if (!activeRoute) {
+      setChosenVehicleType(detectedVehicleType);
+      if (detectedVehicleType === 'boda') {
+        setTotalSeats(1);
+      } else if (detectedVehicleType === 'bajaj') {
+        setTotalSeats(3);
+      } else {
+        setTotalSeats(4);
+      }
+    }
+  }, [detectedVehicleType, activeRoute]);
+
+  // When vehicle type changes, enforce rules: Pikipiki = max 1 seat
+  const handleVehicleTypeChange = (type: 'boda' | 'bajaj' | 'mini') => {
+    setChosenVehicleType(type);
+    if (type === 'boda') {
+      setTotalSeats(1);
+    } else if (type === 'bajaj') {
+      setTotalSeats(Math.min(4, Math.max(1, totalSeats || 3)));
+    } else {
+      setTotalSeats(Math.min(7, Math.max(1, totalSeats || 4)));
+    }
+  };
+
+  // Adjust seats with stepper (+/-)
+  const handleStepperSeats = (delta: number) => {
+    if (chosenVehicleType === 'boda') return; // Pikipiki is strictly 1 seat
+    const maxAllowed = chosenVehicleType === 'mini' ? 7 : 4;
+    setTotalSeats((prev) => Math.max(1, Math.min(maxAllowed, prev + delta)));
+  };
 
   // Listen to driver's active route in real-time
   useEffect(() => {
@@ -60,52 +120,78 @@ export default function PapoShareStendiModal({
     const unsubscribe = listenDriverActiveStandRoute(driverId, (route) => {
       setActiveRoute(route);
       if (route) {
-        setChosenVehicleType(route.vehicleType);
+        setChosenVehicleType(route.vehicleType || detectedVehicleType);
+        setTotalSeats(route.totalSeats);
         setPricingModel(route.pricingModel);
         setFixedFare(route.fixedPricePerSeat || 2500);
+        setSelectedStand(route.standLocation);
+        setStandSearchInput(route.standLocation?.name || '');
+        setSelectedDestination(route.destination);
+        setDestSearchInput(route.destination?.name || '');
       }
     });
     return () => unsubscribe();
-  }, [driverId]);
+  }, [driverId, detectedVehicleType]);
 
   // Use current GPS if available
   const handleUseCurrentLocation = () => {
     if (currentGpsPosition && currentGpsPosition[0] && currentGpsPosition[1]) {
-      setSelectedStand({
+      const gpsLocation: StandLocation = {
         name: 'Eneo Langu la Sasa (GPS)',
         lat: currentGpsPosition[0],
         lng: currentGpsPosition[1],
         address: 'GPS Stand Location'
-      });
-      toast.success("Eneo lako la GPS limewekwa kama kituo cha kuanzia!");
+      };
+      setSelectedStand(gpsLocation);
+      setStandSearchInput(gpsLocation.name);
+      toast.success("Eneo lako la GPS limewekwa kama stendi/kijiwe!");
     } else {
-      toast.info("GPS haipatikani kwa sasa, tafadhali chagua stendi hapa chini.");
+      toast.info("GPS haipatikani kwa sasa. Unaweza kuchagua kwenye Ramani.");
     }
   };
 
+  // Open Map Picker
+  const handleOpenMapPicker = (target: 'stand' | 'destination') => {
+    setMapPickerTarget(target);
+    setIsMapPickerOpen(true);
+  };
+
+  // Distance and calculated system fare preview
+  const estimatedDistanceKm = useMemo(() => {
+    return getDistanceKm(selectedStand.lat, selectedStand.lng, selectedDestination.lat, selectedDestination.lng);
+  }, [selectedStand, selectedDestination]);
+
+  const estimatedSystemFare = useMemo(() => {
+    return calculateStandSystemKmFare(estimatedDistanceKm, chosenVehicleType);
+  }, [estimatedDistanceKm, chosenVehicleType]);
+
+  // Handle Publishing Route
   const handlePublishRoute = async () => {
     setLoading(true);
     try {
-      const standToUse: StandLocation = customStandName.trim()
-        ? {
-            name: customStandName.trim(),
-            lat: selectedStand.lat,
-            lng: selectedStand.lng,
-            address: customStandName.trim()
-          }
-        : selectedStand;
+      const standToUse: StandLocation = {
+        name: standSearchInput.trim() || selectedStand.name,
+        lat: selectedStand.lat,
+        lng: selectedStand.lng,
+        address: selectedStand.address || standSearchInput.trim()
+      };
 
-      const destToUse: StandLocation = customDestName.trim()
-        ? {
-            name: customDestName.trim(),
-            lat: selectedDestination.lat,
-            lng: selectedDestination.lng,
-            address: customDestName.trim()
-          }
-        : selectedDestination;
+      const destToUse: StandLocation = {
+        name: destSearchInput.trim() || selectedDestination.name,
+        lat: selectedDestination.lat,
+        lng: selectedDestination.lng,
+        address: selectedDestination.address || destSearchInput.trim()
+      };
 
       const dist = getDistanceKm(standToUse.lat, standToUse.lng, destToUse.lat, destToUse.lng);
       const systemFare = calculateStandSystemKmFare(dist, chosenVehicleType);
+
+      // Pikipiki strictly 1 seat
+      const finalSeats = chosenVehicleType === 'boda' ? 1 : totalSeats;
+
+      const vehicleDefaultModel = 
+        chosenVehicleType === 'boda' ? 'Pikipiki Boxer / TVS' :
+        chosenVehicleType === 'bajaj' ? 'Bajaji TVS King' : 'Toyota Passo';
 
       await createOrUpdateStandRoute(driverId, {
         driverName,
@@ -115,15 +201,15 @@ export default function PapoShareStendiModal({
         isVerifiedDriver: true,
         vehicleType: chosenVehicleType,
         vehiclePlate: driverProfile?.licensePlate || driverProfile?.vehiclePlate || 'T 240 ABC',
-        vehicleModel: driverProfile?.vehicleModel || (chosenVehicleType === 'bajaj' ? 'Bajaji TVS King' : 'Toyota Passo'),
+        vehicleModel: driverProfile?.vehicleModel || vehicleDefaultModel,
         isActive: true,
         standLocation: standToUse,
         destination: destToUse,
         pricingModel,
         fixedPricePerSeat: Number(fixedFare) || 2500,
         systemFarePerSeat: systemFare,
-        totalSeats,
-        availableSeats: totalSeats,
+        totalSeats: finalSeats,
+        availableSeats: finalSeats,
         occupiedSeats: 0,
         passengers: [],
         status: 'boarding',
@@ -142,7 +228,7 @@ export default function PapoShareStendiModal({
     if (!activeRoute) return;
     try {
       await updateStandRouteStatus(driverId, 'started');
-      toast.success("🚀 Safari imeanza! Abiria wote wamearifiwa moja kwa moja.");
+      toast.success("🚀 Safari imeanza! Abiria wote wamearifiwa.");
     } catch (err) {
       toast.error("Imeshindikana kuanza safari.");
     }
@@ -171,7 +257,7 @@ export default function PapoShareStendiModal({
     }
   };
 
-  const handleAdjustSeats = async (delta: number) => {
+  const handleAdjustSeatsLive = async (delta: number) => {
     if (!activeRoute) return;
     const currentAvail = activeRoute.availableSeats;
     const newAvail = Math.max(0, Math.min(activeRoute.totalSeats - activeRoute.occupiedSeats, currentAvail + delta));
@@ -189,488 +275,665 @@ export default function PapoShareStendiModal({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-xs">
-        <motion.div
-          initial={{ y: '100%', opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: '100%', opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-          className="w-full max-w-lg bg-white dark:bg-[#111118] rounded-t-3xl sm:rounded-3xl border border-neutral-200 dark:border-[#222233] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+    <>
+      <AnimatePresence>
+        {/* z-[100000] ensures complete isolation and prevents any app bars or widgets from bleeding through */}
+        <div 
+          id="papo-share-stendi-modal-overlay"
+          className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md"
         >
-          {/* Header */}
-          <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-xl shadow-inner">
-                🚕
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base sm:text-lg font-black tracking-tight">PAPOSHARE STENDI</h2>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-400 text-neutral-950 tracking-wider">
-                    Kijiweni
-                  </span>
+          <motion.div
+            id="papo-share-stendi-modal-card"
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+            className="w-full max-w-lg bg-white dark:bg-[#12121c] rounded-t-3xl sm:rounded-3xl border border-neutral-200 dark:border-[#222235] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+          >
+            {/* Elegant Header */}
+            <div className="px-4 py-3.5 sm:px-5 sm:py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-xl shadow-inner border border-white/20">
+                  {chosenVehicleType === 'boda' ? '🏍️' : chosenVehicleType === 'bajaj' ? '🛺' : '🚗'}
                 </div>
-                <p className="text-[11px] text-white/80 font-medium">
-                  Tangaza viti ukiwa stendi • Chagua bei yako au ya mfumo
-                </p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-black tracking-tight text-white">
+                      PAPOSHARE STENDI
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-400 text-neutral-950 tracking-wider shadow-xs">
+                      Kijiweni
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-white/90 font-medium">
+                    Tangaza viti stendi • Chagua bei yako au ya mfumo
+                  </p>
+                </div>
               </div>
+              <button
+                id="close-papo-share-stendi-modal"
+                type="button"
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors text-white"
+                title="Funga"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors"
-            >
-              <X className="w-4 h-4 text-white" />
-            </button>
-          </div>
 
-          {/* Body Content */}
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-            {/* IF DRIVER HAS AN ACTIVE STAND ROUTE */}
-            {activeRoute && activeRoute.status !== 'cancelled' && activeRoute.status !== 'completed' ? (
-              <div className="space-y-4">
-                {/* Active Route Status Card */}
-                <div className="p-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/30 dark:bg-emerald-950/20 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                      </span>
-                      <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">
-                        {activeRoute.status === 'started'
-                          ? '🚀 Safari Imeanza'
-                          : activeRoute.availableSeats === 0
-                          ? '🟡 Viti Vimejaa (Tayari Kuondoka)'
-                          : activeRoute.isActive
-                          ? '🟢 Inajaza Viti Kijiweni'
-                          : '⏸️ Imesitishwa kwa Muda'}
-                      </span>
-                    </div>
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {/* IF DRIVER HAS AN ACTIVE STAND ROUTE */}
+              {activeRoute && activeRoute.status !== 'cancelled' && activeRoute.status !== 'completed' ? (
+                <div className="space-y-4">
+                  {/* Active Route Status Card */}
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/30 dark:bg-emerald-950/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">
+                          {activeRoute.status === 'started'
+                            ? '🚀 Safari Imeanza'
+                            : activeRoute.availableSeats === 0
+                            ? '🟡 Viti Vimejaa (Tayari Kuondoka)'
+                            : activeRoute.isActive
+                            ? '🟢 Inajaza Viti Kijiweni'
+                            : '⏸️ Imesitishwa kwa Muda'}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={handleTogglePause}
-                        className="px-2.5 py-1 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-[10px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1 hover:bg-neutral-300"
+                        className="px-2.5 py-1 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-[10px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1 hover:bg-neutral-300 transition-colors"
                       >
                         {activeRoute.isActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                         <span>{activeRoute.isActive ? 'Pumzika' : 'Washa'}</span>
                       </button>
                     </div>
-                  </div>
 
-                  {/* Route details */}
-                  <div className="bg-white dark:bg-[#161622] p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 space-y-2">
-                    <div className="flex items-center gap-2 text-xs">
-                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="font-bold text-neutral-800 dark:text-neutral-200">
-                        {activeRoute.standLocation?.name || 'Stendi'}
-                      </span>
-                      <ArrowRight className="w-3 h-3 text-neutral-400" />
-                      <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
-                      <span className="font-bold text-neutral-800 dark:text-neutral-200">
-                        {activeRoute.destination?.name || 'Uelekeo'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[11px]">
-                      <span className="font-semibold text-neutral-500">
-                        Chombo: <span className="text-neutral-800 dark:text-neutral-200 font-bold uppercase">{activeRoute.vehicleType === 'bajaj' ? '🚕 Bajaji' : '🚗 Mini'}</span>
-                      </span>
-                      <span className="font-semibold text-neutral-500">
-                        Bei: <span className="text-emerald-600 dark:text-emerald-400 font-black">
-                          {activeRoute.pricingModel === 'custom_fixed'
-                            ? `TZS ${activeRoute.fixedPricePerSeat?.toLocaleString()} / kiti`
-                            : '📏 Bei ya Mfumo (KM)'}
+                    {/* Route details */}
+                    <div className="bg-white dark:bg-[#181826] p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 space-y-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-bold text-neutral-800 dark:text-neutral-200 truncate">
+                          {activeRoute.standLocation?.name || 'Stendi'}
                         </span>
-                      </span>
+                        <ArrowRight className="w-3 h-3 text-neutral-400 shrink-0" />
+                        <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span className="font-bold text-neutral-800 dark:text-neutral-200 truncate">
+                          {activeRoute.destination?.name || 'Uelekeo'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[11px]">
+                        <span className="font-semibold text-neutral-500">
+                          Chombo: <span className="text-neutral-800 dark:text-neutral-200 font-bold uppercase">
+                            {activeRoute.vehicleType === 'boda' ? '🏍️ Boda' : activeRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}
+                          </span>
+                        </span>
+                        <span className="font-semibold text-neutral-500">
+                          Bei: <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                            {activeRoute.pricingModel === 'custom_fixed'
+                              ? `TZS ${activeRoute.fixedPricePerSeat?.toLocaleString()} / kiti`
+                              : '📏 Bei ya Mfumo (KM)'}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Seats Summary & Adjustment */}
+                    <div className="flex items-center justify-between bg-white dark:bg-[#181826] p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800">
+                      <div>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Hali ya Viti</p>
+                        <p className="text-sm font-black text-neutral-900 dark:text-white">
+                          {activeRoute.occupiedSeats} zimejaa / {activeRoute.totalSeats} jumla
+                        </p>
+                        <p className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                          Viti {activeRoute.availableSeats} vimebaki
+                        </p>
+                      </div>
+
+                      {/* Stepper for live available seats */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleAdjustSeatsLive(-1)}
+                          disabled={activeRoute.availableSeats <= 0}
+                          className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200 transition-colors"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="font-mono font-black text-base w-6 text-center">
+                          {activeRoute.availableSeats}
+                        </span>
+                        <button
+                          onClick={() => handleAdjustSeatsLive(1)}
+                          disabled={activeRoute.availableSeats + activeRoute.occupiedSeats >= activeRoute.totalSeats}
+                          className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Seats Summary & Adjustment */}
-                  <div className="flex items-center justify-between bg-white dark:bg-[#161622] p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800">
-                    <div>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Hali ya Viti</p>
-                      <p className="text-sm font-black text-neutral-900 dark:text-white">
-                        {activeRoute.occupiedSeats} zimejaa / {activeRoute.totalSeats} jumla
-                      </p>
-                      <p className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                        Viti {activeRoute.availableSeats} vimebaki
-                      </p>
-                    </div>
-
-                    {/* Stepper for available seats */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAdjustSeats(-1)}
-                        disabled={activeRoute.availableSeats <= 0}
-                        className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200"
-                      >
-                        -
-                      </button>
-                      <span className="font-mono font-black text-base w-5 text-center">
-                        {activeRoute.availableSeats}
-                      </span>
-                      <button
-                        onClick={() => handleAdjustSeats(1)}
-                        disabled={activeRoute.availableSeats + activeRoute.occupiedSeats >= activeRoute.totalSeats}
-                        className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Booked Passengers Section */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  {/* Booked Passengers Section */}
+                  <div className="space-y-2">
                     <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
                       Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked').length || 0})
                     </h3>
-                  </div>
 
-                  {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked').length === 0) ? (
-                    <div className="p-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-center">
-                      <Users className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 mb-1" />
-                      <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
-                        Bado hakuna abiria aliyehifadhi kiti
-                      </p>
-                      <p className="text-[10px] text-neutral-400 mt-0.5">
-                        Safari yako inaonekana kwa wateja waliopo karibu na stendi yako.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {activeRoute.passengers
-                        .filter(p => p.status === 'booked')
-                        .map((p, idx) => (
-                          <div
-                            key={p.passengerId || idx}
-                            className="p-3 rounded-xl bg-neutral-50 dark:bg-[#161622] border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center">
-                                  {idx + 1}
-                                </span>
-                                <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
-                                  {p.passengerName || 'Abiria'}
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-extrabold text-[9px]">
-                                  Siti {p.seats || 1}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-neutral-500 truncate mt-0.5">
-                                📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
-                              </p>
-                            </div>
-
-                            {/* Direct Call / Contact button */}
-                            {p.passengerPhone && (
-                              <a
-                                href={`tel:${p.passengerPhone}`}
-                                className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 hover:bg-emerald-500"
-                                title="Piga simu kwa abiria"
-                              >
-                                <Phone className="w-3.5 h-3.5" />
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Primary Action Buttons */}
-                <div className="space-y-2 pt-2">
-                  {activeRoute.status !== 'started' ? (
-                    <button
-                      onClick={handleStartTrip}
-                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-98 transition-all"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>ANZA SAFARI (ONDOKA STENDI)</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        updateStandRouteStatus(driverId, 'completed');
-                        toast.success("Safiri imekamilika kikamilifu!");
-                      }}
-                      className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>KAMILISHA SAFARI HII</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleCloseTrip}
-                    className="w-full py-2.5 bg-transparent hover:bg-red-500/10 text-red-500 rounded-xl font-bold text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Funga / Ghairi Safari Hii</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* FORM TO CREATE / PUBLISH A NEW STAND ROUTE */
-              <div className="space-y-4">
-                {/* 1. Stendi Ulipo (Pickup Hub) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>📍 Stendi / Kijiwe Ulipo</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleUseCurrentLocation}
-                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                    >
-                      <span>📍 Eneo Langu (GPS)</span>
-                    </button>
-                  </div>
-
-                  {/* Selected stand pill */}
-                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-300/60 dark:border-emerald-800/60 flex items-center justify-between">
-                    <span className="text-xs font-black text-emerald-800 dark:text-emerald-300">
-                      {customStandName.trim() || selectedStand.name}
-                    </span>
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Imeteuliwa</span>
-                  </div>
-
-                  {/* Quick Select Popular Stands */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {POPULAR_STANDS.slice(0, 8).map((st) => (
-                      <button
-                        key={st.name}
-                        type="button"
-                        onClick={() => {
-                          setSelectedStand(st);
-                          setCustomStandName('');
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                          selectedStand.name === st.name && !customStandName
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200'
-                        }`}
-                      >
-                        {st.name.split(' ')[0]}
-                      </button>
-                    ))}
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="Au andika jina la stendi nyingine..."
-                    value={customStandName}
-                    onChange={(e) => setCustomStandName(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-xl bg-neutral-50 dark:bg-[#161622] border border-neutral-200 dark:border-neutral-800 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-
-                {/* 2. Uelekeo (Destination Hub) */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>🎯 Ninaelekea (Destination)</span>
-                  </label>
-
-                  <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-300/60 dark:border-indigo-800/60 flex items-center justify-between">
-                    <span className="text-xs font-black text-indigo-800 dark:text-indigo-300">
-                      {customDestName.trim() || selectedDestination.name}
-                    </span>
-                    <span className="text-[9px] font-bold text-indigo-600 uppercase">Uelekeo</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {POPULAR_DESTINATIONS.slice(0, 8).map((dst) => (
-                      <button
-                        key={dst.name}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDestination(dst);
-                          setCustomDestName('');
-                        }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                          selectedDestination.name === dst.name && !customDestName
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200'
-                        }`}
-                      >
-                        {dst.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="Au andika eneo unaloelekea..."
-                    value={customDestName}
-                    onChange={(e) => setCustomDestName(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-xl bg-neutral-50 dark:bg-[#161622] border border-neutral-200 dark:border-neutral-800 focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* 3. Aina ya Chombo na Idadi ya Viti */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300">
-                      Aina ya Chombo
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setChosenVehicleType('bajaj');
-                          setTotalSeats(3);
-                        }}
-                        className={`p-2 rounded-xl border text-center font-bold text-xs transition-all ${
-                          chosenVehicleType === 'bajaj'
-                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-800'
-                        }`}
-                      >
-                        🚕 Bajaji
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setChosenVehicleType('mini');
-                          setTotalSeats(4);
-                        }}
-                        className={`p-2 rounded-xl border text-center font-bold text-xs transition-all ${
-                          chosenVehicleType === 'mini'
-                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300'
-                            : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-800'
-                        }`}
-                      >
-                        🚗 Mini
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-neutral-700 dark:text-neutral-300">
-                      💺 Viti Vilivyopo
-                    </label>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4].map((num) => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => setTotalSeats(num)}
-                          className={`flex-1 py-2 rounded-xl border text-center font-black text-xs transition-all ${
-                            totalSeats === num
-                              ? 'bg-emerald-600 text-white border-emerald-600'
-                              : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-800'
-                          }`}
-                        >
-                          {num}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. PRICING OPTIONS (OPTION A vs OPTION B) */}
-                <div className="space-y-2 pt-1 border-t border-neutral-200 dark:border-neutral-800">
-                  <label className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-                    Mipangilio ya Bei (Pricing Options)
-                  </label>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* OPTION A: Bei Yangu */}
-                    <div
-                      onClick={() => setPricingModel('custom_fixed')}
-                      className={`p-3 rounded-2xl border-2 cursor-pointer transition-all ${
-                        pricingModel === 'custom_fixed'
-                          ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-600 ring-1 ring-emerald-600'
-                          : 'bg-neutral-50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black text-emerald-800 dark:text-emerald-300">
-                          🔘 Option A: Weka Bei Yangu
-                        </span>
-                        {pricingModel === 'custom_fixed' && (
-                          <div className="w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-white" />
-                          </div>
-                        )}
+                    {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked').length === 0) ? (
+                      <div className="p-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-center">
+                        <Users className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 mb-1" />
+                        <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
+                          Bado hakuna abiria aliyehifadhi kiti
+                        </p>
+                        <p className="text-[10px] text-neutral-400 mt-0.5">
+                          Safari yako inaonekana live kwa abiria waliopo karibu nawe kuelekea {activeRoute.destination?.name}.
+                        </p>
                       </div>
-                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mb-2">
-                        Weka kiasi halisi unachotaka kwa kila kiti kuelekea huko.
-                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {activeRoute.passengers
+                          .filter(p => p.status === 'booked')
+                          .map((p, idx) => (
+                            <div
+                              key={p.passengerId || idx}
+                              className="p-3 rounded-xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
+                                    {p.passengerName || 'Abiria'}
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-extrabold text-[9px]">
+                                    Siti {p.seats || 1}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-neutral-500 truncate mt-0.5">
+                                  📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
+                                </p>
+                              </div>
 
-                      {pricingModel === 'custom_fixed' && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 bg-white dark:bg-[#111118] px-2.5 py-1.5 rounded-xl border border-emerald-400">
-                            <span className="text-xs font-bold text-neutral-500">TZS</span>
+                              {p.passengerPhone && (
+                                <a
+                                  href={`tel:${p.passengerPhone}`}
+                                  className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 hover:bg-emerald-500 transition-colors"
+                                  title="Piga simu kwa abiria"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Primary Actions */}
+                  <div className="space-y-2 pt-2">
+                    {activeRoute.status !== 'started' ? (
+                      <button
+                        onClick={handleStartTrip}
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-98 transition-all"
+                      >
+                        <Play className="w-4 h-4 fill-white" />
+                        <span>ANZA SAFARI (ONDOKA STENDI)</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          updateStandRouteStatus(driverId, 'completed');
+                          toast.success("Safiri imekamilika kikamilifu!");
+                        }}
+                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>KAMILISHA SAFARI HII</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleCloseTrip}
+                      className="w-full py-2.5 bg-transparent hover:bg-red-500/10 text-red-500 rounded-xl font-bold text-xs tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Funga / Ghairi Safari Hii</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* SLEEK, UNCLUTTERED SETUP FORM */
+                <div className="space-y-4">
+                  {/* UNIFIED ROUTE CARD (Origin + Destination with Map Select) */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800/80 space-y-3">
+                    
+                    {/* 1. Kituo / Stendi Ulipo */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block ring-2 ring-emerald-500/30"></span>
+                          <span>Stendi / Kijiwe Ulipo (Kuanzia)</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleUseCurrentLocation}
+                          className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                        >
+                          <Navigation className="w-3 h-3" />
+                          <span>Eneo Langu (GPS)</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="Weka jina la stendi ulipo..."
+                            value={standSearchInput}
+                            onChange={(e) => setStandSearchInput(e.target.value)}
+                            className="w-full text-xs font-semibold py-2.5 pl-3 pr-8 rounded-xl bg-white dark:bg-[#11111a] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                          />
+                          {standSearchInput && (
+                            <button
+                              type="button"
+                              onClick={() => setStandSearchInput('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Dedicated Map Selection Button */}
+                        <button
+                          id="btn-select-stand-map"
+                          type="button"
+                          onClick={() => handleOpenMapPicker('stand')}
+                          className="px-3 py-2.5 rounded-xl bg-emerald-600/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 border border-emerald-500/30 font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all active:scale-95"
+                          title="Chagua kwenye ramani"
+                        >
+                          <MapIcon className="w-3.5 h-3.5" />
+                          <span>Ramani</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Divider with Direction Arrow */}
+                    <div className="relative flex items-center justify-center my-1">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-dashed border-neutral-300 dark:border-neutral-700"></div>
+                      </div>
+                      <span className="relative px-2 bg-neutral-50 dark:bg-[#181826] text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+                        <ArrowRight className="w-3 h-3 text-emerald-500" />
+                        <span>Kuelekea</span>
+                      </span>
+                    </div>
+
+                    {/* 2. Uelekeo (Destination) */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-400 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block ring-2 ring-indigo-500/30"></span>
+                        <span>Uelekeo / Mwisho wa Safari</span>
+                      </label>
+
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="Weka eneo unaloelekea..."
+                            value={destSearchInput}
+                            onChange={(e) => setDestSearchInput(e.target.value)}
+                            className="w-full text-xs font-semibold py-2.5 pl-3 pr-8 rounded-xl bg-white dark:bg-[#11111a] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                          />
+                          {destSearchInput && (
+                            <button
+                              type="button"
+                              onClick={() => setDestSearchInput('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Dedicated Map Selection Button */}
+                        <button
+                          id="btn-select-dest-map"
+                          type="button"
+                          onClick={() => handleOpenMapPicker('destination')}
+                          className="px-3 py-2.5 rounded-xl bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-600/20 border border-indigo-500/30 font-bold text-xs flex items-center gap-1.5 shrink-0 transition-all active:scale-95"
+                          title="Chagua kwenye ramani"
+                        >
+                          <MapIcon className="w-3.5 h-3.5" />
+                          <span>Ramani</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Compact Horizontal Quick-Pills for Transit Hubs */}
+                    <div className="pt-1">
+                      <p className="text-[9.5px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5">
+                        Kituo Maarufu cha Haraka:
+                      </p>
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                        {POPULAR_STANDS.slice(0, 6).map((hub) => (
+                          <button
+                            key={hub.name}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDestination(hub);
+                              setDestSearchInput(hub.name);
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition-all border shrink-0 ${
+                              destSearchInput.toLowerCase().includes(hub.name.split(' ')[0].toLowerCase())
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                : 'bg-white dark:bg-[#11111a] text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-800 hover:border-indigo-400'
+                            }`}
+                          >
+                            {hub.name.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. AINA YA CHOMBO (AUTO-DETECTED) NA SITI */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                          Chombo na Siti
+                        </label>
+                        <p className="text-[10.5px] text-neutral-400">
+                          Mfumo umegundua chombo chako moja kwa moja
+                        </p>
+                      </div>
+
+                      {/* Auto-detected badge */}
+                      <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        ✓ Imetambuliwa
+                      </span>
+                    </div>
+
+                    {/* Vehicle Type Selector (Auto-detected default) */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        id="vehicle-type-boda"
+                        type="button"
+                        onClick={() => handleVehicleTypeChange('boda')}
+                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                          chosenVehicleType === 'boda'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
+                            : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <div className="text-lg mb-0.5">🏍️</div>
+                        <div className="text-xs font-black">Pikipiki</div>
+                        <div className="text-[9px] opacity-80">Max 1 Siti</div>
+                      </button>
+
+                      <button
+                        id="vehicle-type-bajaj"
+                        type="button"
+                        onClick={() => handleVehicleTypeChange('bajaj')}
+                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                          chosenVehicleType === 'bajaj'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
+                            : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <div className="text-lg mb-0.5">🛺</div>
+                        <div className="text-xs font-black">Bajaji</div>
+                        <div className="text-[9px] opacity-80">1–4 Viti</div>
+                      </button>
+
+                      <button
+                        id="vehicle-type-mini"
+                        type="button"
+                        onClick={() => handleVehicleTypeChange('mini')}
+                        className={`p-2.5 rounded-xl border text-center transition-all ${
+                          chosenVehicleType === 'mini'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]'
+                            : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <div className="text-lg mb-0.5">🚗</div>
+                        <div className="text-xs font-black">Gari / Mini</div>
+                        <div className="text-[9px] opacity-80">1–7 Viti</div>
+                      </button>
+                    </div>
+
+                    {/* Interactive Seat Adjustment Stepper */}
+                    <div className="bg-white dark:bg-[#11111a] p-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-black text-neutral-800 dark:text-neutral-200 block">
+                          💺 Idadi ya Viti vya Kupakia
+                        </span>
+                        <span className="text-[10px] text-neutral-400">
+                          {chosenVehicleType === 'boda'
+                            ? 'Pikipiki hubeba abiria 1 pekee kisheria'
+                            : 'Ongeza au punguza kulingana na nafasi yako'}
+                        </span>
+                      </div>
+
+                      {chosenVehicleType === 'boda' ? (
+                        <span className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-xs border border-emerald-500/20">
+                          1 Kiti
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleStepperSeats(-1)}
+                            disabled={totalSeats <= 1}
+                            className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200 transition-colors"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="font-mono font-black text-base w-8 text-center text-neutral-900 dark:text-white">
+                            {totalSeats}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleStepperSeats(1)}
+                            disabled={totalSeats >= (chosenVehicleType === 'mini' ? 7 : 4)}
+                            className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-black text-sm flex items-center justify-center disabled:opacity-30 hover:bg-neutral-200 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. MIPANGILIO YA BEI (PRICING) */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+                        Mpangilio wa Bei kwa Kiti
+                      </label>
+                      <span className="text-[10px] text-neutral-400 font-bold">
+                        Umbali: ~{estimatedDistanceKm} km
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Option A: Bei Yangu */}
+                      <button
+                        type="button"
+                        onClick={() => setPricingModel('custom_fixed')}
+                        className={`p-3 rounded-xl border text-left transition-all relative ${
+                          pricingModel === 'custom_fixed'
+                            ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500'
+                            : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-neutral-900 dark:text-white">
+                            Option A: Bei Yangu
+                          </span>
+                          {pricingModel === 'custom_fixed' && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-600/20" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                          Weka kiasi chako cha moja kwa moja
+                        </p>
+                      </button>
+
+                      {/* Option B: Bei ya Mfumo */}
+                      <button
+                        type="button"
+                        onClick={() => setPricingModel('system_km')}
+                        className={`p-3 rounded-xl border text-left transition-all relative ${
+                          pricingModel === 'system_km'
+                            ? 'bg-emerald-500/10 border-emerald-500 ring-1 ring-emerald-500'
+                            : 'bg-white dark:bg-[#11111a] border-neutral-200 dark:border-neutral-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-neutral-900 dark:text-white">
+                            Option B: Bei ya KM
+                          </span>
+                          {pricingModel === 'system_km' && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-600/20" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                          Inakokotolewa kulingana na umbali
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Price Input or Display */}
+                    {pricingModel === 'custom_fixed' ? (
+                      <div className="bg-white dark:bg-[#11111a] p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-2">
+                        <div className="flex-1">
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase">Nauli kwa Kiti (TZS)</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-sm font-bold text-neutral-400">TZS</span>
                             <input
                               type="number"
                               step="500"
                               min="500"
-                              max="50000"
                               value={fixedFare}
                               onChange={(e) => setFixedFare(Number(e.target.value))}
-                              className="w-full text-xs font-black bg-transparent focus:outline-hidden"
+                              className="text-lg font-black text-emerald-600 dark:text-emerald-400 bg-transparent w-full focus:outline-hidden"
                             />
-                            <span className="text-[10px] text-neutral-400 shrink-0">/ kiti</span>
                           </div>
-                          <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">
-                            💰 TZS {fixedFare.toLocaleString()} / kiti
+                        </div>
+
+                        {/* Quick increment/decrement buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setFixedFare((prev) => Math.max(500, prev - 500))}
+                            className="px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[11px] font-bold hover:bg-neutral-200"
+                          >
+                            -500
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFixedFare((prev) => prev + 500)}
+                            className="px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[11px] font-bold hover:bg-neutral-200"
+                          >
+                            +500
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-[#11111a] p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase">Bei ya Mfumo Inayopendekezwa</span>
+                          <p className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                            TZS {estimatedSystemFare.toLocaleString()} <span className="text-xs font-normal text-neutral-400">/ kiti</span>
                           </p>
                         </div>
-                      )}
-                    </div>
-
-                    {/* OPTION B: Bei ya Mfumo */}
-                    <div
-                      onClick={() => setPricingModel('system_km')}
-                      className={`p-3 rounded-2xl border-2 cursor-pointer transition-all ${
-                        pricingModel === 'system_km'
-                          ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-600 ring-1 ring-indigo-600'
-                          : 'bg-neutral-50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black text-indigo-800 dark:text-indigo-300">
-                          🔘 Option B: Bei ya Mfumo
+                        <span className="text-[10px] font-extrabold text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-lg">
+                          Formula ya PapoRide
                         </span>
-                        {pricingModel === 'system_km' && (
-                          <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-white" />
-                          </div>
-                        )}
                       </div>
-                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mb-2">
-                        Mfumo ukokotoe nauli kulingana na umbali wa KM za kila abiria kiotomatiki.
-                      </p>
-                      <p className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg">
-                        📏 Nauli ya kilometa ya PapoShare
-                      </p>
-                    </div>
+                    )}
+                  </div>
+
+                  {/* Summary & Publish CTA Button */}
+                  <div className="pt-2">
+                    <button
+                      id="btn-publish-stand-trip"
+                      type="button"
+                      disabled={loading || !standSearchInput.trim() || !destSearchInput.trim()}
+                      onClick={handlePublishRoute}
+                      className="w-full py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider shadow-lg shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Inachapisha Safari...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>TANGAZA VITI HEWANI SASA</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                    <p className="text-center text-[10px] text-neutral-400 font-medium mt-1.5">
+                      Abiria kijiweni na walio njiani wataona gari lako na kiti kitakachobaki.
+                    </p>
                   </div>
                 </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>
 
-                {/* Submit Action */}
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={handlePublishRoute}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black uppercase text-xs tracking-wider shadow-lg shadow-emerald-600/30 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>{loading ? 'Inatangaza...' : '🟢 TANGAZA PAPOSHARE STENDI'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+      {/* INTERACTIVE MAP PICKER MODAL (Full Leaflet Picker with z-[110000]) */}
+      <LocationPicker
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        pickerType={mapPickerTarget === 'stand' ? 'pickup' : 'delivery'}
+        title={
+          mapPickerTarget === 'stand' 
+            ? "Chagua Stendi / Kijiwe Kwenye Ramani" 
+            : "Chagua Eneo la Kuelekea Kwenye Ramani"
+        }
+        subtitle="Gusa au buruta pini kwenye ramani kuweka eneo kamili"
+        initialLocation={
+          mapPickerTarget === 'stand'
+            ? { lat: selectedStand.lat, lng: selectedStand.lng, address: standSearchInput }
+            : { lat: selectedDestination.lat, lng: selectedDestination.lng, address: destSearchInput }
+        }
+        zIndex="z-[110000]"
+        onSelect={(loc) => {
+          if (mapPickerTarget === 'stand') {
+            setSelectedStand({
+              name: loc.address || 'Stendi / Kijiwe Kwenye Ramani',
+              lat: loc.lat,
+              lng: loc.lng,
+              address: loc.address
+            });
+            setStandSearchInput(loc.address || 'Eneo Teule la Stendi');
+          } else {
+            setSelectedDestination({
+              name: loc.address || 'Eneo la Kuelekea Kwenye Ramani',
+              lat: loc.lat,
+              lng: loc.lng,
+              address: loc.address
+            });
+            setDestSearchInput(loc.address || 'Eneo Teule la Kuelekea');
+          }
+          setIsMapPickerOpen(false);
+          toast.success("Eneo limewekwa kikamilifu kutoka kwenye ramani! 📍");
+        }}
+      />
+    </>
   );
 }

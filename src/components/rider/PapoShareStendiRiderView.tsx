@@ -26,7 +26,7 @@ interface PapoShareStendiRiderViewProps {
 }
 
 type SortOption = 'price_asc' | 'nearby' | 'rating' | 'seats_desc';
-type FilterType = 'all' | 'custom_fixed' | 'system_km' | 'verified' | 'bajaj' | 'mini';
+type FilterType = 'all' | 'custom_fixed' | 'system_km' | 'verified' | 'boda' | 'bajaj' | 'mini';
 
 export default function PapoShareStendiRiderView({
   pickupLocation,
@@ -82,9 +82,14 @@ export default function PapoShareStendiRiderView({
 
   // Match routes to passenger's pickup & destination
   const matchedRoutes = useMemo(() => {
+    // Only consider routes that are actively boarding and have available seats
+    const openRoutes = allRoutes.filter(
+      (r) => r.isActive && r.status === 'boarding' && Number(r.availableSeats) > 0
+    );
+
     if (!pickupLocation || !destinationLocation) {
-      // If pickup or destination is not yet set, return all active boarding routes
-      return allRoutes.map((route) => ({
+      // If pickup or destination is not yet set, return all open boarding routes
+      return openRoutes.map((route) => ({
         route,
         isMatch: true,
         distanceToStandKm: 0,
@@ -103,7 +108,7 @@ export default function PapoShareStendiRiderView({
       matchScore: number;
     }> = [];
 
-    for (const route of allRoutes) {
+    for (const route of openRoutes) {
       const result = matchRiderToStandRoute(
         route,
         { lat: pickupLocation.lat, lng: pickupLocation.lng },
@@ -128,6 +133,7 @@ export default function PapoShareStendiRiderView({
       if (activeFilter === 'custom_fixed') return r.pricingModel === 'custom_fixed';
       if (activeFilter === 'system_km') return r.pricingModel === 'system_km';
       if (activeFilter === 'verified') return r.isVerifiedDriver;
+      if (activeFilter === 'boda') return r.vehicleType === 'boda';
       if (activeFilter === 'bajaj') return r.vehicleType === 'bajaj';
       if (activeFilter === 'mini') return r.vehicleType === 'mini';
       return true;
@@ -351,6 +357,16 @@ export default function PapoShareStendiRiderView({
             ✓ Verified
           </button>
           <button
+            onClick={() => setActiveFilter('boda')}
+            className={`px-2.5 py-1 rounded-full font-bold whitespace-nowrap transition-all ${
+              activeFilter === 'boda'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
+            }`}
+          >
+            🏍️ Pikipiki
+          </button>
+          <button
             onClick={() => setActiveFilter('bajaj')}
             className={`px-2.5 py-1 rounded-full font-bold whitespace-nowrap transition-all ${
               activeFilter === 'bajaj'
@@ -358,7 +374,7 @@ export default function PapoShareStendiRiderView({
                 : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
             }`}
           >
-            🚕 Bajaji
+            🛺 Bajaji
           </button>
           <button
             onClick={() => setActiveFilter('mini')}
@@ -440,7 +456,7 @@ export default function PapoShareStendiRiderView({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center text-base font-black shadow-sm shrink-0">
-                    {route.vehicleType === 'bajaj' ? '🚕' : '🚗'}
+                    {route.vehicleType === 'boda' ? '🏍️' : route.vehicleType === 'bajaj' ? '🛺' : '🚗'}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -460,7 +476,7 @@ export default function PapoShareStendiRiderView({
                       </span>
                       <span>•</span>
                       <span className="font-semibold uppercase">
-                        {route.vehicleType === 'bajaj' ? 'Bajaji' : 'Mini Car'}
+                        {route.vehicleType === 'boda' ? 'Pikipiki' : route.vehicleType === 'bajaj' ? 'Bajaji' : 'Mini Car'}
                       </span>
                       <span>•</span>
                       <span className="font-semibold">{route.vehiclePlate || 'T 240 ABC'}</span>
@@ -567,7 +583,7 @@ export default function PapoShareStendiRiderView({
               <div className="flex items-center justify-between">
                 <span className="text-neutral-500 font-bold">Chombo:</span>
                 <span className="font-bold uppercase text-neutral-900 dark:text-white">
-                  {bookingRoute.vehicleType === 'bajaj' ? '🚕 Bajaji' : '🚗 Mini'}
+                  {bookingRoute.vehicleType === 'boda' ? '🏍️ Pikipiki' : bookingRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}
                 </span>
               </div>
             </div>
@@ -577,22 +593,28 @@ export default function PapoShareStendiRiderView({
               <label className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
                 Idadi ya Viti Unavyohitaji:
               </label>
-              <div className="flex items-center gap-2">
-                {Array.from({ length: Math.min(bookingRoute.availableSeats, 4) }, (_, i) => i + 1).map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => setSeatsToBook(num)}
-                    className={`flex-1 py-2 rounded-xl font-black text-xs border transition-all ${
-                      seatsToBook === num
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
-                    }`}
-                  >
-                    {num} Siti
-                  </button>
-                ))}
-              </div>
+              {bookingRoute.vehicleType === 'boda' ? (
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-700 dark:text-emerald-300 text-center">
+                  🏍️ Pikipiki: Kiti 1 Pekee Kinapatikana
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(bookingRoute.availableSeats, 4) }, (_, i) => i + 1).map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setSeatsToBook(num)}
+                      className={`flex-1 py-2 rounded-xl font-black text-xs border transition-all ${
+                        seatsToBook === num
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
+                      }`}
+                    >
+                      {num} Siti
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Fare Calculation */}
