@@ -36,6 +36,7 @@ import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
 import { AppModulesStudio } from './admin/AppModulesStudio';
 import { CssAnimatedTextStudio } from './admin/CssAnimatedTextStudio';
+import AdminPapoShareStendi from './admin/AdminPapoShareStendi';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polygon } from 'react-leaflet';
@@ -121,7 +122,7 @@ interface ProductWithVendor extends Product {
   hidden?: boolean;
 }
 
-type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp' | 'page_canvas' | 'app_modules' | 'text_animations';
+type AdminTab = 'overview' | 'vendors' | 'drivers' | 'products' | 'users' | 'orders' | 'banners' | 'notifications' | 'coupons' | 'settings' | 'live_map' | 'payouts' | 'analytics' | 'twilio_responder' | 'meta_mcp' | 'page_canvas' | 'app_modules' | 'text_animations' | 'paposhare_stendi';
 
 interface Coupon {
   id?: string;
@@ -1148,6 +1149,7 @@ export default function AdminDashboard() {
       items: [
         { id: 'vendors', label: t('admin_businesses') || 'Businesses', icon: Store },
         { id: 'drivers', label: 'Drivers', icon: Bike },
+        { id: 'paposhare_stendi', label: 'PapoShare Stendi', icon: Car },
         { id: 'products', label: t('admin_products') || 'Products', icon: ShoppingBag },
         { id: 'users', label: t('admin_communities') || 'Communities', icon: Users },
         { id: 'orders', label: t('admin_sales_feed') || 'Sales Feed', icon: ShoppingBag },
@@ -1418,6 +1420,12 @@ export default function AdminDashboard() {
         {activeTab === 'text_animations' && (
           <motion.div key="text_animations" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <CssAnimatedTextStudio />
+          </motion.div>
+        )}
+
+        {activeTab === 'paposhare_stendi' && (
+          <motion.div key="paposhare_stendi" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <AdminPapoShareStendi />
           </motion.div>
         )}
 

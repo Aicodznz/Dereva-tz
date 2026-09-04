@@ -117,6 +117,7 @@ import { DriverArrivedScreen } from "./tegex/DriverArrivedScreen";
 import { LiveTripScreen } from "./tegex/LiveTripScreen";
 import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
+import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import { AnimatedRoute } from "./map/AnimatedRoute";
 import { SmoothDriverMarker } from "./map/SmoothDriverMarker";
 import AppDownloadButton from "./AppDownloadButton";
@@ -623,6 +624,7 @@ export default function TaxiBooking() {
 
   // PapoShare Pooling State
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
+  const [papoShareSubOption, setPapoShareSubOption] = useState<'auto' | 'stendi'>('auto');
   const [allowSharingConsent, setAllowSharingConsent] = useState<boolean>(true);
   const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
   const [verifiedOnlySharing, setVerifiedOnlySharing] = useState<boolean>(false);
@@ -4843,58 +4845,117 @@ const getEndPin = (etaText: string) => {
                             </button>
                           </div>
 
-                          {/* PapoShare Details & Consent Preferences */}
+                          {/* PapoShare Details & Sub-Options */}
                           {shareMode === 'share' && (
                             <motion.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
-                              className="p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-2 text-xs"
+                              className="space-y-2.5"
                             >
-                              {/* Detour Budget & Route Efficiency Banner */}
-                              <div className="flex items-center justify-between text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-1.5 rounded-lg border border-purple-500/15">
-                                <span>⏱️ Detour Budget: Max {calculateDetourBudget(Math.ceil((totalDuration || 900) / 60))} min</span>
-                                <span className="text-neutral-500 dark:text-neutral-400 font-normal">FIFO / Hakuna Kurudi Nyuma</span>
+                              {/* 2-Option Switch: Automatic Match vs PapoShare Stendi */}
+                              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 border border-purple-500/20">
+                                <button
+                                  type="button"
+                                  onClick={() => setPapoShareSubOption('auto')}
+                                  className={`py-2 px-2.5 rounded-xl text-left transition-all ${
+                                    papoShareSubOption === 'auto'
+                                      ? 'bg-purple-600 text-white shadow-xs'
+                                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-purple-500/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black leading-tight">🔵 Automatic Match</span>
+                                    {papoShareSubOption === 'auto' && <Check className="w-3 h-3 text-white" />}
+                                  </div>
+                                  <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'auto' ? 'text-purple-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                                    Mfumo akutafutie partner
+                                  </p>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setPapoShareSubOption('stendi')}
+                                  className={`py-2 px-2.5 rounded-xl text-left transition-all ${
+                                    papoShareSubOption === 'stendi'
+                                      ? 'bg-emerald-600 text-white shadow-xs'
+                                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-emerald-500/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black leading-tight">🟢 PapoShare Stendi</span>
+                                    {papoShareSubOption === 'stendi' && <Check className="w-3 h-3 text-white" />}
+                                  </div>
+                                  <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'stendi' ? 'text-emerald-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                                    Chagua safari iliyo tayari
+                                  </p>
+                                </button>
                               </div>
 
-                              {/* Consent Checkbox (Ruhusu dereva kupakia msafiri njiani) */}
-                              <label className="flex items-start gap-2 cursor-pointer select-none">
-                                <input
-                                  type="checkbox"
-                                  checked={allowSharingConsent}
-                                  onChange={(e) => setAllowSharingConsent(e.target.checked)}
-                                  className="w-4 h-4 mt-0.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                              {/* 1. AUTOMATIC MATCH (EXISTING LOGIC - UNCHANGED) */}
+                              {papoShareSubOption === 'auto' && (
+                                <div className="p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 space-y-2 text-xs">
+                                  {/* Detour Budget & Route Efficiency Banner */}
+                                  <div className="flex items-center justify-between text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-1.5 rounded-lg border border-purple-500/15">
+                                    <span>⏱️ Detour Budget: Max {calculateDetourBudget(Math.ceil((totalDuration || 900) / 60))} min</span>
+                                    <span className="text-neutral-500 dark:text-neutral-400 font-normal">FIFO / Hakuna Kurudi Nyuma</span>
+                                  </div>
+
+                                  {/* Consent Checkbox (Ruhusu dereva kupakia msafiri njiani) */}
+                                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={allowSharingConsent}
+                                      onChange={(e) => setAllowSharingConsent(e.target.checked)}
+                                      className="w-4 h-4 mt-0.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                    />
+                                    <span className="text-[9.5px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
+                                      Ruhusu dereva kuchukua abiria mwingine njiani anayeelekea njia yako
+                                    </span>
+                                  </label>
+
+                                  {/* Women Only & Verified Only Sharing Preferences */}
+                                  <div className="pt-1.5 border-t border-purple-500/15 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={womenOnlySharing}
+                                        onChange={(e) => setWomenOnlySharing(e.target.checked)}
+                                        className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                      />
+                                      <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
+                                        👩 Abiria Wanawake Tu
+                                      </span>
+                                    </label>
+
+                                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={verifiedOnlySharing}
+                                        onChange={(e) => setVerifiedOnlySharing(e.target.checked)}
+                                        className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
+                                      />
+                                      <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
+                                        ⭐ Waliothibitishwa Tu
+                                      </span>
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 2. PAPOSHARE STENDI (NEW FEATURE VIEW) */}
+                              {papoShareSubOption === 'stendi' && (
+                                <PapoShareStendiRiderView
+                                  pickupLocation={pickup && pickupPos ? { name: pickup, lat: pickupPos[0], lng: pickupPos[1] } : null}
+                                  destinationLocation={destination && destPos ? { name: destination, lat: destPos[0], lng: destPos[1] } : null}
+                                  riderUser={user}
+                                  riderProfile={profile}
+                                  onSelectAutomaticMatch={() => setPapoShareSubOption('auto')}
+                                  onSelectSolo={() => setShareMode('solo')}
+                                  onTripConfirmed={(route, passenger) => {
+                                    toast.success(`Booking ya stendi imethibitishwa kwa ${route.driverName}!`);
+                                  }}
                                 />
-                                <span className="text-[9.5px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
-                                  Ruhusu dereva kuchukua abiria mwingine njiani anayeelekea njia yako
-                                </span>
-                              </label>
-
-                              {/* Women Only & Verified Only Sharing Preferences */}
-                              <div className="pt-1.5 border-t border-purple-500/15 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={womenOnlySharing}
-                                    onChange={(e) => setWomenOnlySharing(e.target.checked)}
-                                    className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
-                                  />
-                                  <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
-                                    👩 Abiria Wanawake Tu
-                                  </span>
-                                </label>
-
-                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                                  <input
-                                    type="checkbox"
-                                    checked={verifiedOnlySharing}
-                                    onChange={(e) => setVerifiedOnlySharing(e.target.checked)}
-                                    className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500 accent-purple-600"
-                                  />
-                                  <span className="text-[8.5px] font-bold text-neutral-700 dark:text-neutral-300">
-                                    ⭐ Waliothibitishwa Tu
-                                  </span>
-                                </label>
-                              </div>
+                              )}
                             </motion.div>
                           )}
                         </div>

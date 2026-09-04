@@ -177,6 +177,10 @@ service cloud.firestore {
     match /test/{docId} {
       allow read, write: if true;
     }
+    // 24. STAND POOLING ROUTES (PAPOSHARE STENDI)
+    match /stand_pooling_routes/{routeId} {
+      allow read, write: if true;
+    }
 
     // Default deny for safety
     match /{document=**} {

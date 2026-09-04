@@ -44,6 +44,7 @@ import DriverTripSheet from '../tegex/DriverTripSheet';
 import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import StreetHailModal from './StreetHailModal';
+import PapoShareStendiModal from '../driver/PapoShareStendiModal';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
@@ -468,8 +469,9 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [earningsTab, setEarningsTab] = useState<'mwezi' | 'mwaka' | 'jumla'>('mwezi');
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
   const [isStreetHailModalOpen, setIsStreetHailModalOpen] = useState(false);
+  const [isPapoShareStendiModalOpen, setIsPapoShareStendiModalOpen] = useState(false);
   const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
-  const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail'>('bonus');
+  const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail' | 'stendi'>('bonus');
   const [dismissedPromo, setDismissedPromo] = useState(false);
 
   // States for adding a POI
@@ -3461,13 +3463,24 @@ const getEndPin = (etaText: string) => {
               </div>
             </div>
 
-            {/* Quick Actions (Street Hail + Offline) */}
+            {/* Quick Actions (PapoShare Stendi + Street Hail + Offline) */}
             <div className="flex items-center gap-1.5 shrink-0">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => setIsPapoShareStendiModalOpen(true)}
+                className="h-8 px-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
+                title="PapoShare Stendi (Tangaza viti kijiweni)"
+              >
+                <span className="text-xs">🚕</span>
+                <span className="hidden xs:inline">Stendi</span>
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setIsStreetHailModalOpen(true)}
-                className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
+                className="h-8 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
                 title="Pakia mteja papo hapo (Street Hail)"
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -4229,6 +4242,15 @@ const getEndPin = (etaText: string) => {
             console.log("Direct street hail ride started:", rideId);
             setIsStreetHailModalOpen(false);
           }}
+        />
+
+        {/* PapoShare Stendi (Driver Stand Pooling Manager Modal) */}
+        <PapoShareStendiModal
+          isOpen={isPapoShareStendiModalOpen}
+          onClose={() => setIsPapoShareStendiModalOpen(false)}
+          driverUser={user}
+          driverProfile={profile}
+          currentGpsPosition={position}
         />
       </AnimatePresence>
     </div>
