@@ -11,7 +11,8 @@ import {
   Clock, TrendingUp, Info, Wifi, Battery, Map as MapIcon,
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
-  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers
+  AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers,
+  ExternalLink, Play, Square
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -266,6 +267,55 @@ function MapBoundsUpdater({ activeRide, position }: { activeRide: any, position:
   return null;
 }
 
+function MapBoundsStandUpdater({ 
+  activeDriverStandRoute, 
+  position,
+  recenterTrigger
+}: { 
+  activeDriverStandRoute: any, 
+  position: [number, number],
+  recenterTrigger?: number 
+}) {
+  const map = useMap();
+  const lastStatus = React.useRef<string | null>(null);
+  const lastRouteId = React.useRef<string | null>(null);
+  const lastRecenter = React.useRef<number | undefined>(recenterTrigger);
+
+  useEffect(() => {
+    if (!activeDriverStandRoute || (activeDriverStandRoute.status !== 'started' && activeDriverStandRoute.status !== 'boarding')) {
+      lastStatus.current = null;
+      lastRouteId.current = null;
+      return;
+    }
+
+    const isTriggered = recenterTrigger !== lastRecenter.current;
+    if (activeDriverStandRoute.status !== lastStatus.current || activeDriverStandRoute.id !== lastRouteId.current || isTriggered) {
+      lastRecenter.current = recenterTrigger;
+      const bounds = L.latLngBounds([position]);
+      
+      if (activeDriverStandRoute.destination?.lat && activeDriverStandRoute.destination?.lng) {
+        bounds.extend([activeDriverStandRoute.destination.lat, activeDriverStandRoute.destination.lng]);
+      }
+      if (activeDriverStandRoute.standLocation?.lat && activeDriverStandRoute.standLocation?.lng) {
+        bounds.extend([activeDriverStandRoute.standLocation.lat, activeDriverStandRoute.standLocation.lng]);
+      }
+      if (activeDriverStandRoute.passengers && Array.isArray(activeDriverStandRoute.passengers)) {
+        activeDriverStandRoute.passengers.forEach((p: any) => {
+          if (p.dropoffLat && p.dropoffLng) {
+            bounds.extend([p.dropoffLat, p.dropoffLng]);
+          }
+        });
+      }
+
+      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 });
+      lastStatus.current = activeDriverStandRoute.status;
+      lastRouteId.current = activeDriverStandRoute.id;
+    }
+  }, [activeDriverStandRoute?.status, activeDriverStandRoute?.id, position, map, recenterTrigger]);
+
+  return null;
+}
+
 function PoiMapController({ 
   activePoiCategory, 
   pois, 
@@ -508,6 +558,116 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
     });
     return () => unsubscribe();
   }, [user?.uid, (profile as any)?.id]);
+
+  // PapoShare Stendi Road Coordinates & Live Route Tracking for Driver
+  const [standRouteRoadCoords, setStandRouteRoadCoords] = useState<[number, number][]>([]);
+  const [recenterStandTrigger, setRecenterStandTrigger] = useState(0);
+  const [isStandSimulating, setIsStandSimulating] = useState(false);
+  const standSimIndexRef = useRef(0);
+
+  // Fetch real road coordinates for PapoShare Stendi route
+  useEffect(() => {
+    if (!activeDriverStandRoute || (activeDriverStandRoute.status !== 'started' && activeDriverStandRoute.status !== 'boarding')) {
+      setStandRouteRoadCoords([]);
+      setIsStandSimulating(false);
+      standSimIndexRef.current = 0;
+      return;
+    }
+
+    const r = activeDriverStandRoute;
+    const startLat = position[0];
+    const startLng = position[1];
+    const destLat = r.destination?.lat;
+    const destLng = r.destination?.lng;
+
+    if (!destLat || !destLng) return;
+
+    let isMounted = true;
+    const fetchRoads = async () => {
+      try {
+        const coordsList: [number, number][] = [[startLng, startLat]];
+        if (r.passengers && Array.isArray(r.passengers)) {
+          r.passengers.forEach((p: any) => {
+            if (p.status === 'booked' || p.status === 'boarded') {
+              if (p.dropoffLat && p.dropoffLng) {
+                coordsList.push([p.dropoffLng, p.dropoffLat]);
+              }
+            }
+          });
+        }
+        coordsList.push([destLng, destLat]);
+
+        const coordsStr = coordsList.map((c) => `${c[0]},${c[1]}`).join(';');
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.routes && data.routes[0]?.geometry?.coordinates && isMounted) {
+            const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+              (c: [number, number]) => [c[1], c[0]]
+            );
+            setStandRouteRoadCoords(coords);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      if (isMounted) {
+        setStandRouteRoadCoords(generateSimulatedRoads([startLat, startLng], [destLat, destLng]));
+      }
+    };
+
+    fetchRoads();
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeDriverStandRoute?.id,
+    activeDriverStandRoute?.status,
+    activeDriverStandRoute?.destination?.lat,
+    activeDriverStandRoute?.destination?.lng,
+    activeDriverStandRoute?.passengers?.length
+  ]);
+
+  // Simulation loop for testing Stendi route movement
+  useEffect(() => {
+    if (!isStandSimulating || !activeDriverStandRoute || activeDriverStandRoute.status !== 'started' || !standRouteRoadCoords || standRouteRoadCoords.length === 0) {
+      return;
+    }
+
+    const simInterval = setInterval(async () => {
+      const path = standRouteRoadCoords;
+      const curIdx = standSimIndexRef.current;
+      if (curIdx < path.length - 1) {
+        const nextIdx = curIdx + 1;
+        standSimIndexRef.current = nextIdx;
+        const currentCoord = path[curIdx];
+        const nextCoord = path[nextIdx];
+        if (nextCoord) {
+          const bearing = calculateBearing(currentCoord[0], currentCoord[1], nextCoord[0], nextCoord[1]);
+          setVehicleHeading(bearing);
+          setPosition(nextCoord);
+
+          const driverUid = user?.uid || (profile as any)?.id;
+          if (driverUid) {
+            try {
+              await updateStandDriverLocation(driverUid, {
+                lat: nextCoord[0],
+                lng: nextCoord[1],
+                heading: bearing
+              });
+            } catch (e) {
+              console.warn("Sync stand driver location failed:", e);
+            }
+          }
+        }
+      } else {
+        setIsStandSimulating(false);
+        toast.success("🏁 Umefika mwisho wa safari ya Stendi!");
+      }
+    }, 1200);
+
+    return () => clearInterval(simInterval);
+  }, [isStandSimulating, activeDriverStandRoute?.status, standRouteRoadCoords, user?.uid, (profile as any)?.id]);
 
   const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
   const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail' | 'stendi'>('bonus');
@@ -2708,6 +2868,109 @@ const getEndPin = (etaText: string) => {
               </>
             )}
 
+            {/* Active PapoShare Stendi Trip on Driver Map */}
+            {activeDriverStandRoute && (activeDriverStandRoute.status === 'started' || activeDriverStandRoute.status === 'boarding') && (
+              <>
+                {/* 1. Destination Marker */}
+                {activeDriverStandRoute.destination?.lat && activeDriverStandRoute.destination?.lng && (
+                  <Marker 
+                    position={[activeDriverStandRoute.destination.lat, activeDriverStandRoute.destination.lng]} 
+                    icon={createGoogleMapsDestinationIcon(
+                      activeDriverStandRoute.destination.name 
+                        ? (activeDriverStandRoute.destination.name.length > 20 ? `${activeDriverStandRoute.destination.name.substring(0, 18)}...` : activeDriverStandRoute.destination.name) 
+                        : 'Mwisho wa Safari'
+                    )} 
+                  >
+                    <Popup>
+                      <div className="p-2 text-center">
+                        <p className="font-extrabold text-xs text-neutral-900">🏁 Mwisho wa Safari ya Stendi</p>
+                        <p className="text-xs text-emerald-600 font-bold mt-0.5">{activeDriverStandRoute.destination.name}</p>
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeDriverStandRoute.destination.lat},${activeDriverStandRoute.destination.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider"
+                        >
+                          Fungua Google Maps 🗺️
+                        </a>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
+                {/* 2. Stand Pickup Location Marker (if still boarding) */}
+                {activeDriverStandRoute.status === 'boarding' && activeDriverStandRoute.standLocation?.lat && activeDriverStandRoute.standLocation?.lng && (
+                  <Marker 
+                    position={[activeDriverStandRoute.standLocation.lat, activeDriverStandRoute.standLocation.lng]} 
+                    icon={getStartPin("Kijiweni")} 
+                  />
+                )}
+
+                {/* 3. Passenger Dropoff Markers along the way */}
+                {activeDriverStandRoute.passengers && Array.isArray(activeDriverStandRoute.passengers) && 
+                  activeDriverStandRoute.passengers
+                    .filter((p: any) => p.status === 'booked' || p.status === 'boarded')
+                    .map((p: any, idx: number) => {
+                      if (!p.dropoffLat || !p.dropoffLng) return null;
+                      const shortDrop = p.dropoffName ? (p.dropoffName.length > 18 ? `${p.dropoffName.substring(0, 18)}...` : p.dropoffName) : 'Kushuka';
+                      return (
+                        <Marker
+                          key={`driver-stand-p-${p.passengerId || idx}`}
+                          position={[p.dropoffLat, p.dropoffLng]}
+                          icon={L.divIcon({
+                            className: "driver-stand-passenger-marker",
+                            html: `
+                              <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                                <div style="background: #2563EB; color: white; padding: 3px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.35); border: 1.5px solid white; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                                  <span>👤 ${p.passengerName?.split(' ')[0] || `Abiria #${idx + 1}`}</span>
+                                  <span style="opacity: 0.85;">(${shortDrop})</span>
+                                </div>
+                                <div style="width: 8px; height: 8px; background: #2563EB; border: 1.5px solid white; border-radius: 50%; margin-top: 2px;"></div>
+                              </div>
+                            `,
+                            iconSize: [0, 0]
+                          })}
+                        >
+                          <Popup>
+                            <div className="p-2 text-center text-xs">
+                              <p className="font-extrabold text-blue-600">👤 {p.passengerName || 'Abiria'}</p>
+                              <p className="text-slate-600 font-medium">{p.dropoffName}</p>
+                              <p className="text-[11px] font-bold text-emerald-600 mt-1">Nauli: TZS {(p.fare || activeDriverStandRoute.fixedPricePerSeat || 0).toLocaleString()}</p>
+                              {p.passengerPhone && (
+                                <a 
+                                  href={`tel:${p.passengerPhone}`}
+                                  className="mt-2 inline-block px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-bold"
+                                >
+                                  📞 Piga Simu
+                                </a>
+                              )}
+                            </div>
+                          </Popup>
+                        </Marker>
+                      );
+                    })
+                }
+
+                {/* 4. Active Road Route Line (Vibrant Emerald / Green) */}
+                {standRouteRoadCoords && standRouteRoadCoords.length > 1 && (() => {
+                  const slicedRoute = sliceRouteFromCurrentPos(standRouteRoadCoords, position);
+                  return (
+                    <AnimatedRoute
+                      positions={slicedRoute.length > 1 ? slicedRoute : standRouteRoadCoords}
+                      color="#10B981"
+                      showTrafficSegments={true}
+                    />
+                  );
+                })()}
+              </>
+            )}
+
+            <MapBoundsStandUpdater 
+              activeDriverStandRoute={activeDriverStandRoute} 
+              position={position}
+              recenterTrigger={recenterStandTrigger}
+            />
+
             <MapController 
               position={position} 
               activeRide={activeRide} 
@@ -3486,9 +3749,13 @@ const getEndPin = (etaText: string) => {
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
               <div className="flex flex-col min-w-0">
-                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">ONLINE</span>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">
+                  {activeDriverStandRoute?.status === 'started' ? 'SAFARINI' : 'ONLINE'}
+                </span>
                 <span className="text-[11px] sm:text-xs font-bold text-neutral-700 dark:text-neutral-200 mt-0.5 leading-none truncate">
-                  Unasubiri safari...
+                  {activeDriverStandRoute?.status === 'started'
+                    ? `Stendi ➔ ${activeDriverStandRoute.destination.name.split(',')[0]}`
+                    : 'Unasubiri safari...'}
                 </span>
               </div>
             </div>
@@ -3496,31 +3763,59 @@ const getEndPin = (etaText: string) => {
             {/* Middle Stats Badge */}
             <div className="flex items-center gap-2 bg-neutral-100/80 dark:bg-neutral-900/60 border border-neutral-200/50 dark:border-[#1e1e2e] py-1 px-2 rounded-xl shrink-0">
               <div className="flex flex-col items-center min-w-[26px]">
-                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">SAFARI</span>
-                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.todayTrips ?? 0}</span>
+                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">
+                  {activeDriverStandRoute?.status === 'started' ? 'ABIRIA' : 'SAFARI'}
+                </span>
+                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">
+                  {activeDriverStandRoute?.status === 'started' ? (activeDriverStandRoute.occupiedSeats || 1) : (stats?.todayTrips ?? 0)}
+                </span>
               </div>
               <div className="h-3.5 w-[1px] bg-neutral-300 dark:bg-neutral-800" />
               <div className="flex flex-col items-center min-w-[26px]">
-                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">MASAA</span>
-                <span className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 leading-none mt-0.5">{stats?.activeHours ?? 0}h</span>
+                <span className="text-[6.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none">
+                  {activeDriverStandRoute?.status === 'started' ? 'NAULI' : 'MASAA'}
+                </span>
+                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 leading-none mt-0.5">
+                  {activeDriverStandRoute?.status === 'started' 
+                    ? `${Math.round(((activeDriverStandRoute.occupiedSeats || 1) * activeDriverStandRoute.fixedPricePerSeat) / 1000)}k` 
+                    : `${stats?.activeHours ?? 0}h`}
+                </span>
               </div>
             </div>
 
             {/* Quick Actions (PapoShare Stendi + Street Hail + Offline) */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {activeDriverStandRoute && activeDriverStandRoute.status === 'started' && (
+                <button
+                  type="button"
+                  onClick={() => setIsStandSimulating(prev => !prev)}
+                  className={`h-8 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 transition-all ${
+                    isStandSimulating ? 'bg-amber-500 text-black animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-neutral-200'
+                  }`}
+                  title="Washa mwendo wa simulation kwenye ramani"
+                >
+                  {isStandSimulating ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                  <span className="hidden sm:inline">{isStandSimulating ? 'Sim' : 'Test'}</span>
+                </button>
+              )}
+
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsPapoShareStendiModalOpen(true)}
                 className={`h-8 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors ${
-                  activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding'
+                  activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'started'
+                    ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white ring-2 ring-emerald-400 ring-offset-1 dark:ring-offset-black animate-pulse'
+                    : activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding'
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white ring-2 ring-emerald-400 ring-offset-1 dark:ring-offset-black animate-pulse'
                     : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
                 }`}
-                title="PapoShare Stendi (Tangaza viti kijiweni)"
+                title="PapoShare Stendi"
               >
                 <span className="text-xs">🚕</span>
-                {activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding' ? (
+                {activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'started' ? (
+                  <span>Safarini (Dhibiti)</span>
+                ) : activeDriverStandRoute && activeDriverStandRoute.isActive && activeDriverStandRoute.status === 'boarding' ? (
                   <span>Stendi ({activeDriverStandRoute.availableSeats} viti)</span>
                 ) : (
                   <span className="hidden xs:inline">Stendi</span>
@@ -3547,6 +3842,73 @@ const getEndPin = (etaText: string) => {
               </button>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Top Turn-by-Turn Navigation HUD for Active PapoShare Stendi Trip */}
+      {isOnline && activeDriverStandRoute && activeDriverStandRoute.status === 'started' && !activeRide && (
+        <div className="absolute top-3 inset-x-3 max-w-lg mx-auto z-40 pointer-events-auto">
+          <div className="bg-slate-900/95 dark:bg-[#0f172a]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 font-black text-lg">
+                  ↗
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                      SAFARI YA STENDI NJIANI
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-bold">
+                      {activeDriverStandRoute.occupiedSeats || 1} Abiria
+                    </span>
+                  </div>
+                  <h3 className="text-xs sm:text-sm font-extrabold truncate text-white mt-0.5">
+                    Elekea: {activeDriverStandRoute.destination.name}
+                  </h3>
+                  {(() => {
+                    const destLat = activeDriverStandRoute.destination.lat;
+                    const destLng = activeDriverStandRoute.destination.lng;
+                    const distKm = getDistanceInMeters(position[0], position[1], destLat, destLng) / 1000;
+                    const etaMins = Math.max(1, Math.round((distKm / 35) * 60));
+                    return (
+                      <p className="text-[11px] font-bold text-neutral-300 flex items-center gap-1.5 mt-0.5">
+                        <span className="text-emerald-400 font-extrabold">{distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}</span>
+                        <span>•</span>
+                        <span>Dakika ~{etaMins} kufika</span>
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoFollow(true);
+                    setRecenterStandTrigger(prev => prev + 1);
+                    toast.success("Ramani imelenga njia ya safari! 🎯");
+                  }}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-200 rounded-xl transition-all cursor-pointer"
+                  title="Lenga Njia"
+                >
+                  <Navigation2 className="w-4 h-4 text-emerald-400 rotate-45" />
+                </button>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeDriverStandRoute.destination.lat},${activeDriverStandRoute.destination.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md text-[11px]"
+                  title="Fungua Google Maps Turn-by-Turn"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="hidden sm:inline">Maps</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

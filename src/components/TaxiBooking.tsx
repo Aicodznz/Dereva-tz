@@ -3565,7 +3565,32 @@ const getEndPin = (etaText: string) => {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full pointer-events-auto"
               >
-                {!activeRide && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
+                {activeStandTrip && (
+                  <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center justify-between pointer-events-auto">
+                    <div className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
+                      theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800 text-white' : 'bg-white/95 border-neutral-200/90 text-neutral-800'
+                    }`}>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] font-black uppercase tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+                          {activeStandTrip.route.status === 'started' ? '🚀 Safari ya Stendi Imeanza' : '🚕 PapoShare Stendi'}
+                        </span>
+                        <span className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 truncate">
+                          {activeStandTrip.route.driverName} ➔ {activeStandTrip.route.destination.name.split(',')[0]}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setRecenterStandTrigger((prev) => prev + 1)}
+                      className="px-3.5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-lg flex items-center gap-1 transition-all active:scale-95 cursor-pointer shrink-0"
+                      title="Lenga ramani"
+                    >
+                      <span>🎯 Lenga</span>
+                    </button>
+                  </div>
+                )}
+
+                {!activeRide && !activeStandTrip && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
                   <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
                     {/* Left Menu Button */}
                     <div className="relative pointer-events-auto">
@@ -3940,10 +3965,10 @@ const getEndPin = (etaText: string) => {
                         />
                       );
                     })()}
-                    {activeRide?.status !== "on_trip" && (
+                    {!activeStandTrip && activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
-                    {destination && (
+                    {!activeStandTrip && destination && (
                       <Marker 
                         position={destPos} 
                         icon={getEndPin(etaDestText)} 
@@ -4015,7 +4040,7 @@ const getEndPin = (etaText: string) => {
                     {/* Nearby Drivers - Show in home or map step, showing all vehicle types without selecting */}
                     {(step === "home" || step === "map") &&
                       drivers
-                        .filter((d) => d.id !== activeRide?.driverId)
+                        .filter((d) => d.id !== activeRide?.driverId && (!activeStandTrip || d.id !== activeStandTrip.route.driverId))
                         .map((driver) => (
                           <SmoothDriverMarker
                             key={`nearby-${driver.id}`}
@@ -4031,7 +4056,9 @@ const getEndPin = (etaText: string) => {
 
                     {/* Live PapoShare Stendi Vehicle & Stand Markers on Map */}
                     {(step === "home" || step === "map") &&
-                      activeStandRoutes.map((stRoute) => {
+                      activeStandRoutes
+                        .filter((stRoute) => !activeStandTrip || stRoute.id !== activeStandTrip.route.id)
+                        .map((stRoute) => {
                         if (!stRoute.standLocation?.lat || !stRoute.standLocation?.lng) return null;
                         return (
                           <Marker
@@ -4109,7 +4136,7 @@ const getEndPin = (etaText: string) => {
                             />
                           )}
 
-                          {/* Driver Vehicle Marker (Moving with heading) */}
+                          {/* Driver Vehicle Marker (Smooth 60fps single vehicle on map) */}
                           <SmoothDriverMarker
                             position={[driverLat, driverLng]}
                             heading={heading}
@@ -4120,36 +4147,18 @@ const getEndPin = (etaText: string) => {
                             isAssignedDriver={true}
                           />
 
-                          {/* Live Driver Floating Tag */}
-                          <Marker
-                            position={[driverLat, driverLng]}
-                            icon={L.divIcon({
-                              className: 'active-stand-driver-callout',
-                              html: `
-                                <div style="transform: translate(-50%, -120%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
-                                  <div style="background: ${r.status === 'started' ? '#059669' : '#0284c7'}; color: #ffffff; padding: 4px 10px; border-radius: 9999px; font-size: 10.5px; font-weight: 900; box-shadow: 0 4px 14px rgba(0,0,0,0.35); border: 2px solid #ffffff; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
-                                    <span style="display: inline-block; width: 7px; height: 7px; border-radius: 9999px; background: #ffffff;"></span>
-                                    <span>${r.driverName} • ${r.status === 'started' ? 'Njiani 🚀' : 'Kijiweni'}</span>
-                                  </div>
-                                  <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid ${r.status === 'started' ? '#059669' : '#0284c7'};"></div>
-                                </div>
-                              `,
-                              iconSize: [0, 0]
-                            })}
-                          />
-
-                          {/* Pickup Location Marker */}
+                          {/* Pickup Location Marker (Clean, compact pin) */}
                           {p && p.pickupLat && p.pickupLng && (
                             <Marker
                               position={[p.pickupLat, p.pickupLng]}
                               icon={L.divIcon({
                                 className: 'active-stand-pickup-pin',
                                 html: `
-                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
-                                    <div style="background: #10B981; color: white; padding: 3px 8px; border-radius: 8px; font-size: 9.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 1.5px solid white;">
-                                      📍 Kupandia: ${p.pickupName || r.standLocation.name}
+                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                                    <div style="background: #059669; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1.5px solid white; white-space: nowrap;">
+                                      📍 Kupandia
                                     </div>
-                                    <div style="width: 10px; height: 10px; background: #10B981; border: 2px solid white; border-radius: 50%; margin-top: 2px; box-shadow: 0 0 6px #10B981;"></div>
+                                    <div style="width: 8px; height: 8px; background: #059669; border: 1.5px solid white; border-radius: 50%; margin-top: 2px;"></div>
                                   </div>
                                 `,
                                 iconSize: [0, 0]
@@ -4157,18 +4166,18 @@ const getEndPin = (etaText: string) => {
                             />
                           )}
 
-                          {/* Dropoff Location Marker */}
+                          {/* Dropoff Location Marker (Clean, compact pin) */}
                           {p && p.dropoffLat && p.dropoffLng && (
                             <Marker
                               position={[p.dropoffLat, p.dropoffLng]}
                               icon={L.divIcon({
                                 className: 'active-stand-dropoff-pin',
                                 html: `
-                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center;">
-                                    <div style="background: #EF4444; color: white; padding: 3px 8px; border-radius: 8px; font-size: 9.5px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.25); border: 1.5px solid white;">
-                                      🏁 Kushukia: ${p.dropoffName || r.destination.name}
+                                  <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                                    <div style="background: #dc2626; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1.5px solid white; white-space: nowrap;">
+                                      🏁 Kushukia
                                     </div>
-                                    <div style="width: 10px; height: 10px; background: #EF4444; border: 2px solid white; border-radius: 50%; margin-top: 2px; box-shadow: 0 0 6px #EF4444;"></div>
+                                    <div style="width: 8px; height: 8px; background: #dc2626; border: 1.5px solid white; border-radius: 50%; margin-top: 2px;"></div>
                                   </div>
                                 `,
                                 iconSize: [0, 0]
@@ -4272,7 +4281,7 @@ const getEndPin = (etaText: string) => {
                         );
                       })()
                     ) : (
-                      destination && (
+                      !activeStandTrip && destination && (
                         routeCoords && routeCoords.length > 1 ? (
                           <AnimatedRoute positions={routeCoords} color="#00E5A0" />
                         ) : (
