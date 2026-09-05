@@ -124,6 +124,7 @@ import {
   listenActiveStandRoutes, 
   listenRiderActiveStandRoute, 
   cancelStandPassengerSeat, 
+  dismissActiveStandTrip,
   StandPoolingRoute, 
   StandPassenger 
 } from "../services/standPoolingService";
@@ -3565,7 +3566,7 @@ const getEndPin = (etaText: string) => {
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 z-0 h-full w-full pointer-events-auto"
               >
-                {activeStandTrip && (
+                {activeStandTrip && activeStandTrip.route.status !== 'completed' && activeStandTrip.passenger?.status !== 'completed' && activeStandTrip.passenger?.status !== 'dropped_off' && (
                   <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center justify-between pointer-events-auto">
                     <div className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl backdrop-blur-xl shadow-lg border ${
                       theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800 text-white' : 'bg-white/95 border-neutral-200/90 text-neutral-800'
@@ -3590,7 +3591,7 @@ const getEndPin = (etaText: string) => {
                   </div>
                 )}
 
-                {!activeRide && !activeStandTrip && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
+                {!activeRide && (!activeStandTrip || activeStandTrip.route.status === 'completed' || activeStandTrip.passenger?.status === 'completed' || activeStandTrip.passenger?.status === 'dropped_off') && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
                   <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
                     {/* Left Menu Button */}
                     <div className="relative pointer-events-auto">
@@ -4119,7 +4120,7 @@ const getEndPin = (etaText: string) => {
                       })}
 
                     {/* Active PapoShare Stendi Trip Route & Live Driver / Stop Markers */}
-                    {activeStandTrip && (() => {
+                    {activeStandTrip && activeStandTrip.route.status !== 'completed' && activeStandTrip.passenger?.status !== 'completed' && activeStandTrip.passenger?.status !== 'dropped_off' && (() => {
                       const r = activeStandTrip.route;
                       const p = activeStandTrip.passenger;
                       const driverLat = r.driverLocation?.lat ?? r.standLocation.lat;
@@ -4682,11 +4683,14 @@ const getEndPin = (etaText: string) => {
                   toast.info("Booking ya stendi imeghairiwa.");
                 }}
                 onCloseOrFinish={() => {
-                  try {
-                    localStorage.removeItem('papo_active_stand_trip');
-                  } catch {}
+                  dismissActiveStandTrip(activeStandTrip.route.id);
                   setActiveStandTrip(null);
                   toast.success("Safari imekamilika! Karibu tena.");
+                }}
+                onViewHistory={() => {
+                  dismissActiveStandTrip(activeStandTrip.route.id);
+                  setActiveStandTrip(null);
+                  navigate("/taxi/history");
                 }}
                 theme={theme === 'dark' ? 'dark' : 'light'}
               />

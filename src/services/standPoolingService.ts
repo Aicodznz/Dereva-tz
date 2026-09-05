@@ -36,8 +36,9 @@ export interface StandPassenger {
   dropoffLng: number;
   seats: number;
   fare: number;
-  status: 'booked' | 'boarded' | 'dropped_off' | 'cancelled';
+  status: 'booked' | 'boarded' | 'dropped_off' | 'completed' | 'cancelled';
   bookedAt: string;
+  droppedOffAt?: string;
 }
 
 export interface StandPoolingRoute {
@@ -357,6 +358,70 @@ export async function reserveStandSeatTransaction(
 }
 
 /**
+ * Saves a completed stand pooling passenger trip into the 'rides' collection
+ * so it immediately appears in "Safari Zangu" (Taxi History)
+ */
+export async function saveStandTripToRideHistory(
+  route: StandPoolingRoute,
+  passenger: StandPassenger
+): Promise<void> {
+  try {
+    const rideId = `stand_${route.id}_${passenger.passengerId}`;
+    const rideRef = doc(db, 'rides', rideId);
+    
+    await setDoc(rideRef, {
+      id: rideId,
+      customerId: passenger.passengerId,
+      customerName: passenger.passengerName || 'Abiria',
+      customerPhone: passenger.passengerPhone || '',
+      driverId: route.driverId,
+      driverInfo: {
+        name: route.driverName,
+        phone: route.driverPhone || '',
+        vehicleType: route.vehicleType === 'boda' ? 'Boda Boda' : route.vehicleType === 'bajaj' ? 'Bajaji' : 'Gari',
+        vehiclePlate: route.vehiclePlate || '',
+        photo: route.driverPhoto || '',
+        rating: route.driverRating || 4.8,
+      },
+      pickup: {
+        address: passenger.pickupName || route.standLocation?.name || 'Kijiweni',
+        lat: passenger.pickupLat || route.standLocation?.lat || -6.7924,
+        lng: passenger.pickupLng || route.standLocation?.lng || 39.2083,
+      },
+      destination: {
+        address: passenger.dropoffName || route.destination?.name || 'Mwisho wa Safari',
+        lat: passenger.dropoffLat || route.destination?.lat || -6.7924,
+        lng: passenger.dropoffLng || route.destination?.lng || 39.2083,
+      },
+      fare: passenger.fare || (route.fixedPricePerSeat * (passenger.seats || 1)),
+      vehicleType: route.vehicleType === 'boda' ? 'Boda Boda (PapoShare Stendi)' : route.vehicleType === 'bajaj' ? 'Bajaji (PapoShare Stendi)' : 'Gari (PapoShare Stendi)',
+      status: 'completed',
+      rideType: 'papo_share_stendi',
+      paymentMethod: 'Taslimu (Cash)',
+      seats: passenger.seats || 1,
+      standRouteId: route.id,
+      createdAt: passenger.bookedAt ? new Date(passenger.bookedAt) : (route.createdAt || new Date()),
+      completedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Could not save stand trip to ride history:", err);
+  }
+}
+
+/**
+ * Dismisses a completed stand trip from rider's active view and records it
+ */
+export function dismissActiveStandTrip(routeId: string) {
+  try {
+    localStorage.removeItem('papo_active_stand_trip');
+    localStorage.setItem(`papo_dismissed_stand_trip_${routeId}`, 'true');
+    localStorage.setItem('papo_last_completed_route', routeId);
+  } catch (e) {
+    console.warn("Error dismissing active stand trip", e);
+  }
+}
+
+/**
  * Driver updates trip status: 'boarding' | 'started' | 'completed' | 'cancelled'
  */
 export async function updateStandRouteStatus(
@@ -365,6 +430,18 @@ export async function updateStandRouteStatus(
   extraData?: Partial<StandPoolingRoute>
 ): Promise<void> {
   const routeRef = doc(db, 'stand_pooling_routes', routeId);
+  
+  // Fetch current route data to save passenger histories upon completion
+  let routeData: StandPoolingRoute | null = null;
+  try {
+    const snap = await getDoc(routeRef);
+    if (snap.exists()) {
+      routeData = { id: snap.id, ...(snap.data() as any) };
+    }
+  } catch (e) {
+    console.warn("Error fetching route before status update", e);
+  }
+
   const payload: any = {
     status,
     updatedAt: serverTimestamp(),
@@ -373,11 +450,31 @@ export async function updateStandRouteStatus(
 
   if (status === 'completed' || status === 'cancelled') {
     payload.isActive = false;
+    if (status === 'completed') {
+      payload.completedAt = serverTimestamp();
+      if (routeData?.passengers) {
+        payload.passengers = routeData.passengers.map((p) => {
+          if (p.status === 'booked' || p.status === 'boarded') {
+            return { ...p, status: 'completed' as const };
+          }
+          return p;
+        });
+      }
+    }
   } else if (status === 'boarding') {
     payload.isActive = true;
   }
 
   await updateDoc(routeRef, payload);
+
+  // When completing, automatically store each passenger's trip into the 'rides' collection
+  if (status === 'completed' && routeData?.passengers) {
+    for (const p of routeData.passengers) {
+      if (p.status === 'booked' || p.status === 'boarded' || (p as any).status === 'completed') {
+        await saveStandTripToRideHistory(routeData, p);
+      }
+    }
+  }
 }
 
 /**
@@ -418,6 +515,55 @@ export async function cancelStandPassengerSeat(
       updatedAt: serverTimestamp(),
     });
   });
+}
+
+/**
+ * Driver marks an individual passenger as dropped off
+ * (for shared trips with multiple passengers who drop off at different stops along the way)
+ */
+export async function dropoffStandPassenger(
+  routeId: string,
+  passengerId: string
+): Promise<{ remainingCount: number; droppedPassenger?: StandPassenger }> {
+  const routeRef = doc(db, 'stand_pooling_routes', routeId);
+  let remainingCount = 0;
+  let droppedPassenger: StandPassenger | undefined;
+
+  await runTransaction(db, async (transaction) => {
+    const routeSnap = await transaction.get(routeRef);
+    if (!routeSnap.exists()) return;
+
+    const data = routeSnap.data() as StandPoolingRoute;
+    const currentPassengers = data.passengers || [];
+
+    const newPassengers = currentPassengers.map((p) => {
+      if (p.passengerId === passengerId && (p.status === 'booked' || p.status === 'boarded')) {
+        droppedPassenger = {
+          ...p,
+          status: 'dropped_off' as const,
+          droppedOffAt: new Date().toISOString()
+        };
+        return droppedPassenger;
+      }
+      return p;
+    });
+
+    const activePassengers = newPassengers.filter((p) => p.status === 'booked' || p.status === 'boarded');
+    remainingCount = activePassengers.length;
+    const totalOccupied = activePassengers.reduce((sum, p) => sum + (p.seats || 1), 0);
+
+    transaction.update(routeRef, {
+      passengers: newPassengers,
+      occupiedSeats: totalOccupied,
+      updatedAt: serverTimestamp(),
+    });
+
+    if (droppedPassenger) {
+      await saveStandTripToRideHistory(data, droppedPassenger);
+    }
+  });
+
+  return { remainingCount, droppedPassenger };
 }
 
 /**
@@ -472,10 +618,23 @@ export function listenRiderActiveStandRoute(
             (userId && p.passengerId === userId)
         );
 
-        if (data.isActive && ['boarding', 'full', 'started'].includes(data.status) && pass && pass.status === 'booked') {
+        const isDismissed = localStorage.getItem(`papo_dismissed_stand_trip_${data.id}`) === 'true';
+
+        // 1. If passenger has dropped off or route is completed: show completion screen
+        if (pass && (pass.status === 'dropped_off' || pass.status === 'completed' || data.status === 'completed')) {
+          saveStandTripToRideHistory(data, pass);
+
+          if (isDismissed) {
+            callback(null, null);
+            return;
+          }
+
           callback(data, pass);
           return;
-        } else if (data.status === 'completed' && pass) {
+        }
+
+        // 2. Active on board or boarding
+        if (data.isActive && ['boarding', 'full', 'started'].includes(data.status) && pass && (pass.status === 'booked' || pass.status === 'boarded')) {
           callback(data, pass);
           return;
         }

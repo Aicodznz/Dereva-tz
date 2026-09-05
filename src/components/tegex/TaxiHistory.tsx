@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, Car, Clock, CheckCircle2, ChevronRight, 
-  MapPin, User, Phone, Map, Download, X,
+  MapPin, User, Phone, Download, X,
   Navigation2, CreditCard, Star, Calendar, Receipt, Trash2, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -74,6 +74,7 @@ const TaxiHistory: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [rides, setRides] = useState<Ride[]>([]);
+  const [filterTab, setFilterTab] = useState<'all' | 'stand' | 'solo'>('all');
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -88,7 +89,12 @@ const TaxiHistory: React.FC = () => {
   const handleDeleteSingle = async (rideId: string) => {
     try {
       setDeletingId(rideId);
-      await deleteDoc(doc(db, 'rides', rideId));
+      try {
+        await deleteDoc(doc(db, 'rides', rideId));
+      } catch (e) {
+        console.warn("Could not delete doc from rides collection:", e);
+      }
+      setRides(prev => prev.filter(r => r.id !== rideId));
       if (selectedRide?.id === rideId) {
         setSelectedRide(null);
       }
@@ -108,9 +114,12 @@ const TaxiHistory: React.FC = () => {
       setIsDeletingAll(true);
       const batch = writeBatch(db);
       rides.forEach((r) => {
-        batch.delete(doc(db, 'rides', r.id));
+        try {
+          batch.delete(doc(db, 'rides', r.id));
+        } catch {}
       });
       await batch.commit();
+      setRides([]);
       setSelectedRide(null);
       toast.success("Historia yote ya safari imefutwa!");
     } catch (err) {
@@ -123,36 +132,157 @@ const TaxiHistory: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    // Use query without orderBy to avoid index requirement
-    const q = query(
+    let customerRides: Ride[] = [];
+    let driverRides: Ride[] = [];
+    let standRides: Ride[] = [];
+
+    let savedPassengerId = '';
+    let savedRouteId = '';
+    try {
+      const raw = localStorage.getItem('papo_active_stand_trip');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        savedPassengerId = parsed.passengerId || '';
+        savedRouteId = parsed.routeId || '';
+      }
+    } catch {}
+    const lastCompleted = localStorage.getItem('papo_last_completed_route') || '';
+
+    const updateCombinedRides = () => {
+      const rideDict: Record<string, Ride> = {};
+
+      customerRides.forEach((r) => { rideDict[r.id] = r; });
+      driverRides.forEach((r) => {
+        if (!rideDict[r.id]) rideDict[r.id] = r;
+      });
+      standRides.forEach((r) => {
+        if (!rideDict[r.id]) rideDict[r.id] = r;
+      });
+
+      const combined: Ride[] = Object.values(rideDict);
+      combined.sort((a, b) => {
+        const getDateVal = (item: any) => {
+          if (!item?.createdAt) return 0;
+          if (typeof item.createdAt?.toMillis === 'function') return item.createdAt.toMillis();
+          if (item.createdAt?.seconds) return item.createdAt.seconds * 1000;
+          if (item.createdAt instanceof Date) return item.createdAt.getTime();
+          return new Date(item.createdAt).getTime() || 0;
+        };
+        return getDateVal(b) - getDateVal(a);
+      });
+
+      setRides(combined);
+      setLoading(false);
+    };
+
+    // 1. Customer rides listener
+    const qCustomer = query(
       collection(db, 'rides'),
       where('customerId', '==', user.uid)
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const rideData = snapshot.docs.map(doc => ({
+    const unsubCustomer = onSnapshot(qCustomer, (snapshot) => {
+      customerRides = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Ride[];
-
-      // Sort in memory
-      rideData.sort((a, b) => {
-        const dateA = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
-        const dateB = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
-        return dateB - dateA;
-      });
-
-      setRides(rideData);
-      setLoading(false);
+      updateCombinedRides();
     }, (error) => {
-      console.warn("Restricted access or error listening to taxi history:", error.message);
-      setLoading(false);
+      console.warn("Restricted access or error listening to customer rides:", error.message);
+      updateCombinedRides();
     });
 
-    return () => unsubscribe();
+    // 2. Driver rides listener (if user drove taxi)
+    const qDriver = query(
+      collection(db, 'rides'),
+      where('driverId', '==', user.uid)
+    );
+    const unsubDriver = onSnapshot(qDriver, (snapshot) => {
+      driverRides = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Ride[];
+      updateCombinedRides();
+    }, (error) => {
+      console.warn("Error listening to driver rides:", error.message);
+      updateCombinedRides();
+    });
+
+    // 3. Stand pooling routes listener (to catch any stand rides past or present)
+    const qStand = query(collection(db, 'stand_pooling_routes'));
+    const unsubStand = onSnapshot(qStand, (snapshot) => {
+      const list: Ride[] = [];
+      snapshot.docs.forEach((docSnap) => {
+        const route = { id: docSnap.id, ...docSnap.data() } as any;
+        const isDriver = route.driverId === user.uid;
+
+        (route.passengers || []).forEach((p: any) => {
+          const isPassenger = (
+            p.passengerId === user.uid ||
+            (user.phoneNumber && p.passengerPhone === user.phoneNumber) ||
+            (savedPassengerId && p.passengerId === savedPassengerId) ||
+            (savedRouteId && route.id === savedRouteId) ||
+            (lastCompleted && route.id === lastCompleted)
+          );
+
+          if (isPassenger || isDriver) {
+            const standRideId = `stand_${route.id}_${p.passengerId || user.uid}`;
+            list.push({
+              id: standRideId,
+              status: (route.status === 'completed' || p.status === 'completed' || p.status === 'dropped_off') ? 'completed' : (route.status === 'started' ? 'on_trip' : 'accepted'),
+              createdAt: p.bookedAt ? new Date(p.bookedAt) : (route.createdAt?.toDate ? route.createdAt.toDate() : (route.createdAt || new Date())),
+              pickup: {
+                address: p.pickupName || route.standLocation?.name || 'Kijiweni',
+                lat: p.pickupLat || route.standLocation?.lat || -6.7924,
+                lng: p.pickupLng || route.standLocation?.lng || 39.2083,
+              },
+              destination: {
+                address: p.dropoffName || route.destination?.name || 'Mwisho wa Safari',
+                lat: p.dropoffLat || route.destination?.lat || -6.7924,
+                lng: p.dropoffLng || route.destination?.lng || 39.2083,
+              },
+              fare: p.fare || (route.fixedPricePerSeat * (p.seats || 1)) || 0,
+              vehicleType: route.vehicleType === 'boda' ? 'Boda Boda (PapoShare Stendi)' : route.vehicleType === 'bajaj' ? 'Bajaji (PapoShare Stendi)' : 'Gari (PapoShare Stendi)',
+              driverId: route.driverId,
+              driverInfo: {
+                name: route.driverName || 'Dereva wa Stendi',
+                phone: route.driverPhone || '',
+                photo: route.driverPhoto || '',
+                vehicleType: route.vehicleType,
+                rating: route.driverRating || 4.8,
+              },
+              paymentMethod: 'Taslimu (Cash)',
+            });
+          }
+        });
+      });
+      standRides = list;
+      updateCombinedRides();
+    }, (error) => {
+      console.warn("Error listening to stand pooling history:", error.message);
+      updateCombinedRides();
+    });
+
+    return () => {
+      unsubCustomer();
+      unsubDriver();
+      unsubStand();
+    };
   }, [user]);
+
+  const displayedRides = useMemo(() => {
+    if (filterTab === 'stand') {
+      return rides.filter(r => r.id.startsWith('stand_') || (r as any).rideType === 'papo_share_stendi' || r.vehicleType?.includes('Stendi'));
+    }
+    if (filterTab === 'solo') {
+      return rides.filter(r => !r.id.startsWith('stand_') && (r as any).rideType !== 'papo_share_stendi' && !r.vehicleType?.includes('Stendi'));
+    }
+    return rides;
+  }, [rides, filterTab]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -246,29 +376,74 @@ const TaxiHistory: React.FC = () => {
               )}
             </div>
 
+            {/* Filter Tabs */}
+            {rides.length > 0 && (
+              <div className="px-6 pt-4 max-w-xl mx-auto flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('all')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                    filterTab === 'all'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : theme === 'dark' ? 'bg-[#111118] text-neutral-400 border border-neutral-800' : 'bg-white text-neutral-600 border border-neutral-200'
+                  }`}
+                >
+                  Zote ({rides.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('stand')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    filterTab === 'stand'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : theme === 'dark' ? 'bg-[#111118] text-neutral-400 border border-neutral-800' : 'bg-white text-neutral-600 border border-neutral-200'
+                  }`}
+                >
+                  <span>🚖 PapoShare Stendi</span>
+                  <span className="opacity-75">({rides.filter(r => r.id.startsWith('stand_') || (r as any).rideType === 'papo_share_stendi' || r.vehicleType?.includes('Stendi')).length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('solo')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    filterTab === 'solo'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : theme === 'dark' ? 'bg-[#111118] text-neutral-400 border border-neutral-800' : 'bg-white text-neutral-600 border border-neutral-200'
+                  }`}
+                >
+                  <span>🚗 Taxi Binafsi</span>
+                  <span className="opacity-75">({rides.filter(r => !r.id.startsWith('stand_') && (r as any).rideType !== 'papo_share_stendi' && !r.vehicleType?.includes('Stendi')).length})</span>
+                </button>
+              </div>
+            )}
+
             {/* List Content */}
-            <div className="px-6 mt-6 max-w-xl mx-auto space-y-4">
+            <div className="px-6 mt-4 max-w-xl mx-auto space-y-4">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                   <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest italic">Pakia data...</p>
                 </div>
-              ) : rides.length === 0 ? (
+              ) : displayedRides.length === 0 ? (
                 <div className={`rounded-[2.5rem] p-12 text-center border-2 border-dashed ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'} shadow-sm`}>
                   <div className={`w-20 h-20 ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100'} rounded-full flex items-center justify-center mx-auto mb-6`}>
                     <Car size={40} className="text-neutral-400" />
                   </div>
-                  <h3 className={`text-lg font-black uppercase tracking-tighter italic mb-2 ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>Huna Safari Bado</h3>
+                  <h3 className={`text-lg font-black uppercase tracking-tighter italic mb-2 ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                    {filterTab === 'stand' ? 'Huna Safari za PapoShare Stendi' : filterTab === 'solo' ? 'Huna Safari za Taxi Binafsi' : 'Huna Safari Bado'}
+                  </h3>
                   <p className="text-xs text-neutral-500 font-bold leading-relaxed mb-8">Anza safari yako sasa kwa kutumia huduma yetu ya haraka na salama.</p>
                   <button 
                     onClick={() => navigate('/taxi')}
-                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/10 active:scale-95 transition-all"
+                    className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/10 active:scale-95 transition-all cursor-pointer"
                   >
                     Agiza Safari Sasa
                   </button>
                 </div>
               ) : (
-                rides.map((ride) => (
+                displayedRides.map((ride) => {
+                  const isStandTrip = ride.id.startsWith('stand_') || (ride as any).rideType === 'papo_share_stendi' || ride.vehicleType?.includes('Stendi');
+                  return (
                   <div
                     key={ride.id}
                     onClick={() => setSelectedRide(ride)}
@@ -280,14 +455,19 @@ const TaxiHistory: React.FC = () => {
                           {ride.driverInfo?.photo ? (
                             <img src={ride.driverInfo.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
-                            <Car className="text-indigo-600 w-5 h-5" />
+                            <Car className={`w-5 h-5 ${isStandTrip ? 'text-emerald-500' : 'text-indigo-600'}`} />
                           )}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <h4 className={`font-black text-sm uppercase tracking-tighter italic ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-900'}`}>
                               {ride.vehicleType || 'Gari'}
                             </h4>
+                            {isStandTrip && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase tracking-wider">
+                                Stendi
+                              </span>
+                            )}
                             {ride.driverInfo?.rating && (
                               <div className="flex items-center gap-0.5 text-amber-500">
                                 <Star size={9} className="fill-amber-500 text-amber-500" />
@@ -352,7 +532,8 @@ const TaxiHistory: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           </motion.div>

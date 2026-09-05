@@ -27,6 +27,7 @@ interface PapoShareStendiLiveTrackerProps {
   onCenterMap?: () => void;
   onCancelBooking?: () => void;
   onCloseOrFinish?: () => void;
+  onViewHistory?: () => void;
   theme?: 'dark' | 'light';
 }
 
@@ -50,12 +51,37 @@ export default function PapoShareStendiLiveTracker({
   onCenterMap,
   onCancelBooking,
   onCloseOrFinish,
+  onViewHistory,
   theme = 'light'
 }: PapoShareStendiLiveTrackerProps) {
   const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(true);
   const [nowMs, setNowMs] = useState(Date.now());
   const [isCancelling, setIsCancelling] = useState(false);
+
+  const isTripStarted = route.status === 'started';
+  const isThisPassengerDroppedOff = passenger.status === 'dropped_off';
+  const isTripCompleted = route.status === 'completed' || isThisPassengerDroppedOff || passenger.status === 'completed';
+
+  const otherActivePassengersCount = useMemo(() => {
+    if (!route.passengers) return 0;
+    return route.passengers.filter(
+      (p) => p.passengerId !== passenger.passengerId && (p.status === 'booked' || p.status === 'boarded')
+    ).length;
+  }, [route.passengers, passenger.passengerId]);
+
+  const droppedOtherPassengersCount = useMemo(() => {
+    if (!route.passengers) return 0;
+    return route.passengers.filter(
+      (p) => p.passengerId !== passenger.passengerId && p.status === 'dropped_off'
+    ).length;
+  }, [route.passengers, passenger.passengerId]);
+
+  useEffect(() => {
+    if (isTripCompleted) {
+      setIsExpanded(true);
+    }
+  }, [isTripCompleted]);
 
   // Second ticker for countdown timer
   useEffect(() => {
@@ -132,9 +158,6 @@ export default function PapoShareStendiLiveTracker({
     }
   };
 
-  const isTripStarted = route.status === 'started';
-  const isTripCompleted = route.status === 'completed';
-
   return (
     <div className="w-full max-w-lg mx-auto pointer-events-auto select-none font-sans">
       {/* 1. TOP FLOATING STATUS PILL */}
@@ -163,18 +186,24 @@ export default function PapoShareStendiLiveTracker({
           </span>
           <div className="leading-tight">
             <span className="font-black text-[11px] uppercase tracking-wider block">
-              {isTripCompleted
-                ? '🏁 SAFARI IMEKAMILIKA'
-                : isTripStarted
-                  ? '🚀 SAFARI IMEANZA • DEREVA YUPO NJIANI'
-                  : '🟡 KIJIWENI • INASUBIRI KUONDOKA'}
+              {isThisPassengerDroppedOff
+                ? '🏁 UMEFIKA KITUO CHAKO!'
+                : route.status === 'completed'
+                  ? '🏁 SAFARI YOTE IMEKAMILIKA'
+                  : isTripStarted
+                    ? '🚀 SAFARI IMEANZA • DEREVA YUPO NJIANI'
+                    : '🟡 KIJIWENI • INASUBIRI KUONDOKA'}
             </span>
             <span className="text-[10px] opacity-90 font-medium">
-              {isTripCompleted
-                ? 'Asante kwa kusafiri na PapoShare Stendi!'
-                : isTripStarted
-                  ? `Inakaribia • Takriban Dk ${etaMinutes} (${distanceKm} km zimebaki)`
-                  : countdownText}
+              {isThisPassengerDroppedOff
+                ? `Umeshushwa salama (${passenger.dropoffName}). Karibu tena!`
+                : route.status === 'completed'
+                  ? 'Safari imekamilika! Asante kwa kusafiri na Papo.'
+                  : isTripStarted
+                    ? (droppedOtherPassengersCount > 0 
+                        ? `Njiani kuelekea kwako (${passenger.dropoffName}) • Wenzako ${otherActivePassengersCount} safarini`
+                        : `Takriban Dk ${etaMinutes} (${distanceKm} km) • Wenzako ${otherActivePassengersCount} safarini`)
+                    : countdownText}
             </span>
           </div>
         </div>
@@ -304,11 +333,21 @@ export default function PapoShareStendiLiveTracker({
                   </div>
                 </div>
 
-                <div className="ml-2.5 pl-3 border-l-2 border-dashed border-emerald-400/50 py-1">
+                <div className="ml-2.5 pl-3 border-l-2 border-dashed border-emerald-400/50 py-1 space-y-1">
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <Users className="w-3 h-3" />
-                    <span>Safari ya Pamoja (Stendi Pooling) • {passenger.seats} Siti uliyohifadhi</span>
+                    <span>Safari ya Pamoja (Stendi Pooling) • Siti {passenger.seats}</span>
                   </span>
+                  {isTripStarted && !isTripCompleted && otherActivePassengersCount > 0 && (
+                    <p className="text-[9px] font-medium text-neutral-500 dark:text-neutral-400">
+                      👥 Wapo abiria wengine {otherActivePassengersCount} kwenye chombo kuelekea vituo vyao
+                    </p>
+                  )}
+                  {droppedOtherPassengersCount > 0 && (
+                    <p className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      ✓ Abiria mwingine ameshushwa kituo chake njiani
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-2.5">
@@ -343,14 +382,16 @@ export default function PapoShareStendiLiveTracker({
 
               {/* Bottom Actions */}
               <div className="pt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  className="flex-1 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Shiriki Safari</span>
-                </button>
+                {!isTripCompleted && (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="flex-1 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Shiriki Safari</span>
+                  </button>
+                )}
 
                 {!isTripStarted && !isTripCompleted && (
                   <button
@@ -364,13 +405,25 @@ export default function PapoShareStendiLiveTracker({
                 )}
 
                 {isTripCompleted && (
-                  <button
-                    type="button"
-                    onClick={onCloseOrFinish}
-                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md"
-                  >
-                    Maliza na Funga ✓
-                  </button>
+                  <>
+                    {onViewHistory && (
+                      <button
+                        type="button"
+                        onClick={onViewHistory}
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Safari Zangu</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={onCloseOrFinish}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 text-center"
+                    >
+                      Maliza & Funga ✓
+                    </button>
+                  </>
                 )}
               </div>
             </motion.div>

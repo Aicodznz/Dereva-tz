@@ -17,6 +17,7 @@ import {
   createOrUpdateStandRoute, 
   listenDriverActiveStandRoute, 
   updateStandRouteStatus,
+  dropoffStandPassenger,
   calculateStandSystemKmFare,
   getDistanceKm
 } from '../../services/standPoolingService';
@@ -370,6 +371,52 @@ export default function PapoShareStendiModal({
     }
   };
 
+  const [droppingPassengerId, setDroppingPassengerId] = useState<string | null>(null);
+
+  // Sorted list of active passengers on board, ordered by distance to driver
+  const activePassengers = useMemo(() => {
+    if (!activeRoute?.passengers) return [];
+    const list = activeRoute.passengers.filter(p => p.status === 'booked' || p.status === 'boarded');
+    const driverLat = currentGpsPosition?.[0] ?? activeRoute.driverLocation?.lat ?? activeRoute.standLocation?.lat;
+    const driverLng = currentGpsPosition?.[1] ?? activeRoute.driverLocation?.lng ?? activeRoute.standLocation?.lng;
+    
+    return list.map(p => {
+      const dist = (driverLat && driverLng && p.dropoffLat && p.dropoffLng)
+        ? getDistanceKm(driverLat, driverLng, p.dropoffLat, p.dropoffLng)
+        : 999;
+      return { ...p, currentDistKm: dist };
+    }).sort((a, b) => a.currentDistKm - b.currentDistKm);
+  }, [activeRoute?.passengers, currentGpsPosition, activeRoute?.driverLocation, activeRoute?.standLocation]);
+
+  // Passengers who have already safely dropped off at intermediate stations
+  const droppedPassengers = useMemo(() => {
+    if (!activeRoute?.passengers) return [];
+    return activeRoute.passengers.filter(p => p.status === 'dropped_off' || (p as any).status === 'completed');
+  }, [activeRoute?.passengers]);
+
+  const handleDropoffPassenger = async (passengerId: string, name: string, dropoffName: string, fare: number) => {
+    if (!activeRoute) return;
+    const isConfirm = window.confirm(
+      `Je, unathibitisha kuwa abiria "${name}" amefika na kuteremka kwenye kituo cha "${dropoffName}"?\nNauli: TZS ${fare.toLocaleString()}`
+    );
+    if (!isConfirm) return;
+
+    setDroppingPassengerId(passengerId);
+    try {
+      const res = await dropoffStandPassenger(activeRoute.id, passengerId);
+      playSyntheticImportant();
+      if (res.remainingCount === 0) {
+        toast.success(`Abiria ${name} ameshuka salama! Abiria wote wameshuka vituoni. Unaweza kukamilisha safari yote sasa.`);
+      } else {
+        toast.success(`Abiria ${name} ameshuka salama! Wamebaki abiria ${res.remainingCount} kwenye chombo.`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Imeshindikana kumshusha abiria.");
+    } finally {
+      setDroppingPassengerId(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -554,59 +601,191 @@ export default function PapoShareStendiModal({
                     </div>
                   </div>
 
-                  {/* Booked Passengers Section */}
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                      Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked').length || 0})
-                    </h3>
+                  {/* Multi-Passenger Management Section */}
+                  <div className="space-y-3">
+                    {activeRoute.status === 'started' ? (
+                      <>
+                        {/* Wanaoendelea na Safari */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5" />
+                              <span>Wanaoendelea na Safari ({activePassengers.length})</span>
+                            </h3>
+                            <span className="text-[10px] text-neutral-400 font-medium">
+                              Yamepangwa kwa mfuatano wa vituo
+                            </span>
+                          </div>
 
-                    {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked').length === 0) ? (
-                      <div className="p-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-center">
-                        <Users className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 mb-1" />
-                        <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
-                          Bado hakuna abiria aliyehifadhi kiti
-                        </p>
-                        <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Safari yako inaonekana live kwa abiria waliopo karibu nawe kuelekea {activeRoute.destination?.name}.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {activeRoute.passengers
-                          .filter(p => p.status === 'booked')
-                          .map((p, idx) => (
-                            <div
-                              key={p.passengerId || idx}
-                              className="p-3 rounded-xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center">
-                                    {idx + 1}
-                                  </span>
-                                  <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
-                                    {p.passengerName || 'Abiria'}
-                                  </span>
-                                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-extrabold text-[9px]">
-                                    Siti {p.seats || 1}
+                          {activePassengers.length === 0 ? (
+                            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-1">
+                              <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500" />
+                              <p className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                                Abiria wote wameshuka vituoni mwao!
+                              </p>
+                              <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                                Hakuna abiria aliyebaki kwenye chombo. Unaweza kukamilisha safari yote sasa.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {activePassengers.map((p, idx) => (
+                                <div
+                                  key={p.passengerId || idx}
+                                  className={`p-3 rounded-2xl border transition-all ${
+                                    idx === 0
+                                      ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-500/40 shadow-sm'
+                                      : 'bg-neutral-50 dark:bg-[#181826] border-neutral-200/80 dark:border-neutral-800'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`px-1.5 py-0.5 rounded-md font-black text-[9px] uppercase tracking-wider ${
+                                          idx === 0 
+                                            ? 'bg-emerald-500 text-white animate-pulse' 
+                                            : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                                        }`}>
+                                          {idx === 0 ? 'Kituo cha Kwanza (#1)' : `#${idx + 1} Kituo kinachofuata`}
+                                        </span>
+                                        <span className="font-extrabold text-xs text-neutral-900 dark:text-neutral-100 truncate">
+                                          {p.passengerName || 'Abiria'}
+                                        </span>
+                                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold text-[9px]">
+                                          {p.seats || 1} {p.seats > 1 ? 'Viti' : 'Kiti'}
+                                        </span>
+                                      </div>
+
+                                      <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300 mt-1 flex items-center gap-1">
+                                        <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                        <span className="truncate">Kushukia: {p.dropoffName}</span>
+                                      </p>
+
+                                      <div className="flex items-center gap-2 mt-1 text-[10px] text-neutral-500 font-medium">
+                                        <span>Nauli: <strong className="text-emerald-600 dark:text-emerald-400">TZS {p.fare?.toLocaleString()}</strong></span>
+                                        {p.currentDistKm !== 999 && (
+                                          <>
+                                            <span>•</span>
+                                            <span>Umbali: {p.currentDistKm < 1 ? `${Math.round(p.currentDistKm * 1000)} m` : `${p.currentDistKm.toFixed(1)} km`}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Quick Actions */}
+                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                      {p.passengerPhone && (
+                                        <a
+                                          href={`tel:${p.passengerPhone}`}
+                                          className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 flex items-center justify-center transition-colors"
+                                          title={`Piga simu kwa ${p.passengerName}`}
+                                        >
+                                          <Phone className="w-3.5 h-3.5" />
+                                        </a>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        disabled={droppingPassengerId === p.passengerId}
+                                        onClick={() => handleDropoffPassenger(p.passengerId, p.passengerName, p.dropoffName, p.fare)}
+                                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                                      >
+                                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                        <span>{droppingPassengerId === p.passengerId ? 'Inashusha...' : 'Shusha Hapa'}</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Walioshuka Vituoni */}
+                        {droppedPassengers.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                              <span>Walioshuka Salama ({droppedPassengers.length})</span>
+                            </h4>
+                            <div className="space-y-1">
+                              {droppedPassengers.map((p, idx) => (
+                                <div
+                                  key={p.passengerId || idx}
+                                  className="p-2 rounded-xl bg-neutral-100/70 dark:bg-[#151522] border border-neutral-200/50 dark:border-neutral-800/60 flex items-center justify-between text-xs"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-400 font-bold truncate">
+                                      <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-600 text-[9px] font-black flex items-center justify-center">✓</span>
+                                      <span>{p.passengerName}</span>
+                                      <span className="text-[10px] text-neutral-400">({p.dropoffName})</span>
+                                    </div>
+                                  </div>
+                                  <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-[11px] shrink-0">
+                                    TZS {p.fare?.toLocaleString()}
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-neutral-500 truncate mt-0.5">
-                                  📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
-                                </p>
-                              </div>
-
-                              {p.passengerPhone && (
-                                <a
-                                  href={`tel:${p.passengerPhone}`}
-                                  className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 hover:bg-emerald-500 transition-colors"
-                                  title="Piga simu kwa abiria"
-                                >
-                                  <Phone className="w-3.5 h-3.5" />
-                                </a>
-                              )}
+                              ))}
                             </div>
-                          ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      /* Status: boarding / waiting at stand */
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                          Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked').length || 0})
+                        </h3>
+
+                        {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked').length === 0) ? (
+                          <div className="p-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-center">
+                            <Users className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 mb-1" />
+                            <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
+                              Bado hakuna abiria aliyehifadhi kiti
+                            </p>
+                            <p className="text-[10px] text-neutral-400 mt-0.5">
+                              Safari yako inaonekana live kwa abiria waliopo karibu nawe kuelekea {activeRoute.destination?.name}.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {activeRoute.passengers
+                              .filter(p => p.status === 'booked')
+                              .map((p, idx) => (
+                                <div
+                                  key={p.passengerId || idx}
+                                  className="p-3 rounded-xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
+                                        {p.passengerName || 'Abiria'}
+                                      </span>
+                                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-extrabold text-[9px]">
+                                        Siti {p.seats || 1}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-neutral-500 truncate mt-0.5">
+                                      📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
+                                    </p>
+                                  </div>
+
+                                  {p.passengerPhone && (
+                                    <a
+                                      href={`tel:${p.passengerPhone}`}
+                                      className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 hover:bg-emerald-500 transition-colors"
+                                      title="Piga simu kwa abiria"
+                                    >
+                                      <Phone className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -624,13 +803,21 @@ export default function PapoShareStendiModal({
                     ) : (
                       <button
                         onClick={() => {
+                          if (activePassengers.length > 0) {
+                            const isProceed = window.confirm(`Kuna abiria ${activePassengers.length} bado wapo kwenye chombo. Je, una uhakika wote wameshuka vituoni mwao na unataka kukamilisha safari yote sasa?`);
+                            if (!isProceed) return;
+                          }
                           updateStandRouteStatus(driverId, 'completed');
-                          toast.success("Safiri imekamilika kikamilifu!");
+                          toast.success("Safari imekamilika kikamilifu!");
                         }}
-                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all"
+                        className={`w-full py-3.5 rounded-2xl font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all ${
+                          activePassengers.length === 0
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>KAMILISHA SAFARI HII</span>
+                        <span>{activePassengers.length === 0 ? 'KAMILISHA SAFARI YOTE ✓' : 'KAMILISHA SAFARI YA WOTE'}</span>
                       </button>
                     )}
 

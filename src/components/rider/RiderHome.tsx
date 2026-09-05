@@ -12,7 +12,7 @@ import {
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
   AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers,
-  ExternalLink, Play, Square
+  ExternalLink, Play, Square, Check
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -46,7 +46,13 @@ import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import StreetHailModal from './StreetHailModal';
 import PapoShareStendiModal from '../driver/PapoShareStendiModal';
-import { listenDriverActiveStandRoute, updateStandDriverLocation, StandPoolingRoute } from '../../services/standPoolingService';
+import { 
+  listenDriverActiveStandRoute, 
+  updateStandDriverLocation, 
+  dropoffStandPassenger, 
+  updateStandRouteStatus, 
+  StandPoolingRoute 
+} from '../../services/standPoolingService';
 import { playSyntheticImportant } from '../../utils/soundAlert';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
@@ -2907,49 +2913,83 @@ const getEndPin = (etaText: string) => {
                 )}
 
                 {/* 3. Passenger Dropoff Markers along the way */}
-                {activeDriverStandRoute.passengers && Array.isArray(activeDriverStandRoute.passengers) && 
-                  activeDriverStandRoute.passengers
-                    .filter((p: any) => p.status === 'booked' || p.status === 'boarded')
-                    .map((p: any, idx: number) => {
-                      if (!p.dropoffLat || !p.dropoffLng) return null;
-                      const shortDrop = p.dropoffName ? (p.dropoffName.length > 18 ? `${p.dropoffName.substring(0, 18)}...` : p.dropoffName) : 'Kushuka';
-                      return (
-                        <Marker
-                          key={`driver-stand-p-${p.passengerId || idx}`}
-                          position={[p.dropoffLat, p.dropoffLng]}
-                          icon={L.divIcon({
-                            className: "driver-stand-passenger-marker",
-                            html: `
-                              <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
-                                <div style="background: #2563EB; color: white; padding: 3px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.35); border: 1.5px solid white; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
-                                  <span>👤 ${p.passengerName?.split(' ')[0] || `Abiria #${idx + 1}`}</span>
-                                  <span style="opacity: 0.85;">(${shortDrop})</span>
-                                </div>
-                                <div style="width: 8px; height: 8px; background: #2563EB; border: 1.5px solid white; border-radius: 50%; margin-top: 2px;"></div>
+                {activeDriverStandRoute.passengers && Array.isArray(activeDriverStandRoute.passengers) && (() => {
+                  const activeList = activeDriverStandRoute.passengers
+                    .filter((p: any) => (p.status === 'booked' || p.status === 'boarded') && p.dropoffLat && p.dropoffLng)
+                    .map((p: any) => {
+                      const dMeters = getDistanceInMeters(position[0], position[1], p.dropoffLat, p.dropoffLng);
+                      return { ...p, dMeters };
+                    })
+                    .sort((a: any, b: any) => a.dMeters - b.dMeters);
+
+                  return activeList.map((p: any, idx: number) => {
+                    const shortDrop = p.dropoffName ? (p.dropoffName.length > 16 ? `${p.dropoffName.substring(0, 14)}...` : p.dropoffName) : 'Kushuka';
+                    const isNext = idx === 0;
+                    const bgCol = isNext ? '#10B981' : '#2563EB';
+
+                    return (
+                      <Marker
+                        key={`driver-stand-p-${p.passengerId || idx}`}
+                        position={[p.dropoffLat, p.dropoffLng]}
+                        icon={L.divIcon({
+                          className: "driver-stand-passenger-marker",
+                          html: `
+                            <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                              <div style="background: ${bgCol}; color: white; padding: 3px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.35); border: 2px solid white; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                                <span>${isNext ? '🟢 #1 Kushuka: ' : `#${idx + 1} `}${p.passengerName?.split(' ')[0] || 'Abiria'}</span>
+                                <span style="opacity: 0.85;">(${shortDrop})</span>
                               </div>
-                            `,
-                            iconSize: [0, 0]
-                          })}
-                        >
-                          <Popup>
-                            <div className="p-2 text-center text-xs">
-                              <p className="font-extrabold text-blue-600">👤 {p.passengerName || 'Abiria'}</p>
-                              <p className="text-slate-600 font-medium">{p.dropoffName}</p>
-                              <p className="text-[11px] font-bold text-emerald-600 mt-1">Nauli: TZS {(p.fare || activeDriverStandRoute.fixedPricePerSeat || 0).toLocaleString()}</p>
+                              <div style="width: 8px; height: 8px; background: ${bgCol}; border: 2px solid white; border-radius: 50%; margin-top: 2px;"></div>
+                            </div>
+                          `,
+                          iconSize: [0, 0]
+                        })}
+                      >
+                        <Popup>
+                          <div className="p-2 text-center text-xs min-w-[170px]">
+                            <div className="flex items-center justify-center gap-1">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase text-white ${isNext ? 'bg-emerald-600' : 'bg-blue-600'}`}>
+                                {isNext ? '#1 Kushuka Kwanza' : `#${idx + 1} Kituo kinachofuata`}
+                              </span>
+                            </div>
+                            <p className="font-extrabold text-slate-800 dark:text-slate-100 mt-1">👤 {p.passengerName || 'Abiria'}</p>
+                            <p className="text-slate-500 font-medium text-[11px]">{p.dropoffName}</p>
+                            <p className="text-[11px] font-bold text-emerald-600 mt-1">Nauli: TZS {(p.fare || activeDriverStandRoute.fixedPricePerSeat || 0).toLocaleString()} • Siti {p.seats || 1}</p>
+                            
+                            <div className="mt-2 flex flex-col gap-1">
+                              <button 
+                                type="button"
+                                onClick={async () => {
+                                  if (confirm(`Unathibitisha abiria "${p.passengerName}" ameshuka kwenye kituo cha "${p.dropoffName}"?`)) {
+                                    try {
+                                      await dropoffStandPassenger(activeDriverStandRoute.id, p.passengerId);
+                                      playSyntheticImportant();
+                                      toast.success(`Abiria ${p.passengerName} ameshuka salama!`);
+                                    } catch (e: any) {
+                                      toast.error("Hitilafu katika kumshusha abiria");
+                                    }
+                                  }
+                                }}
+                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer transition-all shadow-sm"
+                              >
+                                <span>✓ Shusha Hapa</span>
+                              </button>
+
                               {p.passengerPhone && (
                                 <a 
                                   href={`tel:${p.passengerPhone}`}
-                                  className="mt-2 inline-block px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-bold"
+                                  className="w-full py-1 px-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-200 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1"
                                 >
-                                  📞 Piga Simu
+                                  <span>📞 Piga Simu</span>
                                 </a>
                               )}
                             </div>
-                          </Popup>
-                        </Marker>
-                      );
-                    })
-                }
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  });
+                })()}
 
                 {/* 4. Active Road Route Line (Vibrant Emerald / Green) */}
                 {standRouteRoadCoords && standRouteRoadCoords.length > 1 && (() => {
@@ -3846,71 +3886,145 @@ const getEndPin = (etaText: string) => {
       )}
 
       {/* Top Turn-by-Turn Navigation HUD for Active PapoShare Stendi Trip */}
-      {isOnline && activeDriverStandRoute && activeDriverStandRoute.status === 'started' && !activeRide && (
-        <div className="absolute top-3 inset-x-3 max-w-lg mx-auto z-40 pointer-events-auto">
-          <div className="bg-slate-900/95 dark:bg-[#0f172a]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 font-black text-lg">
-                  ↗
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
-                      SAFARI YA STENDI NJIANI
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-bold">
-                      {activeDriverStandRoute.occupiedSeats || 1} Abiria
-                    </span>
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-extrabold truncate text-white mt-0.5">
-                    Elekea: {activeDriverStandRoute.destination.name}
-                  </h3>
-                  {(() => {
-                    const destLat = activeDriverStandRoute.destination.lat;
-                    const destLng = activeDriverStandRoute.destination.lng;
-                    const distKm = getDistanceInMeters(position[0], position[1], destLat, destLng) / 1000;
-                    const etaMins = Math.max(1, Math.round((distKm / 35) * 60));
-                    return (
-                      <p className="text-[11px] font-bold text-neutral-300 flex items-center gap-1.5 mt-0.5">
-                        <span className="text-emerald-400 font-extrabold">{distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}</span>
-                        <span>•</span>
-                        <span>Dakika ~{etaMins} kufika</span>
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
+      {isOnline && activeDriverStandRoute && activeDriverStandRoute.status === 'started' && !activeRide && (() => {
+        const passengersList = activeDriverStandRoute.passengers || [];
+        const activePassengersOnBoard = passengersList.filter((p: any) => p.status === 'booked' || p.status === 'boarded');
+        const droppedPassengersCount = passengersList.filter((p: any) => p.status === 'dropped_off' || p.status === 'completed').length;
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAutoFollow(true);
-                    setRecenterStandTrigger(prev => prev + 1);
-                    toast.success("Ramani imelenga njia ya safari! 🎯");
-                  }}
-                  className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-200 rounded-xl transition-all cursor-pointer"
-                  title="Lenga Njia"
-                >
-                  <Navigation2 className="w-4 h-4 text-emerald-400 rotate-45" />
-                </button>
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${activeDriverStandRoute.destination.lat},${activeDriverStandRoute.destination.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md text-[11px]"
-                  title="Fungua Google Maps Turn-by-Turn"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span className="hidden sm:inline">Maps</span>
-                </a>
+        // Sort active passengers by distance from driver to find the closest dropoff
+        const sortedPassengers = [...activePassengersOnBoard].map((p: any) => {
+          const dMeters = (p.dropoffLat && p.dropoffLng)
+            ? getDistanceInMeters(position[0], position[1], p.dropoffLat, p.dropoffLng)
+            : 999999;
+          return { ...p, dMeters };
+        }).sort((a, b) => a.dMeters - b.dMeters);
+
+        const nextPassenger = sortedPassengers[0] || null;
+
+        const targetLat = nextPassenger?.dropoffLat ?? activeDriverStandRoute.destination.lat;
+        const targetLng = nextPassenger?.dropoffLng ?? activeDriverStandRoute.destination.lng;
+        const targetTitle = nextPassenger 
+          ? `Shusha: ${nextPassenger.passengerName?.split(' ')[0]} (${nextPassenger.dropoffName})`
+          : `Elekea: ${activeDriverStandRoute.destination.name}`;
+
+        const distKm = getDistanceInMeters(position[0], position[1], targetLat, targetLng) / 1000;
+        const etaMins = Math.max(1, Math.round((distKm / 35) * 60));
+
+        return (
+          <div className="absolute top-3 inset-x-3 max-w-lg mx-auto z-40 pointer-events-auto">
+            <div className="bg-slate-900/95 dark:bg-[#0f172a]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 font-black text-lg">
+                    {nextPassenger ? '📍' : '🏁'}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                        {nextPassenger ? 'KITUO KINACHOFUATA (#1)' : 'SAFARI YA STENDI'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPapoShareStendiModalOpen(true)}
+                        className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded font-bold cursor-pointer transition-colors"
+                        title="Fungua orodha ya abiria wote"
+                      >
+                        👥 {activePassengersOnBoard.length} Kwenye Chombo {droppedPassengersCount > 0 ? `• ${droppedPassengersCount} Shuka` : ''}
+                      </button>
+                    </div>
+
+                    <h3 className="text-xs sm:text-sm font-extrabold truncate text-white mt-0.5">
+                      {targetTitle}
+                    </h3>
+
+                    <p className="text-[11px] font-bold text-neutral-300 flex items-center gap-1.5 mt-0.5">
+                      <span className="text-emerald-400 font-extrabold">
+                        {distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}
+                      </span>
+                      <span>•</span>
+                      <span>Dakika ~{etaMins} kufika</span>
+                      {nextPassenger && (
+                        <>
+                          <span>•</span>
+                          <span className="text-amber-400 font-black">TZS {nextPassenger.fare?.toLocaleString()}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Action Buttons */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {nextPassenger ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Unathibitisha abiria "${nextPassenger.passengerName}" amefika na kuteremka kituoni (${nextPassenger.dropoffName})?`)) {
+                          try {
+                            const res = await dropoffStandPassenger(activeDriverStandRoute.id, nextPassenger.passengerId);
+                            playSyntheticImportant();
+                            if (res.remainingCount === 0) {
+                              toast.success(`Abiria ${nextPassenger.passengerName} ameshuka salama! Abiria wote wameshuka vituoni.`);
+                            } else {
+                              toast.success(`Abiria ${nextPassenger.passengerName} ameshuka salama! Wamebaki abiria ${res.remainingCount}.`);
+                            }
+                          } catch (e) {
+                            toast.error("Imeshindikana kumshusha abiria.");
+                          }
+                        }
+                      }}
+                      className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                      title="Shusha abiria huyu anapofika kituoni"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Shusha</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await updateStandRouteStatus(activeDriverStandRoute.id, 'completed');
+                          toast.success("Safari imekamilika kikamilifu!");
+                        } catch (e) {
+                          toast.error("Hitilafu katika kukamilisha safari");
+                        }
+                      }}
+                      className="py-2 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Kamilisha</span>
+                    </button>
+                  )}
+
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${targetLat},${targetLng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-white rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md text-[11px]"
+                    title="Fungua Google Maps kuelekea kituo hiki"
+                  >
+                    <ExternalLink className="w-4 h-4 text-sky-400" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoFollow(true);
+                      setRecenterStandTrigger(prev => prev + 1);
+                      toast.success("Ramani imelenga njia ya safari! 🎯");
+                    }}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-200 rounded-xl transition-all cursor-pointer"
+                    title="Lenga Njia"
+                  >
+                    <Navigation2 className="w-4 h-4 text-emerald-400 rotate-45" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Top Google Maps Turn-by-Turn Navigation HUD for Driver */}
       {isOnline && activeRide && !showPayment && !showRating && (
