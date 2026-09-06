@@ -4712,7 +4712,7 @@ const getEndPin = (etaText: string) => {
               }}
               className={`absolute z-[9999] transition-all duration-300 ${
                 isMinimized || isMapFullscreen
-                  ? "bottom-6 left-4 right-4 mx-auto max-w-[360px] pointer-events-auto flex flex-col gap-2.5"
+                  ? "bottom-6 left-3.5 right-3.5 mx-auto max-w-[390px] sm:max-w-[420px] pointer-events-auto flex flex-col gap-2.5"
                   : `bottom-0 left-0 right-0 rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-5 pb-9 space-y-3.5 ${
                       theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'
                     }`
@@ -5797,6 +5797,135 @@ const getEndPin = (etaText: string) => {
 
               {(isMinimized || isMapFullscreen) && (
                 <div className="w-full flex flex-col gap-2.5">
+                  {/* 2-Mode Selector: Solo (Binafsi) vs PapoShare (Gawana) - Direct choice upon opening the app (Akiingia achague) */}
+                  {!destination && (
+                    <div className="grid grid-cols-2 gap-2.5 w-full">
+                      {/* Solo (Binafsi) Card */}
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShareMode('solo');
+                        }}
+                        className={`p-3 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none ${
+                          shareMode === 'solo'
+                            ? 'bg-[#f5f6ff] dark:bg-indigo-950/40 border-2 border-[#5046E5] dark:border-indigo-500 shadow-[0_4px_16px_rgba(80,70,229,0.15)] ring-1 ring-indigo-500/30'
+                            : (theme === 'dark'
+                                ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
+                                : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xl">⚡</span>
+                          {shareMode === 'solo' && (
+                            <div className="w-5 h-5 rounded-full bg-[#5046E5] flex items-center justify-center shadow-xs">
+                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-xs sm:text-sm font-black text-neutral-900 dark:text-white leading-tight">
+                            Solo (Binafsi)
+                          </p>
+                          <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5">
+                            Moja kwa moja • 100%
+                          </p>
+                        </div>
+                      </motion.button>
+
+                      {/* PapoShare (Gawana) Card */}
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: 0.97 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShareMode('share');
+                          if (selectedRide && selectedRide.id !== 'bajaj' && selectedRide.id !== 'mini') {
+                            const poolingOption = rideOptions.find(r => r.id === 'bajaj') || rideOptions.find(r => r.id === 'mini');
+                            if (poolingOption) setSelectedRide(poolingOption);
+                          }
+                        }}
+                        className={`p-3 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none ${
+                          shareMode === 'share'
+                            ? 'bg-[#faf5ff] dark:bg-purple-950/40 border-2 border-purple-600 dark:border-purple-500 shadow-[0_4px_16px_rgba(147,51,234,0.15)] ring-1 ring-purple-500/30'
+                            : (theme === 'dark'
+                                ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
+                                : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xl">🤝</span>
+                          {shareMode === 'share' && (
+                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shadow-xs">
+                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-xs sm:text-sm font-black text-purple-700 dark:text-purple-300 leading-tight">
+                            PapoShare (Gawana)
+                          </p>
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black mt-0.5">
+                            Punguzo la Bei
+                          </p>
+                        </div>
+                      </motion.button>
+                    </div>
+                  )}
+
+                  {/* If PapoShare is chosen on landing, display sub-options (Auto-match vs PapoShare Stendi) */}
+                  {!destination && shareMode === 'share' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/25"
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPapoShareSubOption('auto');
+                        }}
+                        className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                          papoShareSubOption === 'auto'
+                            ? 'bg-purple-600 text-white shadow-xs'
+                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-purple-500/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black leading-tight">🔵 Auto Match</span>
+                          {papoShareSubOption === 'auto' && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'auto' ? 'text-purple-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                          Partner wa kuelekea naye
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPapoShareSubOption('stendi');
+                        }}
+                        className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                          papoShareSubOption === 'stendi'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black leading-tight">🟢 PapoShare Stendi</span>
+                          {papoShareSubOption === 'stendi' && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'stendi' ? 'text-emerald-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                          Panda gari lililopo kituoni
+                        </p>
+                      </button>
+                    </motion.div>
+                  )}
+
                   {/* Ultra-Sleek Modern Promo Card: Share Papo Hapo / Zawadi / Earn TZS 1,000 */}
                   {!destination && (
                     <motion.div
@@ -5808,14 +5937,14 @@ const getEndPin = (etaText: string) => {
                         e.stopPropagation();
                         setShowShareModal(true);
                       }}
-                      className="w-full p-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.3)] border border-emerald-400/40 backdrop-blur-xl flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
+                      className="w-full p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.3)] border border-emerald-400/40 backdrop-blur-xl flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
                     >
                       {/* Shimmer effect */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
                       
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
-                          <span className="text-xl group-hover:scale-110 transition-transform">🎁</span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="relative w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
+                          <span className="text-lg group-hover:scale-110 transition-transform">🎁</span>
                           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping border border-white" />
                         </div>
                         <div className="min-w-0">
@@ -5828,15 +5957,15 @@ const getEndPin = (etaText: string) => {
                               <span>Zawadi</span>
                             </span>
                           </div>
-                          <p className="text-[10.5px] font-extrabold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
+                          <p className="text-[10px] font-extrabold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
                             <span>Earn TZS 1,000 Coupons</span>
-                            <span className="text-[9px] text-emerald-200/90">• Vocha papo hapo</span>
+                            <span className="text-[9px] text-emerald-200/90 hidden sm:inline">• Vocha papo hapo</span>
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="px-3 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10.5px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
+                        <div className="px-2.5 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
                           <span>Alika</span>
                           <Share2 className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
                         </div>
@@ -5853,32 +5982,45 @@ const getEndPin = (etaText: string) => {
                       setSettingMode("destination");
                     }}
                     className={`w-full px-3.5 py-2.5 rounded-3xl border shadow-[0_12px_40px_rgba(0,0,0,0.15)] flex items-center gap-3.5 select-none cursor-pointer active:scale-[0.98] hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)] transition-all ${
-                      theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'
+                      shareMode === 'share'
+                        ? (theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-white/95 backdrop-blur-md border-purple-300 ring-1 ring-purple-400/20')
+                        : (theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90')
                     }`}
                   >
                     <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                      theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500'
+                      shareMode === 'share'
+                        ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
+                        : (theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500')
                     }`}>
                       <Search className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-indigo-600 dark:text-indigo-400 mb-0.5 animate-neonPulse">
-                        UNAKWENDA WAPI?
-                      </p>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <p className={`text-[8px] font-extrabold uppercase tracking-[0.16em] ${
+                          shareMode === 'share' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400 animate-neonPulse'
+                        }`}>
+                          {shareMode === 'share' ? (papoShareSubOption === 'stendi' ? 'PAPOSHARE STENDI' : 'PAPOSHARE SHARING') : 'UNAKWENDA WAPI?'}
+                        </p>
+                        {shareMode === 'share' && (
+                          <span className="text-[7.5px] font-black uppercase px-1.5 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full">
+                            Okoa hadi 35%
+                          </span>
+                        )}
+                      </div>
                       <p className={`text-[13px] font-black tracking-tight truncate ${
                         destination
                           ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800')
                           : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500')
                       }`}>
-                        {destination || "Andika hapa unapokwenda"}
+                        {destination || (shareMode === 'share' && papoShareSubOption === 'stendi' ? "Tafuta au chagua kituo cha stendi" : "Andika hapa unapokwenda")}
                       </p>
                     </div>
 
                     <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                      theme === 'dark'
-                        ? 'bg-indigo-950/40 text-indigo-400'
-                        : 'bg-indigo-50/70 text-indigo-600'
+                      shareMode === 'share'
+                        ? 'bg-purple-50/80 dark:bg-purple-950/40 text-purple-600'
+                        : (theme === 'dark' ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50/70 text-indigo-600')
                     }`}>
                       <Map className="w-4 h-4 animate-pulse" />
                     </div>
