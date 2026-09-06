@@ -4685,7 +4685,7 @@ const getEndPin = (etaText: string) => {
                 onCloseOrFinish={() => {
                   dismissActiveStandTrip(activeStandTrip.route.id);
                   setActiveStandTrip(null);
-                  toast.success("Safari imekamilika! Karibu tena.");
+                  toast.success("🏁 Umeshushwa salama na dereva! Safari ya PapoShare Stendi imekamilika. Karibu tena!");
                 }}
                 onViewHistory={() => {
                   dismissActiveStandTrip(activeStandTrip.route.id);

@@ -620,7 +620,7 @@ export function listenRiderActiveStandRoute(
 
         const isDismissed = localStorage.getItem(`papo_dismissed_stand_trip_${data.id}`) === 'true';
 
-        // 1. If passenger has dropped off or route is completed: show completion screen
+        // 1. If passenger has dropped off or route is completed: driver already finalized drop-off
         if (pass && (pass.status === 'dropped_off' || pass.status === 'completed' || data.status === 'completed')) {
           saveStandTripToRideHistory(data, pass);
 
@@ -628,6 +628,11 @@ export function listenRiderActiveStandRoute(
             callback(null, null);
             return;
           }
+
+          // Clear cached route so customer is never trapped on completion screen
+          try {
+            localStorage.removeItem('papo_active_stand_trip');
+          } catch {}
 
           callback(data, pass);
           return;

@@ -58,6 +58,7 @@ export default function PapoShareStendiLiveTracker({
   const [isExpanded, setIsExpanded] = useState(true);
   const [nowMs, setNowMs] = useState(Date.now());
   const [isCancelling, setIsCancelling] = useState(false);
+  const [autoDismissSeconds, setAutoDismissSeconds] = useState<number | null>(null);
 
   const isTripStarted = route.status === 'started';
   const isThisPassengerDroppedOff = passenger.status === 'dropped_off';
@@ -82,6 +83,28 @@ export default function PapoShareStendiLiveTracker({
       setIsExpanded(true);
     }
   }, [isTripCompleted]);
+
+  // Once the driver marks the passenger as dropped off or trip is completed,
+  // the customer is NOT required to manually confirm. It automatically closes after 2.5 seconds!
+  useEffect(() => {
+    if (isTripCompleted && autoDismissSeconds === null) {
+      setAutoDismissSeconds(3);
+    }
+  }, [isTripCompleted, autoDismissSeconds]);
+
+  useEffect(() => {
+    if (autoDismissSeconds === null) return;
+    if (autoDismissSeconds <= 0) {
+      if (onCloseOrFinish) {
+        onCloseOrFinish();
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      setAutoDismissSeconds((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [autoDismissSeconds, onCloseOrFinish]);
 
   // Second ticker for countdown timer
   useEffect(() => {
@@ -405,25 +428,40 @@ export default function PapoShareStendiLiveTracker({
                 )}
 
                 {isTripCompleted && (
-                  <>
-                    {onViewHistory && (
+                  <div className="w-full flex flex-col gap-2">
+                    {/* Clear status badge informing customer that drop-off is already finalized by the driver */}
+                    <div className="w-full py-2 px-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-200 flex items-center justify-between text-xs font-bold shadow-xs">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="truncate">Dereva amekamilisha kukushusha</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-extrabold shrink-0 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                        {autoDismissSeconds !== null && autoDismissSeconds > 0 
+                          ? `Inafunga (${autoDismissSeconds}s)` 
+                          : 'Imekamilika ✓'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {onViewHistory && (
+                        <button
+                          type="button"
+                          onClick={onViewHistory}
+                          className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Safari Zangu</span>
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={onViewHistory}
-                        className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+                        onClick={onCloseOrFinish}
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 text-center"
                       >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Safari Zangu</span>
+                        Sawa, Asante ✓
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={onCloseOrFinish}
-                      className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 text-center"
-                    >
-                      Maliza & Funga ✓
-                    </button>
-                  </>
+                    </div>
+                  </div>
                 )}
               </div>
             </motion.div>
