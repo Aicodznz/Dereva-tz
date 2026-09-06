@@ -2452,8 +2452,8 @@ const getEndPin = (etaText: string) => {
               <div className="pointer-events-none" />
             )}
 
-            {/* Center side: Compact Earnings Pill - Only when NO active ride */}
-            {!activeRide ? (
+            {/* Center side: Compact Earnings Pill - Only when NO active ride & NO active driving trip */}
+            {!activeRide && (!activeDriverStandRoute || activeDriverStandRoute.status !== 'started') ? (
               <div className="pointer-events-auto flex items-center bg-white/95 dark:bg-neutral-900/90 backdrop-blur-md rounded-full px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 border border-neutral-200/50 dark:border-white/10 shadow-lg gap-2 sm:gap-3 select-none min-w-0 shrink">
                 {/* Today's Earnings / Leo */}
                 <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
@@ -2923,7 +2923,6 @@ const getEndPin = (etaText: string) => {
                     .sort((a: any, b: any) => a.dMeters - b.dMeters);
 
                   return activeList.map((p: any, idx: number) => {
-                    const shortDrop = p.dropoffName ? (p.dropoffName.length > 16 ? `${p.dropoffName.substring(0, 14)}...` : p.dropoffName) : 'Kushuka';
                     const isNext = idx === 0;
                     const bgCol = isNext ? '#10B981' : '#2563EB';
 
@@ -2934,15 +2933,15 @@ const getEndPin = (etaText: string) => {
                         icon={L.divIcon({
                           className: "driver-stand-passenger-marker",
                           html: `
-                            <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
-                              <div style="background: ${bgCol}; color: white; padding: 3px 8px; border-radius: 9999px; font-size: 10px; font-weight: 800; box-shadow: 0 2px 8px rgba(0,0,0,0.35); border: 2px solid white; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
-                                <span>${isNext ? '🟢 #1 Kushuka: ' : `#${idx + 1} `}${p.passengerName?.split(' ')[0] || 'Abiria'}</span>
-                                <span style="opacity: 0.85;">(${shortDrop})</span>
+                            <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+                              <div style="background: ${bgCol}; color: white; width: 28px; height: 28px; border-radius: 50%; font-size: 11px; font-weight: 900; box-shadow: 0 4px 12px rgba(0,0,0,0.35); border: 2.5px solid white; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 23px;">
+                                ${idx + 1}
                               </div>
-                              <div style="width: 8px; height: 8px; background: ${bgCol}; border: 2px solid white; border-radius: 50%; margin-top: 2px;"></div>
+                              <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid ${bgCol}; margin-top: -1px;"></div>
                             </div>
                           `,
-                          iconSize: [0, 0]
+                          iconSize: [28, 33],
+                          iconAnchor: [14, 32]
                         })}
                       >
                         <Popup>
@@ -3707,8 +3706,8 @@ const getEndPin = (etaText: string) => {
       {/* Sleek Master Driver Bottom Dock (Clean, Organized & Free of Clutter) */}
       {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
         <div className="absolute bottom-20 sm:bottom-24 inset-x-3.5 max-w-md mx-auto z-40 pointer-events-none flex flex-col items-center gap-2">
-          {/* 1. Slim Switchable / Dismissible Promo Pill */}
-          {!dismissedPromo && (
+          {/* 1. Slim Switchable / Dismissible Promo Pill (Hidden while driving active trip) */}
+          {!dismissedPromo && (!activeDriverStandRoute || activeDriverStandRoute.status !== 'started') && (
             <motion.div
               key="promo-ticker"
               initial={{ y: 15, opacity: 0 }}
@@ -3911,49 +3910,47 @@ const getEndPin = (etaText: string) => {
         const etaMins = Math.max(1, Math.round((distKm / 35) * 60));
 
         return (
-          <div className="absolute top-3 inset-x-3 max-w-lg mx-auto z-40 pointer-events-auto">
-            <div className="bg-slate-900/95 dark:bg-[#0f172a]/95 backdrop-blur-2xl border border-emerald-500/40 rounded-2xl p-3 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
+          <div className="absolute top-2.5 inset-x-2.5 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-40 pointer-events-auto">
+            <div className="bg-slate-900/95 dark:bg-[#0b1329]/95 backdrop-blur-xl border border-emerald-500/35 rounded-2xl p-2.5 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
               <div className="flex items-center justify-between gap-2">
+                {/* Left: Waypoint Icon & Trip Details */}
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 font-black text-lg">
-                    {nextPassenger ? '📍' : '🏁'}
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0 text-emerald-400 font-black text-sm shadow-inner">
+                    {nextPassenger ? '#1' : '🏁'}
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
-                        {nextPassenger ? 'KITUO KINACHOFUATA (#1)' : 'SAFARI YA STENDI'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsPapoShareStendiModalOpen(true)}
-                        className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded font-bold cursor-pointer transition-colors"
-                        title="Fungua orodha ya abiria wote"
-                      >
-                        👥 {activePassengersOnBoard.length} Kwenye Chombo {droppedPassengersCount > 0 ? `• ${droppedPassengersCount} Shuka` : ''}
-                      </button>
-                    </div>
 
-                    <h3 className="text-xs sm:text-sm font-extrabold truncate text-white mt-0.5">
-                      {targetTitle}
-                    </h3>
-
-                    <p className="text-[11px] font-bold text-neutral-300 flex items-center gap-1.5 mt-0.5">
-                      <span className="text-emerald-400 font-extrabold">
-                        {distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`}
+                  <div className="flex flex-col min-w-0 flex-1">
+                    {/* Compact Meta Line */}
+                    <div className="flex items-center gap-1.5 whitespace-nowrap text-[10px] leading-tight overflow-hidden">
+                      <span className="font-black uppercase text-emerald-400 tracking-wider">
+                        {nextPassenger ? 'KUSHUKA' : 'MWISHO'}
                       </span>
-                      <span>•</span>
-                      <span>Dakika ~{etaMins} kufika</span>
+                      <span className="text-slate-600 dark:text-slate-400">•</span>
+                      <span className="font-extrabold text-white">
+                        {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}
+                      </span>
+                      <span className="text-slate-600 dark:text-slate-400">•</span>
+                      <span className="font-semibold text-slate-300">
+                        ~{etaMins}m
+                      </span>
                       {nextPassenger && (
                         <>
-                          <span>•</span>
-                          <span className="text-amber-400 font-black">TZS {nextPassenger.fare?.toLocaleString()}</span>
+                          <span className="text-slate-600 dark:text-slate-400">•</span>
+                          <span className="font-black text-amber-400">
+                            TZS {nextPassenger.fare?.toLocaleString()}
+                          </span>
                         </>
                       )}
+                    </div>
+
+                    {/* Passenger Name and Destination */}
+                    <p className="text-xs sm:text-sm font-extrabold truncate text-white mt-0.5 leading-snug">
+                      {targetTitle}
                     </p>
                   </div>
                 </div>
 
-                {/* Quick Action Buttons */}
+                {/* Right: Quick Action Controls */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   {nextPassenger ? (
                     <button
@@ -3973,7 +3970,7 @@ const getEndPin = (etaText: string) => {
                           }
                         }
                       }}
-                      className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                      className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
                       title="Shusha abiria huyu anapofika kituoni"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -3990,23 +3987,36 @@ const getEndPin = (etaText: string) => {
                           toast.error("Hitilafu katika kukamilisha safari");
                         }
                       }}
-                      className="py-2 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md"
+                      className="py-2 px-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Kamilisha</span>
                     </button>
                   )}
 
+                  {/* Passengers quick count & modal toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsPapoShareStendiModalOpen(true)}
+                    className="h-8 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-emerald-300 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                    title="Fungua orodha ya abiria wote"
+                  >
+                    <span>👥</span>
+                    <span>{activePassengersOnBoard.length}</span>
+                  </button>
+
+                  {/* Google Maps External Turn-by-Turn */}
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${targetLat},${targetLng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-white rounded-xl font-bold flex items-center gap-1 transition-all cursor-pointer shadow-md text-[11px]"
+                    className="w-8 h-8 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-sky-400 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-sm"
                     title="Fungua Google Maps kuelekea kituo hiki"
                   >
-                    <ExternalLink className="w-4 h-4 text-sky-400" />
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </a>
 
+                  {/* Recenter Map Button */}
                   <button
                     type="button"
                     onClick={() => {
@@ -4014,10 +4024,10 @@ const getEndPin = (etaText: string) => {
                       setRecenterStandTrigger(prev => prev + 1);
                       toast.success("Ramani imelenga njia ya safari! 🎯");
                     }}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-200 rounded-xl transition-all cursor-pointer"
+                    className="w-8 h-8 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-300 hover:text-emerald-400 rounded-xl flex items-center justify-center transition-all cursor-pointer"
                     title="Lenga Njia"
                   >
-                    <Navigation2 className="w-4 h-4 text-emerald-400 rotate-45" />
+                    <Navigation2 className="w-3.5 h-3.5 rotate-45" />
                   </button>
                 </div>
               </div>

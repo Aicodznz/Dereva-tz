@@ -5926,53 +5926,6 @@ const getEndPin = (etaText: string) => {
                     </motion.div>
                   )}
 
-                  {/* Ultra-Sleek Modern Promo Card: Share Papo Hapo / Zawadi / Earn TZS 1,000 */}
-                  {!destination && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.015 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowShareModal(true);
-                      }}
-                      className="w-full p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-[0_8px_25px_rgba(16,185,129,0.3)] border border-emerald-400/40 backdrop-blur-xl flex items-center justify-between cursor-pointer transition-all group overflow-hidden relative"
-                    >
-                      {/* Shimmer effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-                      
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="relative w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-inner">
-                          <span className="text-lg group-hover:scale-110 transition-transform">🎁</span>
-                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping border border-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="text-xs sm:text-sm font-black tracking-tight leading-tight">
-                              Share Papo Hapo
-                            </h4>
-                            <span className="text-[8.5px] bg-gradient-to-r from-amber-400 to-yellow-300 text-neutral-950 font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-heartBeat flex items-center gap-1 border border-amber-300/60">
-                              <span className="inline-block animate-bounce">🎁</span>
-                              <span>Zawadi</span>
-                            </span>
-                          </div>
-                          <p className="text-[10px] font-extrabold text-emerald-100 truncate mt-0.5 flex items-center gap-1">
-                            <span>Earn TZS 1,000 Coupons</span>
-                            <span className="text-[9px] text-emerald-200/90 hidden sm:inline">• Vocha papo hapo</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="px-2.5 py-1.5 rounded-xl bg-white/20 group-hover:bg-white/30 text-white text-[10px] font-black uppercase flex items-center gap-1.5 border border-white/25 transition-all shadow-xs">
-                          <span>Alika</span>
-                          <Share2 className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
                   {/* Search Destination Pill */}
                   <div 
                     onClick={(e) => {
