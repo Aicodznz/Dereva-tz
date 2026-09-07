@@ -43,6 +43,11 @@ import {
   Layers,
   Trophy,
   ArrowRight,
+  CreditCard,
+  Wallet,
+  Banknote,
+  Smartphone,
+  ChevronDown,
   RefreshCw,
   RotateCw,
   RotateCcw,
@@ -2201,6 +2206,65 @@ export default function TaxiBooking() {
     return d.toISOString().split('T')[0];
   });
   const [scheduledTime, setScheduledTime] = useState<string>("08:00");
+
+  // Popup Modals (Aina ya Malipo na Safari ya Badae)
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+  // Siku, Mwezi, Mwaka, Saa na Dakika temp states kwa ajili ya Custom Date/Time Picker
+  const [pickerDay, setPickerDay] = useState<number>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.getDate();
+  });
+  const [pickerMonth, setPickerMonth] = useState<number>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.getMonth() + 1;
+  });
+  const [pickerYear, setPickerYear] = useState<number>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.getFullYear();
+  });
+  const [pickerHour, setPickerHour] = useState<number>(8);
+  const [pickerMinute, setPickerMinute] = useState<number>(0);
+
+  const openSchedulePicker = () => {
+    try {
+      const parts = scheduledDate.split('-');
+      if (parts.length === 3) {
+        setPickerYear(parseInt(parts[0], 10) || 2026);
+        setPickerMonth(parseInt(parts[1], 10) || 9);
+        setPickerDay(parseInt(parts[2], 10) || 8);
+      }
+      const timeParts = scheduledTime.split(':');
+      if (timeParts.length === 2) {
+        setPickerHour(parseInt(timeParts[0], 10) || 8);
+        setPickerMinute(parseInt(timeParts[1], 10) || 0);
+      }
+    } catch {
+      // ignore
+    }
+    setShowScheduleModal(true);
+  };
+
+  const applySchedulePicker = () => {
+    const yyyy = String(pickerYear);
+    const mm = String(pickerMonth).padStart(2, '0');
+    const dd = String(pickerDay).padStart(2, '0');
+    const hh = String(pickerHour).padStart(2, '0');
+    const min = String(pickerMinute).padStart(2, '0');
+    setScheduledDate(`${yyyy}-${mm}-${dd}`);
+    setScheduledTime(`${hh}:${min}`);
+    setIsScheduled(true);
+    setShowScheduleModal(false);
+  };
+
+  const clearScheduleBooking = () => {
+    setIsScheduled(false);
+    setShowScheduleModal(false);
+  };
 
   const handleQuickSchedule = (minutesFromNow: number) => {
     const d = new Date(Date.now() + minutesFromNow * 60 * 1000);
@@ -5354,154 +5418,42 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
-                  {/* Payment Method Selection (Aina ya Malipo) */}
+                  {/* Payment Method Selection Strip (Compact & Zero-Scroll with Popup Trigger) */}
                   {destination && (
-                    <div className={`p-3.5 rounded-2xl border transition-all duration-300 ${
-                      theme === 'dark' ? 'bg-[#161622]/90 border-neutral-800' : 'bg-white border-neutral-200/90 shadow-sm'
+                    <div className={`p-2.5 rounded-2xl border transition-all duration-300 flex items-center justify-between ${
+                      theme === 'dark' ? 'bg-[#161622]/90 border-neutral-800' : 'bg-white border-neutral-200/90 shadow-xs'
                     } ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
-                      <div className="flex items-center justify-between mb-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs">💳</span>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-                            Aina ya Malipo
-                          </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                          {paymentMethod === 'cash' && <Banknote className="w-4 h-4 stroke-[2.2]" />}
+                          {paymentMethod === 'mobile_money' && <Smartphone className="w-4 h-4 stroke-[2.2]" />}
+                          {paymentMethod === 'wallet' && <Wallet className="w-4 h-4 stroke-[2.2]" />}
+                          {paymentMethod === 'card' && <CreditCard className="w-4 h-4 stroke-[2.2]" />}
                         </div>
-                        <span className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-200/60 dark:border-indigo-800/60">
-                          {paymentMethod === 'cash' 
-                            ? '💵 Pesa Mkononi' 
-                            : paymentMethod === 'mobile_money' 
-                              ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` 
-                              : paymentMethod === 'wallet' 
-                                ? '👛 Mkoba' 
-                                : '💳 Kadi ya Benki'}
-                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10.5px] font-black text-neutral-900 dark:text-white leading-tight truncate">
+                            {paymentMethod === 'cash' 
+                              ? '💵 Pesa Taslimu' 
+                              : paymentMethod === 'mobile_money' 
+                                ? `📱 ${selectedMobileOperator === 'mpesa' ? 'Vodacom M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` 
+                                : paymentMethod === 'wallet' 
+                                  ? '👛 Papo Mkoba' 
+                                  : '💳 Kadi ya Benki'}
+                          </p>
+                          <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">
+                            {paymentMethod === 'cash' ? 'Lipa dereva mkononi mwisho wa safari' : paymentMethod === 'mobile_money' ? 'Malipo ya simu papohapo' : paymentMethod === 'wallet' ? 'Salio la pochi kwenye app' : 'Visa / Mastercard'}
+                          </p>
+                        </div>
                       </div>
 
-                      {/* 4 Payment Methods Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {/* 1. Cash */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('cash')}
-                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                            paymentMethod === 'cash'
-                              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-500 text-emerald-950 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500'
-                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-lg">💵</span>
-                            {paymentMethod === 'cash' && (
-                              <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-1">
-                            <p className="text-[10px] font-black leading-tight">Pesa Taslimu</p>
-                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Lipa Dereva Mkononi</p>
-                          </div>
-                        </button>
-
-                        {/* 2. Mobile Money */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('mobile_money')}
-                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                            paymentMethod === 'mobile_money'
-                              ? 'bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-500 text-indigo-950 dark:text-indigo-300 shadow-xs ring-1 ring-indigo-500'
-                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-lg">📱</span>
-                            {paymentMethod === 'mobile_money' && (
-                              <div className="w-4 h-4 rounded-full bg-indigo-600 flex items-center justify-center">
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-1">
-                            <p className="text-[10px] font-black leading-tight">Lipa kwa Simu</p>
-                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">M-Pesa / Tigo / Airtel</p>
-                          </div>
-                        </button>
-
-                        {/* 3. Papo Hapo Wallet */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('wallet')}
-                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                            paymentMethod === 'wallet'
-                              ? 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-500 text-amber-950 dark:text-amber-300 shadow-xs ring-1 ring-amber-500'
-                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-lg">👛</span>
-                            {paymentMethod === 'wallet' && (
-                              <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-1">
-                            <p className="text-[10px] font-black leading-tight">Papo Mkoba</p>
-                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Wallet App</p>
-                          </div>
-                        </button>
-
-                        {/* 4. Card / Visa */}
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('card')}
-                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                            paymentMethod === 'card'
-                              ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-500 text-blue-950 dark:text-blue-300 shadow-xs ring-1 ring-blue-500'
-                              : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-lg">💳</span>
-                            {paymentMethod === 'card' && (
-                              <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
-                                <Check className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="mt-1">
-                            <p className="text-[10px] font-black leading-tight">Kadi ya Benki</p>
-                            <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Visa / Mastercard</p>
-                          </div>
-                        </button>
-                      </div>
-
-                      {/* Mobile Network Selection (when Lipa kwa Simu is selected) */}
-                      {paymentMethod === 'mobile_money' && (
-                        <div className="mt-2.5 pt-2 border-t border-neutral-200/80 dark:border-neutral-800 flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
-                          <span className="text-[8.5px] font-black uppercase text-neutral-400 shrink-0">Mtandao:</span>
-                          {[
-                            { id: 'mpesa', name: 'Vodacom M-Pesa', emoji: '🔴' },
-                            { id: 'tigopesa', name: 'Tigo Pesa', emoji: '🔵' },
-                            { id: 'airtel', name: 'Airtel Money', emoji: '🔴' },
-                            { id: 'halopesa', name: 'HaloPesa', emoji: '🟠' },
-                          ].map((op) => (
-                            <button
-                              key={op.id}
-                              type="button"
-                              onClick={() => setSelectedMobileOperator(op.id as any)}
-                              className={`px-2 py-1 rounded-lg text-[9px] font-black whitespace-nowrap transition-all border flex items-center gap-1 ${
-                                selectedMobileOperator === op.id
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                  : 'bg-neutral-100 dark:bg-neutral-850 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200'
-                              }`}
-                            >
-                              <span>{op.emoji}</span>
-                              <span>{op.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowPaymentModal(true)}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 text-[9.5px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 flex items-center gap-1 shrink-0 active:scale-95 transition-all"
+                      >
+                        <span>Badili</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
                     </div>
                   )}
 
@@ -5736,114 +5688,78 @@ const getEndPin = (etaText: string) => {
 
               {(isMinimized || isMapFullscreen) && (
                 <div className="w-full flex flex-col gap-2">
-                  {/* Landing Choice Section (Kadi za Uchaguzi Wakati wa Kuingia): Saiv vs Badae & Solo vs PapoShare */}
+                  {/* Landing Choice Section (Kadi za Uchaguzi Wakati wa Kuingia): Solo vs PapoShare, Aina ya Malipo & Safari ya Badae */}
                   {!destination && (
                     <div className="flex flex-col gap-2 w-full">
-                      {/* Timing Choice Segmented Control: Saiv (Sasa hivi) vs Badae (Weka Miadi) */}
-                      <div className={`p-1 rounded-2xl border shadow-xs flex items-center gap-1 ${
-                        theme === 'dark' ? 'bg-[#15151e]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/90'
-                      }`}>
+                      {/* Top Action Row: Kitufe cha Aina ya Malipo & Kitufe cha Safari ya Badae (Schedule) */}
+                      <div className="flex items-center gap-2 w-full">
+                        {/* 1. Kitufe cha Aina ya Malipo (Kikibonyezwa kinafungua Popup Modal ya Malipo) */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setIsScheduled(false);
+                            setShowPaymentModal(true);
                           }}
-                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                            !isScheduled
-                              ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
-                              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-xs active:scale-[0.98] ${
+                            theme === 'dark' 
+                              ? 'bg-[#15151e] border-neutral-800 hover:border-neutral-700 text-neutral-200' 
+                              : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-800'
                           }`}
                         >
-                          <Zap className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Saiv (Sasa Hivi)</span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full ${!isScheduled ? 'bg-white/20 text-white' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
-                            Papohapo
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-5 h-5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                              {paymentMethod === 'cash' && <Banknote className="w-3 h-3 stroke-[2.2]" />}
+                              {paymentMethod === 'mobile_money' && <Smartphone className="w-3 h-3 stroke-[2.2]" />}
+                              {paymentMethod === 'wallet' && <Wallet className="w-3 h-3 stroke-[2.2]" />}
+                              {paymentMethod === 'card' && <CreditCard className="w-3 h-3 stroke-[2.2]" />}
+                            </div>
+                            <div className="text-left truncate">
+                              <span className="text-[10px] font-black block truncate">
+                                {paymentMethod === 'cash' 
+                                  ? '💵 Pesa Taslimu' 
+                                  : paymentMethod === 'mobile_money' 
+                                    ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` 
+                                    : paymentMethod === 'wallet' 
+                                      ? '👛 Papo Mkoba' 
+                                      : '💳 Kadi ya Benki'}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0 ml-1" />
                         </button>
 
+                        {/* 2. Kitufe cha Safari / Miadi (Kikibonyezwa kinafungua Popup Modal ya Siku, Mwezi, Mwaka na Muda) */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setIsScheduled(true);
+                            openSchedulePicker();
                           }}
-                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-xs active:scale-[0.98] ${
                             isScheduled
-                              ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
-                              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                              ? 'bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                              : (theme === 'dark' 
+                                  ? 'bg-[#15151e] border-neutral-800 hover:border-neutral-700 text-neutral-200' 
+                                  : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-800')
                           }`}
                         >
-                          <Calendar className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>Badae (Miadi)</span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full ${isScheduled ? 'bg-white/20 text-white' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
-                            Panga Safari
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                              isScheduled ? 'bg-indigo-600 text-white' : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                            }`}>
+                              <Calendar className="w-3 h-3 stroke-[2.2]" />
+                            </div>
+                            <div className="text-left truncate">
+                              <span className="text-[10px] font-black block truncate">
+                                {isScheduled ? `📅 ${scheduledDate.slice(5)} • ${scheduledTime}` : '📅 Panga Safari'}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronDown className="w-3 h-3 text-neutral-400 shrink-0 ml-1" />
                         </button>
                       </div>
 
-                      {/* Compact Inline Schedule Picker (Only visible when Badae is selected - zero scroll) */}
-                      {isScheduled && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className={`p-2 rounded-2xl border shadow-xs flex flex-col gap-1.5 ${
-                            theme === 'dark' ? 'bg-[#15151e]/90 border-indigo-900/60' : 'bg-indigo-50/70 border-indigo-200/80'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="date"
-                              value={scheduledDate}
-                              onChange={(e) => setScheduledDate(e.target.value)}
-                              className={`p-1.5 rounded-lg text-[10.5px] font-bold border outline-none flex-1 min-w-0 ${
-                                theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'
-                              }`}
-                            />
-                            <input
-                              type="time"
-                              value={scheduledTime}
-                              onChange={(e) => setScheduledTime(e.target.value)}
-                              className={`p-1.5 rounded-lg text-[10.5px] font-bold border outline-none w-20 shrink-0 ${
-                                theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'
-                              }`}
-                            />
-                          </div>
-                          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                            <button
-                              type="button"
-                              onClick={() => handleQuickSchedule(15)}
-                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
-                            >
-                              +15 dk
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickSchedule(30)}
-                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
-                            >
-                              +30 dk
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickSchedule(60)}
-                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
-                            >
-                              +1 saa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleTomorrowSchedule("08:00")}
-                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
-                            >
-                              Kesho 08:00
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-
-                      {/* 2-Mode Selector Cards: Solo (Binafsi) vs PapoShare (Gawana) with SMALL icons and sleek design */}
+                      {/* 2-Mode Selector Cards: Solo (Binafsi) vs PapoShare (Gawana) - Ndogo, safi na muonekano wa kuvutia */}
                       <div className="grid grid-cols-2 gap-2 w-full">
                         {/* Solo (Binafsi) Card */}
                         <motion.button
@@ -5853,36 +5769,36 @@ const getEndPin = (etaText: string) => {
                             e.stopPropagation();
                             setShareMode('solo');
                           }}
-                          className={`p-2.5 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
+                          className={`py-2 px-2.5 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
                             shareMode === 'solo'
-                              ? 'bg-[#f5f6ff] dark:bg-indigo-950/40 border-2 border-[#5046E5] dark:border-indigo-500 shadow-[0_4px_16px_rgba(80,70,229,0.12)] ring-1 ring-indigo-500/20'
+                              ? 'bg-[#f5f6ff] dark:bg-indigo-950/40 border-2 border-[#5046E5] dark:border-indigo-500 shadow-[0_2px_8px_rgba(80,70,229,0.12)]'
                               : (theme === 'dark'
-                                  ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
-                                  : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                                  ? 'bg-[#15151e] border border-neutral-800 hover:border-neutral-700'
+                                  : 'bg-white border border-neutral-200 hover:border-neutral-300')
                           }`}
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
                               shareMode === 'solo'
                                 ? 'bg-indigo-600 text-white'
                                 : 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400'
                             }`}>
-                              <Zap className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <Car className="w-3.5 h-3.5 stroke-[2.2]" />
                             </div>
-                            {shareMode === 'solo' && (
-                              <div className="w-4 h-4 rounded-full bg-[#5046E5] flex items-center justify-center shadow-xs">
-                                <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
-                              </div>
-                            )}
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-black text-neutral-900 dark:text-white leading-tight truncate">
+                                Solo (Binafsi)
+                              </p>
+                              <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium truncate mt-0.5">
+                                Moja kwa moja
+                              </p>
+                            </div>
                           </div>
-                          <div className="mt-1.5">
-                            <p className="text-[11.5px] font-black text-neutral-900 dark:text-white leading-tight">
-                              Solo (Binafsi)
-                            </p>
-                            <p className="text-[9px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5 truncate">
-                              Moja kwa moja • 100%
-                            </p>
-                          </div>
+                          {shareMode === 'solo' && (
+                            <div className="w-4 h-4 rounded-full bg-[#5046E5] flex items-center justify-center shrink-0 ml-1">
+                              <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                            </div>
+                          )}
                         </motion.button>
 
                         {/* PapoShare (Gawana) Card */}
@@ -5897,46 +5813,46 @@ const getEndPin = (etaText: string) => {
                               if (poolingOption) setSelectedRide(poolingOption);
                             }
                           }}
-                          className={`p-2.5 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
+                          className={`py-2 px-2.5 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
                             shareMode === 'share'
-                              ? 'bg-[#faf5ff] dark:bg-purple-950/40 border-2 border-purple-600 dark:border-purple-500 shadow-[0_4px_16px_rgba(147,51,234,0.12)] ring-1 ring-purple-500/20'
+                              ? 'bg-[#faf5ff] dark:bg-purple-950/40 border-2 border-purple-600 dark:border-purple-500 shadow-[0_2px_8px_rgba(147,51,234,0.12)]'
                               : (theme === 'dark'
-                                  ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
-                                  : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                                  ? 'bg-[#15151e] border border-neutral-800 hover:border-neutral-700'
+                                  : 'bg-white border border-neutral-200 hover:border-neutral-300')
                           }`}
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
                               shareMode === 'share'
                                 ? 'bg-purple-600 text-white'
                                 : 'bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-400'
                             }`}>
-                              <Users className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <Users className="w-3.5 h-3.5 stroke-[2.2]" />
                             </div>
-                            {shareMode === 'share' && (
-                              <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-xs">
-                                <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
-                              </div>
-                            )}
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-black text-purple-700 dark:text-purple-300 leading-tight truncate">
+                                PapoShare
+                              </p>
+                              <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-0.5">
+                                Okoa hadi 35%
+                              </p>
+                            </div>
                           </div>
-                          <div className="mt-1.5">
-                            <p className="text-[11.5px] font-black text-purple-700 dark:text-purple-300 leading-tight">
-                              PapoShare (Gawana)
-                            </p>
-                            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black mt-0.5 truncate">
-                              Punguzo hadi 35%
-                            </p>
-                          </div>
+                          {shareMode === 'share' && (
+                            <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shrink-0 ml-1">
+                              <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                            </div>
+                          )}
                         </motion.button>
                       </div>
 
-                      {/* If PapoShare is chosen on landing, display compact sub-options (Auto-match vs PapoShare Stendi) */}
+                      {/* If PapoShare is chosen on landing, display compact sub-options */}
                       {shareMode === 'share' && (
                         <motion.div
                           initial={{ opacity: 0, y: -2, height: 0 }}
                           animate={{ opacity: 1, y: 0, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
-                          className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/25"
+                          className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/25"
                         >
                           <button
                             type="button"
@@ -5944,19 +5860,14 @@ const getEndPin = (etaText: string) => {
                               e.stopPropagation();
                               setPapoShareSubOption('auto');
                             }}
-                            className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                            className={`py-1 px-2 rounded-lg text-left transition-all cursor-pointer flex items-center justify-between ${
                               papoShareSubOption === 'auto'
                                 ? 'bg-purple-600 text-white shadow-xs'
                                 : 'text-neutral-700 dark:text-neutral-300 hover:bg-purple-500/10'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9.5px] font-black leading-tight">🔵 Auto Match</span>
-                              {papoShareSubOption === 'auto' && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                            <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'auto' ? 'text-purple-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                              Partner njiani
-                            </p>
+                            <span className="text-[9px] font-black leading-tight">🔵 Auto Match</span>
+                            {papoShareSubOption === 'auto' && <Check className="w-2.5 h-2.5 text-white" />}
                           </button>
 
                           <button
@@ -5965,19 +5876,14 @@ const getEndPin = (etaText: string) => {
                               e.stopPropagation();
                               setPapoShareSubOption('stendi');
                             }}
-                            className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                            className={`py-1 px-2 rounded-lg text-left transition-all cursor-pointer flex items-center justify-between ${
                               papoShareSubOption === 'stendi'
                                 ? 'bg-emerald-600 text-white shadow-xs'
                                 : 'text-neutral-700 dark:text-neutral-300 hover:bg-emerald-500/10'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[9.5px] font-black leading-tight">🟢 PapoShare Stendi</span>
-                              {papoShareSubOption === 'stendi' && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                            <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'stendi' ? 'text-emerald-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                              Gari lililopo kituoni
-                            </p>
+                            <span className="text-[9px] font-black leading-tight">🟢 Stendi</span>
+                            {papoShareSubOption === 'stendi' && <Check className="w-2.5 h-2.5 text-white" />}
                           </button>
                         </motion.div>
                       )}
@@ -6964,6 +6870,436 @@ const getEndPin = (etaText: string) => {
         onSelectDriverForBooking={handleSelectDriverForBooking}
         userId={user?.uid}
       />
+
+      {/* 1. Payment Method Popup Modal (Aina ya Malipo) */}
+      <AnimatePresence>
+        {showPaymentModal && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={`w-full max-w-sm rounded-3xl p-5 border shadow-2xl space-y-4 overflow-hidden ${
+                theme === 'dark' ? 'bg-[#151520] border-neutral-800 text-white' : 'bg-white border-neutral-200 text-neutral-900'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black leading-tight">Aina ya Malipo</h3>
+                    <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Chagua jinsi ya kulipia safari yako</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <CloseX className="w-4 h-4 text-neutral-500" />
+                </button>
+              </div>
+
+              {/* Payment Methods Options */}
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto no-scrollbar">
+                {/* 1. Pesa Taslimu (Cash) */}
+                <div
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'cash'
+                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                      : (theme === 'dark' ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <Banknote className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black">Pesa Taslimu (Cash)</p>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Lipa dereva mkononi mwisho wa safari</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-neutral-300 dark:border-neutral-700'
+                  }`}>
+                    {paymentMethod === 'cash' && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* 2. Lipa kwa Simu (Mobile Money) */}
+                <div
+                  onClick={() => setPaymentMethod('mobile_money')}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
+                    paymentMethod === 'mobile_money'
+                      ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
+                      : (theme === 'dark' ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300')
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 flex items-center justify-center shrink-0">
+                        <Smartphone className="w-5 h-5 stroke-[2.2]" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black">Lipa kwa Simu (Mobile Money)</p>
+                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">M-Pesa, Tigo Pesa, Airtel, HaloPesa</p>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'mobile_money' ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-neutral-300 dark:border-neutral-700'
+                    }`}>
+                      {paymentMethod === 'mobile_money' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </div>
+                  </div>
+
+                  {/* Network Operator pills */}
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-900/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                      {[
+                        { id: 'mpesa', name: 'M-Pesa', emoji: '🔴' },
+                        { id: 'tigopesa', name: 'Tigo Pesa', emoji: '🔵' },
+                        { id: 'airtel', name: 'Airtel', emoji: '🔴' },
+                        { id: 'halopesa', name: 'HaloPesa', emoji: '🟠' },
+                      ].map((op) => (
+                        <button
+                          key={op.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedMobileOperator(op.id as any);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[9.5px] font-black whitespace-nowrap transition-all border flex items-center gap-1 cursor-pointer ${
+                            selectedMobileOperator === op.id
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white dark:bg-neutral-850 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100'
+                          }`}
+                        >
+                          <span>{op.emoji}</span>
+                          <span>{op.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Papo Mkoba (Wallet) */}
+                <div
+                  onClick={() => setPaymentMethod('wallet')}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'wallet'
+                      ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+                      : (theme === 'dark' ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                      <Wallet className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black">Papo Mkoba (Wallet App)</p>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Lipa haraka kwa salio la app</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    paymentMethod === 'wallet' ? 'border-amber-500 bg-amber-500 text-white' : 'border-neutral-300 dark:border-neutral-700'
+                  }`}>
+                    {paymentMethod === 'wallet' && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+
+                {/* 4. Kadi ya Benki (Card) */}
+                <div
+                  onClick={() => setPaymentMethod('card')}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                    paymentMethod === 'card'
+                      ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                      : (theme === 'dark' ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300')
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black">Kadi ya Benki (Visa / Mastercard)</p>
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Salama na rahisi kielektroniki</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    paymentMethod === 'card' ? 'border-blue-600 bg-blue-600 text-white' : 'border-neutral-300 dark:border-neutral-700'
+                  }`}>
+                    {paymentMethod === 'card' && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirm Button */}
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                className="w-full py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition-all cursor-pointer"
+              >
+                <Check className="w-4 h-4 stroke-[2.5]" />
+                <span>Thibitisha Njia ya Malipo</span>
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Interactive Schedule Date/Time Picker Modal (Safari ya Badae / Miadi) */}
+      <AnimatePresence>
+        {showScheduleModal && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className={`w-full max-w-sm rounded-3xl p-5 border shadow-2xl space-y-4 overflow-hidden ${
+                theme === 'dark' ? 'bg-[#151520] border-neutral-800 text-white' : 'bg-white border-neutral-200 text-neutral-900'
+              }`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                    <Calendar className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black leading-tight">Panga Safari (Badae)</h3>
+                    <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">Weka tarehe, mwezi na muda wa safari</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleModal(false)}
+                  className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <CloseX className="w-4 h-4 text-neutral-500" />
+                </button>
+              </div>
+
+              {/* Quick Preset Shortcuts */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Vibonyezo vya Haraka:</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearScheduleBooking();
+                      toast.success("Umechagua kusafiri Sasa Hivi (Papohapo) ⚡");
+                    }}
+                    className="py-1.5 px-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Zap className="w-3 h-3 stroke-[2.5]" />
+                    <span>Safiri Saiv (Papohapo)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTomorrowSchedule("08:00");
+                      setShowScheduleModal(false);
+                      toast.success("Miadi imewekwa: Kesho saa 08:00 Asubuhi 📅");
+                    }}
+                    className="py-1.5 px-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Clock className="w-3 h-3 stroke-[2.5]" />
+                    <span>Kesho 08:00 Asubuhi</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleQuickSchedule(15);
+                      setShowScheduleModal(false);
+                      toast.success("Miadi imewekwa: Baada ya dakika 15 ⏱️");
+                    }}
+                    className="py-1.5 px-2 rounded-xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>+15 Dk (Muda mfupi)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleQuickSchedule(60);
+                      setShowScheduleModal(false);
+                      toast.success("Miadi imewekwa: Baada ya saa 1 ⏱️");
+                    }}
+                    className="py-1.5 px-2 rounded-xl bg-neutral-100 dark:bg-neutral-850 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10px] font-black flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span>+1 Saa Kutoka Sasa</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Set Date: Siku, Mwezi, Mwaka */}
+              <div className="space-y-1.5 pt-1 border-t border-neutral-200/60 dark:border-neutral-800">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">1. Chagua Tarehe (Siku, Mwezi, Mwaka):</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {/* Siku */}
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-500 block mb-0.5">Siku:</span>
+                    <select
+                      value={pickerDay}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPickerDay(val);
+                      }}
+                      className={`w-full p-2 rounded-xl text-xs font-black border outline-none cursor-pointer ${
+                        theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                      }`}
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={d}>
+                          Siku {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Mwezi */}
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-500 block mb-0.5">Mwezi:</span>
+                    <select
+                      value={pickerMonth}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPickerMonth(val);
+                      }}
+                      className={`w-full p-2 rounded-xl text-xs font-black border outline-none cursor-pointer ${
+                        theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                      }`}
+                    >
+                      {[
+                        { num: 1, name: 'Januari' },
+                        { num: 2, name: 'Februari' },
+                        { num: 3, name: 'Machi' },
+                        { num: 4, name: 'Aprili' },
+                        { num: 5, name: 'Mei' },
+                        { num: 6, name: 'Juni' },
+                        { num: 7, name: 'Julai' },
+                        { num: 8, name: 'Agosti' },
+                        { num: 9, name: 'Septemba' },
+                        { num: 10, name: 'Oktoba' },
+                        { num: 11, name: 'Novemba' },
+                        { num: 12, name: 'Desemba' },
+                      ].map((m) => (
+                        <option key={m.num} value={m.num}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Mwaka */}
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-500 block mb-0.5">Mwaka:</span>
+                    <select
+                      value={pickerYear}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPickerYear(val);
+                      }}
+                      className={`w-full p-2 rounded-xl text-xs font-black border outline-none cursor-pointer ${
+                        theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                      }`}
+                    >
+                      <option value={2026}>2026</option>
+                      <option value={2027}>2027</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Set Time: Saa na Dakika */}
+              <div className="space-y-1.5 pt-1 border-t border-neutral-200/60 dark:border-neutral-800">
+                <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">2. Chagua Muda (Saa na Dakika):</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Saa */}
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-500 block mb-0.5">Saa (Hour):</span>
+                    <select
+                      value={pickerHour}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPickerHour(val);
+                      }}
+                      className={`w-full p-2 rounded-xl text-xs font-black border outline-none cursor-pointer ${
+                        theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                      }`}
+                    >
+                      {Array.from({ length: 24 }, (_, i) => i).map((h) => (
+                        <option key={h} value={h}>
+                          {String(h).padStart(2, '0')}:00 {h >= 6 && h < 12 ? '(Asubuhi)' : h >= 12 && h < 17 ? '(Mchana)' : h >= 17 && h < 20 ? '(Jioni)' : '(Usiku)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Dakika */}
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-500 block mb-0.5">Dakika (Minute):</span>
+                    <select
+                      value={pickerMinute}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setPickerMinute(val);
+                      }}
+                      className={`w-full p-2 rounded-xl text-xs font-black border outline-none cursor-pointer ${
+                        theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-white' : 'bg-neutral-50 border-neutral-300 text-neutral-900'
+                      }`}
+                    >
+                      {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                        <option key={m} value={m}>
+                          :{String(m).padStart(2, '0')} dk
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Schedule Summary Banner */}
+              <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <div className="text-[11px] font-black text-indigo-900 dark:text-indigo-200 min-w-0 truncate">
+                  Tarehe {pickerDay} • Mwezi {pickerMonth} • {pickerYear} saa {String(pickerHour).padStart(2, '0')}:{String(pickerMinute).padStart(2, '0')}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={clearScheduleBooking}
+                  className="flex-1 py-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-850 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-xs font-black flex items-center justify-center gap-1 active:scale-98 transition-all cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Safiri Saiv</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    applySchedulePicker();
+                    toast.success("Tarehe na muda wa miadi vimethibitishwa! 📅");
+                  }}
+                  className="flex-2 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>Thibitisha Miadi</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
