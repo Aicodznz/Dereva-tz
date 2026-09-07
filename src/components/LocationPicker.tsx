@@ -14,6 +14,16 @@ import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firesto
 import ARMapView from './map/ARMapView';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
+import { toast } from 'sonner';
+import { 
+  MapPerspectiveMode, 
+  Map3DViewController, 
+  ThreeDBuildingsLayer, 
+  TrafficFlowLayer, 
+  GodsEyeHudTelemetry, 
+  ThreeDBirdseyeControlWidget, 
+  MapPerspectiveSegmentedPicker 
+} from './map/GodsEye3DMapOverlay';
 
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
@@ -346,6 +356,11 @@ export default function LocationPicker({
   const [selectedVendorReviews, setSelectedVendorReviews] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [perspectiveMode, setPerspectiveMode] = useState<MapPerspectiveMode>('standard');
+  const [pitch3D, setPitch3D] = useState(50);
+  const [rotation3D, setRotation3D] = useState(0);
+  const [show3DBuildings, setShow3DBuildings] = useState(true);
+  const [showTrafficFlow, setShowTrafficFlow] = useState(true);
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
@@ -1054,20 +1069,23 @@ export default function LocationPicker({
 
             {/* Map Area */}
             <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10`}>
-              {/* Map Type Toggle */}
-              <div className="absolute top-4 left-4 z-[1000] flex bg-white/90 backdrop-blur-md rounded-xl p-1 shadow-lg border border-white/50">
-                <button 
-                  onClick={() => setMapType('standard')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${mapType === 'standard' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
-                >
-                  Map
-                </button>
-                <button 
-                  onClick={() => setMapType('satellite')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${mapType === 'satellite' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
-                >
-                  Satellite
-                </button>
+              {/* Map Perspective Selector: 2D, 3D Bird's-Eye, God's Eye (Angani 90°) */}
+              <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
+                <MapPerspectiveSegmentedPicker
+                  mode={perspectiveMode}
+                  onModeChange={(newMode) => {
+                    setPerspectiveMode(newMode);
+                    if (newMode === 'gods_eye') {
+                      setMapType('satellite');
+                      toast.success("🛰️ God's Eye View imewashwa! Angani 90° Top-Down Satellite");
+                    } else if (newMode === '3d_birdseye') {
+                      toast.success("🎮 3D Bird's-Eye View: Majengo ya 3D & Trafiki imewashwa!");
+                    } else {
+                      toast.info("Ramani ya kawaida (2D Standard)");
+                    }
+                  }}
+                  theme="light"
+                />
               </div>
 
               {/* Expansion Toggle */}
@@ -1075,10 +1093,38 @@ export default function LocationPicker({
                 <button 
                   onClick={() => setIsMapExpanded(!isMapExpanded)}
                   className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-900 shadow-lg border border-white/50 hover:bg-orange-600 hover:text-white transition-all"
+                  title={isMapExpanded ? "Punguza Ramani" : "Kuza Ramani (Fullscreen)"}
                 >
                    {isMapExpanded ? <RotateCw className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
                 </button>
               </div>
+
+              {/* God's Eye 90° Recon HUD Overlay */}
+              {perspectiveMode === 'gods_eye' && (
+                <GodsEyeHudTelemetry
+                  center={position}
+                  zoom={15}
+                  onClose={() => setPerspectiveMode('standard')}
+                />
+              )}
+
+              {/* 3D Bird's-Eye Floating Game Controller */}
+              {perspectiveMode === '3d_birdseye' && (
+                <ThreeDBirdseyeControlWidget
+                  pitch={pitch3D}
+                  onPitchChange={setPitch3D}
+                  rotation={rotation3D}
+                  onRotationChange={setRotation3D}
+                  showBuildings={show3DBuildings}
+                  onToggleBuildings={() => setShow3DBuildings(!show3DBuildings)}
+                  showTraffic={showTrafficFlow}
+                  onToggleTraffic={() => setShowTrafficFlow(!showTrafficFlow)}
+                  onReset={() => {
+                    setPitch3D(50);
+                    setRotation3D(0);
+                  }}
+                />
+              )}
 
               <MapContainer 
                 center={position} 
@@ -1094,7 +1140,7 @@ export default function LocationPicker({
                 whenReady={() => setTimeout(() => setMapReady(true), 100)}
               >
                 <TileLayer
-                  url={mapType === 'satellite' 
+                  url={mapType === 'satellite' || perspectiveMode === 'gods_eye'
                     ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
                     : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                   }
@@ -1103,6 +1149,20 @@ export default function LocationPicker({
                   maxNativeZoom={19}
                   attribution="&copy; Google Maps"
                 />
+                {/* 3D View and Perspective Controller */}
+                <Map3DViewController
+                  mode={perspectiveMode}
+                  pitch={pitch3D}
+                  rotation={rotation3D}
+                />
+                {/* 3D Extruded Buildings and Traffic Flow Layers */}
+                {perspectiveMode === '3d_birdseye' && (
+                  <>
+                    <ThreeDBuildingsLayer center={position} visible={show3DBuildings} />
+                    <TrafficFlowLayer center={position} visible={showTrafficFlow} />
+                  </>
+                )}
+
                 {mapReady && (
                   <>
                     <MapController center={position} />

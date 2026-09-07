@@ -86,6 +86,14 @@ import {
 } from "../utils/customerPreferences";
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "../ThemeContext";
+import { 
+  MapPerspectiveMode, 
+  ThreeDBuildingsLayer, 
+  TrafficFlowLayer, 
+  GodsEyeHudTelemetry, 
+  ThreeDBirdseyeControlWidget, 
+  MapPerspectiveSegmentedPicker 
+} from "./map/GodsEye3DMapOverlay";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
 import Chat from "./Chat";
 import ActiveRideChatPopup from "./ActiveRideChatPopup";
@@ -572,12 +580,16 @@ const MapRotationController = ({
   heading = 0,
   isHeadingUp = true,
   is3DMode = false,
+  pitch = 50,
+  perspectiveMode = 'standard',
   onRotate
 }: { 
   rotation?: number; 
   heading?: number;
   isHeadingUp?: boolean;
   is3DMode?: boolean;
+  pitch?: number;
+  perspectiveMode?: MapPerspectiveMode;
   onRotate?: (newRotation: number) => void; 
 }) => {
   const map = useMap();
@@ -588,6 +600,15 @@ const MapRotationController = ({
     const container = map.getContainer();
     if (!container) return;
 
+    if (perspectiveMode === 'gods_eye') {
+      container.style.perspective = 'none';
+      container.style.transformStyle = 'flat';
+      container.style.transform = 'none';
+      container.style.transformOrigin = 'center center';
+      container.style.transition = 'transform 0.45s ease-out';
+      return;
+    }
+
     if (isHeadingUp && typeof heading === 'number' && !isNaN(heading)) {
       // Calculate shortest angular delta to prevent 360° spin jumps
       const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
@@ -597,19 +618,22 @@ const MapRotationController = ({
       if (diff < -180) diff += 360;
       accumulatedRotRef.current = accumulatedRotRef.current + diff;
 
-      const tilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
+      const tilt = (is3DMode || perspectiveMode === '3d_birdseye') ? `perspective(1200px) rotateX(${pitch}deg) ` : '';
       // Negative rotation: map rotates counter to heading so forward driving direction is always UP
       container.style.transform = `${tilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
     } else {
       accumulatedRotRef.current = 0;
-      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg)' : 'none';
+      const currentRot = rotation || 0;
+      const perspectiveTilt = (is3DMode || perspectiveMode === '3d_birdseye') 
+        ? `perspective(1200px) rotateX(${pitch}deg) rotateZ(${currentRot}deg) scale(1.15)` 
+        : (currentRot ? `rotateZ(${currentRot}deg)` : 'none');
       container.style.transform = perspectiveTilt;
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
     }
-  }, [map, heading, isHeadingUp, is3DMode]);
+  }, [map, heading, isHeadingUp, is3DMode, perspectiveMode, pitch, rotation]);
 
   return null;
 };
@@ -681,6 +705,10 @@ export default function TaxiBooking() {
   const [manualRotation, setManualRotation] = useState(0);
   const [isHeadingUp, setIsHeadingUp] = useState<boolean>(false);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [perspectiveMode, setPerspectiveMode] = useState<MapPerspectiveMode>('standard');
+  const [pitch3D, setPitch3D] = useState(50);
+  const [show3DBuildings, setShow3DBuildings] = useState(true);
+  const [showTrafficFlow, setShowTrafficFlow] = useState(true);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
@@ -3933,6 +3961,29 @@ const getEndPin = (etaText: string) => {
                 </div>
               )}
 
+              {/* Map Perspective Selector: 2D Kawaida, 3D Bird's-Eye, God's Eye (Angani 90°) */}
+              <div className="absolute top-16 sm:top-20 left-4 sm:left-6 z-[9998] flex items-center gap-2 pointer-events-auto">
+                <MapPerspectiveSegmentedPicker
+                  mode={perspectiveMode}
+                  onModeChange={(newMode) => {
+                    setPerspectiveMode(newMode);
+                    if (newMode === 'gods_eye') {
+                      setMapType('satellite');
+                      setIs3DMode(false);
+                      toast.success("🛰️ God's Eye View imewashwa! Angani 90° Top-Down Satellite", { duration: 3000 });
+                    } else if (newMode === '3d_birdseye') {
+                      setIs3DMode(true);
+                      toast.success("🎮 3D Bird's-Eye View: Majengo ya 3D & Trafiki imewashwa!", { duration: 3000 });
+                    } else {
+                      setIs3DMode(false);
+                      setMapType('standard');
+                      toast.info("Ramani ya kawaida (2D Standard)", { duration: 2000 });
+                    }
+                  }}
+                  theme={theme}
+                />
+              </div>
+
                 {/* Floating Cards removed as requested */}
 
                 <style>{`
@@ -4003,8 +4054,8 @@ const getEndPin = (etaText: string) => {
                     dragging={true}
                   >
                      <TileLayer
-                      key={`${theme}-${mapType}`}
-                      url={mapType === 'satellite' ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : mapTileUrl}
+                      key={`${theme}-${mapType}-${perspectiveMode}`}
+                      url={mapType === 'satellite' || perspectiveMode === 'gods_eye' ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : mapTileUrl}
                       subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                       attribution="&copy; Google Maps"
                       maxZoom={22}
@@ -4050,9 +4101,18 @@ const getEndPin = (etaText: string) => {
                           isHeadingUp={isHeadingUp && ["arriving", "on_trip", "driver_arrived", "found", "driver_arriving"].includes(step)} 
                           onRotate={setManualRotation} 
                           is3DMode={is3DMode} 
+                          pitch={pitch3D}
+                          perspectiveMode={perspectiveMode}
                         />
                       );
                     })()}
+                    {/* 3D Extruded Buildings and Traffic Flow Layers */}
+                    {(is3DMode || perspectiveMode === '3d_birdseye') && (
+                      <>
+                        <ThreeDBuildingsLayer center={{ lat: pickupPos[0], lng: pickupPos[1] }} visible={show3DBuildings} />
+                        <TrafficFlowLayer center={{ lat: pickupPos[0], lng: pickupPos[1] }} visible={showTrafficFlow} />
+                      </>
+                    )}
                     {!activeStandTrip && activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
@@ -4519,6 +4579,36 @@ const getEndPin = (etaText: string) => {
                         <LocateReticleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
                       </div>
                     </motion.button>
+                  )}
+
+                  {/* God's Eye 90° Recon HUD Telemetry Overlay */}
+                  {perspectiveMode === 'gods_eye' && (
+                    <GodsEyeHudTelemetry
+                      center={{ lat: pickupPos[0], lng: pickupPos[1] }}
+                      zoom={15}
+                      onClose={() => {
+                        setPerspectiveMode('standard');
+                        setMapType('standard');
+                      }}
+                    />
+                  )}
+
+                  {/* 3D Bird's-Eye Floating Game Controller */}
+                  {(is3DMode || perspectiveMode === '3d_birdseye') && (
+                    <ThreeDBirdseyeControlWidget
+                      pitch={pitch3D}
+                      onPitchChange={setPitch3D}
+                      rotation={manualRotation}
+                      onRotationChange={setManualRotation}
+                      showBuildings={show3DBuildings}
+                      onToggleBuildings={() => setShow3DBuildings(!show3DBuildings)}
+                      showTraffic={showTrafficFlow}
+                      onToggleTraffic={() => setShowTrafficFlow(!showTrafficFlow)}
+                      onReset={() => {
+                        setPitch3D(50);
+                        setManualRotation(0);
+                      }}
+                    />
                   )}
                 </div>
               </motion.div>
