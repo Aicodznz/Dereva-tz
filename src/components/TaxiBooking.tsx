@@ -21,6 +21,7 @@ import {
   Search,
   Navigation2,
   Clock,
+  Calendar,
   Star,
   ChevronLeft,
   ChevronRight,
@@ -2200,6 +2201,28 @@ export default function TaxiBooking() {
     return d.toISOString().split('T')[0];
   });
   const [scheduledTime, setScheduledTime] = useState<string>("08:00");
+
+  const handleQuickSchedule = (minutesFromNow: number) => {
+    const d = new Date(Date.now() + minutesFromNow * 60 * 1000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    setScheduledDate(`${yyyy}-${mm}-${dd}`);
+    setScheduledTime(`${hours}:${mins}`);
+    setIsScheduled(true);
+  };
+
+  const handleTomorrowSchedule = (timeStr: string = "08:00") => {
+    const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    setScheduledDate(`${yyyy}-${mm}-${dd}`);
+    setScheduledTime(timeStr);
+    setIsScheduled(true);
+  };
   
   const [newStopInput, setNewStopInput] = useState("");
   const [showAddStopInput, setShowAddStopInput] = useState(false);
@@ -5149,88 +5172,38 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
-                  {/* PapoShare Ride Mode Selector (Solo vs PapoShare) for Bajaji / Gari, and PapoSend for Boda */}
+                  {/* PapoShare Settings / Boda Safety (Hufichwa ikiwa mteja alichagua Solo kwenye Landing ili asisogeze chini) */}
                   {destination && selectedRide && (
-                    <div className={`p-3.5 rounded-2xl border transition-all duration-300 ${
+                    ((selectedRide.id === 'mini' || selectedRide.id === 'bajaj') && shareMode === 'share') || selectedRide.id === 'bike'
+                  ) && (
+                    <div className={`p-3 rounded-2xl border transition-all duration-300 ${
                       theme === 'dark' ? 'bg-[#161622]/90 border-neutral-800' : 'bg-white border-neutral-200/90 shadow-sm'
                     } ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                       {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') ? (
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm">👥</span>
+                              <span className="text-xs">👥</span>
                               <div>
-                                <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-                                  Hali ya Safari (PapoShare Pooling)
+                                <h4 className="text-[10px] font-black uppercase tracking-wider text-purple-900 dark:text-purple-200">
+                                  PapoShare Pooling
                                 </h4>
                                 <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">
-                                  Gawana gharama ya safari na msafiri wa njia moja
+                                  Punguzo la 35% limetumika kwenye nauli
                                 </p>
                               </div>
                             </div>
-                            <span className="text-[8.5px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-full border border-purple-200/60 dark:border-purple-800/60">
-                              Okoa hadi 35%
-                            </span>
-                          </div>
-
-                          {/* 2-Mode Tab Switch: Solo vs PapoShare */}
-                          <div className="grid grid-cols-2 gap-2">
-                            {/* Solo Mode */}
                             <button
                               type="button"
                               onClick={() => setShareMode('solo')}
-                              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                                shareMode === 'solo'
-                                  ? 'bg-indigo-50/80 dark:bg-indigo-950/30 border-indigo-500 text-indigo-950 dark:text-indigo-300 shadow-xs ring-1 ring-indigo-500'
-                                  : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300'
-                              }`}
+                              className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-neutral-900 border border-indigo-200 dark:border-indigo-800 cursor-pointer"
                             >
-                              <div className="flex items-center justify-between w-full">
-                                <span className="text-base">⚡</span>
-                                {shareMode === 'solo' && (
-                                  <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 flex items-center justify-center">
-                                    <Check className="w-2 h-2 text-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="mt-1">
-                                <p className="text-[10px] font-black leading-tight">Solo (Binafsi)</p>
-                                <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">Moja kwa moja • 100%</p>
-                              </div>
-                            </button>
-
-                            {/* PapoShare Mode */}
-                            <button
-                              type="button"
-                              onClick={() => setShareMode('share')}
-                              className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
-                                shareMode === 'share'
-                                  ? 'bg-purple-50/80 dark:bg-purple-950/30 border-purple-500 text-purple-950 dark:text-purple-300 shadow-xs ring-1 ring-purple-500'
-                                  : 'bg-neutral-50 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between w-full">
-                                <span className="text-base">🤝</span>
-                                {shareMode === 'share' && (
-                                  <div className="w-3.5 h-3.5 rounded-full bg-purple-600 flex items-center justify-center">
-                                    <Check className="w-2 h-2 text-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="mt-1">
-                                <p className="text-[10px] font-black leading-tight text-purple-700 dark:text-purple-300">PapoShare (Gawana)</p>
-                                <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-black">Punguzo la Bei</p>
-                              </div>
+                              Badili kuwa Solo
                             </button>
                           </div>
 
                           {/* PapoShare Details & Sub-Options */}
-                          {shareMode === 'share' && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="space-y-2.5"
-                            >
+                          <div className="space-y-2.5">
                               {/* 2-Option Switch: Automatic Match vs PapoShare Stendi */}
                               <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 border border-purple-500/20">
                                 <button
@@ -5338,8 +5311,7 @@ const getEndPin = (etaText: string) => {
                                   }}
                                 />
                               )}
-                            </motion.div>
-                          )}
+                          </div>
                         </div>
                       ) : selectedRide.id === 'bike' ? (
                         <div className="space-y-2">
@@ -5536,55 +5508,22 @@ const getEndPin = (etaText: string) => {
                   {/* Modernization Options (Scheduled Rides, Multi-Stops, Loyalty Rewards) */}
                   {destination && (
                     <div className={`p-3.5 rounded-2xl border space-y-3 transition-all ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800' : 'bg-neutral-50 border-neutral-200/80'}`}>
-                      {/* Top Bar Tabs: Instant vs Scheduled */}
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <div className="flex items-center gap-2">
+                      {/* Compact Scheduled Banner (Choice was already made on landing - zero scroll) */}
+                      {isScheduled && (
+                        <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${
+                          theme === 'dark' ? 'bg-indigo-950/40 border-indigo-900/60 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                            <span>📅 Safari ya Miadi: {scheduledDate} saa {scheduledTime}</span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => setIsScheduled(false)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                              !isScheduled
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : (theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200/70 text-neutral-600')
-                            }`}
+                            className="text-[10px] font-black text-rose-500 hover:underline shrink-0"
                           >
-                            ⚡ Sasa Hivi
+                            Badili kuwa Saiv
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsScheduled(true)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                              isScheduled
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : (theme === 'dark' ? 'bg-neutral-800 text-neutral-400' : 'bg-neutral-200/70 text-neutral-600')
-                            }`}
-                          >
-                            📅 Weka Miadi (Schedule)
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Scheduled Date/Time Picker */}
-                      {isScheduled && (
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div>
-                            <label className="text-[9px] font-black text-neutral-400 uppercase tracking-wider block mb-1">Tarehe ya Safari</label>
-                            <input
-                              type="date"
-                              value={scheduledDate}
-                              onChange={(e) => setScheduledDate(e.target.value)}
-                              className={`w-full p-2 rounded-xl text-xs font-bold border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'}`}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[9px] font-black text-neutral-400 uppercase tracking-wider block mb-1">Saa ya Safari</label>
-                            <input
-                              type="time"
-                              value={scheduledTime}
-                              onChange={(e) => setScheduledTime(e.target.value)}
-                              className={`w-full p-2 rounded-xl text-xs font-bold border ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'}`}
-                            />
-                          </div>
                         </div>
                       )}
 
@@ -5796,134 +5735,253 @@ const getEndPin = (etaText: string) => {
               )}
 
               {(isMinimized || isMapFullscreen) && (
-                <div className="w-full flex flex-col gap-2.5">
-                  {/* 2-Mode Selector: Solo (Binafsi) vs PapoShare (Gawana) - Direct choice upon opening the app (Akiingia achague) */}
+                <div className="w-full flex flex-col gap-2">
+                  {/* Landing Choice Section (Kadi za Uchaguzi Wakati wa Kuingia): Saiv vs Badae & Solo vs PapoShare */}
                   {!destination && (
-                    <div className="grid grid-cols-2 gap-2.5 w-full">
-                      {/* Solo (Binafsi) Card */}
-                      <motion.button
-                        type="button"
-                        whileTap={{ scale: 0.97 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShareMode('solo');
-                        }}
-                        className={`p-3 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none ${
-                          shareMode === 'solo'
-                            ? 'bg-[#f5f6ff] dark:bg-indigo-950/40 border-2 border-[#5046E5] dark:border-indigo-500 shadow-[0_4px_16px_rgba(80,70,229,0.15)] ring-1 ring-indigo-500/30'
-                            : (theme === 'dark'
-                                ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
-                                : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="text-xl">⚡</span>
-                          {shareMode === 'solo' && (
-                            <div className="w-5 h-5 rounded-full bg-[#5046E5] flex items-center justify-center shadow-xs">
-                              <Check className="w-3 h-3 text-white stroke-[3]" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-2">
-                          <p className="text-xs sm:text-sm font-black text-neutral-900 dark:text-white leading-tight">
-                            Solo (Binafsi)
-                          </p>
-                          <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5">
-                            Moja kwa moja • 100%
-                          </p>
-                        </div>
-                      </motion.button>
+                    <div className="flex flex-col gap-2 w-full">
+                      {/* Timing Choice Segmented Control: Saiv (Sasa hivi) vs Badae (Weka Miadi) */}
+                      <div className={`p-1 rounded-2xl border shadow-xs flex items-center gap-1 ${
+                        theme === 'dark' ? 'bg-[#15151e]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/90'
+                      }`}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsScheduled(false);
+                          }}
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            !isScheduled
+                              ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
+                              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Zap className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Saiv (Sasa Hivi)</span>
+                          <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full ${!isScheduled ? 'bg-white/20 text-white' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
+                            Papohapo
+                          </span>
+                        </button>
 
-                      {/* PapoShare (Gawana) Card */}
-                      <motion.button
-                        type="button"
-                        whileTap={{ scale: 0.97 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShareMode('share');
-                          if (selectedRide && selectedRide.id !== 'bajaj' && selectedRide.id !== 'mini') {
-                            const poolingOption = rideOptions.find(r => r.id === 'bajaj') || rideOptions.find(r => r.id === 'mini');
-                            if (poolingOption) setSelectedRide(poolingOption);
-                          }
-                        }}
-                        className={`p-3 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none ${
-                          shareMode === 'share'
-                            ? 'bg-[#faf5ff] dark:bg-purple-950/40 border-2 border-purple-600 dark:border-purple-500 shadow-[0_4px_16px_rgba(147,51,234,0.15)] ring-1 ring-purple-500/30'
-                            : (theme === 'dark'
-                                ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
-                                : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="text-xl">🤝</span>
-                          {shareMode === 'share' && (
-                            <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center shadow-xs">
-                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsScheduled(true);
+                          }}
+                          className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isScheduled
+                              ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-500/50'
+                              : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Calendar className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Badae (Miadi)</span>
+                          <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded-full ${isScheduled ? 'bg-white/20 text-white' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'}`}>
+                            Panga Safari
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Compact Inline Schedule Picker (Only visible when Badae is selected - zero scroll) */}
+                      {isScheduled && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className={`p-2 rounded-2xl border shadow-xs flex flex-col gap-1.5 ${
+                            theme === 'dark' ? 'bg-[#15151e]/90 border-indigo-900/60' : 'bg-indigo-50/70 border-indigo-200/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="date"
+                              value={scheduledDate}
+                              onChange={(e) => setScheduledDate(e.target.value)}
+                              className={`p-1.5 rounded-lg text-[10.5px] font-bold border outline-none flex-1 min-w-0 ${
+                                theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'
+                              }`}
+                            />
+                            <input
+                              type="time"
+                              value={scheduledTime}
+                              onChange={(e) => setScheduledTime(e.target.value)}
+                              className={`p-1.5 rounded-lg text-[10.5px] font-bold border outline-none w-20 shrink-0 ${
+                                theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-200' : 'bg-white border-neutral-300 text-neutral-800'
+                              }`}
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickSchedule(15)}
+                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
+                            >
+                              +15 dk
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickSchedule(30)}
+                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
+                            >
+                              +30 dk
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickSchedule(60)}
+                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
+                            >
+                              +1 saa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleTomorrowSchedule("08:00")}
+                              className="px-2 py-0.5 rounded-md bg-white dark:bg-neutral-900 border border-indigo-200/80 dark:border-indigo-800/80 text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 shrink-0 active:scale-95 transition-all"
+                            >
+                              Kesho 08:00
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {/* 2-Mode Selector Cards: Solo (Binafsi) vs PapoShare (Gawana) with SMALL icons and sleek design */}
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        {/* Solo (Binafsi) Card */}
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShareMode('solo');
+                          }}
+                          className={`p-2.5 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
+                            shareMode === 'solo'
+                              ? 'bg-[#f5f6ff] dark:bg-indigo-950/40 border-2 border-[#5046E5] dark:border-indigo-500 shadow-[0_4px_16px_rgba(80,70,229,0.12)] ring-1 ring-indigo-500/20'
+                              : (theme === 'dark'
+                                  ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
+                                  : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                              shareMode === 'solo'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400'
+                            }`}>
+                              <Zap className="w-3.5 h-3.5 stroke-[2.5]" />
                             </div>
-                          )}
-                        </div>
-                        <div className="mt-2">
-                          <p className="text-xs sm:text-sm font-black text-purple-700 dark:text-purple-300 leading-tight">
-                            PapoShare (Gawana)
-                          </p>
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-black mt-0.5">
-                            Punguzo la Bei
-                          </p>
-                        </div>
-                      </motion.button>
+                            {shareMode === 'solo' && (
+                              <div className="w-4 h-4 rounded-full bg-[#5046E5] flex items-center justify-center shadow-xs">
+                                <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1.5">
+                            <p className="text-[11.5px] font-black text-neutral-900 dark:text-white leading-tight">
+                              Solo (Binafsi)
+                            </p>
+                            <p className="text-[9px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5 truncate">
+                              Moja kwa moja • 100%
+                            </p>
+                          </div>
+                        </motion.button>
+
+                        {/* PapoShare (Gawana) Card */}
+                        <motion.button
+                          type="button"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShareMode('share');
+                            if (selectedRide && selectedRide.id !== 'bajaj' && selectedRide.id !== 'mini') {
+                              const poolingOption = rideOptions.find(r => r.id === 'bajaj') || rideOptions.find(r => r.id === 'mini');
+                              if (poolingOption) setSelectedRide(poolingOption);
+                            }
+                          }}
+                          className={`p-2.5 rounded-2xl text-left flex flex-col justify-between transition-all cursor-pointer shadow-xs select-none relative overflow-hidden ${
+                            shareMode === 'share'
+                              ? 'bg-[#faf5ff] dark:bg-purple-950/40 border-2 border-purple-600 dark:border-purple-500 shadow-[0_4px_16px_rgba(147,51,234,0.12)] ring-1 ring-purple-500/20'
+                              : (theme === 'dark'
+                                  ? 'bg-[#15151e]/95 border border-neutral-800 hover:border-neutral-700'
+                                  : 'bg-white/95 border border-neutral-200/90 hover:border-neutral-300')
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                              shareMode === 'share'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-400'
+                            }`}>
+                              <Users className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </div>
+                            {shareMode === 'share' && (
+                              <div className="w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center shadow-xs">
+                                <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-1.5">
+                            <p className="text-[11.5px] font-black text-purple-700 dark:text-purple-300 leading-tight">
+                              PapoShare (Gawana)
+                            </p>
+                            <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-black mt-0.5 truncate">
+                              Punguzo hadi 35%
+                            </p>
+                          </div>
+                        </motion.button>
+                      </div>
+
+                      {/* If PapoShare is chosen on landing, display compact sub-options (Auto-match vs PapoShare Stendi) */}
+                      {shareMode === 'share' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -2, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/25"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPapoShareSubOption('auto');
+                            }}
+                            className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                              papoShareSubOption === 'auto'
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'text-neutral-700 dark:text-neutral-300 hover:bg-purple-500/10'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9.5px] font-black leading-tight">🔵 Auto Match</span>
+                              {papoShareSubOption === 'auto' && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'auto' ? 'text-purple-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                              Partner njiani
+                            </p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPapoShareSubOption('stendi');
+                            }}
+                            className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
+                              papoShareSubOption === 'stendi'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-neutral-700 dark:text-neutral-300 hover:bg-emerald-500/10'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9.5px] font-black leading-tight">🟢 PapoShare Stendi</span>
+                              {papoShareSubOption === 'stendi' && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'stendi' ? 'text-emerald-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                              Gari lililopo kituoni
+                            </p>
+                          </button>
+                        </motion.div>
+                      )}
                     </div>
-                  )}
-
-                  {/* If PapoShare is chosen on landing, display sub-options (Auto-match vs PapoShare Stendi) */}
-                  {!destination && shareMode === 'share' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, height: 0 }}
-                      animate={{ opacity: 1, y: 0, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/25"
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPapoShareSubOption('auto');
-                        }}
-                        className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
-                          papoShareSubOption === 'auto'
-                            ? 'bg-purple-600 text-white shadow-xs'
-                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-purple-500/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black leading-tight">🔵 Auto Match</span>
-                          {papoShareSubOption === 'auto' && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'auto' ? 'text-purple-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                          Partner wa kuelekea naye
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPapoShareSubOption('stendi');
-                        }}
-                        className={`py-1.5 px-2.5 rounded-xl text-left transition-all cursor-pointer ${
-                          papoShareSubOption === 'stendi'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-emerald-500/10'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black leading-tight">🟢 PapoShare Stendi</span>
-                          {papoShareSubOption === 'stendi' && <Check className="w-3 h-3 text-white" />}
-                        </div>
-                        <p className={`text-[8px] mt-0.5 leading-tight ${papoShareSubOption === 'stendi' ? 'text-emerald-100' : 'text-neutral-500 dark:text-neutral-400'}`}>
-                          Panda gari lililopo kituoni
-                        </p>
-                      </button>
-                    </motion.div>
                   )}
 
                   {/* Search Destination Pill */}
