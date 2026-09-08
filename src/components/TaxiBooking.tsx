@@ -2603,38 +2603,39 @@ const getEndPin = (etaText: string) => {
   const getStandRouteMarkerPin = (route: StandPoolingRoute) => {
     const isDark = theme === "dark";
     const vehicleEmoji = route.vehicleType === 'boda' ? '🏍️' : route.vehicleType === 'bajaj' ? '🛺' : '🚗';
-    const seatsBadge = `${route.availableSeats} viti`;
-    const routeName = `${(route.standLocation.name || 'Stendi').split(',')[0]} ➔ ${(route.destination.name || 'Mwisho').split(',')[0]}`;
-    const priceDisplay = route.pricingModel === 'custom_fixed'
-      ? `TZS ${route.fixedPricePerSeat?.toLocaleString()}`
-      : `TZS ${(route.systemFarePerSeat || 2500).toLocaleString()}`;
-    const departureText = route.departureEstimate === 'when_full' ? '⚡ Likijaa' : (route.departureTimeText || '⏱️ Haraka');
+    const seats = Number(route.availableSeats) || 1;
+    const fare = route.pricingModel === 'custom_fixed'
+      ? (route.fixedPricePerSeat || 0)
+      : (route.systemFarePerSeat || 2500);
+    const shortFare = fare >= 1000
+      ? `${(fare / 1000).toFixed(fare % 1000 === 0 ? 0 : 1)}k`
+      : `${fare}`;
 
     return L.divIcon({
       className: "custom-stand-marker-pin",
       html: `
-        <div class="relative flex flex-col items-center select-none cursor-pointer transform hover:scale-105 transition-all" style="width: 155px;">
-          <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white rounded-full text-[8px] font-black uppercase tracking-wider shadow-lg border border-white/60 whitespace-nowrap">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping"></span>
-            <span>${vehicleEmoji} STENDI: ${seatsBadge}</span>
+        <div class="relative flex flex-col items-center select-none cursor-pointer group transform hover:scale-110 active:scale-95 transition-transform" style="width: 56px; height: 26px;">
+          <!-- Compact Sleek Pill -->
+          <div class="flex items-center justify-between gap-1 px-1.5 py-0.5 w-full rounded-full ${
+            isDark
+              ? 'bg-[#12121a]/95 text-white border-emerald-500/80 shadow-[0_2px_8px_rgba(0,0,0,0.6)]'
+              : 'bg-white text-slate-900 border-emerald-600 shadow-md'
+          } border-[1.5px] whitespace-nowrap">
+            <span class="text-[11px] leading-none">${vehicleEmoji}</span>
+            <span class="text-[9px] font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none">${shortFare}</span>
+            <span class="inline-flex items-center justify-center min-w-[13px] h-[13px] px-0.5 rounded-full bg-emerald-500 text-[7px] font-black text-white leading-none">
+              ${seats}
+            </span>
           </div>
-          <div class="w-full mt-1 ${isDark ? 'bg-[#161622] text-white border-emerald-500/40' : 'bg-white text-slate-900 border-emerald-500/50'} border-2 rounded-xl p-1.5 shadow-xl flex flex-col gap-0.5">
-            <div class="flex items-center justify-between text-[7.5px] font-bold">
-              <span class="text-neutral-400 truncate max-w-[85px]">${route.driverName}</span>
-              <span class="text-emerald-500 font-black">${priceDisplay}</span>
-            </div>
-            <span class="text-[8.5px] font-black truncate">${routeName}</span>
-            <div class="flex items-center justify-between text-[7px] text-amber-500 font-bold pt-0.5 border-t border-neutral-100 dark:border-neutral-800">
-              <span class="truncate max-w-[90px]">${departureText}</span>
-              <span class="text-emerald-500 underline font-black shrink-0">Weka ➔</span>
-            </div>
-          </div>
-          <div class="w-2.5 h-2.5 ${isDark ? 'bg-[#161622]' : 'bg-white'} rotate-45 -mt-1.5 border-r-2 border-b-2 border-emerald-500/40 shadow-xs"></div>
+          <!-- Pointer tip -->
+          <div class="w-1.5 h-1.5 ${
+            isDark ? 'bg-[#12121a] border-r-[1.5px] border-b-[1.5px] border-emerald-500/80' : 'bg-white border-r-[1.5px] border-b-[1.5px] border-emerald-600'
+          } rotate-45 -mt-0.5 shadow-xs"></div>
         </div>
       `,
-      iconSize: [155, 72],
-      iconAnchor: [77, 72],
-      popupAnchor: [0, -68]
+      iconSize: [56, 26],
+      iconAnchor: [28, 26],
+      popupAnchor: [0, -28]
     });
   };
 
@@ -4143,68 +4144,86 @@ const getEndPin = (etaText: string) => {
                         ))}
 
                     {/* Live PapoShare Stendi Vehicle & Stand Markers on Map */}
-                    {(step === "home" || step === "map") &&
-                      activeStandRoutes
+                    {(step === "home" || step === "map") && (() => {
+                      const standCoordCounts: Record<string, number> = {};
+                      return activeStandRoutes
                         .filter((stRoute) => !activeStandTrip || stRoute.id !== activeStandTrip.route.id)
                         .map((stRoute) => {
-                        if (!stRoute.standLocation?.lat || !stRoute.standLocation?.lng) return null;
-                        return (
-                          <Marker
-                            key={`stand-route-${stRoute.id || stRoute.driverId}`}
-                            position={[stRoute.standLocation.lat, stRoute.standLocation.lng]}
-                            icon={getStandRouteMarkerPin(stRoute)}
-                            eventHandlers={{
-                              click: () => {
-                                setSelectedMapStandRoute(stRoute);
-                              }
-                            }}
-                          >
-                            <Popup className="custom-stendi-popup" closeButton={true}>
-                              <div className="p-2 min-w-[210px] text-slate-900 space-y-1.5 font-sans">
-                                <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
-                                  <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
-                                    <span>{stRoute.vehicleType === 'boda' ? '🏍️ Pikipiki' : stRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}</span>
-                                    <span>• {stRoute.vehiclePlate || 'T 240 ABC'}</span>
-                                  </span>
-                                  <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full">
-                                    {stRoute.availableSeats} viti vimebaki
-                                  </span>
+                          if (!stRoute.standLocation?.lat || !stRoute.standLocation?.lng) return null;
+                          const baseLat = stRoute.standLocation.lat;
+                          const baseLng = stRoute.standLocation.lng;
+                          const keyCoord = `${baseLat.toFixed(4)},${baseLng.toFixed(4)}`;
+                          const countAtLoc = standCoordCounts[keyCoord] || 0;
+                          standCoordCounts[keyCoord] = countAtLoc + 1;
+
+                          // Micro dispersion offset so multiple drivers at the same station don't overlap
+                          let posLat = baseLat;
+                          let posLng = baseLng;
+                          if (countAtLoc > 0) {
+                            const angle = (countAtLoc * 1.1) * Math.PI;
+                            const radius = 0.0002; // ~20 meters
+                            posLat += Math.cos(angle) * radius;
+                            posLng += Math.sin(angle) * radius;
+                          }
+
+                          return (
+                            <Marker
+                              key={`stand-route-${stRoute.id || stRoute.driverId}`}
+                              position={[posLat, posLng]}
+                              icon={getStandRouteMarkerPin(stRoute)}
+                              eventHandlers={{
+                                click: () => {
+                                  setSelectedMapStandRoute(stRoute);
+                                }
+                              }}
+                            >
+                              <Popup className="custom-stendi-popup" closeButton={true}>
+                                <div className="p-2 min-w-[210px] text-slate-900 space-y-1.5 font-sans">
+                                  <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
+                                    <span className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-1">
+                                      <span>{stRoute.vehicleType === 'boda' ? '🏍️ Pikipiki' : stRoute.vehicleType === 'bajaj' ? '🛺 Bajaji' : '🚗 Mini'}</span>
+                                      <span>• {stRoute.vehiclePlate || 'T 240 ABC'}</span>
+                                    </span>
+                                    <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full">
+                                      {stRoute.availableSeats} viti vimebaki
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] font-black leading-tight text-neutral-900">
+                                    {stRoute.standLocation.name} ➔ {stRoute.destination.name}
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-neutral-500">Dereva: <b>{stRoute.driverName}</b></span>
+                                    <span className="text-emerald-700 font-black">
+                                      TZS {(stRoute.pricingModel === 'custom_fixed' ? stRoute.fixedPricePerSeat : (stRoute.systemFarePerSeat || 2500))?.toLocaleString()} / kiti
+                                    </span>
+                                  </div>
+                                  <div className="text-[9.5px] text-amber-800 font-bold bg-amber-50 border border-amber-200 p-1.5 rounded-lg flex items-center gap-1">
+                                    <span>⏰</span>
+                                    <span>{stRoute.departureTimeText || '⚡ Huondoka likijaa tu'}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPickup(stRoute.standLocation.name);
+                                      setPickupPos([stRoute.standLocation.lat, stRoute.standLocation.lng]);
+                                      setDestination(stRoute.destination.name);
+                                      setDestPos([stRoute.destination.lat, stRoute.destination.lng]);
+                                      setShareMode('share');
+                                      setPapoShareSubOption('stendi');
+                                      setSelectedMapStandRoute(null);
+                                      setStep('map');
+                                      toast.success(`Umechagua kujiunga na gari la ${stRoute.driverName} kuelekea ${stRoute.destination.name}`);
+                                    }}
+                                    className="w-full mt-1.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[10.5px] font-black uppercase tracking-wider text-center shadow-md cursor-pointer transition-all active:scale-95"
+                                  >
+                                    CHAGUA SAFARI HII ➔
+                                  </button>
                                 </div>
-                                <div className="text-[11px] font-black leading-tight text-neutral-900">
-                                  {stRoute.standLocation.name} ➔ {stRoute.destination.name}
-                                </div>
-                                <div className="flex items-center justify-between text-[10px]">
-                                  <span className="text-neutral-500">Dereva: <b>{stRoute.driverName}</b></span>
-                                  <span className="text-emerald-700 font-black">
-                                    TZS {(stRoute.pricingModel === 'custom_fixed' ? stRoute.fixedPricePerSeat : (stRoute.systemFarePerSeat || 2500))?.toLocaleString()} / kiti
-                                  </span>
-                                </div>
-                                <div className="text-[9.5px] text-amber-800 font-bold bg-amber-50 border border-amber-200 p-1.5 rounded-lg flex items-center gap-1">
-                                  <span>⏰</span>
-                                  <span>{stRoute.departureTimeText || '⚡ Huondoka likijaa tu'}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPickup(stRoute.standLocation.name);
-                                    setPickupPos([stRoute.standLocation.lat, stRoute.standLocation.lng]);
-                                    setDestination(stRoute.destination.name);
-                                    setDestPos([stRoute.destination.lat, stRoute.destination.lng]);
-                                    setShareMode('share');
-                                    setPapoShareSubOption('stendi');
-                                    setSelectedMapStandRoute(null);
-                                    setStep('map');
-                                    toast.success(`Umechagua kujiunga na gari la ${stRoute.driverName} kuelekea ${stRoute.destination.name}`);
-                                  }}
-                                  className="w-full mt-1.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[10.5px] font-black uppercase tracking-wider text-center shadow-md cursor-pointer transition-all active:scale-95"
-                                >
-                                  CHAGUA SAFARI HII ➔
-                                </button>
-                              </div>
-                            </Popup>
-                          </Marker>
-                        );
-                      })}
+                              </Popup>
+                            </Marker>
+                          );
+                        });
+                    })()}
 
                     {/* Active PapoShare Stendi Trip Route & Live Driver / Stop Markers */}
                     {activeStandTrip && activeStandTrip.route.status !== 'completed' && activeStandTrip.passenger?.status !== 'completed' && activeStandTrip.passenger?.status !== 'dropped_off' && (() => {
