@@ -567,25 +567,64 @@ export async function dropoffStandPassenger(
 }
 
 /**
- * Driver updates live GPS location on stand route
+ * Driver updates live GPS location on stand route.
+ * Resiliently updates stand_pooling_routes by route ID and/or driver ID,
+ * and also updates the universal drivers collection location for zero-latency tracking.
  */
 export async function updateStandDriverLocation(
-  driverId: string,
-  location: { lat: number; lng: number; heading?: number }
+  routeIdOrDriverId: string,
+  location: { lat: number; lng: number; heading?: number },
+  secondaryId?: string
 ): Promise<void> {
-  const routeRef = doc(db, 'stand_pooling_routes', driverId);
+  if (!routeIdOrDriverId && !secondaryId) return;
+
+  const locPayload = {
+    driverLocation: {
+      lat: location.lat,
+      lng: location.lng,
+      heading: location.heading ?? 0,
+      timestamp: new Date().toISOString()
+    },
+    updatedAt: serverTimestamp()
+  };
+
+  const tasks: Promise<any>[] = [];
+
+  if (routeIdOrDriverId) {
+    const routeRef = doc(db, 'stand_pooling_routes', routeIdOrDriverId);
+    tasks.push(setDoc(routeRef, locPayload, { merge: true }));
+  }
+
+  if (secondaryId && secondaryId !== routeIdOrDriverId) {
+    const secRef = doc(db, 'stand_pooling_routes', secondaryId);
+    tasks.push(setDoc(secRef, locPayload, { merge: true }));
+  }
+
+  // Also update universal drivers collection so any rider listening to driver GPS receives it immediately
+  const driverUid = secondaryId || routeIdOrDriverId;
+  if (driverUid) {
+    const driverRef = doc(db, 'drivers', driverUid);
+    tasks.push(
+      setDoc(
+        driverRef,
+        {
+          location: {
+            lat: location.lat,
+            lng: location.lng,
+            heading: location.heading ?? 0
+          },
+          lastActive: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      )
+    );
+  }
+
   try {
-    await updateDoc(routeRef, {
-      driverLocation: {
-        lat: location.lat,
-        lng: location.lng,
-        heading: location.heading ?? 0,
-        timestamp: new Date().toISOString()
-      },
-      updatedAt: serverTimestamp()
-    });
+    await Promise.all(tasks);
   } catch (err) {
-    // Non-critical, ignore if route closed
+    console.warn("Stand driver location update warning:", err);
   }
 }
 

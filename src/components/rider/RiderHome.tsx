@@ -653,14 +653,18 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
           setVehicleHeading(bearing);
           setPosition(nextCoord);
 
-          const driverUid = user?.uid || (profile as any)?.id;
+          const driverUid = activeDriverStandRoute.driverId || user?.uid || (profile as any)?.id;
           if (driverUid) {
             try {
-              await updateStandDriverLocation(driverUid, {
-                lat: nextCoord[0],
-                lng: nextCoord[1],
-                heading: bearing
-              });
+              await updateStandDriverLocation(
+                activeDriverStandRoute.id,
+                {
+                  lat: nextCoord[0],
+                  lng: nextCoord[1],
+                  heading: bearing
+                },
+                driverUid
+              );
             } catch (e) {
               console.warn("Sync stand driver location failed:", e);
             }
@@ -673,7 +677,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
     }, 1200);
 
     return () => clearInterval(simInterval);
-  }, [isStandSimulating, activeDriverStandRoute?.status, standRouteRoadCoords, user?.uid, (profile as any)?.id]);
+  }, [isStandSimulating, activeDriverStandRoute?.id, activeDriverStandRoute?.driverId, activeDriverStandRoute?.status, standRouteRoadCoords, user?.uid, (profile as any)?.id]);
 
   const [showMapToolsMenu, setShowMapToolsMenu] = useState(false);
   const [activePromoTab, setActivePromoTab] = useState<'bonus' | 'streetHail' | 'stendi'>('bonus');
@@ -841,6 +845,32 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
     }
     setRideIdState(id);
   }, []);
+
+  // Continuous real-time location sync for active Stand Route (covers GPS, simulator, test, and manual movement)
+  const lastStandSyncRef = useRef<{ lat: number; lng: number; time: number }>({ lat: 0, lng: 0, time: 0 });
+  useEffect(() => {
+    if (!activeDriverStandRoute || (activeDriverStandRoute.status !== 'started' && activeDriverStandRoute.status !== 'boarding')) {
+      return;
+    }
+    const curLat = position[0];
+    const curLng = position[1];
+    if (!curLat || !curLng) return;
+
+    const now = Date.now();
+    const prev = lastStandSyncRef.current;
+    const dMeters = Math.hypot((curLat - prev.lat) * 111000, (curLng - prev.lng) * 111000);
+
+    // Sync whenever driver moves (> 0.5m) or at least once every 3.5s
+    if (dMeters >= 0.5 || now - prev.time >= 3500) {
+      lastStandSyncRef.current = { lat: curLat, lng: curLng, time: now };
+      const driverUid = activeDriverStandRoute.driverId || user?.uid || (profile as any)?.id;
+      updateStandDriverLocation(
+        activeDriverStandRoute.id,
+        { lat: curLat, lng: curLng, heading: vehicleHeading },
+        driverUid
+      );
+    }
+  }, [position[0], position[1], vehicleHeading, activeDriverStandRoute?.id, activeDriverStandRoute?.driverId, activeDriverStandRoute?.status, user?.uid, (profile as any)?.id]);
 
   const { ride: activeRide } = useRideStatus(rideId);
   const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
@@ -1984,7 +2014,12 @@ const getEndPin = (etaText: string) => {
               }
 
               if (activeDriverStandRoute && (activeDriverStandRoute.status === 'started' || activeDriverStandRoute.status === 'boarding')) {
-                updateStandDriverLocation(user.uid, { lat: loc.lat, lng: loc.lng, heading: currentBearing });
+                const driverUid = activeDriverStandRoute.driverId || user?.uid || (profile as any)?.id;
+                updateStandDriverLocation(
+                  activeDriverStandRoute.id,
+                  { lat: loc.lat, lng: loc.lng, heading: currentBearing },
+                  driverUid
+                );
               }
 
               try {

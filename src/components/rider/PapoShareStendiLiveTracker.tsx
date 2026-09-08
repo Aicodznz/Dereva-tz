@@ -20,10 +20,13 @@ import {
 } from 'lucide-react';
 import { StandPoolingRoute, StandPassenger, cancelStandPassengerSeat } from '../../services/standPoolingService';
 import { toast } from 'sonner';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface PapoShareStendiLiveTrackerProps {
   route: StandPoolingRoute;
   passenger: StandPassenger;
+  liveDriverPos?: { lat: number; lng: number; heading?: number } | null;
   onCenterMap?: () => void;
   onCancelBooking?: () => void;
   onCloseOrFinish?: () => void;
@@ -48,6 +51,7 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): 
 export default function PapoShareStendiLiveTracker({
   route,
   passenger,
+  liveDriverPos,
   onCenterMap,
   onCancelBooking,
   onCloseOrFinish,
@@ -59,6 +63,32 @@ export default function PapoShareStendiLiveTracker({
   const [nowMs, setNowMs] = useState(Date.now());
   const [isCancelling, setIsCancelling] = useState(false);
   const [autoDismissSeconds, setAutoDismissSeconds] = useState<number | null>(null);
+
+  // Real-time listener for driver location fallback directly from drivers collection
+  const [internalDriverPos, setInternalDriverPos] = useState<{ lat: number; lng: number; heading?: number } | null>(null);
+
+  useEffect(() => {
+    if (liveDriverPos) {
+      setInternalDriverPos(liveDriverPos);
+      return;
+    }
+    const driverUid = route.driverId;
+    if (!driverUid) return;
+
+    const unsub = onSnapshot(doc(db, 'drivers', driverUid), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        const pos = d.location || d.currentPosition;
+        if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+          setInternalDriverPos({ lat: pos.lat, lng: pos.lng, heading: pos.heading ?? 0 });
+        }
+      }
+    }, (err) => {
+      console.warn("Stand live tracker driver listener:", err);
+    });
+
+    return () => unsub();
+  }, [liveDriverPos, route.driverId]);
 
   const isTripStarted = route.status === 'started';
   const isThisPassengerDroppedOff = passenger.status === 'dropped_off';
@@ -116,8 +146,8 @@ export default function PapoShareStendiLiveTracker({
 
   // Distance & ETA calculation from driver location to passenger dropoff
   const { distanceKm, etaMinutes } = useMemo(() => {
-    const driverLat = route.driverLocation?.lat ?? route.standLocation.lat;
-    const driverLng = route.driverLocation?.lng ?? route.standLocation.lng;
+    const driverLat = liveDriverPos?.lat ?? internalDriverPos?.lat ?? route.driverLocation?.lat ?? route.standLocation.lat;
+    const driverLng = liveDriverPos?.lng ?? internalDriverPos?.lng ?? route.driverLocation?.lng ?? route.standLocation.lng;
     const targetLat = passenger.dropoffLat ?? route.destination.lat;
     const targetLng = passenger.dropoffLng ?? route.destination.lng;
 
@@ -128,7 +158,7 @@ export default function PapoShareStendiLiveTracker({
       distanceKm: dist.toFixed(1),
       etaMinutes: etaMin
     };
-  }, [route.driverLocation, route.standLocation, passenger.dropoffLat, passenger.dropoffLng, route.destination]);
+  }, [liveDriverPos, internalDriverPos, route.driverLocation, route.standLocation, passenger.dropoffLat, passenger.dropoffLng, route.destination]);
 
   // Departure countdown string if waiting at stand
   const countdownText = useMemo(() => {

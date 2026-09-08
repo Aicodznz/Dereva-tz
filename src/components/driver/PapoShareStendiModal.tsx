@@ -17,6 +17,7 @@ import {
   createOrUpdateStandRoute, 
   listenDriverActiveStandRoute, 
   updateStandRouteStatus,
+  updateStandDriverLocation,
   dropoffStandPassenger,
   calculateStandSystemKmFare,
   getDistanceKm
@@ -318,15 +319,43 @@ export default function PapoShareStendiModal({
     }
   };
 
+  // Real-time GPS sync while modal is open and trip is active
+  const lastModalSyncRef = useRef<{ lat: number; lng: number; time: number }>({ lat: 0, lng: 0, time: 0 });
+  useEffect(() => {
+    if (!activeRoute || (activeRoute.status !== 'started' && activeRoute.status !== 'boarding') || !currentGpsPosition) {
+      return;
+    }
+    const curLat = currentGpsPosition[0];
+    const curLng = currentGpsPosition[1];
+    if (!curLat || !curLng) return;
+
+    const now = Date.now();
+    const prev = lastModalSyncRef.current;
+    const dMeters = Math.hypot((curLat - prev.lat) * 111000, (curLng - prev.lng) * 111000);
+
+    if (dMeters >= 0.5 || now - prev.time >= 3500) {
+      lastModalSyncRef.current = { lat: curLat, lng: curLng, time: now };
+      updateStandDriverLocation(
+        activeRoute.id,
+        { lat: curLat, lng: curLng, heading: 0 },
+        driverId
+      );
+    }
+  }, [currentGpsPosition?.[0], currentGpsPosition?.[1], activeRoute?.id, activeRoute?.status, driverId]);
+
   const handleStartTrip = async () => {
     if (!activeRoute) return;
     try {
       const startLoc = currentGpsPosition
         ? { lat: currentGpsPosition[0], lng: currentGpsPosition[1] }
         : { lat: activeRoute.standLocation.lat, lng: activeRoute.standLocation.lng };
-      await updateStandRouteStatus(driverId, 'started', {
+      
+      const targetRouteId = activeRoute.id || driverId;
+      await updateStandRouteStatus(targetRouteId, 'started', {
         driverLocation: { ...startLoc, heading: 0 }
       });
+      await updateStandDriverLocation(targetRouteId, { ...startLoc, heading: 0 }, driverId);
+
       toast.success("🚀 Safari imeanza! Abiria wote wamearifiwa.");
     } catch (err) {
       toast.error("Imeshindikana kuanza safari.");

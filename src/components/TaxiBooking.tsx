@@ -329,9 +329,11 @@ const isValidCoord = (pos: any): pos is [number, number] => {
 
 const StandTripMapFollower = ({
   activeStandTrip,
+  liveDriverPos,
   trigger,
 }: {
   activeStandTrip: { route: StandPoolingRoute; passenger: StandPassenger } | null;
+  liveDriverPos?: { lat: number; lng: number; heading?: number } | null;
   trigger?: number;
 }) => {
   const map = useMap();
@@ -341,8 +343,8 @@ const StandTripMapFollower = ({
     if (!activeStandTrip) return;
     const r = activeStandTrip.route;
     const p = activeStandTrip.passenger;
-    const driverLat = r.driverLocation?.lat ?? r.standLocation.lat;
-    const driverLng = r.driverLocation?.lng ?? r.standLocation.lng;
+    const driverLat = liveDriverPos?.lat ?? r.driverLocation?.lat ?? r.standLocation.lat;
+    const driverLng = liveDriverPos?.lng ?? r.driverLocation?.lng ?? r.standLocation.lng;
     const dropLat = p?.dropoffLat ?? r.destination.lat;
     const dropLng = p?.dropoffLng ?? r.destination.lng;
 
@@ -361,13 +363,16 @@ const StandTripMapFollower = ({
           duration: 1.2,
         });
       } catch (e) {}
-    } else if (r.status === "started" && r.driverLocation) {
+    } else if (r.status === "started") {
       try {
         map.panTo([driverLat, driverLng], { animate: true, duration: 0.8 });
       } catch (e) {}
     }
   }, [
     activeStandTrip?.route?.status,
+    activeStandTrip?.route?.id,
+    liveDriverPos?.lat,
+    liveDriverPos?.lng,
     activeStandTrip?.route?.driverLocation?.lat,
     activeStandTrip?.route?.driverLocation?.lng,
     trigger,
@@ -718,6 +723,11 @@ export default function TaxiBooking() {
     route: StandPoolingRoute;
     passenger: StandPassenger;
   } | null>(null);
+  const [standDriverLivePos, setStandDriverLivePos] = useState<{
+    lat: number;
+    lng: number;
+    heading?: number;
+  } | null>(null);
   const [standTripRouteCoords, setStandTripRouteCoords] = useState<[number, number][]>([]);
   const [recenterStandTrigger, setRecenterStandTrigger] = useState<number>(0);
 
@@ -733,6 +743,37 @@ export default function TaxiBooking() {
     return () => unsub();
   }, [user?.uid]);
 
+  // Real-time direct GPS sync for active stand driver from drivers collection
+  useEffect(() => {
+    const driverId = activeStandTrip?.route?.driverId;
+    if (!driverId || activeStandTrip?.route?.status === 'completed' || activeStandTrip?.passenger?.status === 'dropped_off') {
+      setStandDriverLivePos(null);
+      return;
+    }
+
+    const unsub = onSnapshot(
+      doc(db, "drivers", driverId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const pos = data.location || data.currentPosition;
+          if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+            setStandDriverLivePos({
+              lat: pos.lat,
+              lng: pos.lng,
+              heading: pos.heading ?? 0
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn("Stand driver live pos listener error:", err);
+      }
+    );
+
+    return () => unsub();
+  }, [activeStandTrip?.route?.driverId, activeStandTrip?.route?.status, activeStandTrip?.passenger?.status]);
+
   // Road geometry calculation for active stendi trip
   useEffect(() => {
     if (!activeStandTrip) {
@@ -741,8 +782,8 @@ export default function TaxiBooking() {
     }
     const r = activeStandTrip.route;
     const p = activeStandTrip.passenger;
-    const startLat = r.driverLocation?.lat ?? r.standLocation.lat;
-    const startLng = r.driverLocation?.lng ?? r.standLocation.lng;
+    const startLat = r.standLocation.lat;
+    const startLng = r.standLocation.lng;
     const destLat = p?.dropoffLat ?? r.destination.lat;
     const destLng = p?.dropoffLng ?? r.destination.lng;
 
@@ -778,10 +819,11 @@ export default function TaxiBooking() {
     };
   }, [
     activeStandTrip?.route?.id,
-    activeStandTrip?.route?.driverLocation?.lat,
-    activeStandTrip?.route?.driverLocation?.lng,
+    activeStandTrip?.route?.status,
     activeStandTrip?.passenger?.dropoffLat,
     activeStandTrip?.passenger?.dropoffLng,
+    activeStandTrip?.route?.destination?.lat,
+    activeStandTrip?.route?.destination?.lng,
   ]);
 
   const scrollVehicles = (direction: 'left' | 'right') => {
@@ -4040,6 +4082,7 @@ const getEndPin = (etaText: string) => {
                     />
                     <StandTripMapFollower
                       activeStandTrip={activeStandTrip}
+                      liveDriverPos={standDriverLivePos}
                       trigger={recenterStandTrigger}
                     />
                     {(() => {
@@ -4229,9 +4272,9 @@ const getEndPin = (etaText: string) => {
                     {activeStandTrip && activeStandTrip.route.status !== 'completed' && activeStandTrip.passenger?.status !== 'completed' && activeStandTrip.passenger?.status !== 'dropped_off' && (() => {
                       const r = activeStandTrip.route;
                       const p = activeStandTrip.passenger;
-                      const driverLat = r.driverLocation?.lat ?? r.standLocation.lat;
-                      const driverLng = r.driverLocation?.lng ?? r.standLocation.lng;
-                      const heading = r.driverLocation?.heading ?? 0;
+                      const driverLat = standDriverLivePos?.lat ?? r.driverLocation?.lat ?? r.standLocation.lat;
+                      const driverLng = standDriverLivePos?.lng ?? r.driverLocation?.lng ?? r.standLocation.lng;
+                      const heading = standDriverLivePos?.heading ?? r.driverLocation?.heading ?? 0;
 
                       return (
                         <React.Fragment key={`active-stendi-tracking-${r.id}`}>
@@ -4780,6 +4823,7 @@ const getEndPin = (etaText: string) => {
               <PapoShareStendiLiveTracker
                 route={activeStandTrip.route}
                 passenger={activeStandTrip.passenger}
+                liveDriverPos={standDriverLivePos}
                 onCenterMap={() => setRecenterStandTrigger((prev) => prev + 1)}
                 onCancelBooking={() => {
                   try {
