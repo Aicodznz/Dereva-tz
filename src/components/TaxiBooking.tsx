@@ -4800,21 +4800,21 @@ const getEndPin = (etaText: string) => {
               className={`absolute z-[9999] transition-all duration-300 ${
                 isMinimized || isMapFullscreen
                   ? "bottom-6 left-3.5 right-3.5 mx-auto max-w-[390px] sm:max-w-[420px] pointer-events-auto flex flex-col gap-2.5"
-                  : `bottom-0 left-0 right-0 rounded-t-[32px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-5 pb-9 space-y-3.5 ${
+                  : `bottom-0 left-0 right-0 rounded-t-[28px] border-t shadow-[0_-12px_48px_rgba(0,0,0,0.18)] max-h-[78dvh] overflow-y-auto no-scrollbar p-3.5 sm:p-4 pb-7 space-y-2.5 ${
                       theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90'
                     }`
               }`}
             >
               {!isMinimized && !isMapFullscreen && (
                 <div
-                  className="w-full flex flex-col items-center justify-center cursor-pointer group relative -mt-1.5 mb-3"
+                  className="w-full flex flex-col items-center justify-center cursor-pointer group relative -mt-1 mb-2"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMinimized(true);
                   }}
                 >
                   <div
-                    className={`w-12 h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+                    className={`w-10 h-1 rounded-full transition-all duration-300 shadow-sm ${
                       theme === 'dark' ? 'bg-neutral-800 group-hover:bg-neutral-700' : 'bg-neutral-200 group-hover:bg-neutral-300'
                     }`}
                   />
@@ -4825,7 +4825,7 @@ const getEndPin = (etaText: string) => {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-5"
+                  className="space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <button
@@ -5000,16 +5000,16 @@ const getEndPin = (etaText: string) => {
 
                   {/* 36% OFF Promotion Applied Ribbon when destination is set */}
                   {destination && (
-                    <div className="w-full px-3.5 py-2.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/25 flex items-center justify-between text-emerald-700 dark:text-emerald-300 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md uppercase tracking-wider">
+                    <div className="w-full px-3 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/25 flex items-center justify-between text-emerald-700 dark:text-emerald-300 shadow-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[8.5px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded uppercase tracking-wider">
                           36% OFF
                         </span>
-                        <span className="text-xs font-bold">
+                        <span className="text-[11px] font-bold">
                           Promotion applied
                         </span>
                       </div>
-                      <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-[9.5px] font-extrabold text-emerald-600 dark:text-emerald-400">
                         Okoa hadi TZS 1,000
                       </span>
                     </div>
@@ -5021,12 +5021,12 @@ const getEndPin = (etaText: string) => {
                     const showBannerHere = isHomepageOnly ? !destination : true;
                     if (!showBannerHere || taxiBanners.length === 0) return null;
                     return (
-                      <div className={`w-full p-4 rounded-3xl border shadow-sm transition-all duration-300 hover:shadow-md overflow-hidden ${theme === 'dark' ? 'bg-neutral-900/30 border-neutral-800/80' : 'bg-neutral-50 border-neutral-100/50'}`}>
-                        <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar snap-x scroll-smooth">
+                      <div className={`w-full p-1.5 rounded-2xl border shadow-xs transition-all duration-300 overflow-hidden ${theme === 'dark' ? 'bg-neutral-900/30 border-neutral-800/80' : 'bg-neutral-50 border-neutral-100/50'}`}>
+                        <div className="flex gap-2 overflow-x-auto pb-0.5 no-scrollbar snap-x scroll-smooth">
                           {taxiBanners.map((banner, idx) => (
                             <div
                               key={`taxi-banner-${banner.id || idx}`}
-                              className="min-w-full h-28 rounded-2xl overflow-hidden relative snap-center shadow-md group border border-white/5 shrink-0"
+                              className="min-w-full h-20 sm:h-22 rounded-xl overflow-hidden relative snap-center shadow-xs group border border-white/5 shrink-0"
                             >
                               <img
                                 src={banner.img}
@@ -5034,18 +5034,18 @@ const getEndPin = (etaText: string) => {
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                                 referrerPolicy="no-referrer"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-transparent flex flex-col justify-end p-4 text-white">
-                                <span className="absolute top-2 left-2.5 flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 backdrop-blur-md rounded-full border border-emerald-500/30 text-[8px] font-black uppercase tracking-widest text-[#00E5A0]">
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 text-white">
+                                <span className="absolute top-1.5 left-2 flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/20 backdrop-blur-md rounded-full border border-emerald-500/30 text-[7.5px] font-black uppercase tracking-widest text-[#00E5A0]">
                                   Ofa Maalum
                                 </span>
-                                <h4 className="text-xs font-black uppercase italic tracking-tight">{banner.title}</h4>
-                                <p className="text-[9px] opacity-95 font-bold uppercase tracking-wider text-neutral-300">{banner.sub}</p>
+                                <h4 className="text-[11px] sm:text-xs font-black uppercase italic tracking-tight">{banner.title}</h4>
+                                <p className="text-[8.5px] opacity-95 font-bold uppercase tracking-wider text-neutral-300">{banner.sub}</p>
                               </div>
                             </div>
                           ))}
                         </div>
                         {taxiBanners.length > 1 && (
-                          <div className="flex justify-center gap-1.5 mt-2">
+                          <div className="flex justify-center gap-1 mt-1.5">
                             {taxiBanners.map((_, i) => (
                               <div key={`dot-${i}`} className="w-1.5 h-1.5 rounded-full bg-indigo-500/30" />
                             ))}
@@ -5055,34 +5055,32 @@ const getEndPin = (etaText: string) => {
                     );
                   })()}
 
-
-
                   {destination && (
-                    <div className={`relative w-full py-2 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
+                    <div className={`relative w-full py-0.5 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
                       {/* Left Scroll Button */}
                       <button
                         type="button"
                         onClick={() => scrollVehicles('left')}
-                        className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-30 w-7 h-7 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                        className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-30 w-6 h-6 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
                         title="Scroll kushoto"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-3.5 h-3.5" />
                       </button>
 
                       {/* Right Scroll Button */}
                       <button
                         type="button"
                         onClick={() => scrollVehicles('right')}
-                        className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-30 w-7 h-7 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
+                        className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-30 w-6 h-6 rounded-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-md items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all opacity-80 hover:opacity-100 hover:scale-110"
                         title="Scroll kulia"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Horizontal Single Row Scroll Container */}
+                      {/* Horizontal Single Row Scroll Container - Sleek & Compact */}
                       <div 
                         ref={vehicleScrollRef}
-                        className="flex items-stretch gap-2.5 sm:gap-3 w-full overflow-x-auto pb-2 pt-1 px-1 scroll-smooth snap-x snap-mandatory scrollbar-none flex-nowrap"
+                        className="flex items-stretch gap-2 sm:gap-2.5 w-full overflow-x-auto pb-1 pt-0.5 px-0.5 scroll-smooth snap-x snap-mandatory scrollbar-none flex-nowrap"
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                       >
                         {rideOptions.map((ride) => {
@@ -5102,22 +5100,22 @@ const getEndPin = (etaText: string) => {
                                 }
                                 setSelectedRide(ride);
                               }}
-                              className={`min-w-[130px] sm:min-w-[145px] max-w-[155px] flex-1 snap-start shrink-0 p-3 sm:p-3.5 rounded-[22px] border-2 transition-all duration-300 flex flex-col items-center justify-between gap-2 relative overflow-hidden group ${
+                              className={`w-[105px] sm:w-[115px] snap-start shrink-0 p-2 sm:p-2.5 rounded-2xl border-2 transition-all duration-200 flex flex-col items-center justify-between relative overflow-hidden group ${
                                 ride.maintenance 
                                   ? (theme === 'dark' ? "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-900/40 bg-amber-950/20" : "opacity-50 grayscale pointer-events-auto cursor-not-allowed border-amber-500/25 bg-amber-50") :
                                 ride.available === false
                                   ? (theme === 'dark' ? "opacity-75 grayscale-[35%] pointer-events-auto border-rose-900/50 bg-rose-950/20 hover:border-rose-700" : "opacity-85 grayscale-[20%] pointer-events-auto border-rose-400/40 bg-rose-50/60 hover:border-rose-400") :
                                 isSelected
-                                  ? (theme === 'dark' ? "bg-indigo-950/30 border-indigo-500 shadow-md scale-[1.02]" : "bg-indigo-50/60 border-indigo-600 shadow-md scale-[1.02]")
+                                  ? (theme === 'dark' ? "bg-indigo-950/40 border-indigo-500 shadow-md ring-1 ring-indigo-500/50" : "bg-indigo-50/70 border-indigo-600 shadow-md ring-1 ring-indigo-600/30")
                                   : (theme === 'dark' ? "bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 hover:bg-neutral-800/80" : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50")
                               }`}
                             >
                               {ride.maintenance ? (
-                                <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none">
+                                <div className="absolute top-0 inset-x-0 bg-amber-500 text-black font-black uppercase text-[6px] text-center tracking-widest py-0.5 z-20 leading-none">
                                   Matengenezo
                                 </div>
                               ) : ride.available === false ? (
-                                <div className="absolute top-0 inset-x-0 bg-rose-600 text-white font-black uppercase text-[7px] text-center tracking-widest py-0.5 z-20 leading-none shadow-xs">
+                                <div className="absolute top-0 inset-x-0 bg-rose-600 text-white font-black uppercase text-[6.5px] text-center tracking-widest py-0.5 z-20 leading-none shadow-xs">
                                   Haikupatikana
                                 </div>
                               ) : null}
@@ -5130,7 +5128,7 @@ const getEndPin = (etaText: string) => {
                               )}
                               
                               {/* Active state small indicator point */}
-                              <div className={`absolute top-2 left-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_8px_indigo]" : "bg-transparent scale-0"}`} />
+                              <div className={`absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-indigo-600 scale-100 shadow-[0_0_6px_indigo]" : "bg-transparent scale-0"}`} />
 
                               {/* Kitufe cha Ikoni cha Gharama ya Uwazi (Breakdown Icon) */}
                               <div
@@ -5144,36 +5142,32 @@ const getEndPin = (etaText: string) => {
                                   setShowBreakdownModal(true);
                                 }}
                                 title="Tazama Mchanganuo wa Gharama za Usafiri Huu"
-                                className={`absolute top-1.5 right-1.5 z-20 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-90 ${
+                                className={`absolute top-1 right-1 z-20 w-4.5 h-4.5 rounded-full flex items-center justify-center transition-all shadow-xs active:scale-90 ${
                                   isSelected
-                                    ? "bg-indigo-600 text-white shadow-indigo-500/30 hover:bg-indigo-500"
+                                    ? "bg-indigo-600 text-white hover:bg-indigo-500"
                                     : (theme === 'dark'
                                       ? "bg-neutral-800/90 text-indigo-400 border border-neutral-700 hover:bg-neutral-700"
                                       : "bg-white/95 text-indigo-600 border border-neutral-200 hover:bg-indigo-50")
                                 }`}
                               >
-                                <Calculator className="w-3.5 h-3.5" />
+                                <Calculator className="w-2.5 h-2.5" />
                               </div>
 
-                              {/* Beautiful Custom-designed Vehicle Container with a 3D Glowing Podium/Shadow */}
-                              <div className="relative w-full aspect-[4/3] max-h-[64px] sm:max-h-[72px] flex items-center justify-center -mt-1 select-none">
-                                {/* Ambient dynamic glow under the vehicle */}
-                                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4/5 h-2.5 rounded-full transition-all duration-300 blur-md ${
-                                  isSelected ? "bg-indigo-600/20 scale-110" : (theme === 'dark' ? "bg-neutral-950/60" : "bg-neutral-200/40 group-hover:bg-indigo-600/10")
-                                }`} />
-                                {/* Subtle elegant podium ellipse */}
-                                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1 rounded-full border transition-all duration-300 ${
-                                  isSelected ? (theme === 'dark' ? "bg-neutral-800 border-indigo-900" : "bg-neutral-100 border-indigo-200") : "bg-transparent border-transparent"
+                              {/* Compact Vehicle Container with Ground Shadow */}
+                              <div className="relative w-full h-10 sm:h-11 flex items-center justify-center select-none my-0.5">
+                                {/* Subtle ground shadow under the vehicle */}
+                                <div className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-9 h-1 rounded-full transition-all duration-300 blur-[1px] ${
+                                  isSelected ? "bg-indigo-600/30 scale-105" : (theme === 'dark' ? "bg-black/40" : "bg-neutral-300/60")
                                 }`} />
                                 
                                 {/* Floating Vehicle container */}
-                                <div className={`relative z-10 transition-all duration-500 transform flex items-center justify-center ${
-                                  isSelected ? "-translate-y-1.5 scale-110 drop-shadow-[0_8px_16px_rgba(0,0,0,0.15)]" : "group-hover:-translate-y-1 group-hover:scale-105"
+                                <div className={`relative z-10 transition-all duration-300 flex items-center justify-center ${
+                                  isSelected ? "-translate-y-0.5 scale-105" : "group-hover:-translate-y-0.5"
                                 }`}>
                                   {ride.imageUrl ? (
                                     <img 
                                       src={ride.imageUrl} 
-                                      className="w-16 sm:w-20 h-10 sm:h-12 object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]" 
+                                      className="h-7 sm:h-8 w-auto max-w-[54px] object-contain filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)]" 
                                       referrerPolicy="no-referrer" 
                                       alt={ride.name}
                                       onError={(e) => {
@@ -5183,28 +5177,29 @@ const getEndPin = (etaText: string) => {
                                       }}
                                     />
                                   ) : null}
-                                  <span className={`text-3xl sm:text-3.5xl vehicle-emoji-fallback ${ride.imageUrl ? 'hidden' : 'block'}`}>
+                                  <span className={`text-2xl sm:text-[26px] vehicle-emoji-fallback ${ride.imageUrl ? 'hidden' : 'block'}`}>
                                     {ride.image || (ride.id === 'mini' ? '🚗' : ride.id === 'bajaj' ? '🛺' : ride.id === 'bike' ? '🏍️' : ride.id === 'ambulance' ? '🚑' : '🚒')}
                                   </span>
                                 </div>
                               </div>
                               
-                              <div className="text-center w-full">
+                              {/* Name and Price */}
+                              <div className="text-center w-full my-0.5">
                                 <h4
-                                  className={`text-[9px] font-black uppercase tracking-wider truncate px-1 ${isSelected ? "text-indigo-400" : (theme === 'dark' ? 'text-neutral-500' : "text-neutral-500")}`}
+                                  className={`text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider truncate px-0.5 ${isSelected ? "text-indigo-600 dark:text-indigo-400" : (theme === 'dark' ? 'text-neutral-400' : "text-neutral-600")}`}
                                 >
                                   {ride.name}
                                 </h4>
                                 {ride.available === false ? (
-                                  <div className="flex flex-col items-center mt-0.5">
-                                    <span className="text-[9px] line-through text-neutral-400/80 leading-none">TZS {ride.price.toLocaleString()}</span>
-                                    <span className="text-[9.5px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-tight leading-tight mt-0.5">Haikupatikana</span>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[7.5px] line-through text-neutral-400/80 leading-none">TZS {ride.price.toLocaleString()}</span>
+                                    <span className="text-[8px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-tight leading-tight">Haikupatikana</span>
                                   </div>
                                 ) : (
-                                  <h3 className={`text-[11px] font-black italic mt-0.5 transition-colors whitespace-nowrap ${
+                                  <h3 className={`text-[11px] sm:text-[11.5px] font-black leading-tight transition-colors whitespace-nowrap ${
                                     isSelected 
-                                      ? (destination && totalDistance > 0) ? "text-emerald-500 drop-shadow-sm text-xs" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
-                                      : (destination && totalDistance > 0) ? "text-emerald-600 text-xs" : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-700')
+                                      ? (destination && totalDistance > 0) ? "text-emerald-600 dark:text-emerald-400" : (theme === 'dark' ? 'text-white' : 'text-neutral-900')
+                                      : (destination && totalDistance > 0) ? "text-emerald-600" : (theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800')
                                   }`}>
                                     TZS {ride.price.toLocaleString()}
                                   </h3>
@@ -5212,19 +5207,19 @@ const getEndPin = (etaText: string) => {
                               </div>
                               
                               {/* Information of capacity and ETA */}
-                              <div className={`w-full flex items-center justify-between px-1.5 pt-1.5 mt-0.5 border-t text-[9px] font-bold ${theme === 'dark' ? 'border-neutral-800 text-neutral-400' : 'border-neutral-100 text-neutral-600'}`}>
-                                <div className="flex items-center gap-1 whitespace-nowrap">
-                                  <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                              <div className={`w-full flex items-center justify-between px-0.5 pt-1 border-t text-[8px] sm:text-[8.5px] font-bold ${theme === 'dark' ? 'border-neutral-800 text-neutral-400' : 'border-neutral-100 text-neutral-600'}`}>
+                                <div className="flex items-center gap-0.5 whitespace-nowrap">
+                                  <Users className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
                                   <span>Abiria {ride.capacity}</span>
                                 </div>
                                 {ride.available === false ? (
-                                  <div className="flex items-center gap-1 text-rose-500 dark:text-rose-400 font-extrabold whitespace-nowrap">
-                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-500" />
-                                    <span>Haikupatikana</span>
+                                  <div className="flex items-center gap-0.5 text-rose-500 dark:text-rose-400 font-extrabold whitespace-nowrap">
+                                    <AlertCircle className="w-2.5 h-2.5 shrink-0 text-rose-500" />
+                                    <span>N/A</span>
                                   </div>
                                 ) : (
-                                  <div className={`flex items-center gap-1 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
-                                    <Clock className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
+                                  <div className={`flex items-center gap-0.5 whitespace-nowrap ${isSelected ? "text-emerald-500 font-extrabold" : ""}`}>
+                                    <Clock className={`w-2.5 h-2.5 shrink-0 ${isSelected ? "text-emerald-500 animate-pulse" : "text-neutral-400"}`} />
                                     <span>{ride.eta} min</span>
                                   </div>
                                 )}
