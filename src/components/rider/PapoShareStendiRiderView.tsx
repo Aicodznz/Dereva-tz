@@ -4,15 +4,17 @@ import {
   Users, MapPin, Compass, Star, ShieldCheck, 
   ArrowRight, AlertCircle, Clock, Check, 
   Filter, ArrowUpDown, ChevronRight, Phone, Sparkles,
-  RefreshCw, CheckCircle2, X
+  RefreshCw, CheckCircle2, X, QrCode
 } from 'lucide-react';
 import { 
   StandPoolingRoute, 
   StandPassenger, 
   listenActiveStandRoutes, 
   matchRiderToStandRoute, 
-  reserveStandSeatTransaction 
+  reserveStandSeatTransaction,
+  cancelStandPassengerSeat
 } from '../../services/standPoolingService';
+import StandBoardingPassModal from '../stand/StandBoardingPassModal';
 import { toast } from 'sonner';
 
 interface PapoShareStendiRiderViewProps {
@@ -54,6 +56,7 @@ export default function PapoShareStendiRiderView({
     route: StandPoolingRoute;
     passenger: StandPassenger;
   } | null>(null);
+  const [showBoardingPassModal, setShowBoardingPassModal] = useState(false);
 
   // Live timer tick for departure countdown
   const [nowMs, setNowMs] = useState(Date.now());
@@ -217,6 +220,7 @@ export default function PapoShareStendiRiderView({
         passenger: passengerData
       });
       setBookingRoute(null);
+      setShowBoardingPassModal(true);
       if (onTripConfirmed) {
         onTripConfirmed(bookingRoute, passengerData);
       }
@@ -229,6 +233,26 @@ export default function PapoShareStendiRiderView({
   if (myConfirmedRoute) {
     const r = myConfirmedRoute.route;
     const p = myConfirmedRoute.passenger;
+    const isBoarded = p.status === 'boarded';
+    const seatText = p.seatNumbers || `Siti #${p.seats > 1 ? '1 & 2' : '1'}`;
+    const ticketCode = p.ticketCode || `STND-${(p.passengerId || '12345').slice(-5).toUpperCase()}`;
+
+    const handleCancelMySeat = async () => {
+      const confirmCancel = window.confirm("Je, una uhakika unataka kughairi kiti hiki kwenye safari hii?");
+      if (!confirmCancel) return;
+      try {
+        await cancelStandPassengerSeat(r.id, p.passengerId);
+        try {
+          localStorage.removeItem('papo_active_stand_trip');
+        } catch (e) {}
+        setMyConfirmedRoute(null);
+        setShowBoardingPassModal(false);
+        toast.success("Kiti chako kimeghairiwa.");
+      } catch (err: any) {
+        toast.error("Imeshindikana kughairi kiti.");
+      }
+    };
+
     return (
       <div className="p-4 rounded-3xl bg-white dark:bg-[#151520] border-2 border-emerald-500/40 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
@@ -245,9 +269,54 @@ export default function PapoShareStendiRiderView({
               </p>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase">
-            {r.status === 'started' ? 'Imeanza' : 'Imethibitishwa'}
+          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+            isBoarded
+              ? 'bg-emerald-500 text-white'
+              : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+          }`}>
+            {isBoarded ? 'Amepanda Garini ✓' : r.status === 'started' ? 'Imeanza' : 'Imethibitishwa'}
           </span>
+        </div>
+
+        {/* PROMINENT DIGITAL BOARDING PASS CARD */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg space-y-3 relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-3 -translate-y-3 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+          <div className="flex items-center justify-between relative z-10">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200">
+                  TIKETI YA STENDI (BOARDING PASS)
+                </span>
+                <span className="bg-amber-400 text-neutral-950 text-[8px] font-black px-1 rounded uppercase">
+                  QR READY
+                </span>
+              </div>
+              <h5 className="font-mono font-black text-sm tracking-wider text-amber-300 mt-0.5">
+                {ticketCode}
+              </h5>
+            </div>
+            <div className="text-right">
+              <span className="text-[9px] text-emerald-200 uppercase font-black block">SITI YAKO</span>
+              <span className="text-xs font-black bg-white/20 px-2 py-0.5 rounded-lg inline-block text-white">
+                {seatText}
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-white/20 flex items-center justify-between text-xs relative z-10">
+            <span className="text-[10.5px] text-emerald-100 font-medium">
+              {isBoarded ? '✓ Umethibitishwa kupanda garini' : 'Onyesha dereva akague au atiki kabla ya kupanda'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowBoardingPassModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-neutral-100 text-neutral-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer shrink-0"
+            >
+              <QrCode className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Onyesha Tiketi</span>
+            </button>
+          </div>
         </div>
 
         {/* Driver Card Info */}
@@ -255,7 +324,7 @@ export default function PapoShareStendiRiderView({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-md">
-                {r.vehicleType === 'bajaj' ? '🚕' : '🚗'}
+                {r.vehicleType === 'boda' ? '🏍️' : r.vehicleType === 'bajaj' ? '🛺' : '🚗'}
               </div>
               <div>
                 <h5 className="text-xs font-black text-neutral-900 dark:text-white flex items-center gap-1">
@@ -292,14 +361,32 @@ export default function PapoShareStendiRiderView({
           </div>
         </div>
 
-        <div className="text-center pt-1">
+        <div className="flex items-center justify-between pt-1">
           <button
             onClick={() => setMyConfirmedRoute(null)}
-            className="text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-white font-bold underline"
+            className="text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-white font-bold underline cursor-pointer"
           >
             Angalia madereva wengine wa stendi
           </button>
+
+          {!isBoarded && (
+            <button
+              onClick={handleCancelMySeat}
+              className="text-[11px] text-red-500 hover:text-red-600 font-bold underline cursor-pointer"
+            >
+              Ghairi Kiti
+            </button>
+          )}
         </div>
+
+        {/* Boarding Pass Modal */}
+        <StandBoardingPassModal
+          isOpen={showBoardingPassModal}
+          onClose={() => setShowBoardingPassModal(false)}
+          route={r}
+          passenger={p}
+          onCancelSeat={handleCancelMySeat}
+        />
       </div>
     );
   }

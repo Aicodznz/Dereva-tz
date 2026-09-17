@@ -5,7 +5,7 @@ import {
   CheckCircle2, AlertCircle, Phone, MessageSquare, 
   Play, Pause, Trash2, Edit3, Sparkles, ShieldCheck,
   ChevronRight, Car, Compass, ArrowRight, Check, Map as MapIcon,
-  Plus, Minus, RefreshCw, Clock, Bell, Volume2, Timer
+  Plus, Minus, RefreshCw, Clock, Bell, Volume2, Timer, QrCode
 } from 'lucide-react';
 import { 
   StandPoolingRoute, 
@@ -20,9 +20,11 @@ import {
   updateStandDriverLocation,
   dropoffStandPassenger,
   calculateStandSystemKmFare,
-  getDistanceKm
+  getDistanceKm,
+  verifyStandPassengerBoarding
 } from '../../services/standPoolingService';
 import LocationPicker from '../LocationPicker';
+import StandTicketScannerModal from './StandTicketScannerModal';
 import { playSyntheticImportant } from '../../utils/soundAlert';
 import { toast } from 'sonner';
 
@@ -88,6 +90,24 @@ export default function PapoShareStendiModal({
   // Map Picker State
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [mapPickerTarget, setMapPickerTarget] = useState<'stand' | 'destination'>('stand');
+
+  // Ticket Scanner Modal State
+  const [showTicketScanner, setShowTicketScanner] = useState(false);
+
+  const handleDirectVerifyBoarding = async (passengerIdOrCode: string) => {
+    if (!activeRoute) return;
+    try {
+      const res = await verifyStandPassengerBoarding(activeRoute.id, passengerIdOrCode);
+      if (res.success) {
+        playSyntheticImportant();
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Imeshindikana kuthibitisha tiketi.");
+    }
+  };
 
   // Keep chosenVehicleType in sync if profile updates and no active custom selection
   useEffect(() => {
@@ -762,11 +782,24 @@ export default function PapoShareStendiModal({
                     ) : (
                       /* Status: boarding / waiting at stand */
                       <div className="space-y-2">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                          Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked').length || 0})
-                        </h3>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
+                            Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked' || p.status === 'boarded').length || 0})
+                          </h3>
 
-                        {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked').length === 0) ? (
+                          {(activeRoute.passengers?.some(p => p.status === 'booked' || p.status === 'boarded')) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowTicketScanner(true)}
+                              className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
+                            >
+                              <QrCode className="w-3.5 h-3.5" />
+                              <span>Kagua / Scan Tiketi</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked' || p.status === 'boarded').length === 0) ? (
                           <div className="p-4 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-800 text-center">
                             <Users className="w-8 h-8 mx-auto text-neutral-300 dark:text-neutral-700 mb-1" />
                             <p className="text-xs font-bold text-neutral-600 dark:text-neutral-400">
@@ -779,40 +812,74 @@ export default function PapoShareStendiModal({
                         ) : (
                           <div className="space-y-2">
                             {activeRoute.passengers
-                              .filter(p => p.status === 'booked')
-                              .map((p, idx) => (
-                                <div
-                                  key={p.passengerId || idx}
-                                  className="p-3 rounded-xl bg-neutral-50 dark:bg-[#181826] border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between gap-2"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-black text-[10px] flex items-center justify-center">
-                                        {idx + 1}
-                                      </span>
-                                      <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
-                                        {p.passengerName || 'Abiria'}
-                                      </span>
-                                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-extrabold text-[9px]">
-                                        Siti {p.seats || 1}
-                                      </span>
-                                    </div>
-                                    <p className="text-[10px] text-neutral-500 truncate mt-0.5">
-                                      📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
-                                    </p>
-                                  </div>
+                              .filter(p => p.status === 'booked' || p.status === 'boarded')
+                              .map((p, idx) => {
+                                const isBoarded = p.status === 'boarded';
+                                const seatText = p.seatNumbers || `Siti #${idx + 1}`;
+                                const tCode = p.ticketCode || `STND-${(p.passengerId || '12345').slice(-5).toUpperCase()}`;
 
-                                  {p.passengerPhone && (
-                                    <a
-                                      href={`tel:${p.passengerPhone}`}
-                                      className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 hover:bg-emerald-500 transition-colors"
-                                      title="Piga simu kwa abiria"
-                                    >
-                                      <Phone className="w-3.5 h-3.5" />
-                                    </a>
-                                  )}
-                                </div>
-                              ))}
+                                return (
+                                  <div
+                                    key={p.passengerId || idx}
+                                    className={`p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                                      isBoarded
+                                        ? 'bg-emerald-500/10 border-emerald-500/40 dark:bg-emerald-950/20 dark:border-emerald-800/60'
+                                        : 'bg-neutral-50 dark:bg-[#181826] border-neutral-200/80 dark:border-neutral-800'
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`w-5 h-5 rounded-full text-white font-black text-[10px] flex items-center justify-center ${
+                                          isBoarded ? 'bg-emerald-600' : 'bg-amber-500'
+                                        }`}>
+                                          {isBoarded ? '✓' : idx + 1}
+                                        </span>
+                                        <span className="font-bold text-xs text-neutral-800 dark:text-neutral-200 truncate">
+                                          {p.passengerName || 'Abiria'}
+                                        </span>
+                                        <span className="px-1.5 py-0.5 rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-extrabold text-[9px]">
+                                          {seatText}
+                                        </span>
+                                        <span className="px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-700 dark:text-amber-400 font-mono font-bold text-[9px]">
+                                          {tCode}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-neutral-500 truncate mt-1">
+                                        📍 Kushuka: {p.dropoffName} • TZS {p.fare?.toLocaleString()}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {p.passengerPhone && (
+                                        <a
+                                          href={`tel:${p.passengerPhone}`}
+                                          className="w-7 h-7 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center justify-center shrink-0 hover:bg-neutral-300 transition-colors"
+                                          title="Piga simu kwa abiria"
+                                        >
+                                          <Phone className="w-3 h-3" />
+                                        </a>
+                                      )}
+
+                                      {isBoarded ? (
+                                        <span className="px-2 py-1 rounded-lg bg-emerald-500 text-white font-black text-[9.5px] uppercase tracking-wider flex items-center gap-0.5">
+                                          <Check className="w-3 h-3 stroke-[3]" />
+                                          <span>Amepanda</span>
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDirectVerifyBoarding(p.ticketCode || p.passengerId)}
+                                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[9.5px] uppercase tracking-wider flex items-center gap-1 shadow-xs cursor-pointer"
+                                          title="Thibitisha kuwa abiria huyu amepanda garini"
+                                        >
+                                          <Check className="w-3 h-3 stroke-[3]" />
+                                          <span>Thibitisha ✓</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                           </div>
                         )}
                       </div>
@@ -1327,6 +1394,15 @@ export default function PapoShareStendiModal({
           toast.success("Eneo limewekwa kikamilifu kutoka kwenye ramani! 📍");
         }}
       />
+
+      {/* TICKET SCANNER & CHECK-IN MODAL FOR DRIVER */}
+      {activeRoute && (
+        <StandTicketScannerModal
+          isOpen={showTicketScanner}
+          onClose={() => setShowTicketScanner(false)}
+          activeRoute={activeRoute}
+        />
+      )}
     </>
   );
 }

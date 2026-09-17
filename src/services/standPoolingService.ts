@@ -39,6 +39,9 @@ export interface StandPassenger {
   status: 'booked' | 'boarded' | 'dropped_off' | 'completed' | 'cancelled';
   bookedAt: string;
   droppedOffAt?: string;
+  boardedAt?: string;
+  ticketCode?: string;
+  seatNumbers?: string;
 }
 
 export interface StandPoolingRoute {
@@ -330,7 +333,21 @@ export async function reserveStandSeatTransaction(
 
       const newAvailable = currentAvailable - requestedSeats;
       const newOccupied = (Number(routeData.occupiedSeats) || 0) + requestedSeats;
-      const updatedPassengers = [...(routeData.passengers || []), passenger];
+      
+      const seatStart = (Number(routeData.occupiedSeats) || 0) + 1;
+      const seatEnd = (Number(routeData.occupiedSeats) || 0) + requestedSeats;
+      const seatLabel = requestedSeats > 1 ? `Siti #${seatStart} - #${seatEnd}` : `Siti #${seatStart}`;
+      const generatedTicketCode = passenger.ticketCode || `STND-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      const finalizedPassenger: StandPassenger = {
+        ...passenger,
+        ticketCode: generatedTicketCode,
+        seatNumbers: passenger.seatNumbers || seatLabel,
+        status: passenger.status || 'booked',
+        bookedAt: passenger.bookedAt || new Date().toISOString()
+      };
+
+      const updatedPassengers = [...(routeData.passengers || []), finalizedPassenger];
       const newStatus = newAvailable === 0 ? 'full' : 'boarding';
 
       transaction.update(routeRef, {
@@ -515,6 +532,73 @@ export async function cancelStandPassengerSeat(
       updatedAt: serverTimestamp(),
     });
   });
+}
+
+/**
+ * Driver verifies and scans passenger ticket before boarding the vehicle at the stand
+ */
+export async function verifyStandPassengerBoarding(
+  routeId: string,
+  passengerIdOrTicketCode: string
+): Promise<{ success: boolean; message: string; passenger?: StandPassenger }> {
+  const routeRef = doc(db, 'stand_pooling_routes', routeId);
+  let verifiedPassenger: StandPassenger | undefined;
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const routeSnap = await transaction.get(routeRef);
+      if (!routeSnap.exists()) {
+        throw new Error("Safari hii ya stendi haikupatikana.");
+      }
+      const data = routeSnap.data() as StandPoolingRoute;
+      const currentPassengers = data.passengers || [];
+
+      const queryCode = passengerIdOrTicketCode.trim().toUpperCase();
+      const target = currentPassengers.find(
+        (p) =>
+          (p.passengerId === passengerIdOrTicketCode ||
+            (p.ticketCode && p.ticketCode.toUpperCase() === queryCode)) &&
+          (p.status === 'booked' || p.status === 'boarded')
+      );
+
+      if (!target) {
+        throw new Error("Tiketi hii haikutambuliwa au abiria ameshaghairi.");
+      }
+
+      if (target.status === 'boarded') {
+        verifiedPassenger = target;
+        return;
+      }
+
+      const updatedPassengers = currentPassengers.map((p) => {
+        if (p.passengerId === target.passengerId) {
+          verifiedPassenger = {
+            ...p,
+            status: 'boarded' as const,
+            boardedAt: new Date().toISOString()
+          };
+          return verifiedPassenger;
+        }
+        return p;
+      });
+
+      transaction.update(routeRef, {
+        passengers: updatedPassengers,
+        updatedAt: serverTimestamp()
+      });
+    });
+
+    return {
+      success: true,
+      message: `Tiketi ya abiria ${verifiedPassenger?.passengerName || ''} imethibitishwa! Amepanda garini.`,
+      passenger: verifiedPassenger
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || "Imeshindikana kuthibitisha tiketi."
+    };
+  }
 }
 
 /**
