@@ -16,12 +16,21 @@ import {
   Compass, 
   ArrowRight, 
   X,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Bell,
+  MessageCircle,
+  Copy,
+  Check,
+  Star
 } from 'lucide-react';
 import { StandPoolingRoute, StandPassenger, cancelStandPassengerSeat } from '../../services/standPoolingService';
 import { toast } from 'sonner';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { playSyntheticImportant } from '../../utils/soundAlert';
+import { RatingScreen } from '../tegex/RatingScreen';
 
 interface PapoShareStendiLiveTrackerProps {
   route: StandPoolingRoute;
@@ -63,6 +72,110 @@ export default function PapoShareStendiLiveTracker({
   const [nowMs, setNowMs] = useState(Date.now());
   const [isCancelling, setIsCancelling] = useState(false);
   const [autoDismissSeconds, setAutoDismissSeconds] = useState<number | null>(null);
+
+  // Rating & Tip state for post-trip
+  const [hasRatedDriver, setHasRatedDriver] = useState(() => {
+    const currentP = (route.passengers || []).find(p => p.passengerId === passenger.passengerId);
+    return !!(currentP && (currentP as any).rating);
+  });
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+
+  // Stand ride representation for RatingScreen
+  const standRideForRating = useMemo(() => ({
+    id: route.id,
+    status: 'completed',
+    customerId: passenger.passengerId,
+    customerName: passenger.passengerName,
+    driverId: route.driverId,
+    driverInfo: {
+      name: route.driverName || 'Dereva wa Stendi',
+      phone: route.driverPhone || '0700000000',
+      photo: '',
+      vehicle: {
+        plate: route.vehiclePlate || 'T 000 AAA',
+        model: route.vehicleModel || 'Toyota Hiace / Coaster',
+        color: 'Nyeupe',
+      },
+      rating: route.driverRating || 4.9,
+    },
+    pickup: {
+      name: route.standLocation?.name || 'Stendi Kuu',
+      address: route.standLocation?.name || 'Stendi Kuu',
+      lat: route.standLocation?.lat || -6.7924,
+      lng: route.standLocation?.lng || 39.2083,
+    },
+    destination: {
+      name: passenger.dropoffName,
+      address: passenger.dropoffName,
+      lat: passenger.dropoffLat,
+      lng: passenger.dropoffLng,
+    },
+    fare: passenger.fare || route.fixedPricePerSeat,
+    serviceType: 'stendi',
+  } as any), [route, passenger]);
+
+  const handleStandRatingSubmit = async (
+    ratingVal: number,
+    feedback: string[],
+    commentText?: string,
+    tipAmountVal?: number
+  ) => {
+    try {
+      const routeRef = doc(db, 'stand_pooling_routes', route.id);
+      const updatedPassengers = (route.passengers || []).map((p: any) => {
+        if (p.passengerId === passenger.passengerId) {
+          return {
+            ...p,
+            rating: ratingVal,
+            feedback,
+            comment: commentText || '',
+            tip: tipAmountVal || 0,
+            ratedAt: new Date().toISOString(),
+          };
+        }
+        return p;
+      });
+
+      await updateDoc(routeRef, {
+        passengers: updatedPassengers,
+        updatedAt: serverTimestamp(),
+      });
+
+      if (route.driverId) {
+        const driverRef = doc(db, 'users', route.driverId);
+        const snap = await getDoc(driverRef);
+        if (snap.exists()) {
+          const uData = snap.data();
+          const curR = uData.rating !== undefined ? Number(uData.rating) : 4.8;
+          const curC = uData.ratingCount !== undefined ? Number(uData.ratingCount) : 0;
+          const newC = curC + 1;
+          const newR = ((curR * curC) + ratingVal) / newC;
+          const updateP: any = {
+            rating: parseFloat(newR.toFixed(1)),
+            ratingCount: newC,
+            updatedAt: serverTimestamp(),
+          };
+          if (tipAmountVal && tipAmountVal > 0) {
+            updateP.walletBalance = increment(tipAmountVal);
+            updateP.totalTips = increment(tipAmountVal);
+          }
+          await updateDoc(driverRef, updateP);
+        }
+      }
+
+      setHasRatedDriver(true);
+      setIsRatingModalOpen(false);
+      if (tipAmountVal && tipAmountVal > 0) {
+        toast.success(`Asante kwa kumpa ${route.driverName} nyota ${ratingVal} na bakshishi ya TZS ${tipAmountVal.toLocaleString()}! ⭐🎉`);
+      } else {
+        toast.success(`Asante kwa tathmini ya nyota ${ratingVal} kwa ${route.driverName}! ⭐`);
+      }
+      setAutoDismissSeconds(4);
+    } catch (e) {
+      console.error(e);
+      toast.error('Hitilafu katika kutuma tathmini.');
+    }
+  };
 
   // Real-time listener for driver location fallback directly from drivers collection
   const [internalDriverPos, setInternalDriverPos] = useState<{ lat: number; lng: number; heading?: number } | null>(null);
@@ -115,15 +228,15 @@ export default function PapoShareStendiLiveTracker({
   }, [isTripCompleted]);
 
   // Once the driver marks the passenger as dropped off or trip is completed,
-  // the customer is NOT required to manually confirm. It automatically closes after 2.5 seconds!
+  // allow the customer to rate and tip the driver.
   useEffect(() => {
-    if (isTripCompleted && autoDismissSeconds === null) {
+    if (isTripCompleted && hasRatedDriver && autoDismissSeconds === null) {
       setAutoDismissSeconds(3);
     }
-  }, [isTripCompleted, autoDismissSeconds]);
+  }, [isTripCompleted, hasRatedDriver, autoDismissSeconds]);
 
   useEffect(() => {
-    if (autoDismissSeconds === null) return;
+    if (autoDismissSeconds === null || isRatingModalOpen) return;
     if (autoDismissSeconds <= 0) {
       if (onCloseOrFinish) {
         onCloseOrFinish();
@@ -134,7 +247,7 @@ export default function PapoShareStendiLiveTracker({
       setAutoDismissSeconds((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
     return () => clearTimeout(timer);
-  }, [autoDismissSeconds, onCloseOrFinish]);
+  }, [autoDismissSeconds, isRatingModalOpen, onCloseOrFinish]);
 
   // Second ticker for countdown timer
   useEffect(() => {
@@ -159,6 +272,100 @@ export default function PapoShareStendiLiveTracker({
       etaMinutes: etaMin
     };
   }, [liveDriverPos, internalDriverPos, route.driverLocation, route.standLocation, passenger.dropoffLat, passenger.dropoffLng, route.destination]);
+
+  // 1. MPANGILIO WA VITUO VYA ABIRIA (DROP-OFF SEQUENCE)
+  const dropoffSequence = useMemo(() => {
+    const driverLat = liveDriverPos?.lat ?? internalDriverPos?.lat ?? route.driverLocation?.lat ?? route.standLocation.lat;
+    const driverLng = liveDriverPos?.lng ?? internalDriverPos?.lng ?? route.driverLocation?.lng ?? route.standLocation.lng;
+
+    if (!route.passengers || route.passengers.length === 0) {
+      return [{
+        passengerId: passenger.passengerId,
+        passengerName: passenger.passengerName || 'Wewe',
+        dropoffName: passenger.dropoffName || route.destination.name,
+        dropoffLat: passenger.dropoffLat ?? route.destination.lat,
+        dropoffLng: passenger.dropoffLng ?? route.destination.lng,
+        seats: passenger.seats,
+        status: passenger.status,
+        remainingDistanceKm: getDistanceKm(driverLat, driverLng, passenger.dropoffLat ?? route.destination.lat, passenger.dropoffLng ?? route.destination.lng),
+        isMe: true
+      }];
+    }
+
+    const activeList = route.passengers
+      .filter((p) => p.status === 'booked' || p.status === 'boarded' || p.passengerId === passenger.passengerId)
+      .map((p) => {
+        const pLat = p.dropoffLat ?? route.destination.lat;
+        const pLng = p.dropoffLng ?? route.destination.lng;
+        const dist = getDistanceKm(driverLat, driverLng, pLat, pLng);
+        return {
+          ...p,
+          remainingDistanceKm: dist,
+          isMe: p.passengerId === passenger.passengerId
+        };
+      });
+
+    // Sort ascending by remaining distance from driver
+    activeList.sort((a, b) => a.remainingDistanceKm - b.remainingDistanceKm);
+    return activeList;
+  }, [route.passengers, passenger.passengerId, liveDriverPos, internalDriverPos, route.driverLocation, route.standLocation]);
+
+  const myDropoffIndex = useMemo(() => {
+    return dropoffSequence.findIndex(p => p.passengerId === passenger.passengerId);
+  }, [dropoffSequence, passenger.passengerId]);
+
+  const myDropoffRank = myDropoffIndex !== -1 ? myDropoffIndex + 1 : 1;
+  const totalActiveDropoffs = dropoffSequence.length;
+
+  // 2. MAELEKEZO YA SAUTI NA ARIFA ZA NJIA (VOICE NAVIGATION & SOUND ALERTS)
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const voiceAnnouncedRef = React.useRef<{ started?: boolean; near?: boolean; arrived?: boolean }>({});
+
+  const speakPrompt = (text: string) => {
+    if (!isVoiceEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'sw-TZ';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("Speech error:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isTripStarted && !isTripCompleted) {
+      // 1. Trip started announcement
+      if (!voiceAnnouncedRef.current.started) {
+        voiceAnnouncedRef.current.started = true;
+        playSyntheticImportant();
+        speakPrompt(`Safari ya stendi imeanza. Dereva ${route.driverName} yupo njiani kuelekea vituoni.`);
+      }
+
+      // 2. Proximity alert: when within 400m from passenger's dropoff
+      const distKmNum = parseFloat(distanceKm);
+      if (!isNaN(distKmNum) && distKmNum <= 0.40 && !voiceAnnouncedRef.current.near) {
+        voiceAnnouncedRef.current.near = true;
+        playSyntheticImportant();
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
+        speakPrompt(`Umekaribia kituo chako cha ${passenger.dropoffName || 'kushukia'}. Tafadhali jiandae kushuka!`);
+        toast.info(`🔔 Umekaribia kituo chako (${Math.round(distKmNum * 1000)}m)! Jiandae kushuka.`, {
+          duration: 6000
+        });
+      }
+    }
+
+    // 3. Dropoff completed
+    if (isThisPassengerDroppedOff && !voiceAnnouncedRef.current.arrived) {
+      voiceAnnouncedRef.current.arrived = true;
+      playSyntheticImportant();
+      speakPrompt(`Umefika kituo chako salama. Asante kwa kusafiri na Papo!`);
+    }
+  }, [isTripStarted, isTripCompleted, isThisPassengerDroppedOff, distanceKm, passenger.dropoffName, route.driverName]);
 
   // Departure countdown string if waiting at stand
   const countdownText = useMemo(() => {
@@ -197,17 +404,30 @@ export default function PapoShareStendiLiveTracker({
     }
   };
 
-  const handleShare = () => {
-    const shareText = `Ninafuatilia safari yangu ya PapoShare Stendi na dereva ${route.driverName} (${route.vehiclePlate || 'Chombo'}) kuelekea ${passenger.dropoffName || route.destination.name}!`;
-    if (navigator.share) {
+  // 3. KUSHIRIKI SAFARI MOJA KWA MOJA WHATSAPP (SHARE TRIP LINK)
+  const trackingUrl = `${window.location.origin}/track/${route.id}?type=stendi`;
+
+  const handleWhatsAppShare = () => {
+    const text = `🚗 *Habari! Nipo kwenye safari ya PapoShare Stendi.*\n\n` +
+      `👤 *Dereva:* ${route.driverName} (${route.vehiclePlate || 'Chombo'})\n` +
+      `📍 *Kupandia:* ${passenger.pickupName || route.standLocation.name}\n` +
+      `🏁 *Kushukia:* ${passenger.dropoffName || route.destination.name}\n` +
+      `⏱️ *Muda Uliobaki:* Dk ${etaMinutes} (${distanceKm} km)\n\n` +
+      `🔗 *Fuatilia safari yangu moja kwa moja hapa:*\n${trackingUrl}`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleCopyLink = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(trackingUrl);
+      toast.success("Kiungo cha safari kimenakiliwa!");
+    } else if (navigator.share) {
       navigator.share({
         title: 'Fuatilia Safari Yangu - PapoShare Stendi',
-        text: shareText,
-        url: window.location.href
+        text: `Fuatilia safari yangu ya stendi na dereva ${route.driverName}:`,
+        url: trackingUrl
       }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${shareText} - ${window.location.href}`);
-      toast.success("Kiungo cha safari kimenakiliwa!");
     }
   };
 
@@ -310,6 +530,24 @@ export default function PapoShareStendiLiveTracker({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Voice and sound toggle */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsVoiceEnabled(!isVoiceEnabled);
+                toast.info(!isVoiceEnabled ? "Sauti za safari zimewashwa 🔊" : "Sauti za safari zimezimwa 🔇");
+              }}
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                isVoiceEnabled 
+                  ? 'bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25' 
+                  : 'bg-neutral-200/60 dark:bg-neutral-800 text-neutral-400'
+              }`}
+              title={isVoiceEnabled ? "Zima Maelekezo ya Sauti" : "Washa Maelekezo ya Sauti"}
+            >
+              {isVoiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
             {route.driverPhone && (
               <a
                 href={`tel:${route.driverPhone}`}
@@ -338,6 +576,32 @@ export default function PapoShareStendiLiveTracker({
               exit={{ height: 0, opacity: 0 }}
               className="p-4 space-y-3.5"
             >
+              {/* Proximity Alert: within 400 meters of passenger drop-off */}
+              {isTripStarted && !isTripCompleted && parseFloat(distanceKm) <= 0.40 && (
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="p-3 rounded-2xl bg-amber-500/15 border-2 border-amber-500/70 flex items-center gap-3 animate-pulse shadow-sm"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-base shadow-sm shrink-0">
+                    🔔
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-black text-xs text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                        Umekaribia Kituo Chako ({Math.round(parseFloat(distanceKm) * 1000)}m)
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white shrink-0">
+                        Jiandae
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-900 dark:text-amber-100 font-medium">
+                      Kituo chako cha <b>{passenger.dropoffName || route.destination.name}</b> kiko mbele kidogo. Chombo kinakaribia kukusimamishia!
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Trip Stepper: Kijiweni -> Njiani -> Ushukapo */}
               <div className="grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-neutral-100 dark:bg-neutral-900/80 text-center text-[10px] font-bold">
                 <div className={`p-1.5 rounded-xl flex flex-col items-center gap-0.5 transition-all ${
@@ -371,6 +635,58 @@ export default function PapoShareStendiLiveTracker({
                   </span>
                 </div>
               </div>
+
+              {/* 1. DROP-OFF SEQUENCE CARD (MPANGILIO WA VITUO VYA KUSHUKA) */}
+              {isTripStarted && !isTripCompleted && totalActiveDropoffs > 1 && (
+                <div className="p-3 rounded-2xl bg-neutral-100/80 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Mpangilio wa Kushuka ({totalActiveDropoffs} vituo)</span>
+                    </span>
+                    <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-full ${
+                      myDropoffRank === 1 
+                        ? 'bg-emerald-500 text-white animate-pulse' 
+                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+                    }`}>
+                      {myDropoffRank === 1 ? '🎯 Unafuata Wewe Sasa' : `Kituo #${myDropoffRank}`}
+                    </span>
+                  </div>
+
+                  <div className="text-[11.5px] font-bold text-neutral-800 dark:text-neutral-200">
+                    {myDropoffRank === 1 ? (
+                      <span>Wewe ndiye abiria wa <b>kwanza</b> kushuka njiani. Dereva anaelekea kituo chako cha <b>{passenger.dropoffName}</b> moja kwa moja!</span>
+                    ) : (
+                      <span>Wewe ni abiria wa <b>{myDropoffRank}</b> kushuka. Kuna kituo <b>{myDropoffRank - 1}</b> cha abiria mwenzako kabla ya kufika kituo chako cha <b>{passenger.dropoffName}</b>.</span>
+                    )}
+                  </div>
+
+                  {/* Horizontal visual sequence steps */}
+                  <div className="flex items-center gap-1.5 pt-1 overflow-x-auto pb-1 no-scrollbar">
+                    {dropoffSequence.map((stepP, idx) => {
+                      const isMe = stepP.passengerId === passenger.passengerId;
+                      return (
+                        <div
+                          key={stepP.passengerId}
+                          className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 flex items-center gap-1.5 border transition-all ${
+                            isMe 
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm' 
+                              : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
+                          }`}
+                        >
+                          <span className="w-4 h-4 rounded-full bg-black/10 dark:bg-white/10 flex items-center justify-center text-[9px] font-black">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate max-w-[100px]">
+                            {isMe ? 'Wewe' : (stepP.passengerName || 'Abiria')}
+                          </span>
+                          {isMe && <span className="text-amber-300">★</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Waypoints route display */}
               <div className="space-y-2 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-3 bg-neutral-50/70 dark:bg-[#141926]">
@@ -436,14 +752,29 @@ export default function PapoShareStendiLiveTracker({
               {/* Bottom Actions */}
               <div className="pt-1 flex items-center gap-2">
                 {!isTripCompleted && (
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="flex-1 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Shiriki Safari</span>
-                  </button>
+                  <>
+                    {/* Direct WhatsApp Share Button */}
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppShare}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-black flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-95"
+                      title="Tuma kiungo cha safari moja kwa moja WhatsApp"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Shiriki WhatsApp</span>
+                    </button>
+
+                    {/* Copy Link Button */}
+                    <button
+                      type="button"
+                      onClick={handleCopyLink}
+                      className="py-2.5 px-3 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-[11px] font-bold text-neutral-700 dark:text-neutral-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
+                      title="Nakili Kiungo cha Safari"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Nakili</span>
+                    </button>
+                  </>
                 )}
 
                 {!isTripStarted && !isTripCompleted && (
@@ -472,6 +803,23 @@ export default function PapoShareStendiLiveTracker({
                       </span>
                     </div>
 
+                    {/* Rating & Tip CTA if not yet rated */}
+                    {!hasRatedDriver ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsRatingModalOpen(true)}
+                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                      >
+                        <Star className="w-4 h-4 fill-white text-white" />
+                        <span>Tathmini Dereva & Toa Bakshishi ⭐</span>
+                      </button>
+                    ) : (
+                      <div className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
+                        <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[3]" />
+                        <span>Umemtathmini dereva na kutoa bakshishi! Asante.</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2">
                       {onViewHistory && (
                         <button
@@ -498,6 +846,18 @@ export default function PapoShareStendiLiveTracker({
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Stand Rating & Tip Modal */}
+      {isRatingModalOpen && (
+        <RatingScreen
+          ride={standRideForRating}
+          onSubmit={handleStandRatingSubmit}
+          onSkip={() => {
+            setIsRatingModalOpen(false);
+            setAutoDismissSeconds(3);
+          }}
+        />
+      )}
     </div>
   );
 }

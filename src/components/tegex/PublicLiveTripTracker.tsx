@@ -126,6 +126,7 @@ export default function PublicLiveTripTracker() {
     setError(null);
 
     const docRef = doc(db, 'rides', rideId);
+    let unsubStand: (() => void) | null = null;
     const unsubscribe = onSnapshot(
       docRef,
       (docSnap) => {
@@ -147,8 +148,47 @@ export default function PublicLiveTripTracker() {
             setActiveViewerCount(Math.max(1, count));
           }
         } else {
-          setRide(null);
-          setNotFound(true);
+          // Check stand_pooling_routes fallback
+          const standRef = doc(db, 'stand_pooling_routes', rideId);
+          unsubStand = onSnapshot(standRef, (sSnap) => {
+            setIsLoading(false);
+            if (sSnap.exists()) {
+              const sData = sSnap.data() as any;
+              const mappedRide: any = {
+                id: sSnap.id,
+                status: sData.status === 'started' ? 'on_trip' : sData.status === 'completed' ? 'completed' : 'accepted',
+                pickup: {
+                  name: sData.standLocation?.name || 'Stendi',
+                  lat: sData.standLocation?.lat || 0,
+                  lng: sData.standLocation?.lng || 0,
+                  address: sData.standLocation?.name || 'Stendi'
+                },
+                destination: {
+                  name: sData.destination?.name || 'Kituo cha Mwisho',
+                  lat: sData.destination?.lat || 0,
+                  lng: sData.destination?.lng || 0,
+                  address: sData.destination?.name || 'Kituo cha Mwisho'
+                },
+                driverId: sData.driverId,
+                driverName: sData.driverName,
+                driverPhone: sData.driverPhone,
+                driverRating: sData.driverRating || 4.9,
+                vehicleModel: sData.vehicleModel || (sData.vehicleType === 'boda' ? 'Pikipiki Boxer' : sData.vehicleType === 'bajaj' ? 'Bajaji TVS' : 'Mini Car'),
+                vehiclePlate: sData.vehiclePlate || 'T 240 ABC',
+                vehicleType: sData.vehicleType || 'taxi',
+                driverLocation: sData.driverLocation,
+                routeCoords: sData.routeCoords,
+                fare: sData.fixedPricePerSeat || sData.systemFarePerSeat || 1500,
+                serviceType: 'stendi',
+                createdAt: sData.createdAt
+              };
+              setRide(mappedRide);
+              setNotFound(false);
+            } else {
+              setRide(null);
+              setNotFound(true);
+            }
+          });
         }
       },
       (err) => {
@@ -158,7 +198,10 @@ export default function PublicLiveTripTracker() {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubStand) unsubStand();
+    };
   }, [rideId]);
 
   // Spectator ping registration so driver & customer see viewers

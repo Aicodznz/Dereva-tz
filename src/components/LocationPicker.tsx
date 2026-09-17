@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car, Flame } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car, Flame, Check } from 'lucide-react';
 import { AISmartHeatMap } from './map/AISmartHeatMap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -883,66 +883,71 @@ export default function LocationPicker({
 
   return createPortal(
     <AnimatePresence>
-      <div className={`fixed inset-0 ${zIndex || 'z-[2000]'} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm`}>
+      <div className={`fixed inset-0 ${zIndex || 'z-[2000]'} flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-md transition-all`}>
         <motion.div 
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden flex flex-col h-[95vh] sm:h-auto sm:max-h-[90vh] shadow-2xl"
+          initial={{ y: '100%', opacity: 0.9 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: '100%', opacity: 0 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          className="bg-white dark:bg-neutral-900 w-full max-w-[480px] rounded-t-[2rem] sm:rounded-[2rem] overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[85vh] shadow-[0_25px_60px_rgba(0,0,0,0.35)] border border-neutral-200/80 dark:border-neutral-800"
         >
           {/* Header */}
-          <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-white shrink-0">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-md transition-colors ${
+          <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between bg-white dark:bg-neutral-900 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs transition-colors shrink-0 ${
                 currentMode === 'pickup' 
-                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60' 
                   : currentMode === 'delivery'
-                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                  : 'bg-orange-50 text-orange-600 border border-orange-200'
+                  ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60'
+                  : 'bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/60'
               }`}>
-                {currentMode === 'delivery' ? <Package className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                {currentMode === 'delivery' ? <Package className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
               </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight leading-tight">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-black text-neutral-900 dark:text-white tracking-tight leading-snug truncate">
                   {title || (currentMode === 'pickup' ? 'Mahali pa Kuchukulia' : currentMode === 'delivery' ? 'Eneo la Kufikisha' : 'Chagua Eneo Lako')}
                 </h2>
-                <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-black">
+                <p className="text-[10px] sm:text-[10.5px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-bold truncate">
                   {subtitle || (currentMode === 'pickup' ? 'Chagua eneo la kuchukulia mzigo' : currentMode === 'delivery' ? 'Chagua eneo la kufikisha mzigo' : 'Gusa kwenye ramani au tafuta anwani')}
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-neutral-100 shrink-0">
-              <X className="w-6 h-6" />
-            </Button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
             {/* Mode Switcher Tabs (Only in Parcel Flow) */}
             {isParcelFlow && !isMapViewOnly && !isMapExpanded && (
-              <div className="px-4 pt-3 pb-1 bg-white shrink-0 flex gap-2">
+              <div className="px-3.5 pt-2.5 pb-1 bg-white dark:bg-neutral-900 shrink-0 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setCurrentMode('pickup')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl font-black text-xs transition-all border ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition-all border cursor-pointer ${
                     currentMode === 'pickup'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-600/25 scale-[1.01]'
-                      : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200/80'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25'
+                      : 'bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
                   }`}
                 >
-                  <span className={`w-2.5 h-2.5 rounded-full ${currentMode === 'pickup' ? 'bg-white animate-ping' : 'bg-emerald-500'}`}></span>
-                  <span className="truncate uppercase tracking-tight">📍 Mahali pa Kuchukulia</span>
+                  <span className={`w-2 h-2 rounded-full ${currentMode === 'pickup' ? 'bg-white' : 'bg-emerald-500'}`}></span>
+                  <span className="truncate uppercase tracking-tight text-[11px]">Mahali pa Kuchukulia</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setCurrentMode('delivery')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl font-black text-xs transition-all border ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs transition-all border cursor-pointer ${
                     currentMode === 'delivery'
-                      ? 'bg-rose-600 text-white border-rose-600 shadow-lg shadow-rose-600/25 scale-[1.01]'
-                      : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200/80'
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/25'
+                      : 'bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
                   }`}
                 >
-                  <span className={`w-2.5 h-2.5 rounded-full ${currentMode === 'delivery' ? 'bg-white animate-ping' : 'bg-rose-500'}`}></span>
-                  <span className="truncate uppercase tracking-tight">📦 Eneo la Kufikisha</span>
+                  <span className={`w-2 h-2 rounded-full ${currentMode === 'delivery' ? 'bg-white' : 'bg-rose-500'}`}></span>
+                  <span className="truncate uppercase tracking-tight text-[11px]">Eneo la Kufikisha</span>
                 </button>
               </div>
             )}
@@ -952,35 +957,60 @@ export default function LocationPicker({
               <motion.div 
                 initial={{ opacity: 1, height: 'auto' }}
                 animate={{ opacity: isMapExpanded ? 0 : 1, height: isMapExpanded ? 0 : 'auto' }}
-                className="p-4 space-y-3 bg-white sticky top-0 z-20 overflow-hidden"
+                className="px-3.5 py-2.5 space-y-2 bg-white dark:bg-neutral-900 sticky top-0 z-20 overflow-hidden"
               >
-                <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 group-focus-within:text-orange-600 transition-colors" />
-                  <Input 
-                    placeholder="Andika anwani au jina la sehemu..." 
-                    className="pl-12 h-14 bg-neutral-50 border-none rounded-2xl pr-12 text-base font-medium focus:ring-2 focus:ring-orange-500"
-                    value={address}
-                    onChange={(e) => {
-                      setAddress(e.target.value);
-                      if (e.target.value.length === 0) setSuggestions([]);
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch(address)}
-                  />
-                  {isSearching && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
-                    </div>
-                  )}
+                {/* Unified Search Input + GPS Quick Button */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 group-focus-within:text-orange-500 transition-colors" />
+                    <Input 
+                      placeholder="Andika mtaa, jengo au eneo..." 
+                      className="pl-9 pr-9 h-11 bg-neutral-50 dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700/80 rounded-xl text-xs sm:text-sm font-medium focus-visible:ring-2 focus-visible:ring-orange-500/40 text-neutral-900 dark:text-white"
+                      value={address}
+                      onChange={(e) => {
+                        setAddress(e.target.value);
+                        if (e.target.value.length === 0) setSuggestions([]);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch(address)}
+                    />
+                    {address && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddress(''); setSuggestions([]); }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 cursor-pointer"
+                        title="Futa"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Integrated Compact GPS Location Button */}
+                  <button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isLocating}
+                    className="h-11 px-3 bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/40 text-orange-600 dark:text-orange-400 border border-orange-200/80 dark:border-orange-800/60 rounded-xl flex items-center gap-1.5 text-xs font-bold shrink-0 transition-all active:scale-95 shadow-xs cursor-pointer"
+                    title="Tumia eneo nililopo sasa (GPS)"
+                  >
+                    {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5 fill-current" />}
+                    <span className="hidden xs:inline sm:inline text-[11px]">Nilipo</span>
+                  </button>
                 </div>
 
                 {/* Autocomplete Suggestions */}
                 <AnimatePresence>
                   {suggestions.length > 0 && (
                     <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="bg-white border border-neutral-100 rounded-2xl shadow-xl max-h-60 overflow-y-auto no-scrollbar"
+                      exit={{ opacity: 0, y: -8 }}
+                      className="bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 rounded-xl shadow-xl max-h-48 overflow-y-auto no-scrollbar"
                     >
                       {suggestions.map((suggestion, index) => (
                         <button
@@ -991,12 +1021,12 @@ export default function LocationPicker({
                             setAddress(suggestion.display_name);
                             setSuggestions([]);
                           }}
-                          className="w-full px-4 py-3 text-left hover:bg-neutral-50 flex items-start gap-3 border-b border-neutral-50 last:border-0 transition-colors"
+                          className="w-full px-3 py-2 text-left hover:bg-neutral-50 dark:hover:bg-neutral-700/50 flex items-start gap-2.5 border-b border-neutral-100 dark:border-neutral-700/50 last:border-0 transition-colors cursor-pointer"
                         >
-                          <MapPin className="w-4 h-4 mt-1 text-neutral-400 shrink-0" />
-                          <div>
-                            <p className="text-sm font-bold text-neutral-900 leading-tight">{suggestion.display_name.split(',')[0]}</p>
-                            <p className="text-[10px] text-neutral-500 font-medium truncate max-w-[300px]">{suggestion.display_name}</p>
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 text-orange-500 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-neutral-900 dark:text-white leading-tight truncate">{suggestion.display_name.split(',')[0]}</p>
+                            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium truncate">{suggestion.display_name}</p>
                           </div>
                         </button>
                       ))}
@@ -1006,76 +1036,78 @@ export default function LocationPicker({
                 
                 {error && (
                   <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
+                    initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 flex items-center gap-3"
+                    className="p-2.5 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl border border-red-200 dark:border-red-900/50 flex items-center justify-between gap-2"
                   >
-                    <X className="w-4 h-4 shrink-0 bg-red-100 p-0.5 rounded-full" onClick={() => setError(null)} />
-                    {error}
+                    <span className="truncate">{error}</span>
+                    <button type="button" onClick={() => setError(null)} className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900">
+                      <X className="w-3.5 h-3.5 shrink-0" />
+                    </button>
                   </motion.div>
                 )}
 
-                <Button 
-                  variant="outline" 
-                  className="w-full h-14 rounded-2xl border-neutral-200 gap-3 text-neutral-600 font-bold hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all text-sm uppercase tracking-tighter italic"
-                  onClick={handleGetCurrentLocation}
-                  disabled={isLocating}
-                >
-                  {isLocating ? <Loader2 className="w-5 h-5 animate-spin text-orange-600" /> : <Navigation className="w-5 h-5 text-orange-600 animate-pulse" />}
-                  Tumia Mahali Nilipo Sasa
-                </Button>
-
-                {/* Recent Places Section */}
+                {/* Recent Places Section - Compact Chips */}
                 {recentPlaces.length > 0 && address.length < 3 && suggestions.length === 0 && (
-                  <div className="space-y-2 pt-2">
-                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1 flex items-center gap-2">
-                       <Clock size={10} /> Hivi Karibuni
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      {recentPlaces.slice(0, 3).map((place, i) => (
-                        <button
-                          key={`recent-place-${place.address}-${i}`}
-                          onClick={() => {
-                            setPosition(new L.LatLng(place.lat, place.lng));
-                            setAddress(place.address);
-                          }}
-                          className="w-full text-left p-3 rounded-xl bg-neutral-50 hover:bg-neutral-100 flex items-center gap-3 transition-colors border border-neutral-100/50"
-                        >
-                           <MapPin className="w-4 h-4 text-neutral-300" />
-                           <p className="text-xs font-bold text-neutral-600 truncate">{place.address}</p>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    <span className="text-[9.5px] font-bold text-neutral-400 uppercase shrink-0 flex items-center gap-1">
+                      <Clock size={10} /> Hivi Karibuni:
+                    </span>
+                    {recentPlaces.slice(0, 3).map((place, i) => (
+                      <button
+                        key={`recent-place-${place.address}-${i}`}
+                        onClick={() => {
+                          setPosition(new L.LatLng(place.lat, place.lng));
+                          setAddress(place.address);
+                        }}
+                        className="shrink-0 px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[10.5px] font-medium border border-neutral-200/60 dark:border-neutral-700 transition-colors flex items-center gap-1 max-w-[140px] truncate cursor-pointer"
+                        title={place.address}
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-neutral-400 shrink-0" />
+                        <span className="truncate">{place.address.split(',')[0]}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </motion.div>
             )}
 
             {/* Map Area */}
-            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[450px] mx-4 rounded-3xl'} shrink-0 bg-neutral-100 overflow-hidden border-2 border-neutral-50 shadow-inner transition-all duration-500 z-10`}>
+            <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[270px] sm:h-[300px] mx-3 sm:mx-3.5 rounded-2xl'} shrink-0 bg-neutral-100 dark:bg-neutral-800 overflow-hidden border border-neutral-200/80 dark:border-neutral-700/80 shadow-xs transition-all duration-300 z-10`}>
               {/* Map Type Toggle */}
-              <div className="absolute top-4 left-4 z-[1000] flex bg-white/90 backdrop-blur-md rounded-xl p-1 shadow-lg border border-white/50">
+              <div className="absolute top-2.5 left-2.5 z-[1000] flex bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-white/60 dark:border-neutral-700/60">
                 <button 
                   onClick={() => setMapType('standard')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${mapType === 'standard' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'standard' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                 >
-                  Map
+                  Ramani
                 </button>
                 <button 
                   onClick={() => setMapType('satellite')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${mapType === 'satellite' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'satellite' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                 >
                   Satellite
                 </button>
               </div>
 
-              {/* Expansion Toggle */}
-              <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
+              {/* Expansion & GPS Toggle in Top Right */}
+              <div className="absolute top-2.5 right-2.5 z-[1000] flex items-center gap-1.5">
                 <button 
-                  onClick={() => setIsMapExpanded(!isMapExpanded)}
-                  className="w-10 h-10 bg-white/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-900 shadow-lg border border-white/50 hover:bg-orange-600 hover:text-white transition-all"
+                  type="button"
+                  onClick={handleGetCurrentLocation}
+                  disabled={isLocating}
+                  title="Lenga nilipo (GPS)"
+                  className="w-8 h-8 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl flex items-center justify-center text-orange-600 shadow-md border border-white/60 dark:border-neutral-700/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 >
-                   {isMapExpanded ? <RotateCw className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
+                  {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsMapExpanded(!isMapExpanded)}
+                  title={isMapExpanded ? "Punguza ramani" : "Panua ramani"}
+                  className="w-8 h-8 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl flex items-center justify-center text-neutral-700 dark:text-neutral-200 shadow-md border border-white/60 dark:border-neutral-700/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  {isMapExpanded ? <RotateCw className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
@@ -1117,7 +1149,7 @@ export default function LocationPicker({
                           ? getPickupPinIcon() 
                           : currentMode === 'delivery' 
                           ? getDeliveryPinIcon() 
-                          : CurrentLocationPulseIcon
+                          : getStandardLocationPinIcon()
                       }
                       onPositionChange={(pos) => {
                         reverseGeocode(pos.lat, pos.lng);
@@ -1258,27 +1290,28 @@ export default function LocationPicker({
                 )}
               </MapContainer>
 
-              {/* Category Filter UI - Horizontal Scroll Overlay */}
-              <div className="absolute bottom-20 left-4 right-4 z-[1000] flex justify-center">
-                <div className="flex bg-white/95 backdrop-blur-md rounded-2xl p-1 gap-1 shadow-xl border border-white/50 overflow-x-auto no-scrollbar max-w-full">
+              {/* Category Filter UI - Compact Horizontal Scroll Overlay */}
+              <div className="absolute bottom-2 left-2 right-2 z-[1000] flex justify-center pointer-events-none">
+                <div className="flex bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-xl p-0.5 gap-1 shadow-md border border-neutral-200/80 dark:border-neutral-700/80 overflow-x-auto no-scrollbar max-w-[96%] pointer-events-auto">
                   {categories.map((cat) => (
                     <button
                       key={cat.id}
+                      type="button"
                       onClick={() => setCategoryFilter(cat.id)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                         categoryFilter === cat.id 
-                          ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/20' 
-                          : 'text-neutral-500 hover:bg-neutral-100'
+                          ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' 
+                          : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                       }`}
                     >
-                      <div className={`w-5 h-5 flex items-center justify-center rounded-lg ${categoryFilter === cat.id ? 'bg-white/20' : 'bg-neutral-100'}`}>
-                        {cat.id === 'all' ? <Layers size={12} className={categoryFilter === cat.id ? 'text-white' : 'text-neutral-500'} /> : (
-                          <div className="w-5 h-5 scale-[0.4] flex items-center justify-center">
+                      <div className={`w-4 h-4 flex items-center justify-center rounded-md ${categoryFilter === cat.id ? 'bg-white/20 dark:bg-neutral-900/20' : 'bg-neutral-100 dark:bg-neutral-800'}`}>
+                        {cat.id === 'all' ? <Layers size={10} className={categoryFilter === cat.id ? 'text-white dark:text-neutral-900' : 'text-neutral-500'} /> : (
+                          <div className="w-4 h-4 scale-[0.35] flex items-center justify-center">
                              {cat.icon}
                           </div>
                         )}
                       </div>
-                      <span className="text-[9px] font-black uppercase tracking-widest">{cat.label}</span>
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider">{cat.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1792,50 +1825,55 @@ export default function LocationPicker({
               </AnimatePresence>
             </div>
 
-            <div className={`p-4 space-y-6 ${isMapExpanded ? 'hidden' : ''}`}>
+            <div className={`px-3.5 py-2.5 ${isMapExpanded ? 'hidden' : ''}`}>
               {!isMapViewOnly && (
-                <div className="flex items-start gap-4 p-4 bg-neutral-50 rounded-3xl border border-neutral-100 group hover:border-orange-100 transition-colors">
-                  <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80 flex items-start gap-2.5 shadow-xs">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    currentMode === 'pickup' 
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' 
+                      : currentMode === 'delivery'
+                      ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400'
+                      : 'bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400'
+                  }`}>
                     {useParcelIcon ? (
-                      <div className="w-6 h-6 flex items-center justify-center text-red-600">
-                        <Package size={24} strokeWidth={3} />
-                      </div>
+                      <Package className="w-4 h-4" />
                     ) : (
-                      <MapPin className="w-6 h-6 text-orange-600" />
+                      <MapPin className="w-4 h-4" />
                     )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest italic">Anwani Iliyochaguliwa</p>
-                    <p className="text-sm font-bold text-neutral-900 mt-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">
+                        {currentMode === 'pickup' ? 'Mahali pa Kuchukulia' : currentMode === 'delivery' ? 'Eneo la Kufikisha' : 'Anwani Iliyochaguliwa'}
+                      </span>
+                      
+                      {/* Compact Quick Save Chips */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {[
+                          { id: 'Home', icon: '🏠', label: 'Nyumbani' },
+                          { id: 'Work', icon: '💼', label: 'Ofisini' },
+                          { id: 'Other', icon: '📍', label: 'Ingine' }
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setLabel(label === item.id ? null : item.id as any)}
+                            className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold flex items-center gap-0.5 transition-all border cursor-pointer ${
+                              label === item.id 
+                                ? 'border-orange-500 bg-orange-500 text-white shadow-xs' 
+                                : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:border-neutral-300'
+                            }`}
+                            title={`Hifadhi kama ${item.label}`}
+                          >
+                            <span>{item.icon}</span>
+                            <span>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs sm:text-[13px] font-bold text-neutral-900 dark:text-white mt-1 leading-snug line-clamp-2">
                       {address || `Lat: ${position.lat.toFixed(4)}, Lng: ${position.lng.toFixed(4)}`}
                     </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Save As Labels */}
-              {!isMapViewOnly && (
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest px-1">Hifadhi kama:</p>
-                  <div className="flex gap-3">
-                    {[
-                      { id: 'Home', icon: '🏠', label: 'Nyumbani' },
-                      { id: 'Work', icon: '💼', label: 'Ofisini' },
-                      { id: 'Other', icon: '📍', label: 'Ingine' }
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setLabel(item.id as any)}
-                        className={`flex-1 flex flex-col items-center gap-1.5 p-4 rounded-3xl border-2 transition-all ${
-                          label === item.id 
-                            ? 'border-orange-600 bg-orange-50 text-orange-600 shadow-lg shadow-orange-100 scale-105 z-10' 
-                            : 'border-neutral-50 bg-neutral-50 text-neutral-500 hover:border-neutral-200'
-                        }`}
-                      >
-                        <span className="text-2xl">{item.icon}</span>
-                        <span className="text-[9px] font-black uppercase tracking-tighter italic">{item.label}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
               )}
@@ -1844,13 +1882,21 @@ export default function LocationPicker({
 
           {/* Footer - Sticky at bottom */}
           {!isMapViewOnly && !isMapExpanded && (
-            <div className="p-6 bg-white border-t border-neutral-100 shrink-0">
-              <Button 
-                className="w-full h-16 bg-blue-600 hover:bg-neutral-900 text-white rounded-[2rem] text-xl font-black italic uppercase tracking-tighter shadow-2xl shadow-blue-600/30 gap-3 transition-all transform active:scale-[0.96]"
+            <div className="p-3.5 sm:p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 shrink-0">
+              <button 
+                type="button"
+                className={`w-full h-12 text-white rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] cursor-pointer ${
+                  currentMode === 'pickup'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/25'
+                    : currentMode === 'delivery'
+                    ? 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-rose-600/25'
+                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 shadow-orange-500/25'
+                }`}
                 onClick={handleConfirm}
               >
-                Confirm Location
-              </Button>
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Thibitisha Eneo Lako</span>
+              </button>
             </div>
           )}
         </motion.div>

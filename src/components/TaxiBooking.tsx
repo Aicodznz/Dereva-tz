@@ -102,6 +102,7 @@ import {
   limit,
   getDoc,
   deleteField,
+  increment,
 } from "firebase/firestore";
 import { useAuth } from "../AuthContext";
 import { useLanguage } from "../LanguageContext";
@@ -3283,17 +3284,19 @@ const getEndPin = (etaText: string) => {
     }
   };
 
-  const handleRating = async (ratingValue: number, feedback: string[]) => {
+  const handleRating = async (ratingValue: number, feedback: string[], comment?: string, tipAmount?: number) => {
     if (!rideId) return;
     try {
       await updateDoc(doc(db, "rides", rideId), {
         rating: ratingValue,
         feedback,
+        comment: comment || "",
+        tip: tipAmount || 0,
         rated: true,
         updatedAt: serverTimestamp(),
       });
 
-      // Update driver aggregate rating in users collection
+      // Update driver aggregate rating & wallet in users collection
       if (activeRide?.driverId) {
         const driverId = activeRide.driverId;
         const userRef = doc(db, "users", driverId);
@@ -3306,11 +3309,18 @@ const getEndPin = (etaText: string) => {
           const newCount = currentCount + 1;
           const newRating = ((currentRating * currentCount) + ratingValue) / newCount;
           
-          await updateDoc(userRef, {
+          const updatePayload: any = {
             rating: parseFloat(newRating.toFixed(1)),
             ratingCount: newCount,
             updatedAt: serverTimestamp()
-          });
+          };
+
+          if (tipAmount && tipAmount > 0) {
+            updatePayload.walletBalance = increment(tipAmount);
+            updatePayload.totalTips = increment(tipAmount);
+          }
+
+          await updateDoc(userRef, updatePayload);
         }
 
         // Also update driver rating in the temporary drivers tracking collection if they are listed there
@@ -3336,7 +3346,11 @@ const getEndPin = (etaText: string) => {
         }
       }
 
-      toast.success("Asante kwa maoni yako!");
+      if (tipAmount && tipAmount > 0) {
+        toast.success(`Asante kwa tathmini na bakshishi ya TZS ${tipAmount.toLocaleString()} kwa dereva! 🎉`);
+      } else {
+        toast.success("Asante kwa tathmini na maoni yako!");
+      }
       setTimeout(() => navigate("/"), 1500);
     } catch (err) {
       console.error(err);
@@ -4429,7 +4443,7 @@ const getEndPin = (etaText: string) => {
                             />
                           )}
 
-                          {/* Dropoff Location Marker (Clean, compact pin) */}
+                          {/* Dropoff Location Marker (Clean, compact pin with Sequence order) */}
                           {p && p.dropoffLat && p.dropoffLng && (
                             <Marker
                               position={[p.dropoffLat, p.dropoffLng]}
@@ -4437,8 +4451,9 @@ const getEndPin = (etaText: string) => {
                                 className: 'active-stand-dropoff-pin',
                                 html: `
                                   <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
-                                    <div style="background: #dc2626; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1.5px solid white; white-space: nowrap;">
-                                      🏁 Kushukia
+                                    <div style="background: #dc2626; color: white; padding: 2.5px 8px; border-radius: 9999px; font-size: 10px; font-weight: 900; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 1.5px solid white; white-space: nowrap; display: flex; align-items: center; gap: 3px;">
+                                      <span>🏁 Kituo Chako</span>
+                                      <span style="background: rgba(255,255,255,0.25); padding: 0 4px; border-radius: 4px; font-size: 9px;">Kushukia</span>
                                     </div>
                                     <div style="width: 8px; height: 8px; background: #dc2626; border: 1.5px solid white; border-radius: 50%; margin-top: 2px;"></div>
                                   </div>
@@ -4447,6 +4462,29 @@ const getEndPin = (etaText: string) => {
                               })}
                             />
                           )}
+
+                          {/* Other passengers' dropoffs on the route if multiple passengers exist */}
+                          {r.passengers && r.passengers.length > 1 && r.passengers
+                            .filter((otherP: any) => otherP.passengerId !== p?.passengerId && (otherP.status === 'booked' || otherP.status === 'boarded') && otherP.dropoffLat && otherP.dropoffLng)
+                            .map((otherP: any) => (
+                              <Marker
+                                key={`stand-other-dropoff-${otherP.passengerId}`}
+                                position={[otherP.dropoffLat, otherP.dropoffLng]}
+                                icon={L.divIcon({
+                                  className: 'active-stand-other-dropoff-pin',
+                                  html: `
+                                    <div style="transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+                                      <div style="background: #475569; color: white; padding: 2px 6px; border-radius: 9999px; font-size: 9px; font-weight: 800; box-shadow: 0 2px 6px rgba(0,0,0,0.25); border: 1px solid white; white-space: nowrap; display: flex; align-items: center; gap: 2px;">
+                                        <span>📍 Kituo cha Abiria</span>
+                                      </div>
+                                      <div style="width: 6px; height: 6px; background: #475569; border: 1px solid white; border-radius: 50%; margin-top: 1px;"></div>
+                                    </div>
+                                  `,
+                                  iconSize: [0, 0]
+                                })}
+                              />
+                            ))
+                          }
                         </React.Fragment>
                       );
                     })()}

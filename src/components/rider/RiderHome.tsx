@@ -12,7 +12,8 @@ import {
   CheckCircle2, ArrowRight, RefreshCw, DollarSign, Package, Home, LogOut,
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
   AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers,
-  ExternalLink, Play, Square, Check
+  ExternalLink, Play, Square, Check,
+  CornerUpRight, CornerUpLeft, ArrowUp
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -3959,10 +3960,36 @@ const getEndPin = (etaText: string) => {
 
         const distKm = getDistanceInMeters(position[0], position[1], targetLat, targetLng) / 1000;
         const etaMins = Math.max(1, Math.round((distKm / 35) * 60));
+        const standSpeed = Math.round(driverGpsSpeed || 32);
+
+        // Calculate approximate turn angle / maneuver based on heading and target coordinate
+        const bearingToTarget = calculateBearing(position[0], position[1], targetLat, targetLng);
+        const headingDiff = ((bearingToTarget - (rotation || 0) + 540) % 360) - 180;
+        const turnIcon = headingDiff > 35 ? 'right' : headingDiff < -35 ? 'left' : 'straight';
+        const turnText = turnIcon === 'right' ? 'Pinda Kulia' : turnIcon === 'left' ? 'Pinda Kushoto' : 'Endelea Mbele';
+
+        const playStandVoiceGuidance = () => {
+          if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+          try {
+            window.speechSynthesis.cancel();
+            const text = nextPassenger 
+              ? `Kituo kinachofuata ni ${nextPassenger.dropoffName}, mita ${distKm < 1 ? Math.round(distKm * 1000) : distKm.toFixed(1) + ' kilomita'} mbele. Abiria anayeitwa ${nextPassenger.passengerName} anashuka hapa.` 
+              : `Kituo cha mwisho ni ${activeDriverStandRoute.destination?.name || 'Mwisho wa safari'}, ${distKm < 1 ? Math.round(distKm * 1000) + ' mita' : distKm.toFixed(1) + ' kilomita'} mbele.`;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'sw-TZ';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+            toast.info("Urambazaji wa sauti: " + text, { duration: 4000 });
+          } catch (e) {
+            console.warn("Speech synthesis fail:", e);
+          }
+        };
 
         return (
-          <div className="absolute top-2.5 inset-x-2.5 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-40 pointer-events-auto">
-            <div className="bg-slate-900/95 dark:bg-[#0b1329]/95 backdrop-blur-xl border border-emerald-500/35 rounded-2xl p-2.5 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white">
+          <div className="absolute top-2.5 inset-x-2.5 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[540px] z-40 pointer-events-auto">
+            <div className="bg-slate-900/95 dark:bg-[#0b1329]/95 backdrop-blur-xl border border-emerald-500/35 rounded-2xl p-2.5 shadow-[0_10px_35px_rgba(0,0,0,0.5)] text-white space-y-2">
+              {/* Top Row: Next Dropoff & Speedometer HUD */}
               <div className="flex items-center justify-between gap-2">
                 {/* Left: Waypoint Icon & Trip Details */}
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -4001,8 +4028,33 @@ const getEndPin = (etaText: string) => {
                   </div>
                 </div>
 
-                {/* Right: Quick Action Controls */}
+                {/* Center-Right: Speedometer & Speed Limit 50 */}
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Speed Limit 50 badge */}
+                  <div 
+                    className={`w-6 h-6 rounded-full border-2 ${
+                      standSpeed > 50 
+                        ? 'border-red-600 bg-red-100 text-red-700 animate-bounce font-black' 
+                        : 'border-red-500 bg-white text-slate-900'
+                    } flex items-center justify-center font-black text-[9px] shadow-xs shrink-0`}
+                    title="Kiwango cha juu cha mwendo mjini (50 km/h)"
+                  >
+                    50
+                  </div>
+
+                  {/* KM/H Box */}
+                  <div className={`rounded-xl px-2 py-1 flex flex-col items-center justify-center min-w-[48px] border transition-colors ${
+                    standSpeed > 50 
+                      ? 'bg-red-500 text-white border-red-600 animate-pulse' 
+                      : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400'
+                  }`}>
+                    <span className="text-[7.5px] font-black uppercase tracking-wider leading-none">KM/H</span>
+                    <span className="text-sm font-black font-mono leading-tight mt-0.5">{standSpeed}</span>
+                  </div>
+                </div>
+
+                {/* Right: Quick Dropoff Action */}
+                <div className="flex items-center gap-1 shrink-0">
                   {nextPassenger ? (
                     <button
                       type="button"
@@ -4021,7 +4073,7 @@ const getEndPin = (etaText: string) => {
                           }
                         }
                       }}
-                      className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
+                      className="py-1.5 px-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
                       title="Shusha abiria huyu anapofika kituoni"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -4038,18 +4090,63 @@ const getEndPin = (etaText: string) => {
                           toast.error("Hitilafu katika kukamilisha safari");
                         }
                       }}
-                      className="py-2 px-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
+                      className="py-1.5 px-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md whitespace-nowrap"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Kamilisha</span>
                     </button>
                   )}
+                </div>
+              </div>
 
-                  {/* Passengers quick count & modal toggle */}
+              {/* Bottom Sub-row: Maneuver Direction + Quick Action Icons */}
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80 gap-2">
+                {/* Turn Direction Guidance Pill */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <div className="w-5 h-5 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+                    {turnIcon === 'right' && <CornerUpRight className="w-3 h-3 text-white stroke-[3.5]" />}
+                    {turnIcon === 'left' && <CornerUpLeft className="w-3 h-3 text-white stroke-[3.5]" />}
+                    {turnIcon === 'straight' && <ArrowUp className="w-3 h-3 text-white stroke-[3.5]" />}
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-200 truncate">
+                    {turnText} • {distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}
+                  </span>
+                </div>
+
+                {/* Action Controls */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Voice guidance button */}
+                  <button
+                    type="button"
+                    onClick={playStandVoiceGuidance}
+                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-amber-400 rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-xs"
+                    title="Tamka maelekezo ya sauti ya Kiswahili"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* 3D Mode Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIs3DMode(!is3DMode);
+                      toast.info(is3DMode ? "Mtazamo wa Ramani ya Kawaida" : "Mtazamo wa Ramani wa 3D umewashwa! 🌐");
+                    }}
+                    className={`h-7 px-1.5 rounded-lg border flex items-center justify-center text-[10px] font-black tracking-wider transition-all cursor-pointer ${
+                      is3DMode 
+                        ? 'bg-emerald-600 border-emerald-500 text-white' 
+                        : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                    }`}
+                    title="Washa mtazamo wa 3D / 2D"
+                  >
+                    3D
+                  </button>
+
+                  {/* Passengers modal toggle */}
                   <button
                     type="button"
                     onClick={() => setIsPapoShareStendiModalOpen(true)}
-                    className="h-8 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-emerald-300 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                    className="h-7 px-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-emerald-300 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[10.5px] font-bold"
                     title="Fungua orodha ya abiria wote"
                   >
                     <span>👥</span>
@@ -4061,10 +4158,10 @@ const getEndPin = (etaText: string) => {
                     href={`https://www.google.com/maps/dir/?api=1&origin=${position[0]},${position[1]}&destination=${targetLat},${targetLng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-8 h-8 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-sky-400 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-sm"
+                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-sky-400 rounded-lg flex items-center justify-center transition-all cursor-pointer shadow-xs"
                     title="Fungua Google Maps kuelekea kituo hiki"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3 h-3" />
                   </a>
 
                   {/* Recenter Map Button */}
@@ -4075,10 +4172,10 @@ const getEndPin = (etaText: string) => {
                       setRecenterStandTrigger(prev => prev + 1);
                       toast.success("Ramani imelenga njia ya safari! 🎯");
                     }}
-                    className="w-8 h-8 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-300 hover:text-emerald-400 rounded-xl flex items-center justify-center transition-all cursor-pointer"
+                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-neutral-300 hover:text-emerald-400 rounded-lg flex items-center justify-center transition-all cursor-pointer"
                     title="Lenga Njia"
                   >
-                    <Navigation2 className="w-3.5 h-3.5 rotate-45" />
+                    <Navigation2 className="w-3 h-3 rotate-45" />
                   </button>
                 </div>
               </div>

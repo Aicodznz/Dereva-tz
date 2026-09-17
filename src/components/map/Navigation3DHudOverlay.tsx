@@ -543,14 +543,37 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                   </span>
                 </div>
 
-                {/* Column 4: KM/H Distinct Mint Box (Exact match to screenshots) */}
-                <div className="bg-[#ecfdf5] dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl px-2 sm:px-3 py-1 sm:py-1.5 flex flex-col items-center justify-center min-w-[56px]">
-                  <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase leading-none">
-                    KM/H
-                  </span>
-                  <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono leading-tight mt-0.5">
-                    {speed}
-                  </span>
+                {/* Column 4: KM/H Speedometer Box + Speed Limit 50 Ring */}
+                <div className="flex items-center gap-1 sm:gap-1.5 justify-end">
+                  {/* Speed Limit Indicator (Standard Urban Road 50 km/h) */}
+                  <div 
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 ${
+                      speed > 50 
+                        ? 'border-red-600 bg-red-100 text-red-700 animate-bounce font-black' 
+                        : 'border-red-500 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200'
+                    } flex items-center justify-center font-black text-[9px] sm:text-[10px] shadow-xs shrink-0`}
+                    title="Kiwango cha juu cha kasi mjini (50 km/h)"
+                  >
+                    50
+                  </div>
+
+                  {/* Dynamic Speed Box */}
+                  <div className={`rounded-2xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex flex-col items-center justify-center min-w-[50px] sm:min-w-[54px] border transition-colors ${
+                    speed > 50 
+                      ? 'bg-red-500 text-white border-red-600 shadow-md animate-pulse' 
+                      : 'bg-[#ecfdf5] dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60'
+                  }`}>
+                    <span className={`text-[8.5px] font-black tracking-wider uppercase leading-none ${
+                      speed > 50 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      KM/H
+                    </span>
+                    <span className={`text-lg sm:text-xl font-black font-mono leading-tight mt-0.5 ${
+                      speed > 50 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {speed}
+                    </span>
+                  </div>
                 </div>
               </div>
 
