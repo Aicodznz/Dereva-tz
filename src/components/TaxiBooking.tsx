@@ -774,6 +774,16 @@ export default function TaxiBooking() {
     return () => unsub();
   }, [activeStandTrip?.route?.driverId, activeStandTrip?.route?.status, activeStandTrip?.passenger?.status]);
 
+  // Instantly reflect updated Firestore routeCoords for active stand trip
+  useEffect(() => {
+    if (activeStandTrip?.route?.routeCoords && Array.isArray(activeStandTrip.route.routeCoords) && activeStandTrip.route.routeCoords.length > 2) {
+      const normalized = getNormalizedCoords(activeStandTrip.route.routeCoords);
+      if (normalized.length > 0) {
+        setStandTripRouteCoords(normalized);
+      }
+    }
+  }, [activeStandTrip?.route?.id, activeStandTrip?.route?.routeCoords ? JSON.stringify(activeStandTrip.route.routeCoords) : '']);
+
   // Road geometry calculation for active stendi trip
   useEffect(() => {
     if (!activeStandTrip) {
@@ -782,6 +792,16 @@ export default function TaxiBooking() {
     }
     const r = activeStandTrip.route;
     const p = activeStandTrip.passenger;
+
+    // Prefer pre-existing routeCoords if sent from driver
+    if (r.routeCoords && Array.isArray(r.routeCoords) && r.routeCoords.length > 2) {
+      const normalized = getNormalizedCoords(r.routeCoords);
+      if (normalized.length > 0) {
+        setStandTripRouteCoords(normalized);
+        return;
+      }
+    }
+
     const startLat = r.standLocation.lat;
     const startLng = r.standLocation.lng;
     const destLat = p?.dropoffLat ?? r.destination.lat;
@@ -824,6 +844,76 @@ export default function TaxiBooking() {
     activeStandTrip?.passenger?.dropoffLng,
     activeStandTrip?.route?.destination?.lat,
     activeStandTrip?.route?.destination?.lng,
+  ]);
+
+  // Dynamic automatic detour / reroute recalculation if stand driver takes a different road
+  const lastStandRerouteTimeRef = useRef<number>(0);
+  useEffect(() => {
+    if (!activeStandTrip || activeStandTrip.route.status !== 'started' || !standDriverLivePos) {
+      return;
+    }
+    if (!standTripRouteCoords || standTripRouteCoords.length < 2) {
+      return;
+    }
+
+    const now = Date.now();
+    // Debounce recalculations to at most once every 10 seconds
+    if (now - lastStandRerouteTimeRef.current < 10000) {
+      return;
+    }
+
+    const dLat = standDriverLivePos.lat;
+    const dLng = standDriverLivePos.lng;
+    const p = activeStandTrip.passenger;
+    const destLat = p?.dropoffLat ?? activeStandTrip.route.destination.lat;
+    const destLng = p?.dropoffLng ?? activeStandTrip.route.destination.lng;
+
+    // Check minimum distance to current route polyline
+    let minDistanceMeters = Infinity;
+    for (let i = 0; i < standTripRouteCoords.length; i++) {
+      const c = standTripRouteCoords[i];
+      const d = Math.hypot((dLat - c[0]) * 111000, (dLng - c[1]) * 111000);
+      if (d < minDistanceMeters) {
+        minDistanceMeters = d;
+      }
+    }
+
+    // If driver has deviated more than 180m from the planned route, recalculate from driver's current position to dropoff!
+    if (minDistanceMeters > 180) {
+      lastStandRerouteTimeRef.current = now;
+
+      const fetchReroutedPath = async () => {
+        try {
+          const startStr = `${dLng},${dLat}`;
+          const destStr = `${destLng},${destLat}`;
+          const res = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${startStr};${destStr}?overview=full&geometries=geojson`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.routes && data.routes[0]?.geometry?.coordinates) {
+              const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+                (c: [number, number]) => [c[1], c[0]]
+              );
+              if (coords.length > 1) {
+                setStandTripRouteCoords(coords);
+                toast.info("🔄 PapoShare: Njia imerekebishwa kufuatia mabadiliko ya barabara ya dereva!");
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Stand route reroute fetch failed:", e);
+        }
+      };
+
+      fetchReroutedPath();
+    }
+  }, [
+    activeStandTrip?.route?.id,
+    activeStandTrip?.route?.status,
+    standDriverLivePos?.lat,
+    standDriverLivePos?.lng,
+    standTripRouteCoords?.length
   ]);
 
   const scrollVehicles = (direction: 'left' | 'right') => {
@@ -4276,12 +4366,35 @@ const getEndPin = (etaText: string) => {
                       const driverLng = standDriverLivePos?.lng ?? r.driverLocation?.lng ?? r.standLocation.lng;
                       const heading = standDriverLivePos?.heading ?? r.driverLocation?.heading ?? 0;
 
+                      const driverPosObj = (standDriverLivePos && typeof standDriverLivePos.lat === 'number')
+                        ? { lat: standDriverLivePos.lat, lng: standDriverLivePos.lng }
+                        : (r.driverLocation ? { lat: r.driverLocation.lat, lng: r.driverLocation.lng } : null);
+
+                      const isTripStarted = r.status === 'started';
+                      const slicedStandRoute = (isTripStarted && driverPosObj && standTripRouteCoords && standTripRouteCoords.length > 1)
+                        ? sliceRouteFromCurrentPos(standTripRouteCoords, driverPosObj)
+                        : standTripRouteCoords;
+
                       return (
                         <React.Fragment key={`active-stendi-tracking-${r.id}`}>
-                          {/* Real Road Animated Route Polyline */}
-                          {standTripRouteCoords && standTripRouteCoords.length > 1 && (
-                            <AnimatedRoute
+                          {/* Planned trip underlay (subtle road line showing original route path) */}
+                          {isTripStarted && standTripRouteCoords && standTripRouteCoords.length > 1 && (
+                            <Polyline
                               positions={standTripRouteCoords}
+                              pathOptions={{
+                                color: theme === 'dark' ? '#334155' : '#94a3b8',
+                                weight: 5,
+                                opacity: 0.35,
+                                lineCap: 'round',
+                                lineJoin: 'round'
+                              }}
+                            />
+                          )}
+
+                          {/* Dynamic Active Animated Route (Starts from Driver and stretches forward to Dropoff) */}
+                          {slicedStandRoute && slicedStandRoute.length > 1 && (
+                            <AnimatedRoute
+                              positions={slicedStandRoute}
                               color="#10B981"
                             />
                           )}

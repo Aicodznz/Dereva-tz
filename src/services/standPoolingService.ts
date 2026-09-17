@@ -629,6 +629,39 @@ export async function updateStandDriverLocation(
 }
 
 /**
+ * Driver updates or recalculates route coordinates on active stand pooling route
+ */
+export async function updateStandRouteCoords(
+  routeIdOrDriverId: string,
+  routeCoords: [number, number][],
+  secondaryId?: string
+): Promise<void> {
+  if (!routeIdOrDriverId && !secondaryId) return;
+  if (!routeCoords || routeCoords.length === 0) return;
+
+  const payload = {
+    routeCoords,
+    updatedAt: serverTimestamp()
+  };
+
+  const tasks: Promise<any>[] = [];
+  if (routeIdOrDriverId) {
+    const routeRef = doc(db, 'stand_pooling_routes', routeIdOrDriverId);
+    tasks.push(setDoc(routeRef, payload, { merge: true }));
+  }
+  if (secondaryId && secondaryId !== routeIdOrDriverId) {
+    const secRef = doc(db, 'stand_pooling_routes', secondaryId);
+    tasks.push(setDoc(secRef, payload, { merge: true }));
+  }
+
+  try {
+    await Promise.all(tasks);
+  } catch (err) {
+    console.warn("Stand route coords update warning:", err);
+  }
+}
+
+/**
  * Real-time listener for the passenger/rider's active stand pooling trip
  */
 export function listenRiderActiveStandRoute(

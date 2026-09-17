@@ -49,6 +49,7 @@ import PapoShareStendiModal from '../driver/PapoShareStendiModal';
 import { 
   listenDriverActiveStandRoute, 
   updateStandDriverLocation, 
+  updateStandRouteCoords,
   dropoffStandPassenger, 
   updateStandRouteStatus, 
   StandPoolingRoute 
@@ -612,13 +613,28 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
               (c: [number, number]) => [c[1], c[0]]
             );
             setStandRouteRoadCoords(coords);
+            if (activeDriverStandRoute?.id) {
+              updateStandRouteCoords(
+                activeDriverStandRoute.id,
+                coords,
+                activeDriverStandRoute.driverId
+              );
+            }
             return;
           }
         }
       } catch (e) {}
 
       if (isMounted) {
-        setStandRouteRoadCoords(generateSimulatedRoads([startLat, startLng], [destLat, destLng]));
+        const fallbackCoords = generateSimulatedRoads([startLat, startLng], [destLat, destLng]);
+        setStandRouteRoadCoords(fallbackCoords);
+        if (activeDriverStandRoute?.id) {
+          updateStandRouteCoords(
+            activeDriverStandRoute.id,
+            fallbackCoords,
+            activeDriverStandRoute.driverId
+          );
+        }
       }
     };
 
