@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { toPng } from 'html-to-image';
 import { getMapBounds } from '../../utils/mapHelpers';
+import { DigitalReceiptModal } from './DigitalReceiptModal';
 
 const PickupIcon = L.divIcon({
   html: `<div class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white shadow-lg text-white"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
@@ -77,6 +78,7 @@ const TaxiHistory: React.FC = () => {
   const [filterTab, setFilterTab] = useState<'all' | 'stand' | 'solo'>('all');
   const [loading, setLoading] = useState(true);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [digitalReceiptRide, setDigitalReceiptRide] = useState<Ride | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState<{ type: 'single' | 'all'; rideId?: string } | null>(null);
@@ -527,8 +529,29 @@ const TaxiHistory: React.FC = () => {
                           TZS {(ride.fare || 0).toLocaleString()}
                         </span>
                       </div>
-                      <div className={`flex items-center gap-1 text-neutral-400 font-black uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'group-hover:text-neutral-200' : 'group-hover:text-neutral-800'} transition-colors`}>
-                        Maelezo zaidi <ChevronRight size={12} className="stroke-[3]" />
+
+                      <div className="flex items-center gap-2">
+                        {ride.status === 'completed' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDigitalReceiptRide(ride);
+                            }}
+                            className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all active:scale-95 ${
+                              theme === 'dark'
+                                ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/25'
+                                : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                            }`}
+                            title="Ona na Pakua Risiti Rasmi (E-Receipt)"
+                          >
+                            <Receipt size={12} className="text-indigo-600" />
+                            <span>Risiti</span>
+                          </button>
+                        )}
+                        <div className={`flex items-center gap-1 text-neutral-400 font-black uppercase tracking-widest text-[9px] ${theme === 'dark' ? 'group-hover:text-neutral-200' : 'group-hover:text-neutral-800'} transition-colors`}>
+                          Maelezo <ChevronRight size={12} className="stroke-[3]" />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -804,10 +827,17 @@ const TaxiHistory: React.FC = () => {
               {/* Action Buttons */}
               <div className="flex flex-col gap-3">
                 <button 
-                  onClick={downloadReceipt}
-                  className={`w-full py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border ${theme === 'dark' ? 'bg-neutral-800/60 border-neutral-700 text-neutral-200 hover:bg-neutral-700' : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200'}`}
+                  onClick={() => setDigitalReceiptRide(selectedRide)}
+                  className="w-full py-4 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2.5 active:scale-[0.98] transition-all bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 cursor-pointer"
                 >
-                  <Download size={16} /> Pakua Receipt
+                  <Receipt size={16} /> Risiti Rasmi ya Kidijitali (E-Receipt / Pakua / WhatsApp)
+                </button>
+
+                <button 
+                  onClick={downloadReceipt}
+                  className={`w-full py-3.5 rounded-[2rem] font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 active:scale-[0.98] transition-all border cursor-pointer ${theme === 'dark' ? 'bg-neutral-800/60 border-neutral-700 text-neutral-200 hover:bg-neutral-700' : 'bg-neutral-100 border-neutral-200 text-neutral-700 hover:bg-neutral-200'}`}
+                >
+                  <Download size={16} /> Pakua Picha Rahisi
                 </button>
 
                 <button 
@@ -894,6 +924,15 @@ const TaxiHistory: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Digital Receipt Modal */}
+      {digitalReceiptRide && (
+        <DigitalReceiptModal
+          isOpen={!!digitalReceiptRide}
+          ride={digitalReceiptRide as any}
+          onClose={() => setDigitalReceiptRide(null)}
+        />
+      )}
     </div>
   );
 };

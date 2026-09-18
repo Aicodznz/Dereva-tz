@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, Heart, Trash2, Phone, MessageSquare, Star, 
-  Navigation, MessageCircle, ArrowLeft, Send, ExternalLink
+  Navigation, MessageCircle, ArrowLeft, Send, ExternalLink,
+  Zap, Search, Sparkles, Check, Radio
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -9,12 +10,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../ThemeContext';
 import { useAuth } from '../../AuthContext';
 import { db } from '../../firebase';
-import { collection, query, where, limit, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, limit, onSnapshot, addDoc, getDocs } from 'firebase/firestore';
 import { 
   FavoriteDriver, 
   getLocalFavoriteDrivers, 
   removeCustomerFavoriteDriver,
-  fetchFavoriteDrivers
+  fetchFavoriteDrivers,
+  saveCustomerFavoriteDriver
 } from '../../utils/customerPreferences';
 
 interface FavoriteDriversModalProps {
@@ -51,6 +53,11 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
 
   const [drivers, setDrivers] = useState<FavoriteDriver[]>([]);
   const [activeChatDriver, setActiveChatDriver] = useState<FavoriteDriver | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'online' | '5stars'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [onlineDriverMap, setOnlineDriverMap] = useState<Record<string, boolean>>({});
+  const [discovered5StarDrivers, setDiscovered5StarDrivers] = useState<FavoriteDriver[]>([]);
+  const [addingDiscoveredId, setAddingDiscoveredId] = useState<string | null>(null);
 
   // In-system chat states
   const [chatMessages, setChatMessages] = useState<InAppChatMessage[]>([]);
@@ -71,6 +78,7 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
     } else {
       setActiveChatDriver(null);
       setInputMessage('');
+      setSearchQuery('');
     }
   }, [isOpen, userId]);
 
@@ -84,7 +92,7 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
   }, []);
 
   const formatCleanPhone = (p: string) => {
-    let clean = p.replace(/\s+/g, '').replace(/-/g, '');
+    let clean = (p || '').replace(/\s+/g, '').replace(/-/g, '');
     if (clean.startsWith('0')) {
       clean = '255' + clean.substring(1);
     } else if (clean.startsWith('+')) {
@@ -92,6 +100,165 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
     }
     return clean;
   };
+
+  // Listen to active online drivers in Firestore
+  useEffect(() => {
+    if (!isOpen) return;
+
+    try {
+      const q = query(
+        collection(db, 'drivers'),
+        where('isOnline', '==', true)
+      );
+
+      const unsub = onSnapshot(q, (snap) => {
+        const map: Record<string, boolean> = {};
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          map[d.id] = true;
+          if (data.phone) {
+            map[formatCleanPhone(data.phone)] = true;
+          }
+          if (data.vehiclePlate) {
+            map[data.vehiclePlate.trim().toUpperCase().replace(/\s+/g, '')] = true;
+          }
+          if (data.name) {
+            map[data.name.trim().toLowerCase()] = true;
+          }
+        });
+        setOnlineDriverMap(map);
+      }, (err) => {
+        console.warn('FavoriteDriversModal: error listening to online drivers:', err);
+      });
+
+      return () => unsub();
+    } catch (e) {
+      console.warn('FavoriteDriversModal: could not query online drivers:', e);
+    }
+  }, [isOpen]);
+
+  // Discover 5-star drivers from previous completed rides
+  useEffect(() => {
+    if (!isOpen) return;
+    const load5StarDriversFromRides = async () => {
+      try {
+        const uid = user?.uid || userId;
+        if (!uid) return;
+
+        const q = query(
+          collection(db, 'rides'),
+          where('customerId', '==', uid),
+          where('status', '==', 'completed'),
+          limit(25)
+        );
+
+        const snap = await getDocs(q);
+        const candidates: FavoriteDriver[] = [];
+        const seenPhones = new Set<string>();
+
+        snap.docs.forEach((d) => {
+          const data = d.data() as any;
+          const rating = Number(data.rating || data.driverRating || data.stars || 5);
+          if (rating >= 4.5 && data.driverInfo?.name) {
+            const phone = data.driverInfo.phone || '';
+            const clean = formatCleanPhone(phone);
+            if (clean && !seenPhones.has(clean)) {
+              seenPhones.add(clean);
+              // Check if not already in favorites
+              const alreadyFav = drivers.some(
+                (f) => formatCleanPhone(f.phone) === clean || (f.driverId && f.driverId === data.driverId)
+              );
+              if (!alreadyFav) {
+                candidates.push({
+                  id: `disc_${d.id}`,
+                  driverId: data.driverId || '',
+                  name: data.driverInfo.name,
+                  phone: data.driverInfo.phone || '',
+                  photo: data.driverInfo.photo || '',
+                  vehicleType: data.vehicleType || data.driverInfo.vehicleType || 'mini',
+                  vehiclePlate: data.driverInfo.vehiclePlate || data.driverInfo.plateNumber || 'T 123 ABC',
+                  vehicleModel: data.driverInfo.vehicleModel || 'Taxi',
+                  rating: rating,
+                  notes: 'Dereva uliyempa nyota 5 kwenye safari iliyopita',
+                  addedAt: Date.now(),
+                });
+              }
+            }
+          }
+        });
+
+        setDiscovered5StarDrivers(candidates);
+      } catch (err) {
+        console.warn('Could not discover 5-star drivers from rides:', err);
+      }
+    };
+
+    load5StarDriversFromRides();
+  }, [isOpen, user?.uid, userId, drivers]);
+
+  const checkIsDriverOnline = (drv: FavoriteDriver): boolean => {
+    if (drv.driverId && onlineDriverMap[drv.driverId]) return true;
+    if (drv.id && onlineDriverMap[drv.id]) return true;
+    if (drv.phone && onlineDriverMap[formatCleanPhone(drv.phone)]) return true;
+    if (drv.vehiclePlate && onlineDriverMap[drv.vehiclePlate.trim().toUpperCase().replace(/\s+/g, '')]) return true;
+    if (drv.name && onlineDriverMap[drv.name.trim().toLowerCase()]) return true;
+    return false;
+  };
+
+  const handleAddDiscoveredDriver = async (discovered: FavoriteDriver) => {
+    try {
+      setAddingDiscoveredId(discovered.id);
+      await saveCustomerFavoriteDriver(
+        {
+          driverId: discovered.driverId,
+          name: discovered.name,
+          phone: discovered.phone,
+          photo: discovered.photo,
+          vehicleType: discovered.vehicleType,
+          vehiclePlate: discovered.vehiclePlate,
+          vehicleModel: discovered.vehicleModel,
+          rating: discovered.rating || 5.0,
+          notes: 'Dereva wa nyota 5 aliyehifadhiwa kutoka safari zilizopita',
+        },
+        userId
+      );
+      toast.success(`Dereva "${discovered.name}" ameongezwa kwenye vipenzi vyako! ⭐`);
+      setDiscovered5StarDrivers((prev) => prev.filter((d) => d.id !== discovered.id));
+      setDrivers(getLocalFavoriteDrivers());
+    } catch (err) {
+      console.error('Failed to add discovered driver:', err);
+      toast.error('Imeshindwa kuongeza dereva kwenye vipenzi.');
+    } finally {
+      setAddingDiscoveredId(null);
+    }
+  };
+
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter((drv) => {
+      // Tab filter
+      if (activeTab === 'online' && !checkIsDriverOnline(drv)) return false;
+      if (activeTab === '5stars' && (drv.rating || 5) < 4.8) return false;
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = (drv.name || '').toLowerCase().includes(q);
+        const matchesPlate = (drv.vehiclePlate || '').toLowerCase().includes(q);
+        const matchesPhone = (drv.phone || '').includes(q);
+        const matchesModel = (drv.vehicleModel || '').toLowerCase().includes(q);
+        return matchesName || matchesPlate || matchesPhone || matchesModel;
+      }
+      return true;
+    });
+  }, [drivers, activeTab, searchQuery, onlineDriverMap]);
+
+  const onlineCount = useMemo(() => {
+    return drivers.filter((d) => checkIsDriverOnline(d)).length;
+  }, [drivers, onlineDriverMap]);
+
+  const fiveStarCount = useMemo(() => {
+    return drivers.filter((d) => (d.rating || 5) >= 4.8).length;
+  }, [drivers]);
 
   const handleDelete = async (id: string, driverName: string) => {
     if (window.confirm(`Una uhakika unataka kuondoa "${driverName}" kwenye madereva unaowapenda?`)) {
@@ -389,38 +556,175 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
           </div>
         ) : (
           /* FAVORITE DRIVERS LIST VIEW */
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
-            {drivers.length === 0 ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {/* Search and Tabs Filter Bar */}
+            <div className="space-y-2.5">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tafuta dereva kwa jina, namba ya pleti au gari..."
+                  className={`w-full pl-9 pr-8 py-2.5 rounded-2xl text-xs border outline-none transition-all ${
+                    theme === 'dark'
+                      ? 'bg-neutral-900/80 border-neutral-800 text-white placeholder-neutral-500 focus:border-rose-500'
+                      : 'bg-neutral-50 border-neutral-200 text-neutral-900 placeholder-neutral-400 focus:border-rose-500'
+                  }`}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Tabs */}
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('all')}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'all'
+                      ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-xs'
+                      : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                >
+                  Wote ({drivers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('online')}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    activeTab === 'online'
+                      ? 'bg-emerald-500 text-white shadow-xs'
+                      : 'text-neutral-500 hover:text-emerald-500'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                  Hewani ({onlineCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('5stars')}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                    activeTab === '5stars'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-neutral-500 hover:text-amber-500'
+                  }`}
+                >
+                  <Star className="w-3 h-3 fill-current" />
+                  Nyota 5 ({fiveStarCount})
+                </button>
+              </div>
+            </div>
+
+            {/* 5-Star Drivers Auto-Discovery Banner */}
+            {discovered5StarDrivers.length > 0 && (
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                theme === 'dark' 
+                  ? 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-500/30' 
+                  : 'bg-gradient-to-r from-amber-50 to-orange-50/40 border-amber-200'
+              }`}>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4 fill-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-xs font-black text-amber-700 dark:text-amber-300">
+                      Madereva uliowapa Nyota 5 kwenye safari zilizopita:
+                    </h5>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 mb-2">
+                      Weka kwenye orodha ya vipenzi ili uweze kuwaomba safari moja kwa moja wakati wowote.
+                    </p>
+
+                    <div className="space-y-2">
+                      {discovered5StarDrivers.slice(0, 2).map((disc) => (
+                        <div 
+                          key={disc.id}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                            theme === 'dark' ? 'bg-neutral-900/90 border-neutral-800' : 'bg-white border-neutral-200'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold truncate">{disc.name}</span>
+                              <span className="flex items-center gap-0.5 text-[10px] font-black text-amber-500">
+                                <Star className="w-3 h-3 fill-amber-500" /> 5.0
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-neutral-400 block font-mono">
+                              {disc.vehiclePlate} • {disc.vehicleModel || 'Taxi'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddDiscoveredDriver(disc)}
+                            disabled={addingDiscoveredId === disc.id}
+                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
+                          >
+                            <Heart className="w-3 h-3 fill-white" />
+                            <span>{addingDiscoveredId === disc.id ? 'Inaongeza...' : '+ Weka Vipenzi'}</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DRIVERS LIST */}
+            {filteredDrivers.length === 0 ? (
               <div className="text-center py-10 px-4 space-y-3">
                 <div className="w-14 h-14 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto border border-rose-500/20">
                   <Heart className="w-7 h-7 fill-rose-500/50" />
                 </div>
                 <h4 className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
-                  Huna dereva unayempenda bado
+                  {searchQuery 
+                    ? `Hakuna dereva anayelingana na "${searchQuery}"`
+                    : activeTab === 'online'
+                      ? 'Hakuna dereva mpendwa aliye hewani kwa sasa'
+                      : activeTab === '5stars'
+                        ? 'Huna dereva wa nyota 5 kwenye orodha yako bado'
+                        : 'Huna dereva unayempenda bado'}
                 </h4>
                 <p className="text-xs text-neutral-400 max-w-xs mx-auto leading-relaxed">
-                  Ukisafiri na dereva mzuri, mwaminifu na mstaarabu, mhifadhi kwenye skrini ya ukadiriaji (Rating) baada ya safari yako ili umkute hapa na kuchati naye au kuagiza safari naye moja kwa moja!
+                  {searchQuery 
+                    ? 'Jaribu kutafuta kwa jina lingine au namba ya usajili wa chombo chake.'
+                    : 'Ukisafiri na dereva mzuri na mstaarabu, mhifadhi kwenye skrini ya ukadiriaji (Rating) ili umkute hapa na kumuomba safari moja kwa moja akiwa hewani!'}
                 </p>
               </div>
             ) : (
-              drivers.map((drv) => {
+              filteredDrivers.map((drv) => {
                 const vehicleConfig = VEHICLE_CONFIGS[drv.vehicleType] || VEHICLE_CONFIGS.mini;
                 const cleanPhone = formatCleanPhone(drv.phone);
+                const isOnline = checkIsDriverOnline(drv);
 
                 return (
                   <div
                     key={drv.id}
                     className={`p-3.5 sm:p-4 rounded-2xl border transition-all hover:shadow-md flex flex-col gap-3 ${
-                      theme === 'dark'
-                        ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
-                        : 'bg-white border-neutral-200/90 hover:border-neutral-300 shadow-2xs'
+                      isOnline
+                        ? theme === 'dark'
+                          ? 'bg-neutral-900/90 border-emerald-500/30 hover:border-emerald-500/50 shadow-sm'
+                          : 'bg-white border-emerald-300 hover:border-emerald-400 shadow-sm'
+                        : theme === 'dark'
+                          ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
+                          : 'bg-white border-neutral-200/90 hover:border-neutral-300 shadow-2xs'
                     }`}
                   >
                     {/* Top Row: Avatar, Name, Rating & Badges */}
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative shrink-0">
-                          <div className={`w-12 h-12 rounded-2xl overflow-hidden border-2 border-rose-500 flex items-center justify-center text-lg font-black ${
+                          <div className={`w-12 h-12 rounded-2xl overflow-hidden border-2 ${
+                            isOnline ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-rose-500'
+                          } flex items-center justify-center text-lg font-black ${
                             theme === 'dark' ? 'bg-neutral-800 text-neutral-200' : 'bg-rose-50 text-rose-700'
                           }`}>
                             {drv.photo ? (
@@ -435,7 +739,7 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="text-xs sm:text-sm font-black tracking-tight truncate">
                               {drv.name}
                             </h4>
@@ -443,6 +747,16 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
                               <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                               <span>{drv.rating ? drv.rating.toFixed(1) : '5.0'}</span>
                             </div>
+                            {isOnline ? (
+                              <span className="flex items-center gap-1 text-[9.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                Yupo Hewani Sasa
+                              </span>
+                            ) : (
+                              <span className="text-[9.5px] font-medium text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-md">
+                                Hajaingia Mtandaoni
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -458,10 +772,10 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
 
                       {/* Top Right: In-System Chat & Delete Menu */}
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {/* In-system Chat button (replaces old edit button) */}
+                        {/* In-system Chat button */}
                         <button
                           onClick={() => setActiveChatDriver(drv)}
-                          className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 border transition-all active:scale-95 shadow-2xs ${
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 border transition-all active:scale-95 shadow-2xs cursor-pointer ${
                             theme === 'dark'
                               ? 'bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border-indigo-500/30'
                               : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-200'
@@ -475,7 +789,7 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
                         {/* Delete favorite driver button */}
                         <button
                           onClick={() => handleDelete(drv.id, drv.name)}
-                          className="p-1.5 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-500 transition-colors"
+                          className="p-1.5 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer"
                           title="Ondoa kwenye pendwa"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -490,27 +804,44 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
                       </p>
                     )}
 
-                    {/* Bottom Action Buttons: Agiza Safari Naye | Piga Simu | WhatsApp */}
+                    {/* Bottom Action Buttons: Omba Safari Naye (Direct) | Piga Simu | WhatsApp */}
                     <div className="flex items-center gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800">
-                      {/* Book With Driver */}
+                      {/* Direct Booking with Preferred Driver */}
                       {onSelectDriverForBooking && (
                         <button
                           onClick={() => {
                             onSelectDriverForBooking(drv);
-                            toast.success(`Safari itaombwa kupitia dereva wako mpendwa: ${drv.name}! 🚕❤️`);
+                            toast.success(
+                              isOnline
+                                ? `Ombi la safari linatumwa moja kwa moja kwa ${drv.name} aliye hewani! 🚕⚡`
+                                : `Safari itaombwa kupitia dereva wako mpendwa: ${drv.name}! 🚕❤️`
+                            );
                             onClose();
                           }}
-                          className="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                          className={`flex-1 py-2.5 px-3 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer ${
+                            isOnline
+                              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/20'
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+                          }`}
                         >
-                          <Navigation className="w-3.5 h-3.5" />
-                          <span>Agiza Safari Naye</span>
+                          {isOnline ? (
+                            <>
+                              <Zap className="w-3.5 h-3.5 fill-white" />
+                              <span>⚡ Omba Safari Naye Sasa (Yupo Hewani)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Agiza Safari Naye</span>
+                            </>
+                          )}
                         </button>
                       )}
 
                       {/* Call direct */}
                       <a
                         href={`tel:${drv.phone}`}
-                        className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all"
+                        className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all cursor-pointer"
                         title="Piga Simu Moja kwa Moja"
                       >
                         <Phone className="w-3.5 h-3.5" />
@@ -522,7 +853,7 @@ export const FavoriteDriversModal: React.FC<FavoriteDriversModalProps> = ({
                         href={`https://wa.me/${cleanPhone}?text=Habari%20${encodeURIComponent(drv.name)},%20nimepata%20namba%20yako%20kupitia%20PapoRide.%20Je,%20upo%20tayari%20kwa%20safari?`}
                         target="_blank"
                         rel="noreferrer"
-                        className="py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all"
+                        className="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all cursor-pointer"
                         title="Tuma Ujumbe WhatsApp"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
