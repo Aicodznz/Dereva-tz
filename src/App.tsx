@@ -143,14 +143,6 @@ function AppContent() {
 }
 
 export default function App() {
-  const basename = React.useMemo(() => {
-    if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')) {
-      const parts = window.location.pathname.split('/').filter(Boolean);
-      return parts.length > 0 ? `/${parts[0]}` : undefined;
-    }
-    return undefined;
-  }, []);
-
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <AuthProvider>
@@ -158,7 +150,7 @@ export default function App() {
           <BusinessConfigProvider>
             <HeaderProvider>
               <CartProvider>
-                <Router basename={basename}>
+                <Router>
                   <AppContent />
                   <Toaster />
                 </Router>
