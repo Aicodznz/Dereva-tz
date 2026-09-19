@@ -28,6 +28,7 @@ export default defineConfig(({mode}) => {
   const uploadPreset = localUploadPreset || env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 
   return {
+    base: './',
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
