@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3 } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,9 +23,7 @@ export default function Header() {
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [targetLangName, setTargetLangName] = useState('');
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
-  const [hidden, setHidden] = useState(false);
   const [isHeaderLocationPickerOpen, setIsHeaderLocationPickerOpen] = useState(false);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -44,21 +42,16 @@ export default function Header() {
     });
     return () => unsub();
   }, [user?.uid]);
-  
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 150) {
-        setHidden(true);
-      } else {
-        setHidden(false);
-      }
-      lastScrollY.current = currentScrollY;
-    };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  useEffect(() => {
+    const handleLocUpdate = (e: any) => {
+      if (e?.detail?.address) {
+        setHeaderLocation(e.detail.address);
+      }
+    };
+    window.addEventListener('omniserve_location_updated', handleLocUpdate);
+    return () => window.removeEventListener('omniserve_location_updated', handleLocUpdate);
+  }, [setHeaderLocation]);
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -104,11 +97,7 @@ export default function Header() {
   const handleOpenLocationEdit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isDashboard && onLocationClick) {
-      onLocationClick();
-    } else {
-      setIsHeaderLocationPickerOpen(true);
-    }
+    setIsHeaderLocationPickerOpen(true);
   };
 
   const handleHeaderLocationSelect = (newLoc: { address: string; lat: number; lng: number }) => {
@@ -124,62 +113,63 @@ export default function Header() {
   };
 
   return (
-    <motion.nav 
-      variants={{
-        visible: { y: 0 },
-        hidden: { y: '-100%' },
-      }}
-      animate={hidden ? 'hidden' : 'visible'}
-      transition={{ duration: 0.35, ease: 'easeInOut' }}
-      className="sticky top-0 z-[150] bg-background/80 backdrop-blur-md border-b border-border shadow-sm"
+    <nav 
+      className="sticky top-0 z-[150] bg-background/95 backdrop-blur-md border-b border-border/80 shadow-xs"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)'
       }}
     >
-      <div className={`${isFullscreen ? 'w-full px-3 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-3 sm:px-4 md:px-6'} h-14 sm:h-16 md:h-20 flex items-center justify-between gap-1.5 sm:gap-4 flex-shrink-0`}>
+      <div className={`${isFullscreen ? 'w-full px-3 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-3 sm:px-4 md:px-6'} h-15 sm:h-16 md:h-20 flex items-center justify-between gap-1.5 sm:gap-4 flex-shrink-0`}>
         
         {/* Left: Logo and Brand + Location Directly Under Express */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Link to="/" className="flex items-center shrink-0 group" title="Papo Hapo Express">
-            {/* Upgraded Premium 3D Logo Icon */}
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 rounded-xl sm:rounded-2xl flex items-center justify-center transform group-hover:scale-105 group-hover:rotate-6 transition-all shadow-[0_4px_16px_rgba(234,88,12,0.35)] border border-white/30 relative overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/30 via-transparent to-black/10 pointer-events-none" />
-              <div className="relative z-10 flex items-center justify-center">
-                <span className="text-white font-black text-xl sm:text-2xl italic tracking-tighter drop-shadow-sm select-none">P</span>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-white shadow-xs animate-pulse" />
+        <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+          <Link to="/" className="flex items-center shrink-0 group touch-manipulation" title="Papo Hapo Express">
+            {/* Attractive High-Speed 3D Emblem Icon */}
+            <div className="relative group shrink-0">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.4)] border border-amber-300/50 transform group-hover:scale-105 transition-all duration-300">
+                <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-orange-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/25 via-transparent to-amber-400/20" />
+                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 fill-amber-400/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] relative z-10 transform -rotate-6 group-hover:rotate-0 group-hover:scale-110 transition-transform duration-300" />
+                </div>
               </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 shadow-sm flex items-center justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+              </span>
             </div>
           </Link>
 
           <div className="flex flex-col leading-none shrink-0 justify-center min-w-0">
             <Link to="/" className="flex items-center gap-1 group/brand">
-              <span className="font-black text-sm sm:text-base md:text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
+              <span className="font-black text-sm sm:text-base md:text-lg uppercase italic tracking-tight text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
                 Papo Hapo
               </span>
               <span className="text-xs sm:text-sm leading-none select-none">🇹🇿</span>
             </Link>
 
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-orange-600 block">
-                Express
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 block font-mono">
+                EXPRESS
               </span>
+              <span className="inline-block w-1 h-1 rounded-full bg-orange-500" />
+              <span className="text-[7.5px] text-neutral-400 font-bold uppercase tracking-wider hidden xs:inline">Dakika 15–30</span>
             </div>
 
             {/* CHINI YA EXPRESS: Aone eneo alipo + akibonyeza aweze kuediti */}
             <button
               type="button"
               onClick={handleOpenLocationEdit}
-              className="flex items-center gap-1 mt-1 -ml-0.5 py-0.5 px-1.5 rounded-lg bg-orange-50/80 hover:bg-orange-100 dark:bg-neutral-800/90 dark:hover:bg-neutral-750 border border-orange-200/80 dark:border-neutral-700 hover:border-orange-400 dark:hover:border-orange-500 transition-all text-left group/loc cursor-pointer max-w-[130px] xs:max-w-[180px] sm:max-w-[260px] md:max-w-[340px] shadow-2xs"
+              className="flex items-center gap-1.5 mt-1 -ml-0.5 py-1 px-2 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 border border-orange-500/30 hover:border-orange-500/60 transition-all text-left group/loc cursor-pointer max-w-[145px] xs:max-w-[200px] sm:max-w-[280px] md:max-w-[360px] shadow-xs active:scale-95 touch-manipulation"
               title={`Eneo lako la sasa: ${displayAddress}. Bonyeza kubadili au kuediti.`}
             >
-              <div className="w-3.5 h-3.5 rounded bg-orange-500/15 dark:bg-orange-500/25 flex items-center justify-center shrink-0">
-                <MapPin className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400 group-hover/loc:scale-110 transition-transform animate-pulse" />
+              <div className="w-4 h-4 rounded-md bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover/loc:scale-110 transition-transform">
+                <MapPin className="w-2.5 h-2.5 fill-white/40 text-white" />
               </div>
-              <span className="text-[8.5px] sm:text-[9.5px] font-bold text-neutral-800 dark:text-neutral-200 truncate leading-none">
+              <span className="text-[9px] sm:text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate leading-none">
                 {displayAddress}
               </span>
-              <span className="text-[7px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 bg-orange-200/60 dark:bg-orange-950/80 px-1 py-0.2 rounded shrink-0 group-hover/loc:bg-orange-500 group-hover/loc:text-white transition-colors">
-                Badili ✎
+              <span className="text-[7.5px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-200/80 dark:bg-orange-900/80 px-1.5 py-0.5 rounded-md shrink-0 group-hover/loc:bg-orange-600 group-hover/loc:text-white transition-colors flex items-center gap-0.5">
+                <Edit3 className="w-2 h-2" />
+                <span>Badili</span>
               </span>
             </button>
           </div>
@@ -400,7 +390,8 @@ export default function Header() {
         isOpen={isHeaderLocationPickerOpen}
         onClose={() => setIsHeaderLocationPickerOpen(false)}
         onSelect={handleHeaderLocationSelect}
+        zIndex="z-[99999]"
       />
-    </motion.nav>
+    </nav>
   );
 }

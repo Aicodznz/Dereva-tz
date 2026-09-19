@@ -7,7 +7,7 @@ import {
   ShieldCheck, Tag, Receipt, Home, ShoppingCart, 
   MessageSquare, X, Minus, Trash2, Plus, ChevronRight
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import Header from './Header';
@@ -15,7 +15,7 @@ import MayaAIChat from './MayaAIChat';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children }: { children?: React.ReactNode }) {
   const { profile, logout, signIn, user } = useAuth();
   const { cartCount, cartItems, totalAmount, removeItem, addItem, clearCart, isCartOpen, setIsCartOpen } = useCart();
   const { resolvedTheme } = useTheme();
@@ -23,9 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { isRTL, t } = useLanguage();
 
-  const [isNavVisible, setIsNavVisible] = useState(true);
   const [badgeAnimateKey, setBadgeAnimateKey] = useState(0);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
     const handleCartAdded = () => {
@@ -33,21 +31,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener('cart-item-added', handleCartAdded);
     return () => window.removeEventListener('cart-item-added', handleCartAdded);
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        setIsNavVisible(false);
-      } else {
-        setIsNavVisible(true);
-      }
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const isTaxiRoute = location.pathname === '/taxi';
@@ -70,39 +53,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && <Header />}
 
-      <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
-        {children}
+      <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-24 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
+        {children || <Outlet />}
       </main>
 
       {/* Bottom Navigation for Mobile */}
       {!hideBottomNav && (
-        <div className="md:hidden fixed bottom-6 left-0 right-0 z-[100] px-4 flex justify-center pointer-events-none">
-          <motion.nav 
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ 
-              y: isNavVisible ? 0 : 120, 
-              opacity: isNavVisible ? 1 : 0,
-              scale: isNavVisible ? 1 : 0.9
-            }}
-            transition={{ 
-              type: 'spring', 
-              damping: 25, 
-              stiffness: 200,
-              opacity: { duration: 0.2 }
-            }}
-            className="pointer-events-auto bg-neutral-900/90 dark:bg-black/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-2 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        <div className="md:hidden fixed bottom-5 left-0 right-0 z-[160] px-4 flex justify-center pointer-events-none">
+          <nav 
+            className="pointer-events-auto bg-neutral-900/95 dark:bg-black/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-1.5 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden touch-manipulation"
           >
             {/* Top Shine Effect */}
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
             <Link 
               to="/" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              title="Mwanzo"
             >
               {(location.pathname === '/' || location.pathname === '/dashboard') && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
                 </>
               )}
               <Home className="w-6 h-6 relative z-10" />
@@ -110,23 +82,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <Link 
               to="/my-orders" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/my-orders' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/my-orders' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              title="Oda Zangu"
             >
               {location.pathname === '/my-orders' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
                 </>
               )}
               <Receipt className="w-6 h-6 relative z-10" />
             </Link>
 
             <button 
+              type="button"
               onClick={() => setIsCartOpen(true)}
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl group transition-all duration-300 ${isCartOpen ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl group transition-all duration-300 active:scale-95 cursor-pointer ${isCartOpen ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]' : 'text-neutral-500 hover:text-neutral-300'}`}
+              title="Kikapu"
             >
               {(isCartOpen || cartCount > 0) && (
-                <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full animate-pulse" />
+                <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full animate-pulse pointer-events-none" />
               )}
               <div className="relative">
                 <ShoppingCart className="w-6 h-6 relative z-10 group-active:scale-110 transition-transform" />
@@ -136,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     initial={{ scale: 0.5 }}
                     animate={{ scale: [1, 1.45, 0.85, 1.15, 1], rotate: [0, 15, -15, 10, 0] }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-neutral-900 shadow-lg z-20"
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-neutral-900 shadow-lg z-20 pointer-events-none"
                   >
                     {cartCount}
                   </motion.span>
@@ -146,12 +121,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <Link 
               to="/chat" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/chat' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/chat' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              title="Mawasiliano"
             >
               {location.pathname === '/chat' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
                 </>
               )}
               <MessageSquare className="w-6 h-6 relative z-10" />
@@ -159,17 +135,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <Link 
               to="/profile" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${location.pathname === '/profile' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/profile' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              title="Wasifu Wangu"
             >
               {location.pathname === '/profile' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-8px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full" />
+                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
                 </>
               )}
               <User className="w-6 h-6 relative z-10" />
             </Link>
-          </motion.nav>
+          </nav>
         </div>
       )}
 
