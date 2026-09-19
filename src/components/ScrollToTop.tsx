@@ -5,7 +5,11 @@ export default function ScrollToTop() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      // safe fallback
+    }
   }, [pathname]);
 
   return null;

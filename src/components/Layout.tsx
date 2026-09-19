@@ -48,7 +48,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
     <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-[#0a0a0f] text-white animate-fade-in' : 'bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       {/* Visual Grain Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
       </div>
 
       {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && <Header />}

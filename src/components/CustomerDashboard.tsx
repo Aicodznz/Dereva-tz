@@ -583,7 +583,6 @@ export default function CustomerDashboard() {
     { id: 'matukio', label: 'PapoTicket', icon: Ticket, color: 'bg-gradient-to-br from-orange-500 via-amber-600 to-red-600', sub: 'Tiketi za mechi & matamasha 🎟️', category: 'events', badge: 'EVENTS' },
     { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-gradient-to-br from-orange-500 via-red-600 to-amber-700', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
     { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-gradient-to-br from-teal-400 via-teal-600 to-emerald-700', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
-    { id: 'super_services', label: 'Huduma Zote', icon: Sparkles, color: 'bg-gradient-to-br from-orange-500 via-rose-600 to-purple-700', sub: 'Doctor, Ndege, Mafuta, Bili, Ajira & Maegesho ✨', category: 'all', badge: 'SUPER HUB' },
     { id: 'maduka', label: 'PapoMall', icon: ShoppingBag, color: 'bg-gradient-to-br from-purple-400 via-purple-600 to-violet-700', sub: 'Soko la mtandaoni 🛍️', category: 'ecommerce' },
     { id: 'ramani', label: 'PapoMap', icon: MapPin, color: 'bg-gradient-to-br from-slate-500 via-neutral-700 to-zinc-800', sub: 'Ramani ya karibu 📍', category: 'all' },
   ];
