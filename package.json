@@ -29,6 +29,7 @@
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "html-to-image": "^1.11.13",
+    "jsqr": "^1.4.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "leaflet-rotate": "^0.2.8",

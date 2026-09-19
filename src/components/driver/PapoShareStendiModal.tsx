@@ -787,16 +787,14 @@ export default function PapoShareStendiModal({
                             Abiria Waliohifadhi Viti ({activeRoute.passengers?.filter(p => p.status === 'booked' || p.status === 'boarded').length || 0})
                           </h3>
 
-                          {(activeRoute.passengers?.some(p => p.status === 'booked' || p.status === 'boarded')) && (
-                            <button
-                              type="button"
-                              onClick={() => setShowTicketScanner(true)}
-                              className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10.5px] uppercase tracking-wider flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 transition-all"
-                            >
-                              <QrCode className="w-3.5 h-3.5" />
-                              <span>Kagua / Scan Tiketi</span>
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowTicketScanner(true)}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            <span>Kagua / Scan Tiketi</span>
+                          </button>
                         </div>
 
                         {(!activeRoute.passengers || activeRoute.passengers.filter(p => p.status === 'booked' || p.status === 'boarded').length === 0) ? (

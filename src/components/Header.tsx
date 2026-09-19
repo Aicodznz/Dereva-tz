@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
@@ -9,11 +9,12 @@ import { useAuth } from '../AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import LocationPicker from './LocationPicker';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const { searchQuery, setSearchQuery, location: currentAddress, onLocationClick } = useHeader();
+  const { searchQuery, setSearchQuery, location: currentAddress, setLocation: setHeaderLocation, onLocationClick } = useHeader();
   const { cartCount, setIsCartOpen } = useCart();
   const { profile, logout, updateRole, user } = useAuth();
   const routerLocation = useLocation();
@@ -23,6 +24,7 @@ export default function Header() {
   const [targetLangName, setTargetLangName] = useState('');
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [hidden, setHidden] = useState(false);
+  const [isHeaderLocationPickerOpen, setIsHeaderLocationPickerOpen] = useState(false);
   const lastScrollY = useRef(0);
 
   useEffect(() => {
@@ -83,6 +85,44 @@ export default function Header() {
   const currentLang = languages.find(l => l.code === language);
   const isDashboard = routerLocation.pathname === '/' || routerLocation.pathname === '/dashboard';
 
+  const displayAddress = useMemo(() => {
+    if (currentAddress && currentAddress !== 'Papo Hapo' && currentAddress.trim().length > 0) {
+      return currentAddress;
+    }
+    try {
+      const saved = localStorage.getItem('omniserve_user_location');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.address || parsed.name) {
+          return parsed.address || parsed.name;
+        }
+      }
+    } catch {}
+    return 'Chagua Eneo Lako';
+  }, [currentAddress]);
+
+  const handleOpenLocationEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDashboard && onLocationClick) {
+      onLocationClick();
+    } else {
+      setIsHeaderLocationPickerOpen(true);
+    }
+  };
+
+  const handleHeaderLocationSelect = (newLoc: { address: string; lat: number; lng: number }) => {
+    try {
+      localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
+      localStorage.setItem('omniserve_location_verified', 'true');
+      setHeaderLocation(newLoc.address);
+      window.dispatchEvent(new CustomEvent('omniserve_location_updated', { detail: newLoc }));
+    } catch (e) {
+      console.error(e);
+    }
+    setIsHeaderLocationPickerOpen(false);
+  };
+
   return (
     <motion.nav 
       variants={{
@@ -98,21 +138,51 @@ export default function Header() {
     >
       <div className={`${isFullscreen ? 'w-full px-3 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-3 sm:px-4 md:px-6'} h-14 sm:h-16 md:h-20 flex items-center justify-between gap-1.5 sm:gap-4 flex-shrink-0`}>
         
-        {/* Left: Logo */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <Link to="/" className="flex items-center gap-2 group shrink-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-400 to-orange-700 rounded-xl sm:rounded-2xl flex items-center justify-center transform group-hover:rotate-12 group-hover:scale-110 transition-all shadow-[0_6px_14px_rgba(234,88,12,0.25)] relative overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <span className="text-white font-black text-xl sm:text-2xl italic tracking-tighter relative z-10 px-0.5">P</span>
-            </div>
-            <div className="flex flex-col leading-none shrink-0">
-              <div className="flex items-center gap-1">
-                <span className="font-black text-sm sm:text-lg md:text-xl uppercase italic tracking-tighter text-neutral-900 dark:text-white whitespace-nowrap">Papo Hapo</span>
-                <span className="text-xs sm:text-base leading-none select-none">🇹🇿</span>
+        {/* Left: Logo and Brand + Location Directly Under Express */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link to="/" className="flex items-center shrink-0 group" title="Papo Hapo Express">
+            {/* Upgraded Premium 3D Logo Icon */}
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 rounded-xl sm:rounded-2xl flex items-center justify-center transform group-hover:scale-105 group-hover:rotate-6 transition-all shadow-[0_4px_16px_rgba(234,88,12,0.35)] border border-white/30 relative overflow-hidden shrink-0">
+              <div className="absolute inset-0 bg-gradient-to-tr from-white/30 via-transparent to-black/10 pointer-events-none" />
+              <div className="relative z-10 flex items-center justify-center">
+                <span className="text-white font-black text-xl sm:text-2xl italic tracking-tighter drop-shadow-sm select-none">P</span>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-white shadow-xs animate-pulse" />
               </div>
-              <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-orange-600 block text-right mt-0.5">Express</span>
             </div>
           </Link>
+
+          <div className="flex flex-col leading-none shrink-0 justify-center min-w-0">
+            <Link to="/" className="flex items-center gap-1 group/brand">
+              <span className="font-black text-sm sm:text-base md:text-lg uppercase italic tracking-tighter text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
+                Papo Hapo
+              </span>
+              <span className="text-xs sm:text-sm leading-none select-none">🇹🇿</span>
+            </Link>
+
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-orange-600 block">
+                Express
+              </span>
+            </div>
+
+            {/* CHINI YA EXPRESS: Aone eneo alipo + akibonyeza aweze kuediti */}
+            <button
+              type="button"
+              onClick={handleOpenLocationEdit}
+              className="flex items-center gap-1 mt-1 -ml-0.5 py-0.5 px-1.5 rounded-lg bg-orange-50/80 hover:bg-orange-100 dark:bg-neutral-800/90 dark:hover:bg-neutral-750 border border-orange-200/80 dark:border-neutral-700 hover:border-orange-400 dark:hover:border-orange-500 transition-all text-left group/loc cursor-pointer max-w-[130px] xs:max-w-[180px] sm:max-w-[260px] md:max-w-[340px] shadow-2xs"
+              title={`Eneo lako la sasa: ${displayAddress}. Bonyeza kubadili au kuediti.`}
+            >
+              <div className="w-3.5 h-3.5 rounded bg-orange-500/15 dark:bg-orange-500/25 flex items-center justify-center shrink-0">
+                <MapPin className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400 group-hover/loc:scale-110 transition-transform animate-pulse" />
+              </div>
+              <span className="text-[8.5px] sm:text-[9.5px] font-bold text-neutral-800 dark:text-neutral-200 truncate leading-none">
+                {displayAddress}
+              </span>
+              <span className="text-[7px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-400 bg-orange-200/60 dark:bg-orange-950/80 px-1 py-0.2 rounded shrink-0 group-hover/loc:bg-orange-500 group-hover/loc:text-white transition-colors">
+                Badili ✎
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Search Bar Removed as per user request */}
@@ -324,6 +394,13 @@ export default function Header() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Location Picker Modal from Header */}
+      <LocationPicker
+        isOpen={isHeaderLocationPickerOpen}
+        onClose={() => setIsHeaderLocationPickerOpen(false)}
+        onSelect={handleHeaderLocationSelect}
+      />
     </motion.nav>
   );
 }

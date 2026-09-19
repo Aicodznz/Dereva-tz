@@ -64,19 +64,48 @@ const getVendorIcon = (category: string = '') => {
 const getStandardLocationPinIcon = () => {
   return L.divIcon({
     html: `
-      <div class="relative flex flex-col items-center pointer-events-none select-none">
-        <div class="relative w-11 h-11 flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-orange-500 to-amber-600 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(249,115,22,0.45)] border-[2.5px] border-white"></div>
-          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
+      <div class="relative flex flex-col items-center pointer-events-none select-none" style="width: 140px; height: 82px;">
+        <!-- Ground target ripple / radar -->
+        <div class="absolute bottom-[1px] left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+          <div class="w-10 h-3 rounded-[100%] bg-orange-500/40 animate-ping"></div>
+          <div class="absolute w-6 h-2 rounded-[100%] bg-orange-600/60"></div>
+          <div class="absolute w-2.5 h-1 rounded-[100%] bg-neutral-950/70 blur-[0.5px]"></div>
         </div>
-        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
+
+        <!-- Floating Badge -->
+        <div class="mb-0.5 bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white text-[8.5px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-orange-500/50 shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-orange-400 font-extrabold">Eneo Lako</span>
+        </div>
+
+        <!-- Premium 3D SVG Pin -->
+        <svg width="42" height="50" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-[0_10px_14px_rgba(234,88,12,0.5)]">
+          <defs>
+            <linearGradient id="stdPinGrad" x1="4" y1="2" x2="40" y2="50" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FF6B00"/>
+              <stop offset="50%" stop-color="#EA580C"/>
+              <stop offset="100%" stop-color="#C2410C"/>
+            </linearGradient>
+            <linearGradient id="stdPinGloss" x1="12" y1="4" x2="32" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M22 0C9.84974 0 0 9.84974 0 22C0 35.2 18.7 48.7 20.8 50.2C21.5 50.7 22.5 50.7 23.2 50.2C25.3 48.7 44 35.2 44 22C44 9.84974 34.1503 0 22 0Z" fill="url(#stdPinGrad)" stroke="#FFFFFF" stroke-width="2.5"/>
+          <ellipse cx="22" cy="11" rx="13" ry="6" fill="url(#stdPinGloss)"/>
+          <circle cx="22" cy="21" r="11.5" fill="#FFFFFF" />
+          <circle cx="22" cy="21" r="6" fill="#EA580C"/>
+          <circle cx="22" cy="21" r="2.5" fill="#FFFFFF"/>
+          <line x1="22" y1="12" x2="22" y2="14" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="22" y1="28" x2="22" y2="30" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="21" x2="15" y2="21" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="29" y1="21" x2="31" y2="21" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
       </div>
     `,
     className: 'bg-transparent',
-    iconSize: [44, 52],
-    iconAnchor: [22, 50],
+    iconSize: [140, 82],
+    iconAnchor: [70, 80],
   });
 };
 
@@ -84,22 +113,47 @@ const getStandardLocationPinIcon = () => {
 const getPickupPinIcon = () => {
   return L.divIcon({
     html: `
-      <div class="relative flex flex-col items-center pointer-events-none select-none">
-        <div class="bg-emerald-600 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-[0_4px_12px_rgba(5,150,105,0.4)] border-2 border-white flex items-center gap-1 whitespace-nowrap mb-1 transform -translate-y-1">
-          <span>🟢 MAHALI PA KUCHUKULIA</span>
+      <div class="relative flex flex-col items-center pointer-events-none select-none" style="width: 150px; height: 82px;">
+        <!-- Ground target ripple / radar -->
+        <div class="absolute bottom-[1px] left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+          <div class="w-10 h-3 rounded-[100%] bg-emerald-500/40 animate-ping"></div>
+          <div class="absolute w-6 h-2 rounded-[100%] bg-emerald-600/60"></div>
+          <div class="absolute w-2.5 h-1 rounded-[100%] bg-neutral-950/70 blur-[0.5px]"></div>
         </div>
-        <div class="relative w-10 h-10 flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(5,150,105,0.45)] border-[2.5px] border-white"></div>
-          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
+
+        <div class="mb-0.5 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-emerald-100 text-[8.5px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-emerald-400/50 shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>🟢 Mahali pa Kuchukulia</span>
         </div>
-        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
+
+        <!-- Premium 3D SVG Pin Emerald -->
+        <svg width="42" height="50" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-[0_10px_14px_rgba(5,150,105,0.5)]">
+          <defs>
+            <linearGradient id="pickupPinGrad" x1="4" y1="2" x2="40" y2="50" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#10B981"/>
+              <stop offset="50%" stop-color="#059669"/>
+              <stop offset="100%" stop-color="#047857"/>
+            </linearGradient>
+            <linearGradient id="pickupPinGloss" x1="12" y1="4" x2="32" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M22 0C9.84974 0 0 9.84974 0 22C0 35.2 18.7 48.7 20.8 50.2C21.5 50.7 22.5 50.7 23.2 50.2C25.3 48.7 44 35.2 44 22C44 9.84974 34.1503 0 22 0Z" fill="url(#pickupPinGrad)" stroke="#FFFFFF" stroke-width="2.5"/>
+          <ellipse cx="22" cy="11" rx="13" ry="6" fill="url(#pickupPinGloss)"/>
+          <circle cx="22" cy="21" r="11.5" fill="#FFFFFF" />
+          <circle cx="22" cy="21" r="6" fill="#059669"/>
+          <circle cx="22" cy="21" r="2.5" fill="#FFFFFF"/>
+          <line x1="22" y1="12" x2="22" y2="14" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="22" y1="28" x2="22" y2="30" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="21" x2="15" y2="21" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="29" y1="21" x2="31" y2="21" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
       </div>
     `,
     className: 'bg-transparent',
-    iconSize: [140, 60],
-    iconAnchor: [70, 58],
+    iconSize: [150, 82],
+    iconAnchor: [75, 80],
   });
 };
 
@@ -107,22 +161,47 @@ const getPickupPinIcon = () => {
 const getDeliveryPinIcon = () => {
   return L.divIcon({
     html: `
-      <div class="relative flex flex-col items-center pointer-events-none select-none">
-        <div class="bg-rose-600 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-[0_4px_12px_rgba(225,29,72,0.4)] border-2 border-white flex items-center gap-1 whitespace-nowrap mb-1 transform -translate-y-1">
-          <span>🔴 ENEO LA KUFIKISHA</span>
+      <div class="relative flex flex-col items-center pointer-events-none select-none" style="width: 150px; height: 82px;">
+        <!-- Ground target ripple / radar -->
+        <div class="absolute bottom-[1px] left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+          <div class="w-10 h-3 rounded-[100%] bg-rose-500/40 animate-ping"></div>
+          <div class="absolute w-6 h-2 rounded-[100%] bg-rose-600/60"></div>
+          <div class="absolute w-2.5 h-1 rounded-[100%] bg-neutral-950/70 blur-[0.5px]"></div>
         </div>
-        <div class="relative w-10 h-10 flex items-center justify-center">
-          <div class="absolute inset-0 bg-gradient-to-br from-rose-500 to-red-700 rounded-full rounded-bl-none rotate-45 shadow-[0_8px_20px_rgba(225,29,72,0.45)] border-[2.5px] border-white"></div>
-          <div class="relative z-10 w-5 h-5 bg-white rounded-full flex items-center justify-center -rotate-45 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
-          </div>
+
+        <div class="mb-0.5 bg-gradient-to-r from-rose-950 via-rose-900 to-rose-950 text-rose-100 text-[8.5px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-rose-400/50 shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+          <span>🔴 Eneo la Kufikisha</span>
         </div>
-        <div class="w-3.5 h-1.5 bg-neutral-900/30 rounded-full blur-[1px] -mt-1"></div>
+
+        <!-- Premium 3D SVG Pin Rose -->
+        <svg width="42" height="50" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" class="filter drop-shadow-[0_10px_14px_rgba(225,29,72,0.5)]">
+          <defs>
+            <linearGradient id="deliveryPinGrad" x1="4" y1="2" x2="40" y2="50" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#F43F5E"/>
+              <stop offset="50%" stop-color="#E11D48"/>
+              <stop offset="100%" stop-color="#BE123C"/>
+            </linearGradient>
+            <linearGradient id="deliveryPinGloss" x1="12" y1="4" x2="32" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M22 0C9.84974 0 0 9.84974 0 22C0 35.2 18.7 48.7 20.8 50.2C21.5 50.7 22.5 50.7 23.2 50.2C25.3 48.7 44 35.2 44 22C44 9.84974 34.1503 0 22 0Z" fill="url(#deliveryPinGrad)" stroke="#FFFFFF" stroke-width="2.5"/>
+          <ellipse cx="22" cy="11" rx="13" ry="6" fill="url(#deliveryPinGloss)"/>
+          <circle cx="22" cy="21" r="11.5" fill="#FFFFFF" />
+          <circle cx="22" cy="21" r="6" fill="#E11D48"/>
+          <circle cx="22" cy="21" r="2.5" fill="#FFFFFF"/>
+          <line x1="22" y1="12" x2="22" y2="14" stroke="#E11D48" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="22" y1="28" x2="22" y2="30" stroke="#E11D48" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="13" y1="21" x2="15" y2="21" stroke="#E11D48" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="29" y1="21" x2="31" y2="21" stroke="#E11D48" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
       </div>
     `,
     className: 'bg-transparent',
-    iconSize: [140, 60],
-    iconAnchor: [70, 58],
+    iconSize: [150, 82],
+    iconAnchor: [75, 80],
   });
 };
 

@@ -127,6 +127,7 @@ import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
+import { PapoShareSplitFareModal } from "./rider/PapoShareSplitFareModal";
 import { 
   listenActiveStandRoutes, 
   listenRiderActiveStandRoute, 
@@ -697,6 +698,7 @@ export default function TaxiBooking() {
   // PapoShare Pooling State
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
   const [papoShareSubOption, setPapoShareSubOption] = useState<'auto' | 'stendi'>('auto');
+  const [showPapoSplitModal, setShowPapoSplitModal] = useState<boolean>(false);
   const [allowSharingConsent, setAllowSharingConsent] = useState<boolean>(true);
   const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
   const [verifiedOnlySharing, setVerifiedOnlySharing] = useState<boolean>(false);
@@ -5477,6 +5479,33 @@ const getEndPin = (etaText: string) => {
 
                           {/* PapoShare Details & Sub-Options */}
                           <div className="space-y-2.5">
+                              {/* Dedicated Split Fare / Carpool Calculator Trigger */}
+                              <button
+                                type="button"
+                                onClick={() => setShowPapoSplitModal(true)}
+                                className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-750 text-white flex items-center justify-between shadow-md shadow-purple-900/20 active:scale-98 transition-all cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center text-sm">
+                                    👥
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="text-[10.5px] font-black leading-tight flex items-center gap-1.5">
+                                      <span>Gawana Nauli (Split Fare)</span>
+                                      <span className="bg-amber-400 text-neutral-950 text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded-full">
+                                        Punguzo 35-45%
+                                      </span>
+                                    </div>
+                                    <p className="text-[8.5px] text-purple-100 font-medium">
+                                      Gawana nauli na marafiki 2-4 & tuma mwaliko WhatsApp
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-xl font-black text-[9.5px]">
+                                  Hesabu ➔
+                                </span>
+                              </button>
+
                               {/* 2-Option Switch: Automatic Match vs PapoShare Stendi */}
                               <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-purple-500/10 border border-purple-500/20">
                                 <button
@@ -7509,6 +7538,17 @@ const getEndPin = (etaText: string) => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* PapoShare Carpool & Split Fare Modal */}
+      <PapoShareSplitFareModal
+        isOpen={showPapoSplitModal}
+        onClose={() => setShowPapoSplitModal(false)}
+        baseFare={selectedRide?.price || 8000}
+        pickupAddress={pickup || "Eneo lako la kuanzia"}
+        destinationAddress={destination || "Unapokwenda"}
+        rideId={activeRide?.id}
+        theme={theme === 'dark' ? 'dark' : 'light'}
+      />
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

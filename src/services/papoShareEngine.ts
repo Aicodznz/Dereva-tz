@@ -324,3 +324,41 @@ export function checkBodaParcelAddonMatch({
     bonusEarningsTZS,
   };
 }
+
+export interface CarpoolSplitCalculation {
+  totalSoloFare: number;
+  discountPercentage: number;
+  discountAmount: number;
+  discountedTotalFare: number;
+  passengerCount: number;
+  farePerPerson: number;
+  savingsPerPerson: number;
+}
+
+/**
+ * 7. Carpool & Friend Split-Fare Calculator
+ * Computes transparent per-person fare and savings when splitting with 2, 3, or 4 co-riders
+ */
+export function calculateCarpoolSplitFare(
+  baseFare: number,
+  passengerCount: number = 2
+): CarpoolSplitCalculation {
+  const count = Math.max(2, Math.min(4, passengerCount));
+  // 35% discount for 2 passengers, 40% for 3, 45% for 4
+  const discountRate = count === 2 ? 0.35 : count === 3 ? 0.40 : 0.45;
+  const discountAmount = Math.round(baseFare * discountRate);
+  const discountedTotalFare = Math.max(2000, baseFare - discountAmount);
+  const farePerPerson = Math.round((discountedTotalFare / count) / 100) * 100;
+  const savingsPerPerson = Math.max(0, baseFare - farePerPerson);
+
+  return {
+    totalSoloFare: baseFare,
+    discountPercentage: Math.round(discountRate * 100),
+    discountAmount,
+    discountedTotalFare,
+    passengerCount: count,
+    farePerPerson,
+    savingsPerPerson,
+  };
+}
+

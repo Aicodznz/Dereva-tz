@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useTheme } from '../../ThemeContext';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
 import { ShareTripModal } from '../common/ShareTripModal';
+import { PapoShareSplitFareModal } from '../rider/PapoShareSplitFareModal';
 import { 
   getLocalFavoriteDrivers, 
   saveCustomerFavoriteDriver, 
@@ -80,6 +81,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
   
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showShareModal, setShowShareModal] = React.useState(false);
+  const [showSplitFareModal, setShowSplitFareModal] = React.useState(false);
   const showDetails = !isMinimized && !isCollapsed;
 
   const [isFavDriver, setIsFavDriver] = React.useState(() => {
@@ -221,6 +223,27 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
         >
           <Home className="w-5 h-5 text-indigo-500" />
         </motion.button>
+
+        {/* Center: Real-Time Live Driver Tracking Beacon */}
+        <motion.div
+          initial={{ opacity: 0, y: -15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`pointer-events-auto px-3.5 py-1.5 rounded-2xl border backdrop-blur-xl shadow-lg flex items-center gap-2 select-none ${
+            theme === 'dark'
+              ? 'bg-[#0B1220]/90 border-emerald-500/30 text-emerald-300 shadow-emerald-950/40'
+              : 'bg-white/95 border-emerald-500/30 text-emerald-800 shadow-neutral-300/30'
+          }`}
+        >
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <div className="flex flex-col text-left">
+            <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 leading-none">
+              Ufuatiliaji Live
+            </span>
+            <span className="text-[10px] font-mono font-black text-neutral-800 dark:text-neutral-100 leading-tight">
+              {eta ? `ETA: ${eta.minutes}m ${eta.seconds.toString().padStart(2, '0')}s` : 'Safarini'} • {distance ? `${distance.toFixed(1)} km` : 'Njiani'}
+            </span>
+          </div>
+        </motion.div>
 
         {/* Right: Customer Profile Picture */}
         <motion.div
@@ -545,7 +568,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
             </div>
 
             {/* Unified Quick Actions & Distance Panel Footer */}
-            <div className={`grid grid-cols-4 gap-1.5 mt-2 pt-2 border-t ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`}>
+            <div className={`grid grid-cols-5 gap-1 mt-2 pt-2 border-t ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`}>
               {/* Distance Left Panel */}
               <div className={`col-span-1 rounded-xl p-1 border flex flex-col items-center justify-center text-center select-none ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80' : 'bg-neutral-50 border-neutral-200/60'}`}>
                 <Navigation2 className="w-3 h-3 text-indigo-500 mb-0.5" />
@@ -562,6 +585,15 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
               >
                 <span className="text-xs mb-0.5">🔗</span>
                 <span className="text-[7px] font-black uppercase tracking-widest text-neutral-400">Share</span>
+              </button>
+
+              {/* Gawana Nauli (Split Fare) Button */}
+              <button 
+                onClick={() => setShowSplitFareModal(true)}
+                className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-purple-950/20 border-purple-900/40 text-purple-400 hover:bg-purple-950/40' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'}`}
+              >
+                <Users className="w-3 h-3 text-purple-500 mb-0.5" />
+                <span className="text-[7px] font-black uppercase tracking-widest">Gawana</span>
               </button>
 
               {/* Chat Button */}
@@ -634,6 +666,17 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
         driverName={ride.driverInfo?.name}
         vehiclePlate={ride.driverInfo?.vehicle?.plate}
         vehicleModel={ride.driverInfo?.vehicle?.model}
+      />
+
+      {/* PapoShare Carpool & Split Fare Modal */}
+      <PapoShareSplitFareModal
+        isOpen={showSplitFareModal}
+        onClose={() => setShowSplitFareModal(false)}
+        baseFare={ride.fare || 8000}
+        pickupAddress={ride.pickup.address}
+        destinationAddress={ride.destination.address}
+        rideId={ride.id}
+        theme={theme}
       />
     </div>
   );

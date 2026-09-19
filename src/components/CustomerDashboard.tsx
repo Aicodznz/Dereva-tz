@@ -403,9 +403,26 @@ export default function CustomerDashboard() {
   // Update localStorage when location changes
   const handleLocationSelect = (newLoc: any) => {
     setLocation(newLoc);
-    localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
-    localStorage.setItem('omniserve_location_verified', 'true');
+    try {
+      localStorage.setItem('omniserve_user_location', JSON.stringify(newLoc));
+      localStorage.setItem('omniserve_location_verified', 'true');
+      setHeaderLocation(newLoc.address);
+      window.dispatchEvent(new CustomEvent('omniserve_location_updated', { detail: newLoc }));
+    } catch (e) {
+      console.error(e);
+    }
   };
+
+  // Listen to location updates from header or other components
+  useEffect(() => {
+    const handleLocUpdate = (e: any) => {
+      if (e?.detail) {
+        setLocation(e.detail);
+      }
+    };
+    window.addEventListener('omniserve_location_updated', handleLocUpdate);
+    return () => window.removeEventListener('omniserve_location_updated', handleLocUpdate);
+  }, []);
 
   // Helper to calculate distance in km (Haversine formula)
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -1287,13 +1304,6 @@ export default function CustomerDashboard() {
             </h3>
             <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
           </div>
-          <Link
-            to="/services"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-105"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>SuperApp Hub (Huduma Zote)</span>
-          </Link>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-3 md:gap-8 lg:gap-10">
           {services
