@@ -103,14 +103,40 @@ export default function Profile() {
 
   // Real-time order stats listener
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
+
+    let unsubOrders = () => {};
+    let unsubRides = () => {};
+    let unsubNotifs = () => {};
+
+    let currentOrders = {
+      toPay: 0,
+      preparing: 0,
+      onTheWay: 0,
+      toReview: 0,
+      returns: 0,
+      total: 0
+    };
+    let currentActiveRides = 0;
+    let currentRidesTotal = 0;
+
+    const computeAndSetStats = () => {
+      setOrderStats({
+        toPay: currentOrders.toPay,
+        preparing: currentOrders.preparing,
+        onTheWay: currentOrders.onTheWay + currentActiveRides,
+        toReview: currentOrders.toReview,
+        returns: currentOrders.returns,
+        total: currentOrders.total + currentRidesTotal
+      });
+    };
 
     const ordersQuery = query(
       collection(db, 'orders'),
       where('customerId', '==', user.uid)
     );
 
-    const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+    unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
       let toPay = 0;
       let preparing = 0;
       let onTheWay = 0;
@@ -139,15 +165,15 @@ export default function Profile() {
         }
       });
 
-      setOrderStats(prev => ({
-        ...prev,
+      currentOrders = {
         toPay,
         preparing,
         onTheWay,
         toReview,
         returns,
         total: snapshot.size
-      }));
+      };
+      computeAndSetStats();
     }, (error) => {
       console.error("Error fetching order stats:", error);
     });
@@ -157,7 +183,7 @@ export default function Profile() {
       where('customerId', '==', user.uid)
     );
 
-    const unsubRides = onSnapshot(ridesQuery, (snapshot) => {
+    unsubRides = onSnapshot(ridesQuery, (snapshot) => {
       let activeRides = 0;
       snapshot.docs.forEach(doc => {
         const r = doc.data();
@@ -165,11 +191,9 @@ export default function Profile() {
           activeRides++;
         }
       });
-      setOrderStats(prev => ({
-        ...prev,
-        onTheWay: prev.onTheWay + activeRides,
-        total: prev.total + snapshot.size
-      }));
+      currentActiveRides = activeRides;
+      currentRidesTotal = snapshot.size;
+      computeAndSetStats();
     }, (error) => {
       console.error("Error fetching rides count:", error);
     });
@@ -179,9 +203,9 @@ export default function Profile() {
       collection(db, 'notifications'),
       where('userId', '==', user.uid)
     );
-    const unsubNotifs = onSnapshot(notifsQuery, (snapshot) => {
+    unsubNotifs = onSnapshot(notifsQuery, (snapshot) => {
       const unread = snapshot.docs.filter(d => !d.data().read).length;
-      if (unread > 0) setUnreadNotifications(unread);
+      setUnreadNotifications(prev => (prev !== unread ? unread : prev));
     }, () => {});
 
     return () => {
@@ -189,7 +213,7 @@ export default function Profile() {
       unsubRides();
       unsubNotifs();
     };
-  }, [user]);
+  }, [user?.uid]);
 
   const [formData, setFormData] = useState({
     displayName: profile?.displayName || '',

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { db } from './firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
@@ -132,8 +132,10 @@ export const BusinessConfigProvider: React.FC<{ children: React.ReactNode }> = (
     return () => unsub();
   }, []);
 
+  const value = useMemo(() => ({ config, loading }), [config, loading]);
+
   return (
-    <BusinessConfigContext.Provider value={{ config, loading }}>
+    <BusinessConfigContext.Provider value={value}>
       {children}
     </BusinessConfigContext.Provider>
   );

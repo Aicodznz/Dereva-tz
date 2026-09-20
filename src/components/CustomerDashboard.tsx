@@ -439,9 +439,14 @@ export default function CustomerDashboard() {
 
   // Sync with Header Context
   useEffect(() => {
-    setHeaderLocation(location.address);
-    setOnLocationClick(() => () => setIsLocationPickerOpen(true));
-  }, [location.address, setHeaderLocation, setOnLocationClick]);
+    if (location.address) {
+      setHeaderLocation(location.address);
+    }
+  }, [location.address, setHeaderLocation]);
+
+  useEffect(() => {
+    setOnLocationClick(() => setIsLocationPickerOpen(true));
+  }, [setOnLocationClick]);
 
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const effectiveSearchQuery = contextSearchQuery;

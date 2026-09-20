@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 export interface LocationDetails {
   address: string;
@@ -42,21 +42,28 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationDetails, setLocationDetailsState] = useState<LocationDetails>(getDefaultLocation);
   const [location, setLocationState] = useState<string>(() => getDefaultLocation().address);
-  const [onLocationClick, setOnLocationClick] = useState<() => void>(() => () => {});
+  const [onLocationClick, setOnLocationClickState] = useState<() => void>(() => () => {});
 
-  const setLocation = (l: string) => {
-    setLocationState(l);
-    setLocationDetailsState(prev => ({ ...prev, address: l }));
-  };
+  const setLocation = useCallback((l: string) => {
+    setLocationState(prev => (prev === l ? prev : l));
+    setLocationDetailsState(prev => (prev.address === l ? prev : { ...prev, address: l }));
+  }, []);
 
-  const setLocationDetails = (loc: LocationDetails) => {
-    setLocationDetailsState(loc);
-    setLocationState(loc.address);
+  const setLocationDetails = useCallback((loc: LocationDetails) => {
+    setLocationDetailsState(prev => {
+      if (prev.address === loc.address && prev.lat === loc.lat && prev.lng === loc.lng) return prev;
+      return loc;
+    });
+    setLocationState(prev => (prev === loc.address ? prev : loc.address));
     try {
       localStorage.setItem('omniserve_user_location', JSON.stringify(loc));
       localStorage.setItem('omniserve_location_verified', 'true');
     } catch {}
-  };
+  }, []);
+
+  const setOnLocationClick = useCallback((fn: () => void) => {
+    setOnLocationClickState(() => fn);
+  }, []);
 
   useEffect(() => {
     const handleStorage = () => {
@@ -86,13 +93,15 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const contextValue = useMemo(() => ({ 
+    searchQuery, setSearchQuery, 
+    location, setLocation, 
+    locationDetails, setLocationDetails,
+    onLocationClick, setOnLocationClick 
+  }), [searchQuery, location, locationDetails, onLocationClick, setLocation, setLocationDetails, setOnLocationClick]);
+
   return (
-    <HeaderContext.Provider value={{ 
-      searchQuery, setSearchQuery, 
-      location, setLocation, 
-      locationDetails, setLocationDetails,
-      onLocationClick, setOnLocationClick 
-    }}>
+    <HeaderContext.Provider value={contextValue}>
       {children}
     </HeaderContext.Provider>
   );

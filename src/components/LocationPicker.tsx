@@ -277,7 +277,7 @@ interface LocationPickerProps {
 function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
   const map = useMap();
   useEffect(() => {
-    if (!map) return;
+    if (!map || !center) return;
     try {
       const currentCenter = map.getCenter();
       const distance = currentCenter.distanceTo(center);
@@ -290,7 +290,7 @@ function MapController({ center, zoom }: { center: L.LatLng, zoom?: number }) {
     } catch (e) {
       console.warn('Map flyTo failed:', e);
     }
-  }, [center, map, zoom]);
+  }, [center?.lat, center?.lng, map, zoom]);
   return null;
 }
 
