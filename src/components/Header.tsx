@@ -386,12 +386,14 @@ export default function Header() {
       </AnimatePresence>
 
       {/* Location Picker Modal from Header */}
-      <LocationPicker
-        isOpen={isHeaderLocationPickerOpen}
-        onClose={() => setIsHeaderLocationPickerOpen(false)}
-        onSelect={handleHeaderLocationSelect}
-        zIndex="z-[99999]"
-      />
+      {isHeaderLocationPickerOpen && (
+        <LocationPicker
+          isOpen={isHeaderLocationPickerOpen}
+          onClose={() => setIsHeaderLocationPickerOpen(false)}
+          onSelect={handleHeaderLocationSelect}
+          zIndex="z-[99999]"
+        />
+      )}
     </nav>
   );
 }

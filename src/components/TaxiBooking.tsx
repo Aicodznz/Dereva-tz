@@ -2160,8 +2160,6 @@ export default function TaxiBooking() {
           const dist = L.latLng(drvLat, drvLng).distanceTo(L.latLng(tgtLat, tgtLng));
           setLiveDistance(dist / 1000); // km
         }
-      } else if (activeRide?.status === "completed") {
-        setStep("rating");
       }
     }
   }, [

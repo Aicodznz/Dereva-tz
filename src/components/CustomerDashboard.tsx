@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { VendorProfile, Product } from '../types';
@@ -377,18 +377,6 @@ export default function CustomerDashboard() {
     return () => clearInterval(interval);
   }, [vendors.length]);
 
-  // Auto-slide for Banners
-  useEffect(() => {
-    if (banners.length === 0) return;
-
-    const interval = setInterval(() => {
-      if (document.hidden) return;
-      setActiveBannerIdx((prev) => (prev + 1) % banners.length);
-    }, 5500);
-
-    return () => clearInterval(interval);
-  }, [banners.length]);
-
   // Auto-prompt location for new users/guests
   useEffect(() => {
     const isLocationSet = localStorage.getItem('omniserve_location_verified');
@@ -417,7 +405,12 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const handleLocUpdate = (e: any) => {
       if (e?.detail) {
-        setLocation(e.detail);
+        setLocation((prev: any) => {
+          if (prev.address === e.detail.address && prev.lat === e.detail.lat && prev.lng === e.detail.lng) {
+            return prev;
+          }
+          return e.detail;
+        });
       }
     };
     window.addEventListener('omniserve_location_updated', handleLocUpdate);
@@ -519,6 +512,9 @@ export default function CustomerDashboard() {
   });
 
   const locationRef = useRef(location);
+  const isGeocodingRef = useRef(false);
+  const lastGeocodedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
   useEffect(() => {
     locationRef.current = location;
   }, [location]);
@@ -538,13 +534,26 @@ export default function CustomerDashboard() {
           // Only update reverse geocode if location changed significantly (> 200m)
           // or if address is not set yet
           const distMoved = calculateDistance(currentLoc.lat, currentLoc.lng, latitude, longitude);
-          if (!currentLoc.address || distMoved > 0.2) {
+          const needsGeocode = !currentLoc.address || distMoved > 0.2;
+
+          if (needsGeocode && !isGeocodingRef.current) {
+            const lastCoords = lastGeocodedCoordsRef.current;
+            if (lastCoords) {
+              const distFromLastAttempt = calculateDistance(lastCoords.lat, lastCoords.lng, latitude, longitude);
+              if (distFromLastAttempt < 0.2 && !currentLoc.address) {
+                // Avoid repeated geocoding attempts at the same location if it already failed
+                return;
+              }
+            }
+
+            isGeocodingRef.current = true;
+            lastGeocodedCoordsRef.current = { lat: latitude, lng: longitude };
+
             try {
               const response = await fetch(`/api/geo/reverse?lat=${latitude}&lon=${longitude}&zoom=18`);
               const contentType = response.headers.get("content-type");
               if (!response.ok || !contentType || !contentType.includes("application/json")) {
                 console.warn(`Reverse geocoding failed with status ${response.status}`);
-                setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
                 return;
               }
               const data = await response.json();
@@ -559,10 +568,11 @@ export default function CustomerDashboard() {
               }
             } catch (err) {
               console.error('Reverse geocoding failed:', err);
-              setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
+            } finally {
+              isGeocodingRef.current = false;
             }
           } else if (distMoved > 0.05) {
-            // Update coords for minor moves too, just don't re-geocode address
+            // Update coords for minor moves without re-geocoding address
             setLocation((prev: any) => ({ ...prev, lat: latitude, lng: longitude }));
           }
         },
@@ -751,7 +761,7 @@ export default function CustomerDashboard() {
   };
 
   // Combine greeting slide with active Admin slide announcements
-  const allSlides = [
+  const allSlides = useMemo(() => [
     {
       type: 'greeting',
       tag: 'PAPO HAPO 🇹🇿',
@@ -767,7 +777,7 @@ export default function CustomerDashboard() {
       iconType: 'megaphone',
       id: a.id
     }))
-  ];
+  ], [adminAnnouncements, profile?.displayName]);
 
   // Auto-slide timer for greeting / notification header (every 4.5 seconds)
   useEffect(() => {
@@ -785,7 +795,7 @@ export default function CustomerDashboard() {
       setActiveBannerIdx((prev) => (prev + 1) % banners.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [banners.length, isBannerAutoPlay, isBannerHovered, activeBannerIdx]);
+  }, [banners.length, isBannerAutoPlay, isBannerHovered]);
 
   const currentSlide = allSlides[currentSlideIndex] || allSlides[0];
 
@@ -864,21 +874,23 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      <LocationPicker 
-        isOpen={isLocationPickerOpen}
-        onClose={() => {
-          setIsLocationPickerOpen(false);
-          setIsMapViewOnly(false);
-          setSelectedVendorId(undefined);
-          setSelectedRouteId(null);
-        }}
-        onSelect={handleLocationSelect}
-        initialLocation={location}
-        vendors={vendors}
-        preSelectedVendorId={selectedVendorId}
-        isMapViewOnly={isMapViewOnly}
-        arRouteId={selectedRouteId}
-      />
+      {isLocationPickerOpen && (
+        <LocationPicker 
+          isOpen={isLocationPickerOpen}
+          onClose={() => {
+            setIsLocationPickerOpen(false);
+            setIsMapViewOnly(false);
+            setSelectedVendorId(undefined);
+            setSelectedRouteId(null);
+          }}
+          onSelect={handleLocationSelect}
+          initialLocation={location}
+          vendors={vendors}
+          preSelectedVendorId={selectedVendorId}
+          isMapViewOnly={isMapViewOnly}
+          arRouteId={selectedRouteId}
+        />
+      )}
 
       {tableSession && (
         <motion.div 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { db } from '../firebase';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Ride } from '../types/trip.types';
@@ -468,5 +468,5 @@ export function useMatchmaking(ride: Ride | null) {
 
   }, [ride?.id, ride?.status, isSearching, isTakeoverActive, ride?.routeCoords ? JSON.stringify(ride.routeCoords) : '']);
 
-  return { isSearching };
+  return useMemo(() => ({ isSearching }), [isSearching]);
 }

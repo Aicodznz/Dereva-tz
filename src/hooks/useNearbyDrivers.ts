@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -70,5 +70,5 @@ export function useNearbyDrivers() {
     return () => unsub();
   }, []);
 
-  return { drivers };
+  return useMemo(() => ({ drivers }), [drivers]);
 }

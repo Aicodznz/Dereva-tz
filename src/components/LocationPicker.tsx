@@ -463,7 +463,7 @@ export default function LocationPicker({
     }, 4000);
 
     return () => clearInterval(timer);
-  }, [simulatedDrivers.length]);
+  }, [simulatedDrivers.length > 0]);
 
   // Stop & Media Interactive States on 2D map
   const [selectedStopIdx, setSelectedStopIdx] = useState<number | null>(null);

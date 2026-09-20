@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 export interface LocationDetails {
   address: string;
@@ -42,7 +42,7 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationDetails, setLocationDetailsState] = useState<LocationDetails>(getDefaultLocation);
   const [location, setLocationState] = useState<string>(() => getDefaultLocation().address);
-  const [onLocationClick, setOnLocationClickState] = useState<() => void>(() => () => {});
+  const onLocationClickRef = useRef<() => void>(() => {});
 
   const setLocation = useCallback((l: string) => {
     setLocationState(prev => (prev === l ? prev : l));
@@ -62,7 +62,11 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setOnLocationClick = useCallback((fn: () => void) => {
-    setOnLocationClickState(() => fn);
+    onLocationClickRef.current = fn;
+  }, []);
+
+  const onLocationClick = useCallback(() => {
+    onLocationClickRef.current();
   }, []);
 
   useEffect(() => {
@@ -107,20 +111,25 @@ export function HeaderProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const FALLBACK_HEADER_CONTEXT: HeaderContextType = {
+  searchQuery: '',
+  setSearchQuery: () => {},
+  location: 'Galagaza, Kibaha Town, Pwani',
+  setLocation: () => {},
+  locationDetails: {
+    address: 'Galagaza, Kibaha Town, Pwani',
+    lat: -6.7924,
+    lng: 39.2083
+  },
+  setLocationDetails: () => {},
+  onLocationClick: () => {},
+  setOnLocationClick: () => {}
+};
+
 export function useHeader() {
   const context = useContext(HeaderContext);
   if (context === undefined) {
-    const fallback = getDefaultLocation();
-    return {
-      searchQuery: '',
-      setSearchQuery: () => {},
-      location: fallback.address,
-      setLocation: () => {},
-      locationDetails: fallback,
-      setLocationDetails: () => {},
-      onLocationClick: () => {},
-      setOnLocationClick: () => {}
-    };
+    return FALLBACK_HEADER_CONTEXT;
   }
   return context;
 }

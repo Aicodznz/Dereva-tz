@@ -87,10 +87,13 @@ export default function MayaAIChat() {
       detectedRole = 'mteja';
     }
 
-    if (detectedRole !== activeRole) {
-      setActiveRole(detectedRole);
-      setHasGreeted(false);
-    }
+    setActiveRole(prevRole => {
+      if (prevRole !== detectedRole) {
+        setHasGreeted(false);
+        return detectedRole;
+      }
+      return prevRole;
+    });
   }, [location.pathname, profile?.role]);
 
   const toggleFabHidden = (hidden: boolean) => {
