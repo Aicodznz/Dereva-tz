@@ -1,0 +1,498 @@
+import { DaladalaRoute, DaladalaVehicle, TrafficReport, FleetVehicleRecord, TerminalQueueInfo } from '../types/daladala.types';
+
+export const INITIAL_DALADALA_ROUTES: DaladalaRoute[] = [
+  {
+    id: 'route_morogoro_rd',
+    routeCode: 'DL-01',
+    name: 'Kimara Mwisho ⇄ Kivukoni / Posta',
+    origin: 'Kimara Mwisho Stand',
+    destination: 'Kivukoni Ferry / Posta',
+    via: 'Barabara ya Morogoro (Morogoro Rd)',
+    distanceKm: 18.5,
+    baseFareTzs: 600,
+    studentFareTzs: 200,
+    color: '#2563eb', // Blue
+    operatingHours: '04:30 - 23:30',
+    frequencyMinutes: 3,
+    stops: [
+      { id: 'km_01', name: 'Kimara Mwisho', lat: -6.7925, lng: 39.1834, isTerminal: true, zone: 'Kimara' },
+      { id: 'km_02', name: 'Korogwe', lat: -6.7972, lng: 39.1945, zone: 'Kimara' },
+      { id: 'km_03', name: 'Bucha', lat: -6.8010, lng: 39.2045, zone: 'Ubungo' },
+      { id: 'km_04', name: 'Kibo', lat: -6.8055, lng: 39.2120, zone: 'Ubungo' },
+      { id: 'km_05', name: 'Ubungo Maji', lat: -6.8115, lng: 39.2215, zone: 'Ubungo' },
+      { id: 'km_06', name: 'Shekilango', lat: -6.8140, lng: 39.2310, zone: 'Sinza/Ubungo' },
+      { id: 'km_07', name: 'Urafiki', lat: -6.8165, lng: 39.2415, zone: 'Manzese' },
+      { id: 'km_08', name: 'Manzese Tip Top', lat: -6.8180, lng: 39.2520, zone: 'Manzese' },
+      { id: 'km_09', name: 'Magomeni Mapipa', lat: -6.8195, lng: 39.2635, zone: 'Magomeni' },
+      { id: 'km_10', name: 'Fire / Ilala', lat: -6.8185, lng: 39.2760, zone: 'Kariakoo/Ilala' },
+      { id: 'km_11', name: 'DIT / Mnazi Mmoja', lat: -6.8170, lng: 39.2840, zone: 'CBD' },
+      { id: 'km_12', name: 'Posta ya Zamani', lat: -6.8148, lng: 39.2905, zone: 'CBD' },
+      { id: 'km_13', name: 'Kivukoni Ferry', lat: -6.8160, lng: 39.2965, isTerminal: true, zone: 'Kivukoni' },
+    ],
+    pathCoordinates: [
+      [-6.7925, 39.1834],
+      [-6.7972, 39.1945],
+      [-6.8010, 39.2045],
+      [-6.8055, 39.2120],
+      [-6.8115, 39.2215],
+      [-6.8140, 39.2310],
+      [-6.8165, 39.2415],
+      [-6.8180, 39.2520],
+      [-6.8195, 39.2635],
+      [-6.8185, 39.2760],
+      [-6.8170, 39.2840],
+      [-6.8148, 39.2905],
+      [-6.8160, 39.2965]
+    ]
+  },
+  {
+    id: 'route_bagamoyo_rd',
+    routeCode: 'DL-02',
+    name: 'Mwenge ⇄ Tegeta Nyuki / Bagamoyo Rd',
+    origin: 'Mwenge Terminal',
+    destination: 'Tegeta Nyuki',
+    via: 'Barabara ya Bagamoyo (Bagamoyo Rd)',
+    distanceKm: 16.2,
+    baseFareTzs: 600,
+    studentFareTzs: 200,
+    color: '#059669', // Emerald
+    operatingHours: '05:00 - 23:00',
+    frequencyMinutes: 4,
+    stops: [
+      { id: 'mw_01', name: 'Mwenge Bus Stand', lat: -6.7725, lng: 39.2270, isTerminal: true, zone: 'Mwenge' },
+      { id: 'mw_02', name: 'Mlalakuwa', lat: -6.7620, lng: 39.2315, zone: 'Mlalakuwa' },
+      { id: 'mw_03', name: 'Mlimani City Gate', lat: -6.7705, lng: 39.2205, zone: 'Mwenge' },
+      { id: 'mw_04', name: 'Lugalo Hospital', lat: -6.7480, lng: 39.2310, zone: 'Kawe' },
+      { id: 'mw_05', name: 'Kawe Kanisani', lat: -6.7350, lng: 39.2315, zone: 'Kawe' },
+      { id: 'mw_06', name: 'Africana Mbezi Beach', lat: -6.7085, lng: 39.2210, zone: 'Mbezi Beach' },
+      { id: 'mw_07', name: 'Salasala Mataa', lat: -6.6850, lng: 39.2085, zone: 'Salasala' },
+      { id: 'mw_08', name: 'Tegeta Kibaoni', lat: -6.6710, lng: 39.1980, zone: 'Tegeta' },
+      { id: 'mw_09', name: 'Tegeta Nyuki', lat: -6.6620, lng: 39.1910, isTerminal: true, zone: 'Tegeta' },
+    ],
+    pathCoordinates: [
+      [-6.7725, 39.2270],
+      [-6.7620, 39.2315],
+      [-6.7480, 39.2310],
+      [-6.7350, 39.2315],
+      [-6.7085, 39.2210],
+      [-6.6850, 39.2085],
+      [-6.6710, 39.1980],
+      [-6.6620, 39.1910]
+    ]
+  },
+  {
+    id: 'route_kilwa_rd',
+    routeCode: 'DL-03',
+    name: 'Kariakoo Gerezani ⇄ Mbagala Rangi Tatu',
+    origin: 'Kariakoo Gerezani',
+    destination: 'Mbagala Rangi Tatu Stand',
+    via: 'Barabara ya Kilwa (Kilwa Rd)',
+    distanceKm: 14.8,
+    baseFareTzs: 500,
+    studentFareTzs: 200,
+    color: '#d97706', // Amber
+    operatingHours: '04:00 - 00:00',
+    frequencyMinutes: 3,
+    stops: [
+      { id: 'mb_01', name: 'Kariakoo Gerezani', lat: -6.8240, lng: 39.2810, isTerminal: true, zone: 'Kariakoo' },
+      { id: 'mb_02', name: 'Kamata', lat: -6.8285, lng: 39.2780, zone: 'Ilala' },
+      { id: 'mb_03', name: 'Mgulani JKT', lat: -6.8490, lng: 39.2825, zone: 'Mgulani' },
+      { id: 'mb_04', name: 'Tandika Sokoni', lat: -6.8610, lng: 39.2760, zone: 'Tandika' },
+      { id: 'mb_05', name: 'Mtoni kwa Azizi Ali', lat: -6.8715, lng: 39.2790, zone: 'Mtoni' },
+      { id: 'mb_06', name: 'Buza Stand', lat: -6.8850, lng: 39.2715, zone: 'Buza' },
+      { id: 'mb_07', name: 'Zakhiem', lat: -6.8995, lng: 39.2630, zone: 'Mbagala' },
+      { id: 'mb_08', name: 'Mbagala Rangi Tatu', lat: -6.9110, lng: 39.2555, isTerminal: true, zone: 'Mbagala' },
+    ],
+    pathCoordinates: [
+      [-6.8240, 39.2810],
+      [-6.8285, 39.2780],
+      [-6.8490, 39.2825],
+      [-6.8610, 39.2760],
+      [-6.8715, 39.2790],
+      [-6.8850, 39.2715],
+      [-6.8995, 39.2630],
+      [-6.9110, 39.2555]
+    ]
+  },
+  {
+    id: 'route_kibaha_mbezi',
+    routeCode: 'DL-04',
+    name: 'Kibaha Maili Moja ⇄ Mbezi Mwisho Stand',
+    origin: 'Kibaha Maili Moja',
+    destination: 'Mbezi Mwisho Stand ya Magufuli',
+    via: 'Morogoro Highway',
+    distanceKm: 15.0,
+    baseFareTzs: 700,
+    studentFareTzs: 200,
+    color: '#7c3aed', // Purple
+    operatingHours: '05:00 - 22:30',
+    frequencyMinutes: 5,
+    stops: [
+      { id: 'kb_01', name: 'Maili Moja Kibaha', lat: -6.7820, lng: 38.9950, isTerminal: true, zone: 'Kibaha' },
+      { id: 'kb_02', name: 'Picha ya Ndege', lat: -6.7845, lng: 39.0320, zone: 'Kibaha' },
+      { id: 'kb_03', name: 'Visiga', lat: -6.7860, lng: 39.0680, zone: 'Kibaha' },
+      { id: 'kb_04', name: 'Kongowe Pwani', lat: -6.7880, lng: 39.1120, zone: 'Kongowe' },
+      { id: 'kb_05', name: 'Kibamba CCM', lat: -6.7905, lng: 39.1430, zone: 'Kibamba' },
+      { id: 'kb_06', name: 'Kiluvya Stand', lat: -6.7915, lng: 39.1620, zone: 'Kiluvya' },
+      { id: 'kb_07', name: 'Mbezi Mwisho Magufuli Bus Terminal', lat: -6.7925, lng: 39.1834, isTerminal: true, zone: 'Mbezi' },
+    ],
+    pathCoordinates: [
+      [-6.7820, 38.9950],
+      [-6.7845, 39.0320],
+      [-6.7860, 39.0680],
+      [-6.7880, 39.1120],
+      [-6.7905, 39.1430],
+      [-6.7915, 39.1620],
+      [-6.7925, 39.1834]
+    ]
+  },
+  {
+    id: 'route_simu2000_morocco',
+    routeCode: 'DL-05',
+    name: 'Simu 2000 (Mawasiliano) ⇄ Morocco / Makumbusho',
+    origin: 'Simu 2000 Terminal',
+    destination: 'Morocco BRT',
+    via: 'Sam Nujoma Rd ⇄ Ali Hassan Mwinyi',
+    distanceKm: 8.5,
+    baseFareTzs: 500,
+    studentFareTzs: 200,
+    color: '#ea580c', // Orange
+    operatingHours: '05:30 - 22:00',
+    frequencyMinutes: 4,
+    stops: [
+      { id: 's2_01', name: 'Simu 2000 Mawasiliano', lat: -6.8090, lng: 39.2240, isTerminal: true, zone: 'Ubungo' },
+      { id: 's2_02', name: 'Survey Mlimani', lat: -6.7805, lng: 39.2215, zone: 'Ubungo' },
+      { id: 's2_03', name: 'Mwenge Mataa', lat: -6.7725, lng: 39.2270, zone: 'Mwenge' },
+      { id: 's2_04', name: 'Victoria Makumbusho', lat: -6.7780, lng: 39.2510, zone: 'Kijitonyama' },
+      { id: 's2_05', name: 'Makumbusho Stand', lat: -6.7825, lng: 39.2560, isTerminal: true, zone: 'Makumbusho' },
+      { id: 's2_06', name: 'Morocco Kituoni', lat: -6.7890, lng: 39.2620, isTerminal: true, zone: 'Kinondoni' },
+    ],
+    pathCoordinates: [
+      [-6.8090, 39.2240],
+      [-6.7805, 39.2215],
+      [-6.7725, 39.2270],
+      [-6.7780, 39.2510],
+      [-6.7825, 39.2560],
+      [-6.7890, 39.2620]
+    ]
+  }
+];
+
+export const INITIAL_DALADALAS: DaladalaVehicle[] = [
+  {
+    id: 'dla_01',
+    plateNumber: 'T 392 DKR',
+    nickname: 'Simba wa Morogoro',
+    routeId: 'route_morogoro_rd',
+    routeCode: 'DL-01',
+    routeName: 'Kimara ⇄ Kivukoni',
+    capacity: 32,
+    seatsTaken: 24,
+    standingCount: 0,
+    seatStatus: 'available', // Viti 8 Wazi
+    currentLat: -6.8115,
+    currentLng: 39.2215,
+    heading: 105,
+    speedKmH: 38,
+    nextStopId: 'km_06',
+    nextStopName: 'Shekilango',
+    etaMinutesToNextStop: 3,
+    driverName: 'Juma Ramadhani',
+    conductorName: 'Bakari Mwajuma (Konda Mpole)',
+    conductorPhone: '+255 754 819 021',
+    rating: 4.8,
+    ratingCount: 142,
+    isOffRoute: false,
+    lastUpdated: 'Sekunde 4 zilizopita',
+    colorHex: '#2563eb',
+    vehicleModel: 'Toyota Coaster'
+  },
+  {
+    id: 'dla_02',
+    plateNumber: 'T 812 EBL',
+    nickname: 'Kaza Buti Boy',
+    routeId: 'route_morogoro_rd',
+    routeCode: 'DL-01',
+    routeName: 'Kimara ⇄ Kivukoni',
+    capacity: 28,
+    seatsTaken: 26,
+    standingCount: 2,
+    seatStatus: 'few', // Viti 2 Wazi
+    currentLat: -6.8180,
+    currentLng: 39.2520,
+    heading: 110,
+    speedKmH: 24,
+    nextStopId: 'km_09',
+    nextStopName: 'Magomeni Mapipa',
+    etaMinutesToNextStop: 2,
+    driverName: 'Selemani Fundi',
+    conductorName: 'Chopa Mbunge',
+    conductorPhone: '+255 683 490 112',
+    rating: 4.6,
+    ratingCount: 98,
+    isOffRoute: false,
+    lastUpdated: 'Sekunde 2 zilizopita',
+    colorHex: '#2563eb',
+    vehicleModel: 'Toyota Hiace'
+  },
+  {
+    id: 'dla_03',
+    plateNumber: 'T 541 CXY',
+    nickname: 'Mnyama Mkali',
+    routeId: 'route_bagamoyo_rd',
+    routeCode: 'DL-02',
+    routeName: 'Mwenge ⇄ Tegeta Nyuki',
+    capacity: 32,
+    seatsTaken: 32,
+    standingCount: 8,
+    seatStatus: 'standing', // Standing / Msimamo
+    currentLat: -6.7480,
+    currentLng: 39.2310,
+    heading: 350,
+    speedKmH: 42,
+    nextStopId: 'mw_05',
+    nextStopName: 'Kawe Kanisani',
+    etaMinutesToNextStop: 4,
+    driverName: 'Hussein Mwarabu',
+    conductorName: 'Athumani Dogo',
+    conductorPhone: '+255 712 345 678',
+    rating: 4.7,
+    ratingCount: 110,
+    isOffRoute: false,
+    lastUpdated: 'Sekunde 6 zilizopita',
+    colorHex: '#059669',
+    vehicleModel: 'Toyota Coaster'
+  },
+  {
+    id: 'dla_04',
+    plateNumber: 'T 901 DZF',
+    nickname: 'Bora Uhai Express',
+    routeId: 'route_bagamoyo_rd',
+    routeCode: 'DL-02',
+    routeName: 'Mwenge ⇄ Tegeta Nyuki',
+    capacity: 28,
+    seatsTaken: 28,
+    standingCount: 15,
+    seatStatus: 'full', // FULL
+    currentLat: -6.7085,
+    currentLng: 39.2210,
+    heading: 340,
+    speedKmH: 35,
+    nextStopId: 'mw_07',
+    nextStopName: 'Salasala Mataa',
+    etaMinutesToNextStop: 5,
+    driverName: 'Daudi Mwambola',
+    conductorName: 'Kelvin Shayo',
+    conductorPhone: '+255 765 890 123',
+    rating: 4.3,
+    ratingCount: 84,
+    isOffRoute: true,
+    offRouteReason: 'Amepita njia ya ndani Africana kukwepa foleni ya Tegeta kibaoni',
+    lastUpdated: 'Muda huu',
+    colorHex: '#059669',
+    vehicleModel: 'Isuzu Journey'
+  },
+  {
+    id: 'dla_05',
+    plateNumber: 'T 119 DRT',
+    nickname: 'Mbagala Bullet',
+    routeId: 'route_kilwa_rd',
+    routeCode: 'DL-03',
+    routeName: 'Kariakoo ⇄ Mbagala Rangi Tatu',
+    capacity: 35,
+    seatsTaken: 22,
+    standingCount: 0,
+    seatStatus: 'available', // Viti 13 wazi
+    currentLat: -6.8610,
+    currentLng: 39.2760,
+    heading: 180,
+    speedKmH: 30,
+    nextStopId: 'mb_05',
+    nextStopName: 'Mtoni kwa Azizi Ali',
+    etaMinutesToNextStop: 4,
+    driverName: 'Hamisi Mgaza',
+    conductorName: 'Kassim Boy',
+    conductorPhone: '+255 788 123 456',
+    rating: 4.9,
+    ratingCount: 165,
+    isOffRoute: false,
+    lastUpdated: 'Sekunde 3 zilizopita',
+    colorHex: '#d97706',
+    vehicleModel: 'Toyota Coaster'
+  },
+  {
+    id: 'dla_06',
+    plateNumber: 'T 664 EAK',
+    nickname: 'Pwani Express',
+    routeId: 'route_kibaha_mbezi',
+    routeCode: 'DL-04',
+    routeName: 'Kibaha ⇄ Mbezi Mwisho',
+    capacity: 30,
+    seatsTaken: 25,
+    standingCount: 0,
+    seatStatus: 'few', // Viti 5 wazi
+    currentLat: -6.7880,
+    currentLng: 39.1120,
+    heading: 85,
+    speedKmH: 52,
+    nextStopId: 'kb_05',
+    nextStopName: 'Kibamba CCM',
+    etaMinutesToNextStop: 6,
+    driverName: 'Emmanuel Mrema',
+    conductorName: 'Godfrey Tarimo',
+    conductorPhone: '+255 759 234 567',
+    rating: 4.7,
+    ratingCount: 78,
+    isOffRoute: false,
+    lastUpdated: 'Sekunde 5 zilizopita',
+    colorHex: '#7c3aed',
+    vehicleModel: 'Toyota Coaster'
+  }
+];
+
+export const INITIAL_TRAFFIC_REPORTS: TrafficReport[] = [
+  {
+    id: 'tr_01',
+    title: 'Foleni Kali (Heavy Traffic)',
+    type: 'jam',
+    description: 'Magari yanasogea taratibu sana kuanzia mataa ya Magomeni kuelekea Fire kwa sababu ya gari lililoharibika kituoni.',
+    locationName: 'Magomeni Mapipa ⇄ Fire',
+    lat: -6.8190,
+    lng: 39.2700,
+    severity: 'high',
+    reportedAt: 'Dakika 12 zilizopita',
+    upvotes: 38,
+    affectedRoutes: ['DL-01']
+  },
+  {
+    id: 'tr_02',
+    title: 'Mvua ya Rasha Rasha na Barabara Kuteleza',
+    type: 'flooding',
+    description: 'Mvua inanyesha eneo la Africana na Kawe, magari yote ya Bagamoyo Rd yamepungua spidi kwa usalama.',
+    locationName: 'Kawe ⇄ Africana Mbezi Beach',
+    lat: -6.7210,
+    lng: 39.2260,
+    severity: 'medium',
+    reportedAt: 'Dakika 25 zilizopita',
+    upvotes: 19,
+    affectedRoutes: ['DL-02']
+  },
+  {
+    id: 'tr_03',
+    title: 'Ukaguzi wa Trafiki (Police Inspection)',
+    type: 'police_check',
+    description: 'Askari wa usalama barabarani wanakagua mikanda na stika za LATRA kwa umakini.',
+    locationName: 'Mabibo External / Urafiki',
+    lat: -6.8160,
+    lng: 39.2380,
+    severity: 'low',
+    reportedAt: 'Dakika 40 zilizopita',
+    upvotes: 52,
+    affectedRoutes: ['DL-01', 'DL-05']
+  }
+];
+
+export const INITIAL_FLEET_RECORDS: FleetVehicleRecord[] = [
+  {
+    id: 'fl_01',
+    plateNumber: 'T 392 DKR',
+    nickname: 'Simba wa Morogoro',
+    routeCode: 'DL-01',
+    driverName: 'Juma Ramadhani',
+    conductorName: 'Bakari Mwajuma',
+    dailyTargetTzs: 150000,
+    todayRevenueTzs: 118200,
+    cashCollectedTzs: 64000,
+    digitalCollectedTzs: 54200,
+    fuelExpenseTzs: 40000,
+    terminalFeeTzs: 4000,
+    tripsCount: 4,
+    oilServiceKmRemaining: 1850,
+    latraExpiryDate: '2026-12-15',
+    insuranceExpiryDate: '2026-11-20',
+    status: 'active'
+  },
+  {
+    id: 'fl_02',
+    plateNumber: 'T 812 EBL',
+    nickname: 'Kaza Buti Boy',
+    routeCode: 'DL-01',
+    driverName: 'Selemani Fundi',
+    conductorName: 'Chopa Mbunge',
+    dailyTargetTzs: 140000,
+    todayRevenueTzs: 96400,
+    cashCollectedTzs: 58000,
+    digitalCollectedTzs: 38400,
+    fuelExpenseTzs: 35000,
+    terminalFeeTzs: 4000,
+    tripsCount: 3,
+    oilServiceKmRemaining: 420, // Warning soon
+    latraExpiryDate: '2026-10-30',
+    insuranceExpiryDate: '2027-01-14',
+    status: 'active'
+  },
+  {
+    id: 'fl_03',
+    plateNumber: 'T 541 CXY',
+    nickname: 'Mnyama Mkali',
+    routeCode: 'DL-02',
+    driverName: 'Hussein Mwarabu',
+    conductorName: 'Athumani Dogo',
+    dailyTargetTzs: 160000,
+    todayRevenueTzs: 142000,
+    cashCollectedTzs: 82000,
+    digitalCollectedTzs: 60000,
+    fuelExpenseTzs: 45000,
+    terminalFeeTzs: 5000,
+    tripsCount: 5,
+    oilServiceKmRemaining: 2400,
+    latraExpiryDate: '2027-04-10',
+    insuranceExpiryDate: '2027-03-25',
+    status: 'active'
+  }
+];
+
+export const INITIAL_TERMINAL_QUEUES: TerminalQueueInfo[] = [
+  {
+    terminalId: 'term_mbezi',
+    terminalName: 'Mbezi Mwisho Magufuli Terminal',
+    lat: -6.7925,
+    lng: 39.1834,
+    routes: ['DL-01', 'DL-04'],
+    queuedVehicles: [
+      { plateNumber: 'T 421 DKL', routeCode: 'DL-01', destination: 'Posta / Kivukoni', queuePosition: 1, status: 'boarding', seatsRemaining: 4, departureEtaMinutes: 2 },
+      { plateNumber: 'T 882 CZM', routeCode: 'DL-01', destination: 'Posta / Kivukoni', queuePosition: 2, status: 'next_in_line', seatsRemaining: 28, departureEtaMinutes: 6 },
+      { plateNumber: 'T 664 EAK', routeCode: 'DL-04', destination: 'Kibaha Maili Moja', queuePosition: 1, status: 'boarding', seatsRemaining: 6, departureEtaMinutes: 4 },
+    ]
+  },
+  {
+    terminalId: 'term_mwenge',
+    terminalName: 'Mwenge Bus Stand Terminal',
+    lat: -6.7725,
+    lng: 39.2270,
+    routes: ['DL-02', 'DL-05'],
+    queuedVehicles: [
+      { plateNumber: 'T 732 DWQ', routeCode: 'DL-02', destination: 'Tegeta Nyuki', queuePosition: 1, status: 'boarding', seatsRemaining: 2, departureEtaMinutes: 1 },
+      { plateNumber: 'T 901 DZF', routeCode: 'DL-02', destination: 'Tegeta Nyuki', queuePosition: 2, status: 'next_in_line', seatsRemaining: 30, departureEtaMinutes: 5 },
+      { plateNumber: 'T 315 BNN', routeCode: 'DL-05', destination: 'Morocco / Makumbusho', queuePosition: 1, status: 'boarding', seatsRemaining: 8, departureEtaMinutes: 3 },
+    ]
+  },
+  {
+    terminalId: 'term_simu2000',
+    terminalName: 'Simu 2000 Mawasiliano Terminal',
+    lat: -6.8090,
+    lng: 39.2240,
+    routes: ['DL-05'],
+    queuedVehicles: [
+      { plateNumber: 'T 551 EBA', routeCode: 'DL-05', destination: 'Morocco Kituoni', queuePosition: 1, status: 'boarding', seatsRemaining: 5, departureEtaMinutes: 3 },
+      { plateNumber: 'T 119 DRT', routeCode: 'DL-05', destination: 'Morocco Kituoni', queuePosition: 2, status: 'waiting', seatsRemaining: 32, departureEtaMinutes: 8 },
+    ]
+  }
+];
+
+export const mockDaladalaRoutes = INITIAL_DALADALA_ROUTES;
+export const mockDaladalaVehicles = INITIAL_DALADALAS;
+export const mockTrafficReports = INITIAL_TRAFFIC_REPORTS;
+export const mockFleetRecords = INITIAL_FLEET_RECORDS;
+export const mockTerminalQueues = INITIAL_TERMINAL_QUEUES;
+

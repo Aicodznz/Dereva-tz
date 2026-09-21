@@ -45,6 +45,7 @@ import DeliveryRobotManager from './components/DeliveryRobotManager';
 import SuperServicesHub from './components/services/SuperServicesHub';
 import PublicLiveTripTracker from './components/tegex/PublicLiveTripTracker';
 import ScrollToTop from './components/ScrollToTop';
+import DaladalaHome from './components/daladala/DaladalaHome';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -117,6 +118,8 @@ function AppContent() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/vendor/:id" element={<VendorStore />} />
           <Route path="/taxi" element={<TaxiBooking />} />
+          <Route path="/daladala" element={<DaladalaHome />} />
+          <Route path="/service/daladala" element={<DaladalaHome />} />
           <Route path="/car-rental" element={<CarRental />} />
           <Route path="/print" element={<PrintService />} />
           <Route path="/service/print" element={<PrintService />} />

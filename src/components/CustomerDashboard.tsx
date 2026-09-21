@@ -587,6 +587,7 @@ export default function CustomerDashboard() {
 
   const services = [
     { id: 'teksi', label: 'PapoRide', icon: Car, color: 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600', sub: 'Agiza gari, boda au bajaji 🚕', category: 'taxi', badge: 'ONLY1K' },
+    { id: 'daladala', label: 'PapoDaladala', icon: Bus, color: 'bg-gradient-to-br from-blue-500 via-indigo-600 to-sky-700', sub: 'Live GPS, Viti Wazi & Nauli 🚌', category: 'daladala', badge: 'GPS LIVE' },
     { id: 'chakula', label: 'PapoFood', icon: Utensils, color: 'bg-gradient-to-br from-red-400 via-red-500 to-rose-600', sub: 'Chakula kutoka migahawa 🍔', category: 'restaurant', badge: 'ONLY1K' },
     { id: 'sokoni', label: 'PapoMart', icon: ShoppingCart, color: 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600', sub: 'Nunua bidhaa za sokoni 🛒', category: 'grocery', badge: 'ONLY1K' },
     { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600', sub: 'Tuma vifurushi na House Shifting 📦', category: 'parcel', badge: 'ONLY1K' },
@@ -1404,6 +1405,8 @@ export default function CustomerDashboard() {
                           ? '/services'
                           : service.id === 'teksi' 
                           ? '/taxi' 
+                          : service.id === 'daladala'
+                          ? '/daladala'
                           : service.id === 'car_rental' 
                           ? '/car-rental' 
                           : service.id === 'print'
