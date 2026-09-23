@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { DaladalaRoute, DaladalaVehicle, DaladalaStop } from '../../types/daladala.types';
+import { Navigation, Compass, Layers } from 'lucide-react';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -123,6 +124,8 @@ interface DaladalaMapProps {
   selectedRouteId: string | null;
   onSelectStop?: (stop: DaladalaStop) => void;
   userCoords?: { lat: number; lng: number } | null;
+  resizeTrigger?: any;
+  isEdgeToEdge?: boolean;
 }
 
 // Controller to auto-pan when selected vehicle changes
@@ -136,6 +139,64 @@ function MapRecenter({ targetCoords }: { targetCoords: [number, number] | null }
   return null;
 }
 
+// Ensures Leaflet recalculates tile dimensions when map container resizes or enters fullscreen
+function MapResizeInvalidator({ resizeTrigger }: { resizeTrigger: any }) {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 400);
+    const t3 = setTimeout(() => map.invalidateSize(), 800);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [resizeTrigger, map]);
+  return null;
+}
+
+// Floating quick map tools
+function MapFloatingControls({ 
+  userCoords,
+  defaultCenter
+}: { 
+  userCoords?: { lat: number; lng: number } | null;
+  defaultCenter: [number, number];
+}) {
+  const map = useMap();
+  return (
+    <div className="leaflet-bottom leaflet-right" style={{ marginBottom: '20px', marginRight: '14px' }}>
+      <div className="leaflet-control flex flex-col gap-1.5 shadow-xl rounded-xl overflow-hidden bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1 border border-neutral-200 dark:border-neutral-800">
+        {userCoords && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              map.flyTo([userCoords.lat, userCoords.lng], 15, { duration: 1.1 });
+            }}
+            className="p-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-blue-600 dark:text-blue-400 transition"
+            title="Nielekeze nilipo (My Location)"
+          >
+            <Navigation className="w-4 h-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            map.flyTo(defaultCenter, 12, { duration: 1.1 });
+          }}
+          className="p-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition"
+          title="Onyesha Dar es Salaam Yote"
+        >
+          <Compass className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DaladalaMap({
   routes,
   vehicles,
@@ -144,6 +205,8 @@ export default function DaladalaMap({
   selectedRouteId,
   onSelectStop,
   userCoords,
+  resizeTrigger,
+  isEdgeToEdge = true,
 }: DaladalaMapProps) {
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
   const activeRoutes = selectedRouteId
@@ -153,13 +216,16 @@ export default function DaladalaMap({
   const defaultCenter: [number, number] = [-6.8140, 39.2450]; // Central Dar es Salaam
 
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-inner border border-neutral-200 dark:border-neutral-800">
+    <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none border-b border-neutral-200 dark:border-neutral-800' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
       <MapContainer
         center={defaultCenter}
         zoom={12}
         className="w-full h-full z-0"
         scrollWheelZoom={true}
       >
+        <MapResizeInvalidator resizeTrigger={resizeTrigger} />
+        <MapFloatingControls userCoords={userCoords} defaultCenter={defaultCenter} />
+
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

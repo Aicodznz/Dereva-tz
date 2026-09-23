@@ -1139,7 +1139,7 @@ export default function AdminDashboard() {
     {
       title: "🎨 Muonekano & Canvas (Design)",
       items: [
-        { id: 'page_canvas', label: 'Page Canvas (Widgets)', icon: LayoutGrid },
+        { id: 'page_canvas', label: 'Website Builder (No-Code)', icon: LayoutGrid },
         { id: 'app_modules', label: 'App Modules Studio', icon: Smartphone },
         { id: 'text_animations', label: 'CSS Text Suite (25)', icon: Sparkles },
       ]

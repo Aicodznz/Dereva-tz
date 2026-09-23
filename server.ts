@@ -523,6 +523,91 @@ Arrange the nodes in a complete, highly realistic, logical flow to satisfy the u
     }
   });
 
+  // AI Website Builder & Canvas Architect Copilot (Gemini API)
+  app.post("/api/website-builder/ai-assist", async (req, res) => {
+    const { prompt, currentWidgets, channel, action } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required." });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
+      }
+
+      const { GoogleGenAI } = await import("@google/genai");
+      const client = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const systemInstruction = `You are the Lead Website & E-commerce Layout Architect for "Papo Hapo Super App" Website Builder.
+The administrator wants assistance building or modifying the drag-and-drop website layout.
+Active Channel/Theme: "${channel || 'Grocery'}"
+Administrator Prompt: "${prompt}"
+Action requested: "${action || 'generate'}"
+Existing widgets count: ${(currentWidgets || []).length}
+
+Output valid JSON matching this schema:
+{
+  "reply": "Conversational friendly Swahili & English response explaining what layout was crafted and actionable e-commerce conversion advice",
+  "recommendations": ["Tip 1", "Tip 2", "Tip 3"],
+  "widgets": [
+    {
+      "id": "widget_unique_id",
+      "order": 1,
+      "type": "PRODUCT",
+      "title": "Widget Title",
+      "subtitle": "Subtitle description",
+      "showTitleInApp": true,
+      "active": true,
+      "displayStyle": "grid",
+      "contentSource": "featured",
+      "selectedItemIds": ["item-1", "item-2"],
+      "deviceTarget": "all",
+      "mobileVisible": true,
+      "desktopVisible": true,
+      "mobileItemsPerRow": 2,
+      "desktopItemsPerRow": 6,
+      "rowsCount": 2,
+      "autoScrollAnimation": false,
+      "customBackgroundEnabled": false,
+      "backgroundType": "solid",
+      "backgroundColor": "#f8fafc",
+      "showViewAllButton": true,
+      "tagLabel": "PRODUCT",
+      "tagLayout": "Grid"
+    }
+  ]
+}
+
+Allowed types: "PRODUCT", "CATEGORY", "BRAND", "MEDIA_BANNER", "STORE".
+Allowed displayStyle: "grid", "horizontal", "item_list", "circle", "card_grid", "tabs_products", "banner", "u_shape_grid".
+Allowed mobileItemsPerRow: 1, 2, or 3.
+Allowed desktopItemsPerRow: 2, 3, 4, 5, 6, or 7.
+
+Ensure the widget layout is modern, clean, responsive, and specifically tailored to the user's prompt (e.g. Ramadan Kareem specials, Electronics flash sale, Pharmacy wellness, Fresh groceries, etc.).
+Return ONLY pure JSON without markdown code fences.`;
+
+      const response = await generateContentWithRetry(client, {
+        model: "gemini-3.5-flash",
+        contents: systemInstruction,
+      });
+
+      let responseText = response.text || "{}";
+      if (responseText.includes("```")) {
+        responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+      }
+
+      const result = JSON.parse(responseText);
+      res.json({ status: "success", ...result });
+    } catch (err: any) {
+      console.error("[Website Builder AI Error]", err);
+      res.status(500).json({ error: "Failed to process AI layout: " + err.message });
+    }
+  });
+
   // AI Sales Insights & Smart Inventory Forecasting Endpoint (Gemini-3.7-flash)
   app.post("/api/ai/sales-insights", async (req, res) => {
     const { vendorName, category, products, orders, expenses, customQuestion } = req.body;

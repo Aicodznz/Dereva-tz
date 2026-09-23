@@ -41,7 +41,8 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
   const hideBottomNav = isFullscreen || isCarRentalRoute || profile?.role === 'rider' || isVendorOrAdmin;
-  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute;
+  const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala');
+  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute;
   const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
 
   return (
