@@ -423,7 +423,7 @@ export default function DaladalaHome() {
       </section>
 
       {/* Main Container for Details, Filters, and Subviews */}
-      <main className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 flex-1 flex flex-col space-y-4 pb-28 md:pb-16">
+      <main className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 flex-1 flex flex-col space-y-4 pb-10">
         {/* Dynamic Route Planner Modal Overlay */}
         {isRoutePlannerOpen && (
           <DaladalaRoutePlanner

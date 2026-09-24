@@ -40,8 +40,8 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
-  const hideBottomNav = isFullscreen || isCarRentalRoute || profile?.role === 'rider' || isVendorOrAdmin;
-  const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala');
+  const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala') || location.pathname === '/service/daladala';
+  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || profile?.role === 'rider' || isVendorOrAdmin;
   const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute;
   const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
 
