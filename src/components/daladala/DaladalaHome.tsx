@@ -7,7 +7,7 @@ import {
   mockFleetRecords, 
   mockTerminalQueues 
 } from '../../data/daladalaData';
-import { DaladalaRoute, DaladalaVehicle, DaladalaStop } from '../../types/daladala.types';
+import { DaladalaRoute, DaladalaVehicle, DaladalaStop, FleetVehicleRecord } from '../../types/daladala.types';
 import DaladalaMap from './DaladalaMap';
 import DaladalaPassengerView from './DaladalaPassengerView';
 import DaladalaRoutePlanner from './DaladalaRoutePlanner';
@@ -42,6 +42,65 @@ export default function DaladalaHome() {
   const [vehicles, setVehicles] = useState<DaladalaVehicle[]>(mockDaladalaVehicles);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(mockDaladalaVehicles[0].id);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
+  // Fleet records state (stored and initialized from mockFleetRecords)
+  const [fleetRecords, setFleetRecords] = useState<FleetVehicleRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('papo_daladala_fleet_records');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return mockFleetRecords;
+  });
+
+  // Handler for adding a new vehicle registered by the owner
+  const handleAddVehicle = (newVehicle: DaladalaVehicle, newFleetRecord: FleetVehicleRecord) => {
+    setVehicles((prev) => [newVehicle, ...prev]);
+    setFleetRecords((prev) => {
+      const updated = [newFleetRecord, ...prev];
+      try {
+        localStorage.setItem('papo_daladala_fleet_records', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+    setSelectedVehicleId(newVehicle.id);
+  };
+
+  // Handler for adding a new route registered by the owner
+  const handleAddRoute = (newRoute: DaladalaRoute) => {
+    setRoutes((prev) => [newRoute, ...prev]);
+    setSelectedRouteId(newRoute.id);
+  };
+
+  // Handler for updating vehicle crew (driver & conductor)
+  const handleUpdateVehicleCrew = (vehicleId: string, driverName: string, conductorName: string, conductorPhone: string) => {
+    setVehicles((prev) =>
+      prev.map((v) =>
+        v.id === vehicleId
+          ? { ...v, driverName, conductorName, conductorPhone }
+          : v
+      )
+    );
+    const targetVeh = vehicles.find((v) => v.id === vehicleId);
+    if (targetVeh) {
+      setFleetRecords((prev) => {
+        const updated = prev.map((f) =>
+          f.plateNumber === targetVeh.plateNumber
+            ? { ...f, driverName, conductorName }
+            : f
+        );
+        try {
+          localStorage.setItem('papo_daladala_fleet_records', JSON.stringify(updated));
+        } catch (e) {
+          console.error(e);
+        }
+        return updated;
+      });
+    }
+  };
 
   // Route Planner visibility
   const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
@@ -462,8 +521,13 @@ export default function DaladalaHome() {
 
         {ecosystemMode === 'fleet' && (
           <DaladalaFleetManager
-            fleetRecords={mockFleetRecords}
+            fleetRecords={fleetRecords}
             terminals={mockTerminalQueues}
+            routes={routes}
+            vehicles={vehicles}
+            onAddVehicle={handleAddVehicle}
+            onAddRoute={handleAddRoute}
+            onUpdateVehicleCrew={handleUpdateVehicleCrew}
           />
         )}
       </main>

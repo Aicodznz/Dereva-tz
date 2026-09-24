@@ -137,3 +137,31 @@ export interface TerminalQueueInfo {
     departureEtaMinutes: number;
   }[];
 }
+
+export interface DaladalaOwnerProfile {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  nidaNumber: string;
+  organizationName?: string;
+  zone: string;
+  mPesaNumber: string;
+  bankAccount?: string;
+  joinedDate: string;
+  verified: boolean;
+}
+
+export interface DaladalaCrewMember {
+  id: string;
+  name: string;
+  role: 'driver' | 'conductor';
+  phone: string;
+  licenseNumber?: string;
+  nidaNumber?: string;
+  assignedVehiclePlate?: string;
+  rating: number;
+  tripsCount: number;
+  status: 'active' | 'off_duty';
+  emergencyContact?: string;
+}
