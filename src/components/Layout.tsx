@@ -41,9 +41,31 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
   const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala') || location.pathname === '/service/daladala';
-  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || profile?.role === 'rider' || isVendorOrAdmin;
+  const isProductDetailRoute = location.pathname.startsWith('/product/') || location.pathname.startsWith('/product');
+  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || isProductDetailRoute || profile?.role === 'rider' || isVendorOrAdmin;
   const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute;
   const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
+
+  // Responsive scroll detection: scroll down -> hide bottom bar, scroll up -> show bottom bar
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDiff = currentScrollY - lastScrollY.current;
+
+      if (scrollDiff > 8 && currentScrollY > 50) {
+        setIsNavVisible(false);
+      } else if (scrollDiff < -8 || currentScrollY <= 20) {
+        setIsNavVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-[#0a0a0f] text-white animate-fade-in' : 'bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
@@ -60,7 +82,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
 
       {/* Bottom Navigation for Mobile */}
       {!hideBottomNav && (
-        <div className="md:hidden fixed bottom-5 left-0 right-0 z-[160] px-4 flex justify-center pointer-events-none">
+        <div className={`md:hidden fixed bottom-5 left-0 right-0 z-[160] px-4 flex justify-center pointer-events-none transition-all duration-300 ease-in-out ${isNavVisible ? 'translate-y-0 opacity-100' : 'translate-y-28 opacity-0 pointer-events-none'}`}>
           <nav 
             className="pointer-events-auto bg-neutral-900/95 dark:bg-black/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-1.5 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden touch-manipulation"
           >

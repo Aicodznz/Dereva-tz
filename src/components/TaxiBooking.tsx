@@ -2427,7 +2427,7 @@ export default function TaxiBooking() {
   const [usePoints, setUsePoints] = useState(false);
   const userPointsBalance = 1200; // 1200 Points = TZS 1,200 discount
 
-  const { drivers } = useNearbyDrivers();
+  const { drivers } = useNearbyDrivers(pickupPos);
 
   const getDriverBearing = (driverId: string, lat: number, lng: number): number => {
     const prev = driverBearingsRef.current[driverId];
@@ -4270,28 +4270,58 @@ const getEndPin = (etaText: string) => {
                     {/* Live Sonar Radar Waves radiating from pickup point when searching for drivers */}
                     {step === "searching" && pickupPos && isValidCoord(pickupPos) && (
                       <>
+                        {/* 1. Inner Active Radar Zone */}
                         <Circle
                           center={pickupPos}
-                          radius={650}
+                          radius={380}
                           pathOptions={{
                             color: '#6366f1',
                             fillColor: '#6366f1',
                             fillOpacity: 0.12,
                             weight: 1.5,
-                            dashArray: '5, 10',
+                            dashArray: '4, 8',
                           }}
                         />
+                        {/* 2. Middle Radar Scanning Range */}
                         <Circle
                           center={pickupPos}
-                          radius={1300}
+                          radius={850}
                           pathOptions={{
                             color: '#818cf8',
                             fillColor: '#818cf8',
-                            fillOpacity: 0.05,
-                            weight: 1,
+                            fillOpacity: 0.06,
+                            weight: 1.2,
                             dashArray: '6, 12',
                           }}
                         />
+                        {/* 3. Outer Detection Horizon */}
+                        <Circle
+                          center={pickupPos}
+                          radius={1400}
+                          pathOptions={{
+                            color: '#a855f7',
+                            fillColor: '#a855f7',
+                            fillOpacity: 0.03,
+                            weight: 1,
+                            dashArray: '8, 16',
+                          }}
+                        />
+
+                        {/* Connecting Radar Detection Rays to each nearby driver within scanning range */}
+                        {drivers.slice(0, 6).map((d) => (
+                          <Polyline
+                            key={`radar-ray-${d.id}`}
+                            positions={[pickupPos, [d.lat, d.lng]]}
+                            pathOptions={{
+                              color: '#a855f7',
+                              weight: 1.5,
+                              dashArray: '4, 6',
+                              opacity: 0.45,
+                            }}
+                          />
+                        ))}
+
+                        {/* Central Radar Pulse Node */}
                         <Marker
                           position={pickupPos}
                           icon={L.divIcon({
@@ -4299,7 +4329,7 @@ const getEndPin = (etaText: string) => {
                             html: `
                               <div class="relative flex items-center justify-center w-28 h-28 pointer-events-none">
                                 <span class="absolute w-24 h-24 rounded-full bg-indigo-500/20 animate-ping"></span>
-                                <span class="absolute w-14 h-14 rounded-full bg-indigo-500/30 animate-pulse"></span>
+                                <span class="absolute w-14 h-14 rounded-full bg-purple-500/25 animate-pulse"></span>
                                 <div class="w-7 h-7 rounded-full bg-indigo-600 ring-4 ring-white shadow-2xl flex items-center justify-center text-white text-[12px] font-black">
                                   📡
                                 </div>
@@ -4327,6 +4357,9 @@ const getEndPin = (etaText: string) => {
                           customVehicle={config?.vehicles?.[activeRide?.vehicleType || "mini"]}
                           theme={theme === "dark" ? "dark" : "light"}
                           isAssignedDriver={true}
+                          driverPhoto={activeRide?.driverInfo?.photo}
+                          driverName={activeRide?.driverInfo?.name}
+                          driverRating={activeRide?.driverInfo?.rating}
                         />
                       );
                     })()}
@@ -4345,6 +4378,11 @@ const getEndPin = (etaText: string) => {
                             customVehicle={config?.vehicles?.[driver.vehicleType]}
                             theme={theme === "dark" ? "dark" : "light"}
                             isAssignedDriver={false}
+                            driverPhoto={driver.photoURL}
+                            driverName={driver.name}
+                            driverRating={driver.rating}
+                            driverEtaMinutes={driver.etaMinutes}
+                            isSearchingMode={step === "searching"}
                           />
                         ))}
 

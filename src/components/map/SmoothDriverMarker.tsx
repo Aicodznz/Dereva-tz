@@ -12,6 +12,11 @@ interface SmoothDriverMarkerProps {
   customVehicle?: any;
   theme?: 'dark' | 'light';
   isAssignedDriver?: boolean;
+  driverPhoto?: string;
+  driverName?: string;
+  driverRating?: number;
+  driverEtaMinutes?: number;
+  isSearchingMode?: boolean;
   onPositionInterpolated?: (pos: [number, number], heading: number) => void;
 }
 
@@ -44,6 +49,11 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
   customVehicle,
   theme = 'dark',
   isAssignedDriver = true,
+  driverPhoto,
+  driverName,
+  driverRating = 4.9,
+  driverEtaMinutes = 3,
+  isSearchingMode = false,
   onPositionInterpolated
 }) => {
   const map = useMap();
@@ -62,6 +72,56 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
   const createIcon = (currentRotation: number) => {
     const isDark = theme === 'dark';
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
+
+    // 1. Radar Searching Mode (Matching user reference Screenshot_20260926-075743.jpg)
+    // Displays circular driver profile photo with stars rating ⭐ and ETA badge + vehicle indicator
+    if (isSearchingMode) {
+      const driverAvatar = driverPhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&h=160&q=80';
+      const ratingText = (driverRating || 4.9).toFixed(1);
+      const etaText = driverEtaMinutes ? `${driverEtaMinutes} min` : '3 min';
+      const vIcon = vehicleType === 'mini' ? '🚗' : vehicleType === 'bajaj' ? '🛺' : '🏍️';
+
+      return L.divIcon({
+        className: "smooth-driver-radar-marker",
+        html: `
+          <div class="relative flex flex-col items-center justify-center pointer-events-none select-none" style="width: 76px; height: 86px;">
+            <!-- Radar Sonar Ping Wave Under Driver -->
+            <div class="absolute top-1 w-16 h-16 rounded-full bg-indigo-500/25 animate-ping pointer-events-none"></div>
+            <div class="absolute top-2 w-12 h-12 rounded-full bg-purple-500/20 animate-pulse pointer-events-none"></div>
+
+            <!-- Avatar Card Container -->
+            <div class="relative flex flex-col items-center pointer-events-auto cursor-pointer filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] transform hover:scale-110 transition-transform">
+              <!-- Circular Driver Profile Picture with Gradient Border -->
+              <div class="relative w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-indigo-500 to-purple-600 shadow-xl">
+                <div class="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-neutral-900 bg-neutral-800">
+                  <img 
+                    src="${driverAvatar}" 
+                    alt="${driverName || 'Dereva'}" 
+                    class="w-full h-full object-cover" 
+                    referrerpolicy="no-referrer"
+                    onerror="this.src='https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&h=160&q=80'"
+                  />
+                </div>
+                <!-- Vehicle Badge at bottom-right corner -->
+                <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full ${isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-neutral-200'} border shadow-md flex items-center justify-center text-[10px]">
+                  ${vIcon}
+                </div>
+              </div>
+
+              <!-- Rating Stars & ETA Pill Badge (Identical to user reference screenshot) -->
+              <div class="-mt-1 px-2.5 py-0.5 rounded-full bg-neutral-950/95 text-white border border-white/20 shadow-xl flex items-center gap-1 whitespace-nowrap backdrop-blur-md">
+                <span class="text-amber-400 text-[10px] leading-none">★</span>
+                <span class="text-[9.5px] font-black text-amber-300 font-mono leading-none">${ratingText}</span>
+                <span class="text-white/40 text-[9px] leading-none">•</span>
+                <span class="text-[9.5px] font-bold text-neutral-100 leading-none">${etaText}</span>
+              </div>
+            </div>
+          </div>
+        `,
+        iconSize: [76, 86],
+        iconAnchor: [38, 43]
+      });
+    }
 
     // Custom side image or top-down image
     if (customVehicle?.mapMarkerUrl && (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down')) {
@@ -194,7 +254,7 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
       }
       markerRef.current = null;
     };
-  }, [map, driverId, vehicleType, theme, isAssignedDriver]);
+  }, [map, driverId, vehicleType, theme, isAssignedDriver, isSearchingMode, driverPhoto, driverRating, driverEtaMinutes]);
 
   // When new position or heading arrives, perform smooth animation and angle rotation
   useEffect(() => {
