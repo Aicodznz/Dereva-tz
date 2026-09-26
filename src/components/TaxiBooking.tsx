@@ -4202,21 +4202,8 @@ const getEndPin = (etaText: string) => {
                         />
                       );
                     })()}
-                    {!activeStandTrip && activeRide?.status !== "on_trip" && (
+                    {!activeStandTrip && activeRide?.status !== "on_trip" && step !== "searching" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
-                    )}
-                    {step === "searching" && (
-                      <Circle
-                        center={pickupPos}
-                        radius={500}
-                        pathOptions={{
-                          color: '#6366f1',
-                          fillColor: '#818cf8',
-                          fillOpacity: 0.12,
-                          weight: 1.5,
-                          dashArray: '5, 8',
-                        }}
-                      />
                     )}
                     {!activeStandTrip && destination && (
                       <Marker 

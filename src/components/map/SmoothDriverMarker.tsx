@@ -235,7 +235,7 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     const initialIcon = createIcon(accumulatedRotationRef.current);
     const marker = (L as any).marker(position, {
       icon: initialIcon,
-      rotationAngle: accumulatedRotationRef.current,
+      rotationAngle: isSearchingMode ? 0 : accumulatedRotationRef.current,
       rotationOrigin: 'center center',
       zIndexOffset: isAssignedDriver ? 1000 : 500,
       interactive: true,
@@ -261,7 +261,7 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     }
 
     if (typeof (marker as any).setRotationAngle === 'function') {
-      (marker as any).setRotationAngle(accumulatedRotationRef.current);
+      (marker as any).setRotationAngle(isSearchingMode ? 0 : accumulatedRotationRef.current);
       (marker as any).setRotationOrigin('center center');
     }
 
@@ -308,7 +308,7 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
 
       if (markerRef.current) {
         if (typeof (markerRef.current as any).setRotationAngle === 'function') {
-          (markerRef.current as any).setRotationAngle(accumulatedRotationRef.current);
+          (markerRef.current as any).setRotationAngle(isSearchingMode ? 0 : accumulatedRotationRef.current);
           (markerRef.current as any).setRotationOrigin('center center');
         }
       }
