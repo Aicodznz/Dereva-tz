@@ -267,39 +267,40 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
               </div>
             </div>
 
-            {/* Overlapping Driver Profile Avatars Row (Matching Screenshot_20260926-080021.jpg) */}
-            {(() => {
-              const displayList = nearbyDrivers && nearbyDrivers.length > 0
-                ? nearbyDrivers.slice(0, 3)
-                : [
-                    { id: 'd1', name: 'Juma Bakari', photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80' },
-                    { id: 'd2', name: 'Emmanuel Mwita', photoURL: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&h=120&q=80' },
-                    { id: 'd3', name: 'Baraka Said', photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80' }
-                  ];
-              const count = nearbyDrivers?.length || 3;
-              return (
-                <div className={`flex items-center gap-3 py-2 px-3 rounded-2xl border ${
-                  theme === 'dark' ? 'bg-[#12121a]/80 border-neutral-800/80' : 'bg-neutral-100/70 border-neutral-200/60'
-                }`}>
-                  <div className="flex -space-x-2.5 overflow-hidden shrink-0">
-                    {displayList.map((drv: any, idx: number) => (
-                      <img
-                        key={drv.id || idx}
-                        src={drv.photoURL || `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80`}
-                        alt={drv.name || 'Dereva'}
-                        className="inline-block w-8 h-8 rounded-full ring-2 ring-white dark:ring-neutral-900 object-cover shadow-md"
-                        referrerPolicy="no-referrer"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-[11.5px] font-bold leading-snug">
-                    <span className="font-black text-indigo-500 dark:text-indigo-400">
-                      Madereva {count}
-                    </span> wapo karibu kwenye rada, wanasubiri kujibu ombi
-                  </p>
+            {/* Overlapping Driver Profile Avatars Row (Only shown when CURRENT drivers are online) */}
+            {nearbyDrivers && nearbyDrivers.length > 0 ? (
+              <div className={`flex items-center gap-3 py-2 px-3 rounded-2xl border ${
+                theme === 'dark' ? 'bg-[#12121a]/80 border-neutral-800/80' : 'bg-neutral-100/70 border-neutral-200/60'
+              }`}>
+                <div className="flex -space-x-2.5 overflow-hidden shrink-0">
+                  {nearbyDrivers.slice(0, 3).map((drv: any, idx: number) => (
+                    <img
+                      key={drv.id || idx}
+                      src={drv.photoURL || `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80`}
+                      alt={drv.name || 'Dereva'}
+                      className="inline-block w-8 h-8 rounded-full ring-2 ring-white dark:ring-neutral-900 object-cover shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                  ))}
                 </div>
-              );
-            })()}
+                <p className="text-[11.5px] font-bold leading-snug">
+                  <span className="font-black text-amber-500">
+                    Madereva {nearbyDrivers.length}
+                  </span> wapo hewani kwenye rada, wanasubiri kujibu ombi
+                </p>
+              </div>
+            ) : (
+              <div className={`flex items-center gap-3 py-2.5 px-3 rounded-2xl border ${
+                theme === 'dark' ? 'bg-[#12121a]/60 border-neutral-800/60' : 'bg-neutral-100/60 border-neutral-200/50'
+              }`}>
+                <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <span className="text-amber-500 text-sm animate-pulse">📡</span>
+                </div>
+                <p className="text-[11.5px] font-bold text-neutral-500 dark:text-neutral-400 leading-snug">
+                  Rada inazunguka kutafuta madereva wa karibu waliopo hewani...
+                </p>
+              </div>
+            )}
 
             {/* Expandable Route Details */}
             <AnimatePresence>

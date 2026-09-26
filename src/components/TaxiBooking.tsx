@@ -4321,33 +4321,37 @@ const getEndPin = (etaText: string) => {
                           />
                         ))}
 
-                        {/* Central Radar Pulse Node with 360-degree Rotating Amber Sweep Cone */}
+                        {/* Central Radar Pulse Node with 360-degree Continuous Rotating Amber Sweep Cone */}
                         <Marker
                           position={pickupPos}
                           icon={L.divIcon({
                             className: "searching-sonar-marker",
                             html: `
+                              <style>
+                                @keyframes radarFullSweep360 {
+                                  from { transform: rotate(0deg); }
+                                  to { transform: rotate(360deg); }
+                                }
+                                .radar-sweep-spinning-element {
+                                  transform-origin: 170px 170px !important;
+                                  animation: radarFullSweep360 3s linear infinite !important;
+                                  -webkit-animation: radarFullSweep360 3s linear infinite !important;
+                                  will-change: transform;
+                                }
+                              </style>
                               <div class="relative flex items-center justify-center pointer-events-none select-none" style="width: 340px; height: 340px;">
-                                <!-- Rotating Amber Radar Sector Sweep Cone -->
-                                <div class="absolute inset-0 flex items-center justify-center animate-spin" style="animation-duration: 4.5s; animation-timing-function: linear; animation-iteration-count: infinite;">
-                                  <svg viewBox="0 0 340 340" class="w-full h-full overflow-visible">
-                                    <defs>
-                                      <radialGradient id="radarSweepGrad" cx="50%" cy="50%" r="50%">
-                                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.38"/>
-                                        <stop offset="65%" stop-color="#f59e0b" stop-opacity="0.16"/>
-                                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
-                                      </radialGradient>
-                                    </defs>
-                                    <!-- 60-degree radar scanning cone sweep -->
-                                    <path d="M 170 170 L 170 15 A 155 155 0 0 1 304 92 Z" fill="url(#radarSweepGrad)" />
-                                    <!-- Scanning leading beam line -->
-                                    <line x1="170" y1="170" x2="304" y2="92" stroke="#f59e0b" stroke-width="2.5" stroke-opacity="0.85" />
-                                  </svg>
+                                <!-- Full 360-Degree Continuous Rotating Radar Sector Beam & Leading Line -->
+                                <div class="radar-sweep-spinning-element" style="position: absolute; width: 340px; height: 340px; top: 0; left: 0;">
+                                  <!-- 60-degree Conic Gradient Trail Glow -->
+                                  <div style="position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg at 170px 170px, rgba(245, 158, 11, 0.45) 0deg, rgba(245, 158, 11, 0.12) 45deg, transparent 60deg, transparent 360deg);"></div>
+                                  <!-- Leading Radar Line with Glow (Sweeps continuously 360 degrees) -->
+                                  <div style="position: absolute; top: 168.5px; left: 170px; width: 170px; height: 3px; background: linear-gradient(to right, #f59e0b, #fef08a); box-shadow: 0 0 10px #f59e0b, 0 0 20px #f59e0b;"></div>
                                 </div>
 
                                 <!-- Concentric Radar Rings -->
                                 <div class="absolute w-[150px] h-[150px] rounded-full border border-amber-400/40 pointer-events-none"></div>
-                                <div class="absolute w-[240px] h-[240px] rounded-full border border-amber-400/30 pointer-events-none"></div>
+                                <div class="absolute w-[250px] h-[250px] rounded-full border border-amber-400/30 pointer-events-none"></div>
+                                <div class="absolute w-[340px] h-[340px] rounded-full border border-amber-400/20 pointer-events-none"></div>
 
                                 <!-- Sonar Micro Pulse Waves -->
                                 <span class="absolute w-20 h-20 rounded-full bg-amber-400/20 animate-ping pointer-events-none"></span>
