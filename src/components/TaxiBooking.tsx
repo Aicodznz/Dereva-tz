@@ -138,6 +138,7 @@ import {
 } from "../services/standPoolingService";
 import { AnimatedRoute } from "./map/AnimatedRoute";
 import { SmoothDriverMarker } from "./map/SmoothDriverMarker";
+import { RadarSweepMarker } from "./map/RadarSweepMarker";
 import AppDownloadButton from "./AppDownloadButton";
 
 // --- UTILITIES ---
@@ -4267,48 +4268,13 @@ const getEndPin = (etaText: string) => {
                       />
                     )}
 
-                    {/* Live Sonar Radar Waves & Rotating Scanning Cone (Matching reference Screenshot_20260926-080021.jpg) */}
+                    {/* Live Continuous 360-Degree Radar Scanning Sweep (Canvas requestAnimationFrame 60fps) */}
                     {step === "searching" && pickupPos && isValidCoord(pickupPos) && (
                       <>
-                        {/* 1. Inner Active Radar Zone (Amber) */}
-                        <Circle
-                          center={pickupPos}
-                          radius={380}
-                          pathOptions={{
-                            color: '#f59e0b',
-                            fillColor: '#f59e0b',
-                            fillOpacity: 0.12,
-                            weight: 1.5,
-                            dashArray: '4, 8',
-                          }}
-                        />
-                        {/* 2. Middle Radar Scanning Range */}
-                        <Circle
-                          center={pickupPos}
-                          radius={750}
-                          pathOptions={{
-                            color: '#f59e0b',
-                            fillColor: '#f59e0b',
-                            fillOpacity: 0.05,
-                            weight: 1.2,
-                            dashArray: '6, 12',
-                          }}
-                        />
-                        {/* 3. Outer Detection Horizon */}
-                        <Circle
-                          center={pickupPos}
-                          radius={1200}
-                          pathOptions={{
-                            color: '#d97706',
-                            fillColor: '#d97706',
-                            fillOpacity: 0.02,
-                            weight: 1,
-                            dashArray: '8, 16',
-                          }}
-                        />
+                        <RadarSweepMarker center={pickupPos} />
 
-                        {/* Connecting Radar Detection Rays to each nearby driver within scanning range */}
-                        {drivers.slice(0, 6).map((d) => (
+                        {/* Connecting Radar Detection Rays to real nearby drivers within scanning range */}
+                        {drivers.map((d) => (
                           <Polyline
                             key={`radar-ray-${d.id}`}
                             positions={[pickupPos, [d.lat, d.lng]]}
@@ -4320,53 +4286,6 @@ const getEndPin = (etaText: string) => {
                             }}
                           />
                         ))}
-
-                        {/* Central Radar Pulse Node with 360-degree Continuous Rotating Amber Sweep Cone */}
-                        <Marker
-                          position={pickupPos}
-                          icon={L.divIcon({
-                            className: "searching-sonar-marker",
-                            html: `
-                              <style>
-                                @keyframes radarFullSweep360 {
-                                  from { transform: rotate(0deg); }
-                                  to { transform: rotate(360deg); }
-                                }
-                                .radar-sweep-spinning-element {
-                                  transform-origin: 170px 170px !important;
-                                  animation: radarFullSweep360 3s linear infinite !important;
-                                  -webkit-animation: radarFullSweep360 3s linear infinite !important;
-                                  will-change: transform;
-                                }
-                              </style>
-                              <div class="relative flex items-center justify-center pointer-events-none select-none" style="width: 340px; height: 340px;">
-                                <!-- Full 360-Degree Continuous Rotating Radar Sector Beam & Leading Line -->
-                                <div class="radar-sweep-spinning-element" style="position: absolute; width: 340px; height: 340px; top: 0; left: 0;">
-                                  <!-- 60-degree Conic Gradient Trail Glow -->
-                                  <div style="position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg at 170px 170px, rgba(245, 158, 11, 0.45) 0deg, rgba(245, 158, 11, 0.12) 45deg, transparent 60deg, transparent 360deg);"></div>
-                                  <!-- Leading Radar Line with Glow (Sweeps continuously 360 degrees) -->
-                                  <div style="position: absolute; top: 168.5px; left: 170px; width: 170px; height: 3px; background: linear-gradient(to right, #f59e0b, #fef08a); box-shadow: 0 0 10px #f59e0b, 0 0 20px #f59e0b;"></div>
-                                </div>
-
-                                <!-- Concentric Radar Rings -->
-                                <div class="absolute w-[150px] h-[150px] rounded-full border border-amber-400/40 pointer-events-none"></div>
-                                <div class="absolute w-[250px] h-[250px] rounded-full border border-amber-400/30 pointer-events-none"></div>
-                                <div class="absolute w-[340px] h-[340px] rounded-full border border-amber-400/20 pointer-events-none"></div>
-
-                                <!-- Sonar Micro Pulse Waves -->
-                                <span class="absolute w-20 h-20 rounded-full bg-amber-400/20 animate-ping pointer-events-none"></span>
-                                <span class="absolute w-12 h-12 rounded-full bg-amber-400/30 animate-pulse pointer-events-none"></span>
-
-                                <!-- Center Radar Beacon Red Node (Matching reference Screenshot_20260926-080021.jpg) -->
-                                <div class="relative w-8 h-8 rounded-full bg-red-600 border-[3px] border-white shadow-[0_0_18px_rgba(239,68,68,0.85)] flex items-center justify-center z-20">
-                                  <div class="w-3 h-3 rounded-full bg-white shadow-sm"></div>
-                                </div>
-                              </div>
-                            `,
-                            iconSize: [340, 340],
-                            iconAnchor: [170, 170],
-                          })}
-                        />
                       </>
                     )}
 
