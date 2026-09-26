@@ -73,9 +73,9 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     const isDark = theme === 'dark';
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
 
-    // 1. Radar Searching & Nearby Drivers Mode (Matching user reference Screenshot_20260926-075743.jpg)
-    // Displays circular driver profile photo with stars rating ⭐ and ETA badge + vehicle indicator
-    if (!isAssignedDriver || isSearchingMode) {
+    // 1. Radar Searching Mode (Matching user reference Screenshot_20260926-080021.jpg)
+    // Displays circular driver profile photo with stars rating ⭐ and ETA badge when in radar search mode
+    if (isSearchingMode) {
       const driverAvatar = driverPhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&h=160&q=80';
       const ratingText = (driverRating || 4.9).toFixed(1);
       const etaText = driverEtaMinutes ? `${driverEtaMinutes} min` : '3 min';

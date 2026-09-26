@@ -19,6 +19,7 @@ interface SearchingScreenProps {
   fallbackFare?: number;
   fallbackVehicleType?: string;
   fallbackShareMode?: 'solo' | 'share';
+  nearbyDrivers?: any[];
 }
 
 export const SearchingScreen: React.FC<SearchingScreenProps> = ({
@@ -32,6 +33,7 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
   fallbackFare,
   fallbackVehicleType,
   fallbackShareMode = 'solo',
+  nearbyDrivers = [],
 }) => {
   const [dots, setDots] = useState('');
   const [statusIndex, setStatusIndex] = useState(0);
@@ -208,48 +210,23 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
             }`} />
           </div>
 
-          <div className="p-4 sm:p-5 pt-1 space-y-3.5">
-            {/* Animated Radar Pulse Banner */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                {/* Radar Icon with glowing animation waves */}
-                <div className="relative flex items-center justify-center w-11 h-11 shrink-0">
-                  <span className="absolute w-full h-full rounded-2xl bg-indigo-500/20 animate-ping" />
-                  <span className="absolute w-9 h-9 rounded-xl bg-indigo-500/30 animate-pulse" />
-                  <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                    <Radio className="w-5 h-5 animate-spin-slow" />
-                  </div>
-                </div>
-
-                {/* Status Heading & Dynamic Cycling Messages */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs sm:text-sm font-black tracking-tight uppercase truncate">
-                      {isShareMode ? 'Kutafuta Abiria & Dereva...' : 'Inatafuta Dereva Bora...'}
-                    </h3>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    <motion.p
-                      key={statusIndex}
-                      initial={{ opacity: 0, y: 3 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -3 }}
-                      transition={{ duration: 0.2 }}
-                      className={`text-[10px] sm:text-[11px] font-bold leading-tight truncate mt-0.5 ${
-                        theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'
-                      }`}
-                    >
-                      {statuses[statusIndex]}
-                    </motion.p>
-                  </AnimatePresence>
-                </div>
+          <div className="p-4 sm:p-5 pt-2 space-y-3.5">
+            {/* Header: Finding your driver / Asking drivers near you */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-black tracking-tight leading-snug">
+                  {isShareMode ? 'Kutafuta Safari ya PapoShare' : 'Inatafuta Dereva Wako...'}
+                </h3>
+                <p className={`text-xs font-bold mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                  Inatuma maombi kwa madereva wa <span className="font-extrabold text-indigo-500">{vehicleName}</span> walio karibu nawe
+                </p>
               </div>
 
-              {/* Collapse/Expand Toggle Button */}
+              {/* Collapse / Expand Toggle Button */}
               <button
                 type="button"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all ${
+                className={`w-8 h-8 rounded-xl flex items-center justify-center border shrink-0 transition-all ${
                   theme === 'dark' 
                     ? 'bg-neutral-800/80 border-neutral-700 text-neutral-300 hover:bg-neutral-700' 
                     : 'bg-neutral-100 border-neutral-200 text-neutral-600 hover:bg-neutral-200'
@@ -260,7 +237,71 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
               </button>
             </div>
 
-            {/* Expandable Details Body */}
+            {/* Middle Vehicle & Fare Card (Matching reference Screenshot_20260926-080021.jpg) */}
+            <div className={`flex items-center justify-between p-3 rounded-2xl border ${
+              theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center text-2xl border border-indigo-500/20 shrink-0">
+                  {vehicleEmoji}
+                </div>
+                <div>
+                  <p className="text-sm font-black tracking-tight leading-tight">
+                    {vehicleName}
+                  </p>
+                  <p className="text-[10px] text-neutral-400 font-bold flex items-center gap-1 mt-0.5">
+                    <span>💵 Pesa Taslimu (Cash)</span>
+                    <span>•</span>
+                    <span className="text-emerald-500 font-extrabold">Imethibitishwa</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
+                  Gharama Yako
+                </span>
+                <p className="text-sm sm:text-base font-black text-indigo-500 dark:text-indigo-400 font-mono leading-tight mt-0.5">
+                  TZS {fare.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Overlapping Driver Profile Avatars Row (Matching Screenshot_20260926-080021.jpg) */}
+            {(() => {
+              const displayList = nearbyDrivers && nearbyDrivers.length > 0
+                ? nearbyDrivers.slice(0, 3)
+                : [
+                    { id: 'd1', name: 'Juma Bakari', photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80' },
+                    { id: 'd2', name: 'Emmanuel Mwita', photoURL: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&h=120&q=80' },
+                    { id: 'd3', name: 'Baraka Said', photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80' }
+                  ];
+              const count = nearbyDrivers?.length || 3;
+              return (
+                <div className={`flex items-center gap-3 py-2 px-3 rounded-2xl border ${
+                  theme === 'dark' ? 'bg-[#12121a]/80 border-neutral-800/80' : 'bg-neutral-100/70 border-neutral-200/60'
+                }`}>
+                  <div className="flex -space-x-2.5 overflow-hidden shrink-0">
+                    {displayList.map((drv: any, idx: number) => (
+                      <img
+                        key={drv.id || idx}
+                        src={drv.photoURL || `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80`}
+                        alt={drv.name || 'Dereva'}
+                        className="inline-block w-8 h-8 rounded-full ring-2 ring-white dark:ring-neutral-900 object-cover shadow-md"
+                        referrerPolicy="no-referrer"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[11.5px] font-bold leading-snug">
+                    <span className="font-black text-indigo-500 dark:text-indigo-400">
+                      Madereva {count}
+                    </span> wapo karibu kwenye rada, wanasubiri kujibu ombi
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Expandable Route Details */}
             <AnimatePresence>
               {!isCollapsed && (
                 <motion.div
@@ -268,9 +309,8 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-3 overflow-hidden"
+                  className="space-y-2.5 overflow-hidden"
                 >
-                  {/* Route Overview Pill */}
                   <div className={`p-2.5 sm:p-3 rounded-2xl border space-y-2 ${
                     theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
                   }`}>
@@ -281,13 +321,12 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
                         <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
                           Kuanzia (Pickup)
                         </span>
-                        <p className="text-[11.5px] font-bold truncate leading-tight mt-0.5">
+                        <p className="text-[11px] font-bold truncate leading-tight mt-0.5">
                           {pickupAddress}
                         </p>
                       </div>
                     </div>
 
-                    {/* Divider line */}
                     <div className="ml-1 w-0.5 h-1.5 bg-neutral-300 dark:bg-neutral-700" />
 
                     {/* Destination */}
@@ -297,36 +336,10 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
                         <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
                           Kuelekea (Destination)
                         </span>
-                        <p className="text-[11.5px] font-bold truncate leading-tight mt-0.5">
+                        <p className="text-[11px] font-bold truncate leading-tight mt-0.5">
                           {destinationAddress}
                         </p>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Vehicle Type & Estimated Price Row */}
-                  <div className={`flex items-center justify-between p-2.5 px-3 rounded-2xl border ${
-                    theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
-                  }`}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xl">{vehicleEmoji}</span>
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-tight leading-none">
-                          {vehicleName}
-                        </p>
-                        <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
-                          {isShareMode ? 'PapoShare Pooling' : 'Safari Binafsi'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 block leading-none">
-                        Gharama ya Nauli
-                      </span>
-                      <p className="text-xs sm:text-sm font-black text-indigo-500 dark:text-indigo-400 font-mono leading-none mt-0.5">
-                        TZS {fare.toLocaleString()}
-                      </p>
                     </div>
                   </div>
 

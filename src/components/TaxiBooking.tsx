@@ -4267,16 +4267,16 @@ const getEndPin = (etaText: string) => {
                       />
                     )}
 
-                    {/* Live Sonar Radar Waves radiating from pickup point when searching for drivers */}
+                    {/* Live Sonar Radar Waves & Rotating Scanning Cone (Matching reference Screenshot_20260926-080021.jpg) */}
                     {step === "searching" && pickupPos && isValidCoord(pickupPos) && (
                       <>
-                        {/* 1. Inner Active Radar Zone */}
+                        {/* 1. Inner Active Radar Zone (Amber) */}
                         <Circle
                           center={pickupPos}
                           radius={380}
                           pathOptions={{
-                            color: '#6366f1',
-                            fillColor: '#6366f1',
+                            color: '#f59e0b',
+                            fillColor: '#f59e0b',
                             fillOpacity: 0.12,
                             weight: 1.5,
                             dashArray: '4, 8',
@@ -4285,11 +4285,11 @@ const getEndPin = (etaText: string) => {
                         {/* 2. Middle Radar Scanning Range */}
                         <Circle
                           center={pickupPos}
-                          radius={850}
+                          radius={750}
                           pathOptions={{
-                            color: '#818cf8',
-                            fillColor: '#818cf8',
-                            fillOpacity: 0.06,
+                            color: '#f59e0b',
+                            fillColor: '#f59e0b',
+                            fillOpacity: 0.05,
                             weight: 1.2,
                             dashArray: '6, 12',
                           }}
@@ -4297,11 +4297,11 @@ const getEndPin = (etaText: string) => {
                         {/* 3. Outer Detection Horizon */}
                         <Circle
                           center={pickupPos}
-                          radius={1400}
+                          radius={1200}
                           pathOptions={{
-                            color: '#a855f7',
-                            fillColor: '#a855f7',
-                            fillOpacity: 0.03,
+                            color: '#d97706',
+                            fillColor: '#d97706',
+                            fillOpacity: 0.02,
                             weight: 1,
                             dashArray: '8, 16',
                           }}
@@ -4313,30 +4313,54 @@ const getEndPin = (etaText: string) => {
                             key={`radar-ray-${d.id}`}
                             positions={[pickupPos, [d.lat, d.lng]]}
                             pathOptions={{
-                              color: '#a855f7',
+                              color: '#f59e0b',
                               weight: 1.5,
                               dashArray: '4, 6',
-                              opacity: 0.45,
+                              opacity: 0.6,
                             }}
                           />
                         ))}
 
-                        {/* Central Radar Pulse Node */}
+                        {/* Central Radar Pulse Node with 360-degree Rotating Amber Sweep Cone */}
                         <Marker
                           position={pickupPos}
                           icon={L.divIcon({
                             className: "searching-sonar-marker",
                             html: `
-                              <div class="relative flex items-center justify-center w-28 h-28 pointer-events-none">
-                                <span class="absolute w-24 h-24 rounded-full bg-indigo-500/20 animate-ping"></span>
-                                <span class="absolute w-14 h-14 rounded-full bg-purple-500/25 animate-pulse"></span>
-                                <div class="w-7 h-7 rounded-full bg-indigo-600 ring-4 ring-white shadow-2xl flex items-center justify-center text-white text-[12px] font-black">
-                                  📡
+                              <div class="relative flex items-center justify-center pointer-events-none select-none" style="width: 340px; height: 340px;">
+                                <!-- Rotating Amber Radar Sector Sweep Cone -->
+                                <div class="absolute inset-0 flex items-center justify-center animate-spin" style="animation-duration: 4.5s; animation-timing-function: linear; animation-iteration-count: infinite;">
+                                  <svg viewBox="0 0 340 340" class="w-full h-full overflow-visible">
+                                    <defs>
+                                      <radialGradient id="radarSweepGrad" cx="50%" cy="50%" r="50%">
+                                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.38"/>
+                                        <stop offset="65%" stop-color="#f59e0b" stop-opacity="0.16"/>
+                                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+                                      </radialGradient>
+                                    </defs>
+                                    <!-- 60-degree radar scanning cone sweep -->
+                                    <path d="M 170 170 L 170 15 A 155 155 0 0 1 304 92 Z" fill="url(#radarSweepGrad)" />
+                                    <!-- Scanning leading beam line -->
+                                    <line x1="170" y1="170" x2="304" y2="92" stroke="#f59e0b" stroke-width="2.5" stroke-opacity="0.85" />
+                                  </svg>
+                                </div>
+
+                                <!-- Concentric Radar Rings -->
+                                <div class="absolute w-[150px] h-[150px] rounded-full border border-amber-400/40 pointer-events-none"></div>
+                                <div class="absolute w-[240px] h-[240px] rounded-full border border-amber-400/30 pointer-events-none"></div>
+
+                                <!-- Sonar Micro Pulse Waves -->
+                                <span class="absolute w-20 h-20 rounded-full bg-amber-400/20 animate-ping pointer-events-none"></span>
+                                <span class="absolute w-12 h-12 rounded-full bg-amber-400/30 animate-pulse pointer-events-none"></span>
+
+                                <!-- Center Radar Beacon Red Node (Matching reference Screenshot_20260926-080021.jpg) -->
+                                <div class="relative w-8 h-8 rounded-full bg-red-600 border-[3px] border-white shadow-[0_0_18px_rgba(239,68,68,0.85)] flex items-center justify-center z-20">
+                                  <div class="w-3 h-3 rounded-full bg-white shadow-sm"></div>
                                 </div>
                               </div>
                             `,
-                            iconSize: [112, 112],
-                            iconAnchor: [56, 56],
+                            iconSize: [340, 340],
+                            iconAnchor: [170, 170],
                           })}
                         />
                       </>
@@ -6294,6 +6318,7 @@ const getEndPin = (etaText: string) => {
                 fallbackFare={selectedRide?.price}
                 fallbackVehicleType={selectedRide?.vehicleType || selectedRide?.id}
                 fallbackShareMode={shareMode}
+                nearbyDrivers={drivers}
                 onCancel={() => {
                   if (isSpectator) return;
                   console.log("Cancel from searching");
