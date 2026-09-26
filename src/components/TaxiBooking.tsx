@@ -472,9 +472,9 @@ const MapControl = ({
 
   const lastSinglePosRef = useRef<string>("");
 
-  // Adjust camera to fit the full route or selected position on step 'map'
+  // Adjust camera to fit the full route or selected position on step 'map' or 'searching'
   useEffect(() => {
-    if (step === "map") {
+    if (step === "map" || step === "searching") {
       const validCoords = (routeCoords || []).filter(isValidCoord);
       if (validCoords.length > 1) {
         const hash = validCoords.map((c) => `${c[0]},${c[1]}`).join("|").slice(0, 500) + `_${containerResizedCount}`;
@@ -514,7 +514,7 @@ const MapControl = ({
     if (!isValidCoord(position) || !autoFollow) return;
 
     // Separate full route fits from dynamic follow center
-    if (step === "map") return;
+    if (step === "map" || step === "searching") return;
 
     const currentPos = L.latLng(position[0], position[1]);
     const lastPos = (lastCenterRef.current && isValidCoord(lastCenterRef.current))
@@ -3776,7 +3776,7 @@ const getEndPin = (etaText: string) => {
   }
 
   return (
-    <div className={`max-w-md mx-auto ${theme === "dark" ? "bg-[#0a0a0f] text-[#f0eeff] border-neutral-800" : "bg-neutral-50 text-neutral-800 border-neutral-200/60"} w-full flex flex-col relative overflow-hidden font-sans border-x h-[100dvh]`}>
+    <div className={`w-full ${theme === "dark" ? "bg-[#0a0a0f] text-[#f0eeff]" : "bg-neutral-50 text-neutral-800"} flex flex-col relative overflow-hidden font-sans h-[100dvh]`}>
       <div className={`absolute inset-0 ${theme === "dark" ? "bg-[#0a0a0f]" : "bg-[#f8f9fa]"}`} />
 
       {/* DEBUG FLAG */}
@@ -3825,7 +3825,7 @@ const getEndPin = (etaText: string) => {
                   </div>
                 )}
 
-                {!activeRide && (!activeStandTrip || activeStandTrip.route.status === 'completed' || activeStandTrip.passenger?.status === 'completed' || activeStandTrip.passenger?.status === 'dropped_off') && !["found", "arriving", "on_trip", "driver_arrived", "driver_arriving"].includes(step) && (
+                {!activeRide && (!activeStandTrip || activeStandTrip.route.status === 'completed' || activeStandTrip.passenger?.status === 'completed' || activeStandTrip.passenger?.status === 'dropped_off') && !["searching", "found", "arriving", "on_trip", "driver_arrived", "driver_arriving", "completed", "rating", "timeout"].includes(step) && (
                   <div className="absolute top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-6 z-[9999] flex items-center gap-2 sm:gap-3 pointer-events-none">
                     {/* Left Menu Button */}
                     <div className="relative pointer-events-auto">
@@ -4204,6 +4204,19 @@ const getEndPin = (etaText: string) => {
                     {!activeStandTrip && activeRide?.status !== "on_trip" && (
                       <Marker position={pickupPos} icon={getStartPin(etaPickupText)} />
                     )}
+                    {step === "searching" && (
+                      <Circle
+                        center={pickupPos}
+                        radius={500}
+                        pathOptions={{
+                          color: '#6366f1',
+                          fillColor: '#818cf8',
+                          fillOpacity: 0.12,
+                          weight: 1.5,
+                          dashArray: '5, 8',
+                        }}
+                      />
+                    )}
                     {!activeStandTrip && destination && (
                       <Marker 
                         position={destPos} 
@@ -4254,6 +4267,51 @@ const getEndPin = (etaText: string) => {
                       />
                     )}
 
+                    {/* Live Sonar Radar Waves radiating from pickup point when searching for drivers */}
+                    {step === "searching" && pickupPos && isValidCoord(pickupPos) && (
+                      <>
+                        <Circle
+                          center={pickupPos}
+                          radius={650}
+                          pathOptions={{
+                            color: '#6366f1',
+                            fillColor: '#6366f1',
+                            fillOpacity: 0.12,
+                            weight: 1.5,
+                            dashArray: '5, 10',
+                          }}
+                        />
+                        <Circle
+                          center={pickupPos}
+                          radius={1300}
+                          pathOptions={{
+                            color: '#818cf8',
+                            fillColor: '#818cf8',
+                            fillOpacity: 0.05,
+                            weight: 1,
+                            dashArray: '6, 12',
+                          }}
+                        />
+                        <Marker
+                          position={pickupPos}
+                          icon={L.divIcon({
+                            className: "searching-sonar-marker",
+                            html: `
+                              <div class="relative flex items-center justify-center w-28 h-28 pointer-events-none">
+                                <span class="absolute w-24 h-24 rounded-full bg-indigo-500/20 animate-ping"></span>
+                                <span class="absolute w-14 h-14 rounded-full bg-indigo-500/30 animate-pulse"></span>
+                                <div class="w-7 h-7 rounded-full bg-indigo-600 ring-4 ring-white shadow-2xl flex items-center justify-center text-white text-[12px] font-black">
+                                  📡
+                                </div>
+                              </div>
+                            `,
+                            iconSize: [112, 112],
+                            iconAnchor: [56, 56],
+                          })}
+                        />
+                      </>
+                    )}
+
                     {/* Assigned Driver Marker (Ultra-Smooth 60fps Interpolation & 360° Continuous Heading) */}
                     {(driverLivePos || activeRide?.driverLocation) && (() => {
                       const lat = driverLivePos?.lat || activeRide?.driverLocation?.lat || 0;
@@ -4273,8 +4331,8 @@ const getEndPin = (etaText: string) => {
                       );
                     })()}
 
-                    {/* Nearby Drivers - Show in home or map step, showing all vehicle types without selecting */}
-                    {(step === "home" || step === "map") &&
+                    {/* Nearby Drivers - Show in home, map or searching step, showing all vehicle types without selecting */}
+                    {(step === "home" || step === "map" || step === "searching") &&
                       drivers
                         .filter((d) => d.id !== activeRide?.driverId && (!activeStandTrip || d.id !== activeStandTrip.route.driverId))
                         .map((driver) => (
@@ -4700,7 +4758,7 @@ const getEndPin = (etaText: string) => {
                   </AnimatePresence>
 
                   {/* Floating GPS Reticle Locate-Me Button */}
-                  {["map", "home"].includes(step) && !isSpectator && (
+                  {["map", "home", "searching"].includes(step) && !isSpectator && (
                     <motion.button
                       key="floating-gps-reticle-btn"
                       initial={{ scale: 0.8, opacity: 0 }}
@@ -4745,7 +4803,7 @@ const getEndPin = (etaText: string) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar"
+              className="flex-1 flex flex-col px-6 pt-12 pb-24 space-y-8 overflow-y-auto no-scrollbar w-full max-w-md mx-auto"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -6193,6 +6251,11 @@ const getEndPin = (etaText: string) => {
             >
               <SearchingScreen
                 ride={activeRide as any}
+                fallbackPickup={pickup}
+                fallbackDestination={destination}
+                fallbackFare={selectedRide?.price}
+                fallbackVehicleType={selectedRide?.vehicleType || selectedRide?.id}
+                fallbackShareMode={shareMode}
                 onCancel={() => {
                   if (isSpectator) return;
                   console.log("Cancel from searching");
@@ -6201,7 +6264,7 @@ const getEndPin = (etaText: string) => {
                   setRideId(null);
                 }}
                 onTimeout={handleTimeout}
-                isMinimized={isMapFullscreen}
+                isMinimized={false}
                 isSpectator={isSpectator}
               />
             </motion.div>

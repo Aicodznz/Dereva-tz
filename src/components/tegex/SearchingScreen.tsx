@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Users, Sparkles, ArrowRight, Zap, ShieldCheck } from 'lucide-react';
+import { X, Users, ArrowRight, Zap, MapPin, Compass, ChevronDown, ChevronUp, Radio } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from '../../ThemeContext';
 import { useLanguage } from '../../LanguageContext';
@@ -14,18 +14,48 @@ interface SearchingScreenProps {
   onTimeout: () => void;
   isMinimized?: boolean;
   isSpectator?: boolean;
+  fallbackPickup?: string;
+  fallbackDestination?: string;
+  fallbackFare?: number;
+  fallbackVehicleType?: string;
+  fallbackShareMode?: 'solo' | 'share';
 }
 
-export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel, onTimeout, isMinimized, isSpectator }) => {
+export const SearchingScreen: React.FC<SearchingScreenProps> = ({
+  ride,
+  onCancel,
+  onTimeout,
+  isMinimized = false,
+  isSpectator = false,
+  fallbackPickup,
+  fallbackDestination,
+  fallbackFare,
+  fallbackVehicleType,
+  fallbackShareMode = 'solo',
+}) => {
   const [dots, setDots] = useState('');
   const [statusIndex, setStatusIndex] = useState(0);
   const [poolCountdown, setPoolCountdown] = useState(90);
   const [isSwitchingToSolo, setIsSwitchingToSolo] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(isMinimized);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
   const { t, language } = useLanguage();
 
-  const isShareMode = ride?.shareMode === 'share';
+  const isShareMode = (ride?.shareMode || fallbackShareMode) === 'share';
+  const vehicleType = ride?.vehicleType || fallbackVehicleType || 'mini';
+  const fare = ride?.fare || fallbackFare || 3000;
+  const pickupAddress = ride?.pickup?.address || fallbackPickup || "Mahali Ulipo (GPS)";
+  const destinationAddress = ride?.destination?.address || fallbackDestination || "Eneo la Safari";
+
+  const vehicleName = 
+    vehicleType === 'mini' ? 'Gari (Taxi)' :
+    vehicleType === 'bajaj' ? 'Bajaji (Tuk-Tuk)' :
+    vehicleType === 'boda' || vehicleType === 'bike' ? 'Pikipiki (Boda)' : 'Gari';
+
+  const vehicleEmoji = 
+    vehicleType === 'mini' ? '🚗' :
+    vehicleType === 'bajaj' ? '🛺' : '🏍️';
 
   const statuses = isShareMode
     ? [
@@ -34,24 +64,28 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
         "Inaunganisha na dereva wa Bajaji/Gari aliyepo kwenye njia yako...",
         "Karibu! Pata punguzo na gawaneni gharama ya safari..."
       ]
-    : language === 'en' ? [
-    `Searching for ${ride?.vehicleType === 'mini' ? 'Car' : ride?.vehicleType === 'bajaj' ? 'Bajaj' : 'Motorcycle'} drivers nearby...`,
-    "Analyzing nearby available drivers...",
-    "Sending request to driver...",
-    "Please wait, finding the best driver for you..."
-  ] : language === 'ar' ? [
-    `جاري البحث عن سائقي ${ride?.vehicleType === 'mini' ? 'سيارة' : ride?.vehicleType === 'bajaj' ? 'باجاج' : 'دراجة نارية'} بالقرب منك...`,
-    "جاري تحليل السائقين القريبين المتاحين...",
-    "جاري إرسال الطلب إلى السائق...",
-    "يرجى الانتظار، جاري البحث عن أفضل سائق لك..."
-  ] : [
-    `Inatafuta madereva wa ${ride?.vehicleType === 'mini' ? 'Gari' : ride?.vehicleType === 'bajaj' ? 'Bajaji' : 'Pikipiki'} Karibu Nawe...`,
-    "Inachambua madereva walio karibu nawe...",
-    "Tunatuma ombi lako kwa dereva mwenye usafiri husika...",
-    "Tafadhali subiri kidogo, tunakutafutia dereva bora..."
-  ];
+    : language === 'en'
+    ? [
+        `Searching for ${vehicleName} drivers nearby...`,
+        "Analyzing nearby available drivers on the map...",
+        "Dispatching request to nearest verified driver...",
+        "Please hold on, waiting for driver confirmation..."
+      ]
+    : language === 'ar'
+    ? [
+        `جاري البحث عن سائقي ${vehicleName} بالقرب منك...`,
+        "جاري تحليل السائقين القريبين المتاحين...",
+        "جاري إرسال الطلب إلى أقرب سائق معتمد...",
+        "يرجى الانتظار، السائق يؤكد طلبك..."
+      ]
+    : [
+        `Inatafuta madereva wa ${vehicleName} walio karibu nawe...`,
+        "Inachambua madereva waliopo mtaani kwenye ramani...",
+        "Tunatuma ombi lako kwa dereva aliye karibu zaidi...",
+        "Tafadhali subiri kidogo, dereva anathibitisha safari yako..."
+      ];
 
-  // 90-second PapoShare match countdown
+  // PapoShare countdown timer
   useEffect(() => {
     if (!isShareMode) return;
     const timer = setInterval(() => {
@@ -71,11 +105,11 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
     if (!ride?.id || isSwitchingToSolo) return;
     try {
       setIsSwitchingToSolo(true);
-      const fallbackFare = ride.originalSoloFare || Math.round(ride.fare * 1.4);
+      const fallbackFareVal = ride.originalSoloFare || Math.round(fare * 1.4);
       await updateDoc(doc(db, 'rides', ride.id), {
         shareMode: 'solo',
         poolStatus: 'solo_fallback',
-        fare: fallbackFare,
+        fare: fallbackFareVal,
         allowSharingConsent: false,
         updatedAt: serverTimestamp(),
       });
@@ -89,15 +123,15 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+      setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
     }, 500);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const statusInterval = setInterval(() => {
-      setStatusIndex(prev => (prev + 1) % statuses.length);
-    }, 3000);
+      setStatusIndex((prev) => (prev + 1) % statuses.length);
+    }, 2800);
     return () => clearInterval(statusInterval);
   }, [statuses.length]);
 
@@ -109,164 +143,223 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({ ride, onCancel
   }, [onTimeout]);
 
   return (
-    <div 
-      className="absolute inset-0 flex flex-col items-center bg-transparent pointer-events-none z-[100]"
-    >
-      <div className="flex-1 w-full flex flex-col items-center justify-between p-4 pt-20 pb-20 overflow-y-auto no-scrollbar pointer-events-none">
-        {/* Top Ride Details Card - Clean, compact, modern */}
-        <AnimatePresence>
-          {!isMinimized && (
-            <motion.div 
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              className={`w-full max-w-[340px] border rounded-[24px] p-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.12)] z-20 shrink-0 pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800/80' : 'bg-white/90 border-neutral-200/80'} backdrop-blur-md`}
-            >
-              <div className="flex flex-col gap-2.5">
-                {/* PapoShare Mode Badge */}
-                {isShareMode && (
-                  <div className="flex items-center justify-between bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/30 rounded-xl px-2.5 py-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
-                      <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                        PapoShare (Gawana Njia)
-                      </span>
-                    </div>
-                    <span className="text-[9px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      Okoa TZS {ride?.sharedSavings?.toLocaleString() || '1,500+'}
-                    </span>
-                  </div>
-                )}
+    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-[75] p-3 sm:p-5 select-none overflow-hidden">
+      {/* Top Floating Sleek Badge - Non-intrusive, leaves map 100% full & visible */}
+      <div className="w-full flex justify-center pt-2 sm:pt-4">
+        <motion.div
+          initial={{ y: -30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -30, opacity: 0 }}
+          className={`pointer-events-auto flex items-center gap-2.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.18)] border backdrop-blur-xl transition-all ${
+            theme === 'dark'
+              ? 'bg-[#111118]/90 border-neutral-800 text-white'
+              : 'bg-white/95 border-neutral-200 text-neutral-900'
+          }`}
+        >
+          <div className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
+          </div>
+          <span className="text-[11px] sm:text-xs font-black tracking-wider uppercase flex items-center gap-1.5">
+            <span>PapoRide: Inatafuta Madereva</span>
+            <span className="text-indigo-500 font-mono">{dots}</span>
+          </span>
+          {isShareMode && (
+            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25">
+              PapoShare ({poolCountdown}s)
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={`pointer-events-auto ml-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all active:scale-95 border cursor-pointer ${
+              isCollapsed
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                : (theme === 'dark' ? 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-white' : 'bg-neutral-100 text-neutral-700 border-neutral-200 hover:text-neutral-900')
+            }`}
+            title={isCollapsed ? "Onyesha Maelezo ya Safari" : "Onyesha Ramani Yote (Full Map)"}
+          >
+            <Compass className="w-3 h-3 text-emerald-400" />
+            <span>{isCollapsed ? "Maelezo" : "Ramani Kamili"}</span>
+          </button>
+        </motion.div>
+      </div>
 
-                {/* Compact Address Row */}
-                <div className="flex gap-2.5 relative">
-                  {/* Timeline connectors */}
-                  <div className="flex flex-col items-center py-1 shrink-0 select-none">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/10" />
-                    <div className="w-[1.5px] bg-neutral-200 dark:bg-neutral-850 h-5 my-0.5 border-dashed border-l border-neutral-300 dark:border-neutral-700" />
-                    <div className="w-2 h-2 rounded-full bg-red-500 ring-4 ring-red-500/10" />
-                  </div>
-                  
-                  {/* Text Details */}
-                  <div className="flex-1 min-w-0 space-y-2">
-                    {/* Pickup Address */}
-                    <div className="min-w-0">
-                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">{t('from_label')}</p>
-                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.pickup?.address || "..."}</p>
-                    </div>
-                    {/* Destination Address */}
-                    <div className="min-w-0">
-                      <p className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-wider leading-none mb-0.5">{t('to_label')}</p>
-                      <p className={`text-[11.5px] font-bold truncate leading-tight ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>{ride?.destination?.address || "..."}</p>
-                    </div>
+      {/* Bottom Main Driver Searching Sheet */}
+      <div className="w-full flex justify-center pb-2 sm:pb-3">
+        <motion.div
+          initial={{ y: 60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 60, opacity: 0 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+          className={`pointer-events-auto w-full max-w-[420px] rounded-[28px] border shadow-[0_16px_48px_rgba(0,0,0,0.25)] backdrop-blur-2xl transition-all overflow-hidden ${
+            theme === 'dark'
+              ? 'bg-[#0f0f17]/95 border-neutral-800 text-neutral-100 shadow-black/60'
+              : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/15'
+          }`}
+        >
+          {/* Top Grab Bar / Toggle Header */}
+          <div 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full pt-2.5 pb-1 flex flex-col items-center cursor-pointer group select-none"
+          >
+            <div className={`w-10 h-1 rounded-full transition-all ${
+              theme === 'dark' ? 'bg-neutral-700 group-hover:bg-neutral-600' : 'bg-neutral-300 group-hover:bg-neutral-400'
+            }`} />
+          </div>
+
+          <div className="p-4 sm:p-5 pt-1 space-y-3.5">
+            {/* Animated Radar Pulse Banner */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Radar Icon with glowing animation waves */}
+                <div className="relative flex items-center justify-center w-11 h-11 shrink-0">
+                  <span className="absolute w-full h-full rounded-2xl bg-indigo-500/20 animate-ping" />
+                  <span className="absolute w-9 h-9 rounded-xl bg-indigo-500/30 animate-pulse" />
+                  <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                    <Radio className="w-5 h-5 animate-spin-slow" />
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className={`border-t ${theme === 'dark' ? 'border-neutral-850' : 'border-neutral-100'}`} />
-
-                {/* Ride details & Cost horizontally */}
-                <div className="flex items-center justify-between text-xs">
-                  {/* Vehicle Type */}
+                {/* Status Heading & Dynamic Cycling Messages */}
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-base">
-                      {ride?.vehicleType === 'mini' ? '🚗' : ride?.vehicleType === 'bajaj' ? '🛺' : '🏍️'}
-                    </span>
-                    <div>
-                      <p className={`text-[11px] font-black uppercase ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-800'}`}>{ride?.vehicleType || 'Gari'}</p>
-                      <p className="text-[8px] font-semibold text-neutral-400 uppercase tracking-wide">
-                        {isShareMode ? 'PapoShare Pooling' : 'Papo Hapo Solo'}
-                      </p>
-                    </div>
+                    <h3 className="text-xs sm:text-sm font-black tracking-tight uppercase truncate">
+                      {isShareMode ? 'Kutafuta Abiria & Dereva...' : 'Inatafuta Dereva Bora...'}
+                    </h3>
                   </div>
-
-                  {/* Cost Details */}
-                  <div className="text-right">
-                    <p className="text-[8px] font-black text-neutral-400 uppercase tracking-widest leading-none mb-0.5">{t('fare').toUpperCase()}</p>
-                    <p className="text-xs font-black text-indigo-500 leading-none">TZS {ride?.fare?.toLocaleString()}</p>
-                    {isShareMode && (
-                      <p className="text-[8px] line-through text-neutral-400 font-bold mt-0.5">
-                        TZS {ride?.originalSoloFare?.toLocaleString()}
-                      </p>
-                    )}
-                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={statusIndex}
+                      initial={{ opacity: 0, y: 3 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -3 }}
+                      transition={{ duration: 0.2 }}
+                      className={`text-[10px] sm:text-[11px] font-bold leading-tight truncate mt-0.5 ${
+                        theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'
+                      }`}
+                    >
+                      {statuses[statusIndex]}
+                    </motion.p>
+                  </AnimatePresence>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Bottom Status & Cancel / Fallback to Solo - Cohesive, sleek and compact */}
-        <AnimatePresence>
-          {!isMinimized && (
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="w-full max-w-[340px] shrink-0 pointer-events-auto"
-            >
-              <div className={`border rounded-[24px] p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800/80 text-neutral-200' : 'bg-white/90 border-neutral-200/80 text-neutral-800'} backdrop-blur-md`}>
-                
-                {/* Header status row with small pulsing glowing circle */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              {/* Collapse/Expand Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-neutral-800/80 border-neutral-700 text-neutral-300 hover:bg-neutral-700' 
+                    : 'bg-neutral-100 border-neutral-200 text-neutral-600 hover:bg-neutral-200'
+                }`}
+                title={isCollapsed ? "Fungua maelezo kamili" : "Punguza kadi"}
+              >
+                {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Expandable Details Body */}
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-3 overflow-hidden"
+                >
+                  {/* Route Overview Pill */}
+                  <div className={`p-2.5 sm:p-3 rounded-2xl border space-y-2 ${
+                    theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
+                  }`}>
+                    {/* Pickup */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
+                          Kuanzia (Pickup)
+                        </span>
+                        <p className="text-[11.5px] font-bold truncate leading-tight mt-0.5">
+                          {pickupAddress}
+                        </p>
+                      </div>
                     </div>
-                    <h2 className="text-[11px] font-black text-indigo-500 tracking-wider uppercase leading-none animate-fadeIn-text">
-                      {isShareMode ? `Kutafuta Abiria wa Njia Moja (${poolCountdown}s)` : `${t('searching_driver')}${dots}`}
-                    </h2>
+
+                    {/* Divider line */}
+                    <div className="ml-1 w-0.5 h-1.5 bg-neutral-300 dark:bg-neutral-700" />
+
+                    {/* Destination */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/20 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
+                          Kuelekea (Destination)
+                        </span>
+                        <p className="text-[11.5px] font-bold truncate leading-tight mt-0.5">
+                          {destinationAddress}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  {isShareMode && (
-                    <span className="text-[8.5px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 animate-heartBeat">
-                      Detour: ≤{ride?.maxDetourBudgetMinutes || 3} min
-                    </span>
+                  {/* Vehicle Type & Estimated Price Row */}
+                  <div className={`flex items-center justify-between p-2.5 px-3 rounded-2xl border ${
+                    theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">{vehicleEmoji}</span>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-tight leading-none">
+                          {vehicleName}
+                        </p>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
+                          {isShareMode ? 'PapoShare Pooling' : 'Safari Binafsi'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 block leading-none">
+                        Gharama ya Nauli
+                      </span>
+                      <p className="text-xs sm:text-sm font-black text-indigo-500 dark:text-indigo-400 font-mono leading-none mt-0.5">
+                        TZS {fare.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PapoShare Switch to Solo Button if available */}
+                  {isShareMode && !isSpectator && (
+                    <button
+                      type="button"
+                      onClick={handleFallbackToSolo}
+                      disabled={isSwitchingToSolo}
+                      className="w-full h-9 bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-amber-500" />
+                      <span>Endelea na Solo Sasa (Bila Kusubiri)</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* Sub status animation description */}
-                <AnimatePresence mode="wait">
-                  <motion.p 
-                    key={statusIndex}
-                    initial={{ opacity: 0, y: 3 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -3 }}
-                    className={`text-[9.5px] font-semibold uppercase tracking-wide italic min-h-[14px] leading-tight ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-600'}`}
-                  >
-                    {ride ? statuses[statusIndex] : "..."}
-                  </motion.p>
-                </AnimatePresence>
-
-                {/* PapoShare Fallback Option: Switch to Solo Immediately */}
-                {isShareMode && !isSpectator && (
-                  <button
-                    type="button"
-                    onClick={handleFallbackToSolo}
-                    disabled={isSwitchingToSolo}
-                    className="w-full mt-2.5 h-9 bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-xl font-black uppercase text-[9px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Zap className="w-3.5 h-3.5 fill-amber-500" />
-                    <span>Endelea na Solo Sasa (Bila Kusubiri)</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                )}
-
-                {/* Cancel Button - Compact & beautiful red style */}
-                {!isSpectator && (
-                  <button 
-                    onClick={onCancel}
-                    className="w-full mt-2 h-9 bg-red-500/10 hover:bg-red-500/20 active:scale-95 text-red-500 border border-red-500/25 rounded-xl font-black uppercase text-[9.5px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5 stroke-[3]" />
-                    {t('cancel_ride').toUpperCase()}
-                  </button>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {/* Cancel Trip Button */}
+            {!isSpectator && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full h-10 bg-red-500/10 hover:bg-red-500/20 active:scale-98 text-red-500 dark:text-red-400 border border-red-500/30 rounded-2xl font-black uppercase text-[11px] tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" />
+                <span>Ghairi Safari (Cancel Search)</span>
+              </button>
+            )}
+          </div>
+        </motion.div>
       </div>
     </div>
   );
