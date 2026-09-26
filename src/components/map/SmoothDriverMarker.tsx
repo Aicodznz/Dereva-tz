@@ -73,9 +73,9 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     const isDark = theme === 'dark';
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
 
-    // 1. Radar Searching Mode (Matching user reference Screenshot_20260926-075743.jpg)
+    // 1. Radar Searching & Nearby Drivers Mode (Matching user reference Screenshot_20260926-075743.jpg)
     // Displays circular driver profile photo with stars rating ⭐ and ETA badge + vehicle indicator
-    if (isSearchingMode) {
+    if (!isAssignedDriver || isSearchingMode) {
       const driverAvatar = driverPhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&h=160&q=80';
       const ratingText = (driverRating || 4.9).toFixed(1);
       const etaText = driverEtaMinutes ? `${driverEtaMinutes} min` : '3 min';
@@ -84,15 +84,14 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
       return L.divIcon({
         className: "smooth-driver-radar-marker",
         html: `
-          <div class="relative flex flex-col items-center justify-center pointer-events-none select-none" style="width: 76px; height: 86px;">
-            <!-- Radar Sonar Ping Wave Under Driver -->
-            <div class="absolute top-1 w-16 h-16 rounded-full bg-indigo-500/25 animate-ping pointer-events-none"></div>
-            <div class="absolute top-2 w-12 h-12 rounded-full bg-purple-500/20 animate-pulse pointer-events-none"></div>
+          <div class="relative flex flex-col items-center select-none" style="width: 74px; height: 86px;">
+            <!-- Radar Sonar Pulse Waves Under Driver Anchor Point -->
+            <div class="absolute bottom-1 w-10 h-10 rounded-full bg-indigo-500/20 animate-ping pointer-events-none"></div>
 
-            <!-- Avatar Card Container -->
-            <div class="relative flex flex-col items-center pointer-events-auto cursor-pointer filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] transform hover:scale-110 transition-transform">
-              <!-- Circular Driver Profile Picture with Gradient Border -->
-              <div class="relative w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-indigo-500 to-purple-600 shadow-xl">
+            <!-- Avatar Card Container floating cleanly above the street coordinate -->
+            <div class="relative flex flex-col items-center pointer-events-auto cursor-pointer filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] transform hover:scale-110 active:scale-95 transition-transform duration-200">
+              <!-- Circular Driver Profile Picture with Gradient Glow Border -->
+              <div class="relative w-11 h-11 rounded-full p-[2px] bg-gradient-to-tr from-amber-400 via-indigo-500 to-purple-600 shadow-xl ring-2 ring-white/80 dark:ring-black/60">
                 <div class="w-full h-full rounded-full overflow-hidden border-2 border-white dark:border-neutral-900 bg-neutral-800">
                   <img 
                     src="${driverAvatar}" 
@@ -115,11 +114,17 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
                 <span class="text-white/40 text-[9px] leading-none">•</span>
                 <span class="text-[9.5px] font-bold text-neutral-100 leading-none">${etaText}</span>
               </div>
+
+              <!-- Pointer pin stem pointing precisely down to the street coordinate -->
+              <div class="w-2 h-2 bg-neutral-950/95 rotate-45 -mt-1 border-r border-b border-white/20"></div>
             </div>
+
+            <!-- GPS Anchor Pin on the road coordinate -->
+            <div class="w-2 h-2 rounded-full bg-indigo-600 border border-white shadow-sm mt-0.5"></div>
           </div>
         `,
-        iconSize: [76, 86],
-        iconAnchor: [38, 43]
+        iconSize: [74, 86],
+        iconAnchor: [37, 84]
       });
     }
 
@@ -233,9 +238,27 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
       rotationAngle: accumulatedRotationRef.current,
       rotationOrigin: 'center center',
       zIndexOffset: isAssignedDriver ? 1000 : 500,
-      interactive: false,
+      interactive: true,
       keyboard: false
     }).addTo(map);
+
+    if (!isAssignedDriver && driverName) {
+      const vName = vehicleType === 'mini' ? 'Gari (Taxi)' : vehicleType === 'bajaj' ? 'Bajaji (Tuk-Tuk)' : 'Pikipiki (Boda)';
+      marker.bindPopup(`
+        <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 175px; padding: 3px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <img src="${driverPhoto || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&h=160&q=80'}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid #6366f1;" />
+            <div>
+              <div style="font-weight: 900; font-size: 13px; color: #111;">${driverName || 'Dereva wa Karibu'}</div>
+              <div style="font-size: 11px; color: #b45309; font-weight: 800;">★ ${(driverRating || 4.9).toFixed(1)} <span style="color: #666; font-weight: normal;">• ${vName}</span></div>
+            </div>
+          </div>
+          <div style="font-size: 10.5px; font-weight: bold; color: #059669; background: #ecfdf5; padding: 4px 8px; border-radius: 8px; display: flex; align-items: center; gap: 4px;">
+            <span>⚡</span> <span>Dakika ${driverEtaMinutes || 3} • Yupo tayari kwa safari</span>
+          </div>
+        </div>
+      `, { className: 'custom-driver-popup' });
+    }
 
     if (typeof (marker as any).setRotationAngle === 'function') {
       (marker as any).setRotationAngle(accumulatedRotationRef.current);
