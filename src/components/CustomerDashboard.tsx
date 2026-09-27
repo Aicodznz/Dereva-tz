@@ -803,7 +803,7 @@ export default function CustomerDashboard() {
   return (
     <div className={`pb-10 space-y-2 sm:space-y-3 ${isRTL ? 'text-right' : 'text-left'}`}>
       {/* SLIDE NOTIFICATION & GREETING HEADER CARD - FULL WIDTH EDGE-TO-EDGE */}
-      <div className="-mx-2 md:-mx-4 lg:-mx-6 w-[calc(100%+1rem)] md:w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] -mt-1.5 md:-mt-2 mb-2 sm:mb-3">
+      <div className="-mx-2 md:-mx-4 lg:-mx-6 w-[calc(100%+1rem)] md:w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] mt-0 mb-2 sm:mb-3">
         <div className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm border-b border-orange-400/40">
           {/* Ambient background glows */}
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
@@ -923,7 +923,150 @@ export default function CustomerDashboard() {
         </motion.div>
       )}
 
-      {/* 1. Promotional Auto-Slide Carousel (Banners) */}
+      {/* 1. EXPLORE SERVICES (Huduma Zote Papo Hapo) - Prominently Displayed at Top */}
+      <section className="px-1 sm:px-2 mt-1 mb-3">
+        <div className="flex items-center justify-between mb-2 sm:mb-2.5">
+          <div className="space-y-1">
+            <h3 className="text-lg md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none flex items-center gap-1.5">
+              <span>{t('explore_services') || 'Explore Services'}</span>
+              <span className="text-orange-600 text-sm md:text-base">⚡</span>
+            </h3>
+            <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
+          </div>
+        </div>
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12 gap-2.5 sm:gap-4 md:gap-6">
+          {services
+            .filter((s) => {
+              const sState = (businessConfig?.services || {})[s.id];
+              return !sState || sState.enabled !== false;
+            })
+            .map((service, idx) => {
+              const sState = (businessConfig?.services || {})[service.id];
+              const isUnderMaintenance = sState?.maintenance === true;
+              const maintenanceMsg = sState?.message || `Huduma ya ${service.label} ipo kwenye matengenezo kwa sasa.`;
+
+              const handleServiceClick = (e: React.MouseEvent) => {
+                if (isUnderMaintenance) {
+                  e.preventDefault();
+                  setMaintenanceService({
+                    id: service.id,
+                    name: service.label,
+                    message: maintenanceMsg,
+                  });
+                }
+              };
+
+              return (
+                <motion.div
+                  key={service.id || idx}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.03 * idx, type: "spring", bounce: 0.3 }}
+                >
+                  {service.id === 'ramani' ? (
+                    <button 
+                      onClick={(e) => {
+                        if (isUnderMaintenance) {
+                          handleServiceClick(e);
+                        } else {
+                          setIsMapViewOnly(true);
+                          setIsLocationPickerOpen(true);
+                        }
+                      }}
+                      className="flex flex-col items-center text-center group w-full gap-2 relative cursor-pointer"
+                    >
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ y: -6, scale: 1.05 }}
+                          whileTap={{ scale: 0.92, y: 2 }}
+                          className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_8px_20px_-4px_rgba(0,0,0,0.18)] group-hover:shadow-[0_16px_32px_-6px_rgba(234,88,12,0.35)] transition-all duration-300 overflow-hidden relative border-t-2 border-l border-white/50 border-b-2 border-r-2 border-black/20 ${service.color}`}
+                        >
+                          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
+                          <service.icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 relative z-10 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
+                          {isUnderMaintenance && (
+                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
+                              <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 animate-bounce" />
+                              <span className="text-[6px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
+                            </div>
+                          )}
+                        </motion.div>
+                        {service.badge && (
+                          <span className={`absolute -top-1.5 -right-2 z-30 font-black text-[7px] md:text-[8.5px] px-1.5 py-0.5 rounded-full text-white shadow-md select-none tracking-tight uppercase border border-white dark:border-neutral-900 leading-none ${
+                            service.badge === 'ONLY1K' 
+                              ? 'bg-gradient-to-r from-red-500 via-rose-600 to-red-700 animate-bounce' 
+                              : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-800 animate-pulse'
+                          }`}>
+                            {service.badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-black text-[9px] md:text-[10.5px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 leading-tight block w-full truncate relative">
+                        {service.label}
+                        {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
+                      </span>
+                    </button>
+                  ) : (
+                    <Link 
+                      to={
+                        isUnderMaintenance 
+                          ? '#' 
+                          : service.id === 'super_services'
+                          ? '/services'
+                          : service.id === 'teksi' 
+                          ? '/taxi' 
+                          : service.id === 'daladala'
+                          ? '/daladala'
+                          : service.id === 'car_rental' 
+                          ? '/car-rental' 
+                          : service.id === 'print'
+                          ? '/print'
+                          : service.id === 'matukio'
+                          ? '/events'
+                          : service.id === 'vifurushi' 
+                          ? '/service/vifurushi' 
+                          : `/service/${service.id}`
+                      }
+                      onClick={handleServiceClick}
+                      className="flex flex-col items-center text-center group gap-2 relative"
+                    >
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ y: -6, scale: 1.05 }}
+                          whileTap={{ scale: 0.92, y: 2 }}
+                          className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_8px_20px_-4px_rgba(0,0,0,0.18)] group-hover:shadow-[0_16px_32px_-6px_rgba(234,88,12,0.35)] transition-all duration-300 overflow-hidden relative border-t-2 border-l border-white/50 border-b-2 border-r-2 border-black/20 ${service.color}`}
+                        >
+                          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
+                          <service.icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 relative z-10 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
+                          {isUnderMaintenance && (
+                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
+                              <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 animate-bounce" />
+                              <span className="text-[6px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
+                            </div>
+                          )}
+                        </motion.div>
+                        {service.badge && (
+                          <span className={`absolute -top-1.5 -right-2 z-30 font-black text-[7px] md:text-[8.5px] px-1.5 py-0.5 rounded-full text-white shadow-md select-none tracking-tight uppercase border border-white dark:border-neutral-900 leading-none ${
+                            service.badge === 'ONLY1K' 
+                              ? 'bg-gradient-to-r from-red-500 via-rose-600 to-red-700 animate-bounce' 
+                              : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-800 animate-pulse'
+                          }`}>
+                            {service.badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-black text-[9px] md:text-[10.5px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 leading-tight block w-full truncate relative">
+                        {service.label}
+                        {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
+                      </span>
+                    </Link>
+                  )}
+                </motion.div>
+              );
+            })}
+        </div>
+      </section>
+
+      {/* 2. Promotional Auto-Slide Carousel (Banners) */}
       <div 
         className="relative -mx-2 md:-mx-4 lg:-mx-6 w-[calc(100%+1rem)] md:w-[calc(100%+2rem)] lg:w-[calc(100%+3rem)] px-0 overflow-hidden py-1 sm:py-2 select-none flex flex-col items-center gap-2.5"
         onMouseEnter={() => setIsBannerHovered(true)}
@@ -1149,9 +1292,6 @@ export default function CustomerDashboard() {
             .filter(s => {
               if (s.id === 'ramani') return false;
               const sState = (businessConfig?.services || {})[s.id];
-              if (s.id === 'bus_ticket') {
-                return sState?.enabled === true;
-              }
               return !sState || sState.enabled !== false;
             })
             .map((s) => (
@@ -1310,150 +1450,6 @@ export default function CustomerDashboard() {
               </button>
             </div>
           )}
-        </div>
-      </section>
-
-      <section className="px-2 mt-1 md:mt-2">
-        <div className="flex items-center justify-between mb-2 md:mb-3">
-          <div className="space-y-1">
-            <h3 className="text-xl md:text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter font-display leading-none">
-               {t('explore_services') || 'Explore Services'}
-            </h3>
-            <div className="h-1 w-10 md:w-16 bg-orange-600 rounded-full" />
-          </div>
-        </div>
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 2xl:grid-cols-14 [@media(min-width:1800px)]:grid-cols-16 gap-3 md:gap-8 lg:gap-10">
-          {services
-            .filter((s) => {
-              const sState = (businessConfig?.services || {})[s.id];
-              if (s.id === 'bus_ticket') {
-                return sState?.enabled === true;
-              }
-              return !sState || sState.enabled !== false;
-            })
-            .map((service, idx) => {
-              const sState = (businessConfig?.services || {})[service.id];
-              const isUnderMaintenance = sState?.maintenance === true;
-              const maintenanceMsg = sState?.message || `Huduma ya ${service.label} ipo kwenye matengenezo kwa sasa.`;
-
-              const handleServiceClick = (e: React.MouseEvent) => {
-                if (isUnderMaintenance) {
-                  e.preventDefault();
-                  setMaintenanceService({
-                    id: service.id,
-                    name: service.label,
-                    message: maintenanceMsg,
-                  });
-                }
-              };
-
-              return (
-                <motion.div
-                  key={service.id || idx}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.05 * idx, type: "spring", bounce: 0.4 }}
-                >
-                  {service.id === 'ramani' ? (
-                    <button 
-                      onClick={(e) => {
-                        if (isUnderMaintenance) {
-                          handleServiceClick(e);
-                        } else {
-                          setIsMapViewOnly(true);
-                          setIsLocationPickerOpen(true);
-                        }
-                      }}
-                      className="flex flex-col items-center text-center group w-full gap-3 relative cursor-pointer"
-                    >
-                      <div className="relative">
-                        <motion.div 
-                          whileHover={{ y: -8, scale: 1.05 }}
-                          whileTap={{ scale: 0.92, y: 2 }}
-                          className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_12px_28px_-6px_rgba(0,0,0,0.22)] group-hover:shadow-[0_20px_40px_-8px_rgba(234,88,12,0.35)] transition-all duration-300 overflow-hidden relative border-t-2 border-l border-white/50 border-b-2 border-r-2 border-black/20 ${service.color}`}
-                        >
-                          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
-                          <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
-                          {isUnderMaintenance && (
-                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
-                              <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
-                              <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
-                            </div>
-                          )}
-                        </motion.div>
-                        {service.badge && (
-                          <span className={`absolute -top-2 -right-3 z-30 font-black text-[7.5px] md:text-[9.5px] px-2 py-0.5 rounded-full text-white shadow-[0_6px_14px_rgba(0,0,0,0.3)] select-none tracking-tight uppercase border-2 border-white dark:border-neutral-900 leading-none ${
-                            service.badge === 'ONLY1K' 
-                              ? 'bg-gradient-to-r from-red-500 via-rose-600 to-red-700 animate-bounce' 
-                              : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-800 animate-pulse'
-                          }`}>
-                            {service.badge}
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-800 dark:text-neutral-200 leading-tight block w-full truncate relative">
-                        {service.label}
-                        {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
-                      </span>
-                    </button>
-                  ) : (
-                    <Link 
-                      to={
-                        isUnderMaintenance 
-                          ? '#' 
-                          : service.id === 'super_services'
-                          ? '/services'
-                          : service.id === 'teksi' 
-                          ? '/taxi' 
-                          : service.id === 'daladala'
-                          ? '/daladala'
-                          : service.id === 'car_rental' 
-                          ? '/car-rental' 
-                          : service.id === 'print'
-                          ? '/print'
-                          : service.id === 'matukio'
-                          ? '/events'
-                          : service.id === 'vifurushi' 
-                          ? '/service/vifurushi' 
-                          : `/service/${service.id}`
-                      }
-                      onClick={handleServiceClick}
-                      className="flex flex-col items-center text-center group gap-3 relative"
-                    >
-                      <div className="relative">
-                        <motion.div 
-                          whileHover={{ y: -8, scale: 1.05 }}
-                          whileTap={{ scale: 0.92, y: 2 }}
-                          className={`w-16 h-16 md:w-22 md:h-22 rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_12px_28px_-6px_rgba(0,0,0,0.22)] group-hover:shadow-[0_20px_40px_-8px_rgba(234,88,12,0.35)] transition-all duration-300 overflow-hidden relative border-t-2 border-l border-white/50 border-b-2 border-r-2 border-black/20 ${service.color}`}
-                        >
-                          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
-                          <service.icon className="w-7 h-7 md:w-9 md:h-9 relative z-10 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]" />
-                          {isUnderMaintenance && (
-                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
-                              <Wrench className="w-5 h-5 text-amber-400 animate-bounce" />
-                              <span className="text-[6.5px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
-                            </div>
-                          )}
-                        </motion.div>
-                        {service.badge && (
-                          <span className={`absolute -top-2 -right-3 z-30 font-black text-[7.5px] md:text-[9.5px] px-2 py-0.5 rounded-full text-white shadow-[0_6px_14px_rgba(0,0,0,0.3)] select-none tracking-tight uppercase border-2 border-white dark:border-neutral-900 leading-none ${
-                            service.badge === 'ONLY1K' 
-                              ? 'bg-gradient-to-r from-red-500 via-rose-600 to-red-700 animate-bounce' 
-                              : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-800 animate-pulse'
-                          }`}>
-                            {service.badge}
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest text-neutral-800 dark:text-neutral-200 leading-tight block w-full truncate relative">
-                        {service.label}
-                        {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
-                      </span>
-                    </Link>
-                  )}
-                </motion.div>
-              );
-            })}
         </div>
       </section>
 

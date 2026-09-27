@@ -119,63 +119,61 @@ export default function Header() {
         paddingTop: 'env(safe-area-inset-top, 0px)'
       }}
     >
-      <div className={`${isFullscreen ? 'w-full px-3 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-3 sm:px-4 md:px-6'} h-15 sm:h-16 md:h-20 flex items-center justify-between gap-1.5 sm:gap-4 flex-shrink-0`}>
+      <div className={`${isFullscreen ? 'w-full px-2.5 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-2.5 sm:px-4 md:px-6'} min-h-[58px] sm:h-16 md:h-20 flex items-center justify-between gap-1 sm:gap-3 py-1 sm:py-0 w-full`}>
         
         {/* Left: Logo and Brand + Location Directly Under Express */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[55%] xs:max-w-[60%] sm:max-w-none">
           <Link to="/" className="flex items-center shrink-0 group touch-manipulation" title="Papo Hapo Express">
             {/* Attractive High-Speed 3D Emblem Icon */}
             <div className="relative group shrink-0">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.4)] border border-amber-300/50 transform group-hover:scale-105 transition-all duration-300">
-                <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-orange-950 rounded-[14px] flex items-center justify-center relative overflow-hidden">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.4)] border border-amber-300/50 transform group-hover:scale-105 transition-all duration-300">
+                <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-orange-950 rounded-[10px] sm:rounded-[14px] flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/25 via-transparent to-amber-400/20" />
-                  <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 fill-amber-400/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] relative z-10 transform -rotate-6 group-hover:rotate-0 group-hover:scale-110 transition-transform duration-300" />
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-amber-400 fill-amber-400/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] relative z-10 transform -rotate-6 group-hover:rotate-0 group-hover:scale-110 transition-transform duration-300" />
                 </div>
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 shadow-sm flex items-center justify-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 shadow-sm flex items-center justify-center">
+                <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white animate-ping" />
               </span>
             </div>
           </Link>
 
-          <div className="flex flex-col leading-none shrink-0 justify-center min-w-0">
+          <div className="flex flex-col leading-none min-w-0 justify-center flex-1">
             <Link to="/" className="flex items-center gap-1 group/brand">
-              <span className="font-black text-sm sm:text-base md:text-lg uppercase italic tracking-tight text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
+              <span className="font-black text-xs sm:text-base md:text-lg uppercase italic tracking-tight text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
                 Papo Hapo
               </span>
-              <span className="text-xs sm:text-sm leading-none select-none">🇹🇿</span>
+              <span className="text-[11px] sm:text-sm leading-none select-none">🇹🇿</span>
             </Link>
 
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 block font-mono">
+            <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5">
+              <span className="text-[7.5px] sm:text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 block font-mono">
                 EXPRESS
               </span>
               <span className="inline-block w-1 h-1 rounded-full bg-orange-500" />
-              <span className="text-[7.5px] text-neutral-400 font-bold uppercase tracking-wider hidden xs:inline">Dakika 15–30</span>
+              <span className="text-[7px] sm:text-[7.5px] text-neutral-400 font-bold uppercase tracking-wider hidden xs:inline">Dakika 15–30</span>
             </div>
 
             {/* CHINI YA EXPRESS: Aone eneo alipo + akibonyeza aweze kuediti */}
             <button
               type="button"
               onClick={handleOpenLocationEdit}
-              className="flex items-center gap-1.5 mt-1 -ml-0.5 py-1 px-2 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 border border-orange-500/30 hover:border-orange-500/60 transition-all text-left group/loc cursor-pointer max-w-[145px] xs:max-w-[200px] sm:max-w-[280px] md:max-w-[360px] shadow-xs active:scale-95 touch-manipulation"
+              className="flex items-center gap-1 sm:gap-1.5 mt-1 -ml-0.5 py-0.5 sm:py-1 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-orange-500/10 hover:bg-orange-500/20 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 border border-orange-500/30 hover:border-orange-500/60 transition-all text-left group/loc cursor-pointer max-w-[125px] xs:max-w-[170px] sm:max-w-[260px] md:max-w-[360px] shadow-xs active:scale-95 touch-manipulation"
               title={`Eneo lako la sasa: ${displayAddress}. Bonyeza kubadili au kuediti.`}
             >
-              <div className="w-4 h-4 rounded-md bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover/loc:scale-110 transition-transform">
-                <MapPin className="w-2.5 h-2.5 fill-white/40 text-white" />
+              <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-md bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover/loc:scale-110 transition-transform">
+                <MapPin className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-white/40 text-white" />
               </div>
-              <span className="text-[9px] sm:text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate leading-none">
+              <span className="text-[8.5px] sm:text-[10px] font-bold text-neutral-800 dark:text-neutral-200 truncate leading-none">
                 {displayAddress}
               </span>
-              <span className="text-[7.5px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-200/80 dark:bg-orange-900/80 px-1.5 py-0.5 rounded-md shrink-0 group-hover/loc:bg-orange-600 group-hover/loc:text-white transition-colors flex items-center gap-0.5">
-                <Edit3 className="w-2 h-2" />
-                <span>Badili</span>
+              <span className="text-[7px] sm:text-[7.5px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-200/80 dark:bg-orange-900/80 px-1 sm:px-1.5 py-0.5 rounded-md shrink-0 group-hover/loc:bg-orange-600 group-hover/loc:text-white transition-colors flex items-center gap-0.5">
+                <Edit3 className="w-1.5 h-1.5 sm:w-2 sm:h-2" />
+                <span className="hidden xs:inline">Badili</span>
               </span>
             </button>
           </div>
         </div>
-
-        {/* Search Bar Removed as per user request */}
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
@@ -184,7 +182,7 @@ export default function Header() {
           <div className="relative shrink-0">
             <button 
               onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center gap-1 h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl bg-neutral-100 dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700 hover:border-orange-500 dark:hover:border-orange-500 transition-all font-black text-[11px] uppercase text-neutral-800 dark:text-neutral-200 shadow-2xs shrink-0"
+              className="flex items-center gap-0.5 sm:gap-1 h-7 sm:h-8 md:h-9 px-1.5 sm:px-2.5 rounded-lg sm:rounded-xl bg-neutral-100 dark:bg-neutral-800/90 border border-neutral-200/80 dark:border-neutral-700 hover:border-orange-500 dark:hover:border-orange-500 transition-all font-black text-[10px] sm:text-[11px] uppercase text-neutral-800 dark:text-neutral-200 shadow-2xs shrink-0"
               title="Chagua Lugha"
             >
               <Globe className="w-3 h-3 text-orange-600 dark:text-orange-400 hidden xs:inline shrink-0" />
@@ -227,31 +225,31 @@ export default function Header() {
             </AnimatePresence>
           </div>
 
-          <div className="w-px h-5 bg-border hidden sm:block mx-0.5" />
+          <div className="w-px h-4 sm:h-5 bg-border hidden sm:block mx-0.5" />
 
           {/* Theme Toggle */}
           <button 
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all shrink-0"
+            className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all shrink-0"
             title="Badili Mandhari (Theme Toggle)"
           >
-            {theme === 'dark' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-orange-500" />}
+            {theme === 'dark' ? <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" /> : <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500" />}
           </button>
 
           {/* Notification Icon (Right next to Theme Toggle) */}
           <Link
             to="/notifications"
-            className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative shrink-0"
+            className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative shrink-0"
             title="Arifa Na Taarifa (Notifications)"
           >
-            <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-neutral-700 dark:text-neutral-300" />
+            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-700 dark:text-neutral-300" />
             <AnimatePresence>
               {unreadNotifsCount > 0 && (
                 <motion.span 
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   exit={{ scale: 0 }}
-                  className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 shadow-sm"
+                  className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-orange-600 text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white dark:border-neutral-900 shadow-sm"
                 >
                   {unreadNotifsCount > 9 ? '9+' : unreadNotifsCount}
                 </motion.span>
@@ -262,7 +260,7 @@ export default function Header() {
           {/* Persistent Cart Icon for Tablet/Desktop */}
           <button 
             onClick={() => setIsCartOpen(true)}
-            className="hidden md:flex w-10 h-10 items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative shrink-0"
+            className="hidden md:flex w-9 h-9 md:w-10 md:h-10 items-center justify-center rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all relative shrink-0"
           >
             <ShoppingCart className="w-5 h-5" />
             <AnimatePresence>
@@ -280,8 +278,8 @@ export default function Header() {
           </button>
 
           {/* User Profile */}
-          {user && (
-            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {user ? (
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Driver Mode Toggle Badge if user is rider or has driver details */}
               {(profile?.role === 'rider' || (profile?.role as string) === 'driver' || profile?.driverType || profile?.licensePlate) && (
                 <button
@@ -291,11 +289,11 @@ export default function Header() {
                     }
                     navigate('/');
                   }}
-                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black text-[9px] sm:text-[10px] uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition-all shrink-0"
+                  className="hidden sm:flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-black text-[9px] sm:text-[10px] uppercase tracking-wider shadow-md hover:scale-105 active:scale-95 transition-all shrink-0"
                   title={t('driver_mode')}
                 >
                   <Bike className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{t('driver_mode')}</span>
+                  <span className="hidden md:inline">{t('driver_mode')}</span>
                 </button>
               )}
 
@@ -307,8 +305,8 @@ export default function Header() {
                   {profile?.displayName?.split(' ')[0] || user.displayName?.split(' ')[0] || 'Mpendwa'}
                 </span>
               </div>
-              <Link to="/profile" className="flex items-center gap-2 group shrink-0">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg sm:rounded-xl overflow-hidden border-2 border-orange-600/20 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
+              <Link to="/profile" className="flex items-center gap-1 sm:gap-2 group shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg sm:rounded-xl overflow-hidden border-2 border-orange-600/30 group-hover:border-orange-600 transition-all shadow-sm shrink-0">
                   <img 
                     key={profile?.photoURL || user?.uid}
                     src={profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid}`} 
@@ -322,31 +320,38 @@ export default function Header() {
                 </div>
               </Link>
             </div>
+          ) : (
+            <Link
+              to="/login"
+              className="h-7 sm:h-8 md:h-9 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center transition-all shadow-xs shrink-0"
+            >
+              Ingia
+            </Link>
           )}
 
           {/* Cart for Mobile (fallback when bottom nav is hidden) */}
           {routerLocation.pathname.startsWith('/vendor/') && (
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="md:hidden w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl bg-orange-600 text-white shadow-lg active:scale-90 relative shrink-0"
+              className="md:hidden w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg sm:rounded-xl bg-orange-600 text-white shadow-lg active:scale-90 relative shrink-0"
             >
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-orange-600 text-[8px] font-black flex items-center justify-center rounded-full border border-orange-600">
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-white text-orange-600 text-[7px] font-black flex items-center justify-center rounded-full border border-orange-600">
                   {cartCount}
                 </span>
               )}
             </button>
           )}
 
-          {/* Logout (Visible for all logged in users on mobile/desktop) */}
+          {/* Logout (Visible for logged in users) */}
           {user && (
             <button 
               onClick={logout}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-red-50 text-neutral-400 hover:text-red-500 transition-all shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 flex items-center justify-center rounded-lg sm:rounded-xl hover:bg-red-50 text-neutral-400 hover:text-red-500 transition-all shrink-0"
               title="Logout"
             >
-              <LogOut className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           )}
         </div>

@@ -431,135 +431,365 @@ export default function VendorDashboard() {
     }
   });
 
+  // Dynamic category helpers and flags with intelligent recognition (Case-insensitive & Smart Keyword Detection)
+  const rawCat = (vendorProfile?.category || '').toLowerCase().trim();
+  const rawName = (vendorProfile?.businessName || '').toLowerCase().trim();
+
+  // Smart Bus Detection (PapoBus, buses, shuttles, coaches, express)
+  const isBus = rawCat === 'bus_ticket' || rawCat.includes('bus') || rawCat.includes('transit') || 
+                rawName.includes('bus') || rawName.includes('coach') || rawName.includes('safari') || rawName.includes('shuttle') || rawName.includes('trans');
+
+  // Smart Hotel Detection (PapoStay, hotels, lodges, motels, stays)
+  const isHotel = !isBus && (rawCat === 'hotel' || rawCat.includes('stay') || rawCat.includes('lodge') || rawCat.includes('resort') ||
+                  rawName.includes('hotel') || rawName.includes('lodge') || rawName.includes('resort') || rawName.includes('motel'));
+
+  // Smart Pharmacy Detection (PapoPharmacy, pharmacies, chemists, drugs)
+  const isPharmacy = !isBus && !isHotel && (rawCat === 'pharmacy' || rawCat.includes('pharma') || rawCat.includes('dawa') || rawCat.includes('chemist') ||
+                     rawName.includes('pharmacy') || rawName.includes('dawa') || rawName.includes('chemist') || rawName.includes('pharma'));
+
+  // Smart Salon Detection (PapoStyle, salons, barbers, styling)
+  const isSalon = !isBus && !isHotel && !isPharmacy && (rawCat === 'salon' || rawCat.includes('style') || rawCat.includes('barber') || rawCat.includes('spa') ||
+                  rawName.includes('salon') || rawName.includes('style') || rawName.includes('kinyozi') || rawName.includes('barber') || rawName.includes('spa'));
+
+  // Smart Car Rental Detection (PapoRent)
+  const isCarRental = !isBus && !isHotel && !isPharmacy && !isSalon && (rawCat === 'car_rental' || rawName.includes('rental') || rawName.includes('rent a car'));
+
+  // Smart Car Sale Detection
+  const isCarSale = !isBus && !isHotel && !isPharmacy && !isSalon && !isCarRental && (rawCat === 'car_sale' || rawName.includes('motors') || rawName.includes('car sale'));
+
+  // Smart Grocery / Supermarket Detection (PapoMart)
+  const isGrocery = !isBus && !isHotel && !isPharmacy && !isSalon && !isCarRental && !isCarSale && (rawCat === 'grocery' || rawCat.includes('mart') || rawCat.includes('soko') ||
+                    rawName.includes('mart') || rawName.includes('soko') || rawName.includes('supermarket') || rawName.includes('grocery'));
+
+  // Smart Ecommerce / Shop Detection (PapoShop)
+  const isEcommerce = !isBus && !isHotel && !isPharmacy && !isSalon && !isCarRental && !isCarSale && !isGrocery && (rawCat === 'ecommerce' || rawName.includes('boutique') || rawName.includes('shop'));
+
+  // Restaurant (PapoFood) - active when explicitly restaurant or default food business
+  const isRestaurant = !isBus && !isHotel && !isPharmacy && !isSalon && !isCarRental && !isCarSale && !isGrocery && !isEcommerce;
+
+  // Complete Service Branding & Identity
+  const serviceBranding = useMemo(() => {
+    if (isBus) {
+      return {
+        serviceName: 'PapoBus',
+        badgeText: 'PapoBus Fleet Partner',
+        portalTitle: 'PapoBus Fleet & Ticketing Portal',
+        subtitle: 'Dhibiti mabasi, ratiba za njia, nauli, na tiketi za abiria.',
+        categoryLabel: 'Tiketi za Mabasi & Safari',
+        categoryKey: 'bus_ticket' as VendorCategory,
+        themeColor: 'from-sky-600 via-blue-600 to-indigo-700',
+        accentBg: 'bg-sky-600',
+        badgeClass: 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+        icon: Bus,
+        aiButtonText: 'AI PapoBus & Fleet Insights',
+        quickActionAddText: 'Sajili Njia / Basi',
+        quickActionAddIcon: Bus,
+        quickActionPosText: 'Kata Tiketi (POS)',
+        inventoryHeading: 'Ratiba za Njia & Tiketi za Mabasi',
+        addItemBtnText: 'Sajili Njia Mpya ya Basi',
+        stockColHeader: 'Viti Vilivyobaki',
+        ordersHeading: 'Tiketi & Abiria wa Mabasi',
+        sidebarWidgetTitle: 'Tiketi & Viti Vilivyolipiwa',
+        sidebarWidgetUnit: 'Seats Booked',
+      };
+    }
+    if (isHotel) {
+      return {
+        serviceName: 'PapoStay',
+        badgeText: 'PapoStay Hotelier Partner',
+        portalTitle: 'PapoStay Hospitality & Booking Portal',
+        subtitle: 'Dhibiti vyumba vya hoteli, wageni, na bei za malazi.',
+        categoryLabel: 'Hoteli & Malazi',
+        categoryKey: 'hotel' as VendorCategory,
+        themeColor: 'from-purple-600 via-indigo-600 to-pink-600',
+        accentBg: 'bg-purple-600',
+        badgeClass: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
+        icon: Hotel,
+        aiButtonText: 'AI Hotel & Room Insights',
+        quickActionAddText: 'Ongeza Chumba',
+        quickActionAddIcon: Hotel,
+        quickActionPosText: 'Uhifadhi (Front Desk)',
+        inventoryHeading: 'Orodha ya Vyumba & Bei za Malazi',
+        addItemBtnText: 'Sajili Chumba Kipya',
+        stockColHeader: 'Vyumba Vilivyopo',
+        ordersHeading: 'Uhifadhi wa Vyumba (Bookings)',
+        sidebarWidgetTitle: 'Vyumba Vilivyopangishwa',
+        sidebarWidgetUnit: 'Rooms Occupied',
+      };
+    }
+    if (isPharmacy) {
+      return {
+        serviceName: 'PapoPharmacy',
+        badgeText: 'PapoPharmacy Clinical Partner',
+        portalTitle: 'PapoPharmacy Dispense & Clinical Portal',
+        subtitle: 'Dhibiti dawa, maagizo ya wagonjwa (Rx), na stoo.',
+        categoryLabel: 'Duka la Dawa & Afya',
+        categoryKey: 'pharmacy' as VendorCategory,
+        themeColor: 'from-emerald-600 via-teal-600 to-cyan-600',
+        accentBg: 'bg-emerald-600',
+        badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+        icon: Pill,
+        aiButtonText: 'AI Pharmacy & Drug Insights',
+        quickActionAddText: 'Ongeza Dawa',
+        quickActionAddIcon: Pill,
+        quickActionPosText: 'Dawati la Dawa (POS)',
+        inventoryHeading: 'Katalogi ya Dawa & Bei',
+        addItemBtnText: 'Ongeza Dawa Mpya',
+        stockColHeader: 'Dawa Zilizopo Stoo',
+        ordersHeading: 'Maagizo ya Dawa (Prescriptions)',
+        sidebarWidgetTitle: 'Maagizo Yaliyoandaliwa Leo',
+        sidebarWidgetUnit: 'Rx Orders',
+      };
+    }
+    if (isSalon) {
+      return {
+        serviceName: 'PapoStyle',
+        badgeText: 'PapoStyle Beauty Partner',
+        portalTitle: 'PapoStyle Studio & Salon Portal',
+        subtitle: 'Dhibiti huduma za nywele, kinyozi, na miadi ya wateja.',
+        categoryLabel: 'Saluni, Kinyozi & Urembo',
+        categoryKey: 'salon' as VendorCategory,
+        themeColor: 'from-rose-600 via-pink-600 to-purple-600',
+        accentBg: 'bg-rose-600',
+        badgeClass: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+        icon: Scissors,
+        aiButtonText: 'AI Salon & Style Insights',
+        quickActionAddText: 'Weka Huduma',
+        quickActionAddIcon: Scissors,
+        quickActionPosText: 'Kaunta ya Saluni',
+        inventoryHeading: 'Menyu ya Huduma & Bei za Saluni',
+        addItemBtnText: 'Ongeza Huduma Mpya',
+        stockColHeader: 'Nafasi Zilizopo',
+        ordersHeading: 'Miadi ya Wateja (Appointments)',
+        sidebarWidgetTitle: 'Wateja Waliohudumiwa Leo',
+        sidebarWidgetUnit: 'Clients',
+      };
+    }
+    if (isCarRental) {
+      return {
+        serviceName: 'PapoRent',
+        badgeText: 'PapoRent Fleet Partner',
+        portalTitle: 'PapoRent Car Rental Portal',
+        subtitle: 'Dhibiti magari ya kukodisha, ratiba, na wateja.',
+        categoryLabel: 'Kukodisha Magari & Vifaa',
+        categoryKey: 'car_rental' as VendorCategory,
+        themeColor: 'from-blue-600 via-slate-700 to-cyan-600',
+        accentBg: 'bg-blue-600',
+        badgeClass: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+        icon: Key,
+        aiButtonText: 'AI Rental & Fleet Insights',
+        quickActionAddText: 'Sajili Gari',
+        quickActionAddIcon: Car,
+        quickActionPosText: 'Dawati la Kukodi',
+        inventoryHeading: 'Orodha ya Magari ya Kukodisha',
+        addItemBtnText: 'Sajili Gari Jipya',
+        stockColHeader: 'Magari Yaliyopo',
+        ordersHeading: 'Maombi ya Kukodi Magari',
+        sidebarWidgetTitle: 'Magari Yaliyopo Safarini',
+        sidebarWidgetUnit: 'Vehicles Out',
+      };
+    }
+    if (isGrocery) {
+      return {
+        serviceName: 'PapoMart',
+        badgeText: 'PapoMart Retail Partner',
+        portalTitle: 'PapoMart Supermarket & Soko Portal',
+        subtitle: 'Dhibiti bidhaa za rejareja, vyakula vibichi, na rafu za duka.',
+        categoryLabel: 'Soko, Mboga & Vyakula Vibichi',
+        categoryKey: 'grocery' as VendorCategory,
+        themeColor: 'from-amber-600 via-yellow-600 to-orange-600',
+        accentBg: 'bg-amber-600',
+        badgeClass: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+        icon: ShoppingCart,
+        aiButtonText: 'AI Soko & Stock Insights',
+        quickActionAddText: 'Ongeza Bidhaa',
+        quickActionAddIcon: Package,
+        quickActionPosText: 'Mashine ya Risiti',
+        inventoryHeading: 'Katalogi ya Bidhaa za Sokoni',
+        addItemBtnText: 'Ongeza Bidhaa Mpya',
+        stockColHeader: 'Idadi ya Bidhaa',
+        ordersHeading: 'Oda za Wateja (Grocery Orders)',
+        sidebarWidgetTitle: 'Oda Zilizokamilika Leo',
+        sidebarWidgetUnit: 'Packs Ready',
+      };
+    }
+    if (isEcommerce) {
+      return {
+        serviceName: 'PapoShop',
+        badgeText: 'PapoShop Store Partner',
+        portalTitle: 'PapoShop Store & E-Commerce Portal',
+        subtitle: 'Dhibiti katalogi ya bidhaa, oda za wateja na vifurushi.',
+        categoryLabel: 'Maduka ya Bidhaa & Rejareja',
+        categoryKey: 'ecommerce' as VendorCategory,
+        themeColor: 'from-indigo-600 via-blue-600 to-purple-600',
+        accentBg: 'bg-indigo-600',
+        badgeClass: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
+        icon: ShoppingBag,
+        aiButtonText: 'AI Shop & Catalog Insights',
+        quickActionAddText: 'Ongeza Bidhaa',
+        quickActionAddIcon: Package,
+        quickActionPosText: 'Kaunta ya Mauzo',
+        inventoryHeading: 'Katalogi ya Bidhaa za Duka',
+        addItemBtnText: 'Ongeza Bidhaa Mpya',
+        stockColHeader: 'Bidhaa Zilizopo',
+        ordersHeading: 'Oda za Wateja',
+        sidebarWidgetTitle: 'Vifurushi Vinavyosubiri',
+        sidebarWidgetUnit: 'Orders',
+      };
+    }
+    // Default: Restaurant / PapoFood
+    return {
+      serviceName: 'PapoFood',
+      badgeText: 'PapoFood Chef Partner',
+      portalTitle: 'PapoFood Restaurant & Kitchen Portal',
+      subtitle: 'Dhibiti oda za jikoni, meza za wateja, na menyu ya vyakula.',
+      categoryLabel: 'Mgahawa, Chakula & Vinywaji',
+      categoryKey: 'restaurant' as VendorCategory,
+      themeColor: 'from-orange-600 via-amber-600 to-red-600',
+      accentBg: 'bg-orange-600',
+      badgeClass: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
+      icon: Utensils,
+      aiButtonText: 'AI Chef & Food Insights',
+      quickActionAddText: 'Weka Chakula',
+      quickActionAddIcon: Plus,
+      quickActionPosText: 'Dine-in POS',
+      inventoryHeading: 'Menyu ya Vyakula & Vinywaji',
+      addItemBtnText: 'Ongeza Chakula Kipya',
+      stockColHeader: 'Idadi Zilizopo',
+      ordersHeading: 'Oda za Jikoni & Meza',
+      sidebarWidgetTitle: 'Meza za Kulia (Floor)',
+      sidebarWidgetUnit: 'Meza Occupied',
+    };
+  }, [isBus, isHotel, isPharmacy, isSalon, isCarRental, isGrocery, isEcommerce]);
+
   // Dynamic context based on business category
   const vendorContext = useMemo(() => {
-    const cat = vendorProfile?.category || 'grocery';
-    switch (cat) {
-      case 'restaurant':
-        return {
-          type: 'restaurant',
-          ordersLabel: 'Kitchen Display',
-          ordersDescription: 'Manage cooking orders and dining ready notifications.',
-          ordersIcon: Beer,
-          inventoryLabel: 'Menu Items',
-          inventoryIcon: Utensils,
-          locationLabel: 'Section Management',
-          locationLabelSingular: 'Section',
-          posLabel: 'Dine-in POS',
-          posIcon: ShoppingCart,
-          fulfillmentAction: 'Cooking',
-          readyLabel: 'Ready to Serve',
-          pickingLabel: 'In Kitchen',
-          awaitingLabel: 'New Orders'
-        };
-      case 'pharmacy':
-        return {
-          type: 'pharmacy',
-          ordersLabel: 'Prescriptions',
-          ordersDescription: 'Dispense medication and manage clinical orders.',
-          ordersIcon: Pill,
-          inventoryLabel: 'Medications',
-          inventoryIcon: FlaskConical,
-          locationLabel: 'Storage Shelves',
-          locationLabelSingular: 'Shelf',
-          posLabel: 'Dispense Desk',
-          posIcon: CreditCard,
-          fulfillmentAction: 'Dispensing',
-          readyLabel: 'Ready for Pickup',
-          pickingLabel: 'Preparing Rx',
-          awaitingLabel: 'Incoming Rx'
-        };
-      case 'salon':
-      case 'hotel':
-        return {
-          type: 'service',
-          ordersLabel: 'Appointments',
-          ordersDescription: 'Track bookings, stylist schedules, and guest check-ins.',
-          ordersIcon: Calendar,
-          inventoryLabel: cat === 'hotel' ? 'Rooms & Rates' : 'Service Menu',
-          inventoryIcon: cat === 'hotel' ? Hotel : Scissors,
-          locationLabel: cat === 'hotel' ? 'Room Blocks' : 'Stylist Areas',
-          locationLabelSingular: cat === 'hotel' ? 'Room' : 'Chair',
-          posLabel: 'Front Desk',
-          posIcon: Banknote,
-          fulfillmentAction: 'Confirming',
-          readyLabel: 'Confirmed',
-          pickingLabel: 'In Progress',
-          awaitingLabel: 'New Requests'
-        };
-      case 'taxi':
-      case 'parcel':
-      case 'bus_ticket':
-        return {
-          type: 'transit',
-          ordersLabel: 'Tiketi & Abiria',
-          ordersDescription: 'Manage bus ticket reservations and passenger lists.',
-          ordersIcon: Bus,
-          inventoryLabel: 'Ratiwa & Njia',
-          inventoryIcon: Calendar,
-          locationLabel: 'Vituo vya Mabasi',
-          locationLabelSingular: 'Bus Station',
-          posLabel: 'Counter ya Kukata Tiketi',
-          posIcon: Ticket,
-          fulfillmentAction: 'Booking',
-          readyLabel: 'Safari Imeanza',
-          pickingLabel: 'Boarding In-Progress',
-          awaitingLabel: 'Zinasubiri'
-        };
-      case 'car_rental':
-        return {
-          type: 'retail',
-          ordersLabel: 'Maombi ya Kukodi',
-          ordersDescription: 'Dhibiti maombi ya kukodisha magari na ratiba.',
-          ordersIcon: Key,
-          inventoryLabel: 'Magari ya Kukodisha',
-          inventoryIcon: Car,
-          locationLabel: 'Vituo vya Kukabidhi',
-          locationLabelSingular: 'Kituo',
-          posLabel: 'Dawati la Kukodisha',
-          posIcon: Banknote,
-          fulfillmentAction: 'Kukodisha',
-          readyLabel: 'Gari Lipo Tayari',
-          pickingLabel: 'Gari Lipo Safarini',
-          awaitingLabel: 'Maombi Mpya'
-        };
-      case 'car_sale':
-        return {
-          type: 'retail',
-          ordersLabel: 'Maombi ya Kununua',
-          ordersDescription: 'Dhibiti maombi ya ununuzi na ukaguzi wa magari.',
-          ordersIcon: Key,
-          inventoryLabel: 'Magari ya Kuuza',
-          inventoryIcon: Car,
-          locationLabel: 'Yard / Showroom',
-          locationLabelSingular: 'Showroom',
-          posLabel: 'Dawati la Mauzo',
-          posIcon: Banknote,
-          fulfillmentAction: 'Kuuza',
-          readyLabel: 'Gari Limeuzwa',
-          pickingLabel: 'Kwenye Majaribio',
-          awaitingLabel: 'Maombi Mapya'
-        };
-      default: // grocery, ecommerce, etc.
-        return {
-          type: 'retail',
-          ordersLabel: 'Picking Hub',
-          ordersDescription: 'Collect items from shelves for delivery or pickup.',
-          ordersIcon: Box,
-          inventoryLabel: 'Inventory',
-          inventoryIcon: Package,
-          locationLabel: 'Aisle Stands',
-          locationLabelSingular: 'Aisle',
-          posLabel: 'Register',
-          posIcon: ShoppingCart,
-          fulfillmentAction: 'Picking',
-          readyLabel: 'Packed & Ready',
-          pickingLabel: 'Currently Picking',
-          awaitingLabel: 'Awaiting Picking',
-          isGrocery: vendorProfile?.category === 'grocery'
-        };
+    if (isRestaurant) {
+      return {
+        type: 'restaurant',
+        ordersLabel: 'Kitchen Display',
+        ordersDescription: 'Manage cooking orders and dining ready notifications.',
+        ordersIcon: Beer,
+        inventoryLabel: 'Menu Items',
+        inventoryIcon: Utensils,
+        locationLabel: 'Section Management',
+        locationLabelSingular: 'Section',
+        posLabel: 'Dine-in POS',
+        posIcon: ShoppingCart,
+        fulfillmentAction: 'Cooking',
+        readyLabel: 'Ready to Serve',
+        pickingLabel: 'In Kitchen',
+        awaitingLabel: 'New Orders'
+      };
     }
-  }, [vendorProfile?.category]);
+    if (isPharmacy) {
+      return {
+        type: 'pharmacy',
+        ordersLabel: 'Prescriptions',
+        ordersDescription: 'Dispense medication and manage clinical orders.',
+        ordersIcon: Pill,
+        inventoryLabel: 'Medications',
+        inventoryIcon: FlaskConical,
+        locationLabel: 'Storage Shelves',
+        locationLabelSingular: 'Shelf',
+        posLabel: 'Dispense Desk',
+        posIcon: CreditCard,
+        fulfillmentAction: 'Dispensing',
+        readyLabel: 'Ready for Pickup',
+        pickingLabel: 'Preparing Rx',
+        awaitingLabel: 'Incoming Rx'
+      };
+    }
+    if (isHotel || rawCat === 'salon') {
+      return {
+        type: 'service',
+        ordersLabel: isHotel ? 'Bookings za Vyumba' : 'Appointments',
+        ordersDescription: isHotel ? 'Fuatilia wageni na vyumba vya hoteli.' : 'Track bookings, stylist schedules, and guest check-ins.',
+        ordersIcon: Calendar,
+        inventoryLabel: isHotel ? 'Vyumba & Bei' : 'Service Menu',
+        inventoryIcon: isHotel ? Hotel : Scissors,
+        locationLabel: isHotel ? 'Room Blocks' : 'Stylist Areas',
+        locationLabelSingular: isHotel ? 'Room' : 'Chair',
+        posLabel: 'Front Desk',
+        posIcon: Banknote,
+        fulfillmentAction: 'Confirming',
+        readyLabel: 'Confirmed',
+        pickingLabel: 'In Progress',
+        awaitingLabel: 'New Requests'
+      };
+    }
+    if (isBus || rawCat === 'taxi' || rawCat === 'parcel') {
+      return {
+        type: 'transit',
+        ordersLabel: 'Tiketi & Abiria',
+        ordersDescription: 'Dhibiti tiketi za mabasi, orodha ya abiria na safari.',
+        ordersIcon: Bus,
+        inventoryLabel: 'Ratiwa & Njia',
+        inventoryIcon: Calendar,
+        locationLabel: 'Vituo vya Mabasi',
+        locationLabelSingular: 'Bus Station',
+        posLabel: 'Counter ya Kukata Tiketi',
+        posIcon: Ticket,
+        fulfillmentAction: 'Booking',
+        readyLabel: 'Safari Imeanza',
+        pickingLabel: 'Boarding In-Progress',
+        awaitingLabel: 'Zinasubiri'
+      };
+    }
+    if (isCarRental) {
+      return {
+        type: 'retail',
+        ordersLabel: 'Maombi ya Kukodi',
+        ordersDescription: 'Dhibiti maombi ya kukodisha magari na ratiba.',
+        ordersIcon: Key,
+        inventoryLabel: 'Magari ya Kukodisha',
+        inventoryIcon: Car,
+        locationLabel: 'Vituo vya Kukabidhi',
+        locationLabelSingular: 'Kituo',
+        posLabel: 'Dawati la Kukodisha',
+        posIcon: Banknote,
+        fulfillmentAction: 'Kukodisha',
+        readyLabel: 'Gari Lipo Tayari',
+        pickingLabel: 'Gari Lipo Safarini',
+        awaitingLabel: 'Maombi Mpya'
+      };
+    }
+    if (isCarSale) {
+      return {
+        type: 'retail',
+        ordersLabel: 'Maombi ya Kununua',
+        ordersDescription: 'Dhibiti maombi ya ununuzi na ukaguzi wa magari.',
+        ordersIcon: Key,
+        inventoryLabel: 'Magari ya Kuuza',
+        inventoryIcon: Car,
+        locationLabel: 'Yard / Showroom',
+        locationLabelSingular: 'Showroom',
+        posLabel: 'Dawati la Mauzo',
+        posIcon: Banknote,
+        fulfillmentAction: 'Kuuza',
+        readyLabel: 'Gari Limeuzwa',
+        pickingLabel: 'Kwenye Majaribio',
+        awaitingLabel: 'Maombi Mapya'
+      };
+    }
+    return {
+      type: 'retail',
+      ordersLabel: 'Picking Hub',
+      ordersDescription: 'Collect items from shelves for delivery or pickup.',
+      ordersIcon: Box,
+      inventoryLabel: 'Inventory',
+      inventoryIcon: Package,
+      locationLabel: 'Aisle Stands',
+      locationLabelSingular: 'Aisle',
+      posLabel: 'Register',
+      posIcon: ShoppingCart,
+      fulfillmentAction: 'Picking',
+      readyLabel: 'Packed & Ready',
+      pickingLabel: 'Currently Picking',
+      awaitingLabel: 'Awaiting Picking',
+      isGrocery: rawCat === 'grocery'
+    };
+  }, [isRestaurant, isPharmacy, isHotel, isBus, isCarRental, isCarSale, rawCat]);
 
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);

@@ -608,7 +608,7 @@ Return ONLY pure JSON without markdown code fences.`;
     }
   });
 
-  // AI Sales Insights & Smart Inventory Forecasting Endpoint (Gemini-3.7-flash)
+  // AI Sales & Operations Insights Endpoint with Multi-Service Intelligence (Gemini-3.7-flash)
   app.post("/api/ai/sales-insights", async (req, res) => {
     const { vendorName, category, products, orders, expenses, customQuestion } = req.body;
 
@@ -630,54 +630,139 @@ Return ONLY pure JSON without markdown code fences.`;
         price: p.price,
         cost: p.costPrice || p.cost || Math.round((p.price || 1000) * 0.45),
         category: p.category || 'general',
-        inStock: p.inStock !== false
+        inStock: p.inStock !== false,
+        stock: p.stock ?? 20,
+        departureTime: p.departureTime,
+        origin: p.origin,
+        destination: p.destination
       }));
 
       const ordersSummary = (orders || []).slice(0, 50).map((o: any) => ({
         total: o.totalAmount,
         items: (o.items || []).map((i: any) => ({ name: i.name || i.productName, qty: i.quantity || 1 })),
         status: o.status,
-        date: o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString() : (o.createdAt || 'recent')
+        date: o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString() : (o.createdAt || 'recent'),
+        selectedSeats: o.selectedSeats,
+        busRoute: o.busRoute
       }));
 
-      const prompt = `You are a world-class Restaurant & Retail Business Consultant and Executive AI Chef specializing in East Africa (Tanzania, Kenya, Uganda).
+      const catStr = (category || '').toLowerCase();
+      const nameStr = (vendorName || '').toLowerCase();
+      const isBus = catStr === 'bus_ticket' || catStr.includes('bus') || nameStr.includes('bus') || nameStr.includes('coach') || nameStr.includes('safari') || nameStr.includes('trans');
+      const isHotel = catStr === 'hotel' || catStr.includes('stay') || catStr.includes('lodge') || nameStr.includes('hotel') || nameStr.includes('lodge');
+      const isPharmacy = catStr === 'pharmacy' || catStr.includes('pharma') || catStr.includes('dawa') || nameStr.includes('pharmacy') || nameStr.includes('dawa');
+      const isSalon = catStr === 'salon' || catStr.includes('style') || nameStr.includes('salon') || nameStr.includes('kinyozi');
+      const isCarRental = catStr === 'car_rental' || nameStr.includes('rental') || nameStr.includes('rent a car');
+      const isGrocery = catStr === 'grocery' || catStr.includes('mart') || catStr.includes('soko') || nameStr.includes('mart');
+      const isRestaurant = catStr === 'restaurant' || catStr.includes('food') || catStr.includes('chakula') || nameStr.includes('restaurant') || nameStr.includes('cafe') || nameStr.includes('kitchen') || (!isBus && !isHotel && !isPharmacy && !isSalon && !isCarRental && !isGrocery);
+
+      let systemRole = "";
+      let itemTypeLabel = "Bidhaa / Huduma";
+      let cogsDescription = "Gharama za uendeshaji (COGS)";
+      let forecastExample = "Bidhaa au rasilimali inayohitaji kuongezwa";
+      let peakHoursExample = "Muda wa foleni kubwa au safari nyingi";
+      let profitTipContext = "Ushauri wa kupunguza gharama na kuongeza mapato";
+
+      if (isBus) {
+        systemRole = `You are an elite Bus Fleet & Intercity Transit Operations Consultant and Revenue Management AI Analyst for "PapoBus" in East Africa (Tanzania, Kenya, Uganda).
+You specialize in bus ticketing, passenger seat occupancy (load factor), route profitability (e.g. Dar es Salaam, Arusha, Dodoma, Mwanza, Mbeya, Morogoro), bus departure schedules, diesel fuel efficiency, and fleet operational costs.
+CRITICAL: Do NOT give restaurant or food advice. Treat all products as bus routes/trips, and orders as passenger ticket bookings.`;
+        itemTypeLabel = "Njia ya Basi / Tiketi (Bus Route)";
+        cogsDescription = "Gharama za mafuta ya dizeli, madereva, posho za wafanyakazi na vituo vya mabasi";
+        forecastExample = "Idadi ya viti vya ziada au basi la nyongeza kwenye njia maarufu";
+        peakHoursExample = "Masaa ya kuondoka asubuhi na siku za wiki zenye abiria wengi (Ijumaa, Jumapili na msimu wa sikukuu)";
+        profitTipContext = "Ushauri wa viwango vya nauli (VIP vs Standard), kuongeza viti vilivyolipiwa (load factor), na kudhibiti mafuta";
+      } else if (isHotel) {
+        systemRole = `You are a world-class Hospitality & Hotel Operations Consultant for "PapoStay" in East Africa.
+You specialize in room booking management, occupancy rate optimization, RevPAR, guest satisfaction, housekeeping, and accommodation pricing.
+CRITICAL: Treat products as hotel room types (Single, Double, VIP Suites) and orders as room reservations.`;
+        itemTypeLabel = "Aina ya Chumba (Room Type)";
+        cogsDescription = "Gharama za umeme, usafi wa vyumba, sabuni, mashuka na huduma za wageni";
+        forecastExample = "Vyumba vinavyotakiwa kuwa tayari kwa wageni wa wikendi";
+        peakHoursExample = "Masaa ya Check-in/Check-out na vipindi vya wageni wengi";
+        profitTipContext = "Ushauri wa bei za vyumba kulingana na misimu ya utalii au mikutano";
+      } else if (isPharmacy) {
+        systemRole = `You are a certified Clinical Pharmacist & Pharmacy Retail Consultant for "PapoPharmacy" in East Africa.
+You specialize in essential medicines, prescription dispensation (Rx), OTC medications, expiry monitoring, and clinical inventory management.
+CRITICAL: Treat products as medications and pharmaceutical products, NOT restaurant food.`;
+        itemTypeLabel = "Dawa / Bidhaa ya Afya (Medication)";
+        cogsDescription = "Gharama za kuagiza dawa kutoka kwa wasambazaji (Wholesalers & MSD)";
+        forecastExample = "Dawa muhimu zinazotakiwa kuagizwa kabla hazijaisha stoo";
+        peakHoursExample = "Muda wa maagizo mengi ya wagonjwa (asubuhi na jioni)";
+        profitTipContext = "Ushauri wa ununuzi wa jumla na kuzuia dawa kuisha muda wake (expiry)";
+      } else if (isSalon) {
+        systemRole = `You are an expert Salon & Beauty Studio Business Consultant for "PapoStyle" in East Africa.
+You specialize in hair styling, barbering, beauty treatments, stylist appointment scheduling, and cosmetic retail.
+CRITICAL: Treat products as salon services/beauty products and orders as client appointments.`;
+        itemTypeLabel = "Huduma ya Saluni / Urembo";
+        cogsDescription = "Gharama za bidhaa za urembo, mafuta, dawa za nywele na vifaa";
+        forecastExample = "Nafasi za wateja na bidhaa za saluni";
+        peakHoursExample = "Muda wa wateja wengi wa kinyozi na nywele (Ijumaa jioni na Jumamosi)";
+        profitTipContext = "Ushauri wa ratiba za wateja na ofa za pamoja za huduma";
+      } else if (isCarRental) {
+        systemRole = `You are a Fleet Rental & Automotive Operations Consultant for "PapoRent" in East Africa.
+You specialize in vehicle rental utilization, fleet servicing, car booking schedules, and rental pricing.`;
+        itemTypeLabel = "Gari la Kukodi (Rental Vehicle)";
+        cogsDescription = "Gharama za bima, matengenezo ya magari na ufuatiliaji wa GPS";
+        forecastExample = "Magari yanayohitaji matengenezo au maandalizi ya safari";
+        peakHoursExample = "Vipindi vya safari za wikendi, mikutano na uwanja wa ndege";
+        profitTipContext = "Ushauri wa viwango vya kodi kwa siku na ulinzi wa vyombo vya usafiri";
+      } else if (isGrocery) {
+        systemRole = `You are a Supermarket & Fresh Produce Retail Consultant for "PapoMart" in East Africa.
+You specialize in grocery sales, fast-moving consumer goods (FMCG), fresh produce turnover, shelf management, and retail shrinkage reduction.`;
+        itemTypeLabel = "Bidhaa ya Sokoni / Grocery Item";
+        cogsDescription = "Gharama za ununuzi wa bidhaa sokoni au kwa mawakala";
+        forecastExample = "Bidhaa zinazotakiwa kuagizwa sokoni kabla ya wikendi";
+        peakHoursExample = "Masaa ya ununuzi wa jioni ya familia na siku za sokoni";
+        profitTipContext = "Ushauri wa kuzuia kuharibika kwa vyakula vibichi na ofa za bidhaa za haraka";
+      } else {
+        systemRole = `You are an Executive Chef & Restaurant Business Consultant for "PapoFood" in East Africa (Tanzania, Kenya, Uganda).
+You specialize in dining floor management, menu engineering, kitchen food costs (COGS), recipes, portioning, and culinary inventory.`;
+        itemTypeLabel = "Chakula / Kinywaji (Dish / Beverage)";
+        cogsDescription = "Gharama ya viungo vya jikoni (nyama, mchele, mafuta, mboga)";
+        forecastExample = "Viungo vya chakula vinavyohitajika kuagizwa sokoni";
+        peakHoursExample = "Masaa ya mchana (Lunch: 12:30 PM - 2:30 PM) na jioni (Dinner: 7:00 PM - 10:00 PM)";
+        profitTipContext = "Ushauri wa ununuzi wa viungo na kuzuia upotevu wa jikoni";
+      }
+
+      const prompt = `${systemRole}
 Analyze the business performance and provide high-value, actionable insights and inventory forecasts.
 
-Business: "${vendorName || 'Restaurant/Store'}" (${category || 'restaurant'})
-Menu Products: ${JSON.stringify(productsSummary)}
-Recent Orders Sample: ${JSON.stringify(ordersSummary)}
+Business: "${vendorName || 'Biashara'}" (${category || (isBus ? 'bus_ticket' : 'biashara')})
+Offerings / Inventory Sample: ${JSON.stringify(productsSummary)}
+Recent Bookings / Orders Sample: ${JSON.stringify(ordersSummary)}
 Expenses Sample: ${JSON.stringify((expenses || []).slice(0, 10))}
-${customQuestion ? `Specific Question from Owner: "${customQuestion}"` : ''}
+${customQuestion ? `Specific Question from Business Owner: "${customQuestion}"` : ''}
 
 Provide your response in JSON format matching this schema:
 {
-  "executiveSummary": "Concise overview in fluent, encouraging Swahili with key English business terms (approx 2-3 sentences)",
-  "salesHealthScore": 85, // integer 0-100
+  "executiveSummary": "Concise overview in fluent, encouraging Swahili with key English business terms directly addressing this specific business type (${isBus ? 'Mabasi & Tiketi' : isHotel ? 'Hoteli & Vyumba' : isPharmacy ? 'Dawa & Afya' : isRestaurant ? 'Mgahawa & Chakula' : 'Biashara ya Rejareja'}, approx 2-3 sentences)",
+  "salesHealthScore": 88, // integer 0-100
   "topPerformers": [
-    { "name": "Dish/Item Name", "salesCount": 14, "revenue": 140000, "insight": "High demand, strong profit margin" }
+    { "name": "${itemTypeLabel} Name", "salesCount": 14, "revenue": 140000, "insight": "High demand, strong profit contribution" }
   ],
   "slowMovers": [
-    { "name": "Item Name", "suggestion": "Try bundling with a top drink or running a happy hour coupon" }
+    { "name": "${itemTypeLabel} Name", "suggestion": "Actionable suggestion tailored to this business type" }
   ],
   "cogsAndProfitAnalysis": {
     "estimatedRevenue": 850000,
     "estimatedCogs": 380000,
     "grossProfitMarginPercent": 55.3,
-    "profitAdvice": "Practical advice on ingredient sourcing and food cost optimization"
+    "profitAdvice": "${profitTipContext}"
   },
   "inventoryForecast": [
     {
-      "ingredientOrItem": "Kuku / Chicken Stock",
+      "ingredientOrItem": "${forecastExample}",
       "action": "increase_stock", // "increase_stock" | "reduce_stock" | "maintain"
-      "quantityRecommendation": "Ongeza Kilo 15 kwa ajili ya Wikendi",
-      "reasoning": "High demand on Friday/Saturday night"
+      "quantityRecommendation": "Specific recommendation in Swahili",
+      "reasoning": "Clear business reasoning based on sales pattern"
     }
   ],
-  "peakHoursAdvice": "Advice on staffing and prep time for busiest hours (e.g. 12:30 PM - 2:30 PM and 7:00 PM - 10:00 PM)",
+  "peakHoursAdvice": "${peakHoursExample}",
   "marketingActionTips": [
-    "Tip 1: Practical recommendation in Swahili",
-    "Tip 2: Practical recommendation in Swahili",
-    "Tip 3: Practical recommendation in Swahili"
+    "Tip 1: Practical recommendation in Swahili for this specific business",
+    "Tip 2: Practical recommendation in Swahili for this specific business",
+    "Tip 3: Practical recommendation in Swahili for this specific business"
   ],
   "generatedAt": "${new Date().toISOString()}"
 }

@@ -103,6 +103,22 @@ const defaultConfig: BusinessConfig = {
       mapMarkerUrl: "",
       available: true
     }
+  },
+  services: {
+    teksi: { enabled: true },
+    daladala: { enabled: true },
+    chakula: { enabled: true },
+    sokoni: { enabled: true },
+    vifurushi: { enabled: true },
+    dawa: { enabled: true },
+    saluni: { enabled: true },
+    fundi: { enabled: true },
+    hoteli: { enabled: true },
+    print: { enabled: true },
+    matukio: { enabled: true },
+    bus_ticket: { enabled: true },
+    car_rental: { enabled: true },
+    maduka: { enabled: true },
   }
 };
 
