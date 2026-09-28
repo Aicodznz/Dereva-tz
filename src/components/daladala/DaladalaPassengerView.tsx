@@ -27,7 +27,9 @@ import {
   ChevronRight, 
   X,
   CreditCard,
-  UserCheck
+  UserCheck,
+  Building2,
+  UserPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,6 +41,10 @@ interface DaladalaPassengerViewProps {
   trafficReports: TrafficReport[];
   userCoords: { lat: number; lng: number } | null;
   onOpenRoutePlanner: () => void;
+  onOpenRegisterVehicle?: () => void;
+  onOpenRegisterPassenger?: () => void;
+  onOpenDashboard?: () => void;
+  onOpenConductorMode?: () => void;
 }
 
 export default function DaladalaPassengerView({
@@ -49,6 +55,10 @@ export default function DaladalaPassengerView({
   trafficReports,
   userCoords,
   onOpenRoutePlanner,
+  onOpenRegisterVehicle,
+  onOpenRegisterPassenger,
+  onOpenDashboard,
+  onOpenConductorMode,
 }: DaladalaPassengerViewProps) {
   // Search query & filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -266,6 +276,61 @@ export default function DaladalaPassengerView({
           </button>
         </div>
       )}
+
+      {/* 🚏 Quick Operator Access Banner for Wahusika wa Daladala */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-800 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-black uppercase tracking-wider">
+                Eneo la Wahusika wa Daladala
+              </span>
+              <span className="text-[11px] text-blue-200">Wamiliki • Madereva • Makondakta</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-white">
+              Je, Wewe ni Mmiliki, Dereva au Kondakta wa Daladala?
+            </h3>
+            <p className="text-xs text-blue-100 max-w-xl">
+              Sajili chombo chako hewani kwa GPS, orodhesha abiria wanaoingia na kata tiketi, na uone dasibodi ya hesabu ya mapato ya kila siku.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
+            {onOpenRegisterVehicle && (
+              <button
+                type="button"
+                onClick={onOpenRegisterVehicle}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+              >
+                <Bus className="w-4 h-4 text-neutral-950" />
+                <span>Sajili Chombo</span>
+              </button>
+            )}
+
+            {onOpenRegisterPassenger && (
+              <button
+                type="button"
+                onClick={onOpenRegisterPassenger}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+              >
+                <UserPlus className="w-4 h-4 text-neutral-950" />
+                <span>Sajili Abiria</span>
+              </button>
+            )}
+
+            {onOpenDashboard && (
+              <button
+                type="button"
+                onClick={onOpenDashboard}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-blue-900 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+              >
+                <Building2 className="w-4 h-4 text-blue-700" />
+                <span>Dasibodi Yangu</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* 15: Find My Daladala Search Bar & Quick Filters */}
       <div className="space-y-2">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DaladalaVehicle, DaladalaRoute } from '../../types/daladala.types';
+import { DaladalaVehicle, DaladalaRoute, DaladalaPassengerRecord } from '../../types/daladala.types';
 import { 
   Users, 
   QrCode, 
@@ -13,7 +13,10 @@ import {
   Minus, 
   RefreshCw,
   Send,
-  Radio
+  Radio,
+  UserPlus,
+  Building2,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,14 +24,20 @@ interface DaladalaConductorModeProps {
   vehicle: DaladalaVehicle;
   route?: DaladalaRoute;
   onUpdateVehicle: (updated: Partial<DaladalaVehicle>) => void;
+  passengers?: DaladalaPassengerRecord[];
+  onOpenRegisterPassenger?: () => void;
+  onOpenDashboard?: () => void;
 }
 
 export default function DaladalaConductorMode({
   vehicle,
   route,
   onUpdateVehicle,
+  passengers = [],
+  onOpenRegisterPassenger,
+  onOpenDashboard,
 }: DaladalaConductorModeProps) {
-  const [activeTab, setActiveTab] = useState<'seats' | 'scanner' | 'cash' | 'driver'>('seats');
+  const [activeTab, setActiveTab] = useState<'seats' | 'passengers' | 'scanner' | 'cash' | 'driver'>('seats');
 
   // Scanner state
   const [scannedTicketCode, setScannedTicketCode] = useState('');
@@ -143,48 +152,81 @@ export default function DaladalaConductorMode({
           </p>
         </div>
 
-        {/* Mode Switcher Pills */}
-        <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl text-xs font-bold">
-          <button
-            onClick={() => setActiveTab('seats')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              activeTab === 'seats'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-            }`}
-          >
-            🪑 Viti ({vehicle.capacity - vehicle.seatsTaken})
-          </button>
-          <button
-            onClick={() => setActiveTab('scanner')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              activeTab === 'scanner'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-            }`}
-          >
-            🎫 Skani QR
-          </button>
-          <button
-            onClick={() => setActiveTab('cash')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              activeTab === 'cash'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-            }`}
-          >
-            💰 Chenji
-          </button>
-          <button
-            onClick={() => setActiveTab('driver')}
-            className={`px-3 py-1.5 rounded-lg transition ${
-              activeTab === 'driver'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
-            }`}
-          >
-            🚍 Dereva HUD
-          </button>
+        {/* Quick action buttons & Mode Switcher */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenRegisterPassenger && (
+            <button
+              onClick={onOpenRegisterPassenger}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>+ Sajili Abiria</span>
+            </button>
+          )}
+
+          {onOpenDashboard && (
+            <button
+              onClick={onOpenDashboard}
+              className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs flex items-center gap-1.5 transition active:scale-95"
+            >
+              <Building2 className="w-3.5 h-3.5 text-blue-600" />
+              <span>Dasibodi</span>
+            </button>
+          )}
+
+          {/* Mode Switcher Pills */}
+          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl text-xs font-bold">
+            <button
+              onClick={() => setActiveTab('seats')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                activeTab === 'seats'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              🪑 Viti ({vehicle.capacity - vehicle.seatsTaken})
+            </button>
+            <button
+              onClick={() => setActiveTab('passengers')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                activeTab === 'passengers'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              👥 Abiria ({passengers.filter(p => p.plateNumber === vehicle.plateNumber || p.vehicleId === vehicle.id).length})
+            </button>
+            <button
+              onClick={() => setActiveTab('scanner')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                activeTab === 'scanner'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              🎫 Skani QR
+            </button>
+            <button
+              onClick={() => setActiveTab('cash')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                activeTab === 'cash'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              💰 Chenji
+            </button>
+            <button
+              onClick={() => setActiveTab('driver')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                activeTab === 'driver'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+              }`}
+            >
+              🚍 Dereva HUD
+            </button>
+          </div>
         </div>
       </div>
 
@@ -259,7 +301,91 @@ export default function DaladalaConductorMode({
         </div>
       )}
 
-      {/* TAB 2: QR TICKET SCANNER (#19, #20) */}
+      {/* TAB: PASSENGERS ON BOARD (CREW MANIFEST VIEW) */}
+      {activeTab === 'passengers' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-neutral-50 dark:bg-neutral-800/60 p-3 rounded-xl">
+            <div>
+              <span className="font-extrabold text-xs text-neutral-900 dark:text-white block">
+                Abiria Ndani ya Gari ({vehicle.plateNumber})
+              </span>
+              <p className="text-[11px] text-neutral-500">
+                Orodha ya abiria waliopanda kwenye mzunguko huu na vituo vyao vya kushuka.
+              </p>
+            </div>
+
+            {onOpenRegisterPassenger && (
+              <button
+                onClick={onOpenRegisterPassenger}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Sajili Abiria</span>
+              </button>
+            )}
+          </div>
+
+          {(() => {
+            const thisVehiclePassengers = passengers.filter(
+              (p) => p.plateNumber === vehicle.plateNumber || p.vehicleId === vehicle.id
+            );
+
+            if (thisVehiclePassengers.length === 0) {
+              return (
+                <div className="p-6 text-center border border-dashed border-neutral-300 dark:border-neutral-700 rounded-xl space-y-2">
+                  <Users className="w-8 h-8 text-neutral-400 mx-auto" />
+                  <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                    Bado hakuna abiria waliosajiliwa kwenye gari hili leo.
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    Bofya kitufe cha "+ Sajili Abiria" ili kuweka abiria wanaopanda vituoni.
+                  </p>
+                  {onOpenRegisterPassenger && (
+                    <button
+                      onClick={onOpenRegisterPassenger}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-sm"
+                    >
+                      Sajili Abiria Sasa
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                {thisVehiclePassengers.map((pass) => (
+                  <div
+                    key={pass.id}
+                    className="p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-800/40 flex items-center justify-between text-xs gap-2"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-neutral-900 dark:text-white">{pass.passengerName}</span>
+                        <span className="font-mono text-[10px] text-blue-600 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded font-bold">
+                          {pass.ticketCode}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        Kupandia: <strong>{pass.boardingStop}</strong> ➔ Kushukia: <strong className="text-blue-600 dark:text-blue-400">{pass.destinationStop}</strong>
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="font-black text-neutral-900 dark:text-white">
+                        TSh {pass.fareTzs.toLocaleString()}
+                      </span>
+                      <p className="text-[10px] text-emerald-600 font-bold uppercase mt-0.5">
+                        {pass.paymentStatus === 'paid' ? `✓ ${pass.paymentMethod}` : '⏳ Haijalipwa'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
+      )}
       {activeTab === 'scanner' && (
         <div className="space-y-3">
           <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/40 text-center space-y-2">

@@ -165,3 +165,22 @@ export interface DaladalaCrewMember {
   status: 'active' | 'off_duty';
   emergencyContact?: string;
 }
+
+export interface DaladalaPassengerRecord {
+  id: string;
+  vehicleId: string;
+  plateNumber: string;
+  routeCode: string;
+  routeName: string;
+  passengerName: string;
+  passengerPhone: string;
+  boardingStop: string;
+  destinationStop: string;
+  fareTzs: number;
+  paymentMethod: 'cash' | 'mpesa' | 'tigopesa' | 'airtel' | 'papo_wallet';
+  paymentStatus: 'paid' | 'pending';
+  seatType: 'seat' | 'standing';
+  seatNumber?: string;
+  boardedAt: string;
+  ticketCode: string;
+}

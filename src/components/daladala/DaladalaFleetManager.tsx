@@ -6,7 +6,8 @@ import {
   DaladalaVehicle,
   DaladalaStop,
   DaladalaOwnerProfile,
-  DaladalaCrewMember
+  DaladalaCrewMember,
+  DaladalaPassengerRecord
 } from '../../types/daladala.types';
 import { 
   Building2, 
@@ -135,9 +136,11 @@ interface DaladalaFleetManagerProps {
   terminals: TerminalQueueInfo[];
   routes?: DaladalaRoute[];
   vehicles?: DaladalaVehicle[];
+  passengers?: DaladalaPassengerRecord[];
   onAddVehicle?: (vehicle: DaladalaVehicle, fleetRecord: FleetVehicleRecord) => void;
   onAddRoute?: (route: DaladalaRoute) => void;
   onUpdateVehicleCrew?: (vehicleId: string, driverName: string, conductorName: string, conductorPhone: string) => void;
+  onOpenRegisterPassenger?: () => void;
 }
 
 export default function DaladalaFleetManager({
@@ -145,12 +148,16 @@ export default function DaladalaFleetManager({
   terminals,
   routes = [],
   vehicles = [],
+  passengers = [],
   onAddVehicle,
   onAddRoute,
   onUpdateVehicleCrew,
+  onOpenRegisterPassenger,
 }: DaladalaFleetManagerProps) {
   // Navigation tabs in Owner Panel
-  const [activeTab, setActiveTab] = useState<'revenue' | 'vehicles' | 'crew' | 'routes' | 'maintenance' | 'terminals'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'vehicles' | 'passengers' | 'crew' | 'routes' | 'maintenance' | 'terminals'>('revenue');
+  const [passengerVehicleFilter, setPassengerVehicleFilter] = useState<string>('all');
+  const [passengerSearchQuery, setPassengerSearchQuery] = useState<string>('');
 
   // Owner authentication & profile state (saved in localStorage)
   const [ownerProfile, setOwnerProfile] = useState<DaladalaOwnerProfile>(() => {
@@ -564,6 +571,20 @@ export default function DaladalaFleetManager({
             </button>
 
             <button
+              onClick={() => {
+                if (onOpenRegisterPassenger) {
+                  onOpenRegisterPassenger();
+                } else {
+                  setActiveTab('passengers');
+                }
+              }}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md transition active:scale-95"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Sajili Abiria</span>
+            </button>
+
+            <button
               onClick={() => setShowWithdrawModal(true)}
               className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-black flex items-center gap-1.5 shadow-md transition active:scale-95"
             >
@@ -581,13 +602,13 @@ export default function DaladalaFleetManager({
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Madereva & Makonda</span>
-            <span className="text-base font-black text-white">{crewMembers.length} Wafanyakazi</span>
+            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Abiria Waliosajiliwa</span>
+            <span className="text-base font-black text-amber-400">{passengers.length} Leo</span>
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Ruti Zinazofanya Kazi</span>
-            <span className="text-base font-black text-white">{routes.length} Njia Rasmi</span>
+            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Madereva & Makonda</span>
+            <span className="text-base font-black text-white">{crewMembers.length} Wafanyakazi</span>
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
@@ -621,6 +642,18 @@ export default function DaladalaFleetManager({
         >
           <Bus className="w-3.5 h-3.5" />
           <span>Magari Yangu ({fleetRecords.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('passengers')}
+          className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'passengers'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>Orodha ya Abiria ({passengers.length})</span>
         </button>
 
         <button
@@ -875,7 +908,225 @@ export default function DaladalaFleetManager({
         </div>
       )}
 
-      {/* ---------------- TAB 3: MADEREVA & MAKONDA (CREW MANAGEMENT & ASSIGNMENT) ---------------- */}
+      {/* ---------------- TAB: ORODHA YA ABIRIA (PASSENGER MANIFEST & TICKETS) ---------------- */}
+      {activeTab === 'passengers' && (
+        <div className="space-y-4">
+          {/* Header & Actions */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-neutral-900 dark:text-white">
+                    Orodha ya Abiria (Passenger Manifest & Tiketi)
+                  </h4>
+                  <p className="text-xs text-neutral-500">
+                    Rekodi ya abiria waliopanda kwenye vyombo vyako, vituo vyao na nauli zilizokusanywa.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  toast.success('Orodha ya abiria ya leo (Manifest) imechapishwa!');
+                  if (typeof window !== 'undefined') window.print();
+                }}
+                className="px-3.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Chapisha (Manifest)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (onOpenRegisterPassenger) onOpenRegisterPassenger();
+                  else toast.info('Tumia kitufe cha juu kusajili abiria.');
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-blue-500/25 transition active:scale-95"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Sajili Abiria Mpya</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Jumla ya Abiria Leo</span>
+              <span className="text-xl font-black text-neutral-900 dark:text-white">{passengers.length} Abiria</span>
+            </div>
+
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Jumla ya Nauli Zilizokusanywa</span>
+              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                TSh {passengers.reduce((acc, p) => acc + (p.paymentStatus === 'paid' ? p.fareTzs : 0), 0).toLocaleString()}
+              </span>
+            </div>
+
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Malipo ya Kidijitali (M-Pesa n.k.)</span>
+              <span className="text-xl font-black text-blue-600 dark:text-blue-400">
+                {passengers.filter(p => p.paymentMethod !== 'cash').length} Abiria
+              </span>
+            </div>
+
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Fedha Taslimu (Cash)</span>
+              <span className="text-xl font-black text-amber-600 dark:text-amber-400">
+                {passengers.filter(p => p.paymentMethod === 'cash').length} Abiria
+              </span>
+            </div>
+          </div>
+
+          {/* Filters & Search */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-bold text-neutral-500 whitespace-nowrap">Chuja Gari:</span>
+              <select
+                value={passengerVehicleFilter}
+                onChange={(e) => setPassengerVehicleFilter(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-bold text-neutral-900 dark:text-white"
+              >
+                <option value="all">Vyombo Vyote ({passengers.length})</option>
+                {fleetRecords.map((f) => (
+                  <option key={f.id} value={f.plateNumber}>
+                    {f.plateNumber} ({f.nickname})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full sm:w-72">
+              <input
+                type="text"
+                value={passengerSearchQuery}
+                onChange={(e) => setPassengerSearchQuery(e.target.value)}
+                placeholder="Tafuta jina, simu, tiketi au kituo..."
+                className="w-full px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs text-neutral-900 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Passenger Table / Manifest List */}
+          {(() => {
+            const filteredPassengers = passengers.filter((p) => {
+              const matchVehicle = passengerVehicleFilter === 'all' || p.plateNumber === passengerVehicleFilter;
+              const q = passengerSearchQuery.toLowerCase().trim();
+              const matchQuery = !q || 
+                p.passengerName.toLowerCase().includes(q) || 
+                p.passengerPhone.toLowerCase().includes(q) || 
+                p.ticketCode.toLowerCase().includes(q) ||
+                p.boardingStop.toLowerCase().includes(q) ||
+                p.destinationStop.toLowerCase().includes(q);
+              return matchVehicle && matchQuery;
+            });
+
+            if (filteredPassengers.length === 0) {
+              return (
+                <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-2">
+                  <UserPlus className="w-10 h-10 text-neutral-400 mx-auto" />
+                  <p className="font-bold text-sm text-neutral-700 dark:text-neutral-300">
+                    Hakuna abiria aliyepatikana kwa vigezo hivi.
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    Bofya kitufe cha "Sajili Abiria Mpya" ili kuanza kuorodhesha abiria wanaoingia kwenye daladala zako.
+                  </p>
+                  {onOpenRegisterPassenger && (
+                    <button
+                      onClick={onOpenRegisterPassenger}
+                      className="mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs"
+                    >
+                      + Sajili Abiria Sasa
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-neutral-50 dark:bg-neutral-800/60 text-neutral-500 uppercase tracking-wider text-[10px] font-bold border-b border-neutral-200 dark:border-neutral-800">
+                      <tr>
+                        <th className="px-4 py-3">Tiketi</th>
+                        <th className="px-4 py-3">Jina la Abiria & Simu</th>
+                        <th className="px-4 py-3">Gari & Ruti</th>
+                        <th className="px-4 py-3">Kupandia ➔ Kushukia</th>
+                        <th className="px-4 py-3">Nafasi</th>
+                        <th className="px-4 py-3">Nauli & Malipo</th>
+                        <th className="px-4 py-3">Muda</th>
+                        <th className="px-4 py-3 text-right">Vitendo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                      {filteredPassengers.map((pass) => (
+                        <tr key={pass.id} className="hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40 transition">
+                          <td className="px-4 py-3">
+                            <span className="font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded text-[11px]">
+                              {pass.ticketCode}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-neutral-900 dark:text-white">{pass.passengerName}</p>
+                            <p className="text-[11px] text-neutral-500 font-mono">{pass.passengerPhone}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-black text-neutral-800 dark:text-neutral-200">{pass.plateNumber}</span>
+                            <span className="text-[10px] text-neutral-400 block">{pass.routeCode}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1 font-medium">
+                              <span>{pass.boardingStop}</span>
+                              <span className="text-neutral-400">➔</span>
+                              <strong className="text-neutral-900 dark:text-white">{pass.destinationStop}</strong>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              pass.seatType === 'seat'
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                : 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+                            }`}>
+                              {pass.seatType === 'seat' ? `🪑 Kiti ${pass.seatNumber ? `#${pass.seatNumber}` : ''}` : '🚶 Msimamo'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-black text-neutral-900 dark:text-white">
+                              TSh {pass.fareTzs.toLocaleString()}
+                            </span>
+                            <span className="block text-[10px] text-emerald-600 uppercase font-bold">
+                              {pass.paymentStatus === 'paid' ? `✓ ${pass.paymentMethod}` : '⏳ Haijalipwa'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-neutral-500 text-[11px]">
+                            {pass.boardedAt}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => {
+                                toast.success(`Tiketi ${pass.ticketCode} ya ${pass.passengerName} imetumwa tena kwa SMS!`);
+                              }}
+                              className="px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-300 text-[11px] font-bold"
+                            >
+                              Tuma SMS
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       {activeTab === 'crew' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">

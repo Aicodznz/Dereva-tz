@@ -1,4 +1,4 @@
-import { DaladalaRoute, DaladalaVehicle, TrafficReport, FleetVehicleRecord, TerminalQueueInfo } from '../types/daladala.types';
+import { DaladalaRoute, DaladalaVehicle, TrafficReport, FleetVehicleRecord, TerminalQueueInfo, DaladalaPassengerRecord } from '../types/daladala.types';
 
 export const INITIAL_DALADALA_ROUTES: DaladalaRoute[] = [
   {
@@ -490,9 +490,67 @@ export const INITIAL_TERMINAL_QUEUES: TerminalQueueInfo[] = [
   }
 ];
 
+export const INITIAL_DALADALA_PASSENGERS: DaladalaPassengerRecord[] = [
+  {
+    id: 'pass_01',
+    vehicleId: 'dala_01',
+    plateNumber: 'T 541 CXY',
+    routeCode: 'DL-01',
+    routeName: 'Kimara Mwisho ⇄ Kivukoni / Posta',
+    passengerName: 'Amina Selemani',
+    passengerPhone: '0714 234 567',
+    boardingStop: 'Kimara Mwisho',
+    destinationStop: 'Kivukoni Ferry',
+    fareTzs: 600,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    seatType: 'seat',
+    seatNumber: '04',
+    boardedAt: '10:15 Asubuhi',
+    ticketCode: 'DL-DAR-8419'
+  },
+  {
+    id: 'pass_02',
+    vehicleId: 'dala_01',
+    plateNumber: 'T 541 CXY',
+    routeCode: 'DL-01',
+    routeName: 'Kimara Mwisho ⇄ Kivukoni / Posta',
+    passengerName: 'Baraka Mdee',
+    passengerPhone: '0755 889 900',
+    boardingStop: 'Ubungo Maji',
+    destinationStop: 'DIT / Mnazi Mmoja',
+    fareTzs: 600,
+    paymentMethod: 'mpesa',
+    paymentStatus: 'paid',
+    seatType: 'seat',
+    seatNumber: '11',
+    boardedAt: '10:25 Asubuhi',
+    ticketCode: 'DL-DAR-8422'
+  },
+  {
+    id: 'pass_03',
+    vehicleId: 'dala_02',
+    plateNumber: 'T 392 DKR',
+    routeCode: 'DL-02',
+    routeName: 'Mwenge ⇄ Tegeta Nyuki / Bagamoyo Rd',
+    passengerName: 'Grace Makundi',
+    passengerPhone: '0784 112 334',
+    boardingStop: 'Mwenge Bus Stand',
+    destinationStop: 'Africana Mbezi Beach',
+    fareTzs: 600,
+    paymentMethod: 'tigopesa',
+    paymentStatus: 'paid',
+    seatType: 'seat',
+    seatNumber: '02',
+    boardedAt: '10:40 Asubuhi',
+    ticketCode: 'DL-DAR-9011'
+  }
+];
+
 export const mockDaladalaRoutes = INITIAL_DALADALA_ROUTES;
 export const mockDaladalaVehicles = INITIAL_DALADALAS;
 export const mockTrafficReports = INITIAL_TRAFFIC_REPORTS;
 export const mockFleetRecords = INITIAL_FLEET_RECORDS;
 export const mockTerminalQueues = INITIAL_TERMINAL_QUEUES;
+export const mockDaladalaPassengers = INITIAL_DALADALA_PASSENGERS;
 
