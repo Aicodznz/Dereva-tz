@@ -17,7 +17,9 @@ import {
   ChevronRight,
   Plus,
   Minus,
-  X
+  X,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 // Fix Leaflet default marker icons
@@ -422,6 +424,9 @@ interface DaladalaMapProps {
   userCoords?: { lat: number; lng: number } | null;
   resizeTrigger?: any;
   isEdgeToEdge?: boolean;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+  onOpenRoutePlanner?: () => void;
 }
 
 // Controller to auto-pan ONLY when a new vehicle is selected by user
