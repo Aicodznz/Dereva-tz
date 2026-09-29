@@ -680,6 +680,11 @@ export default function MayaAIChat() {
     return 'Mteja Voice 🛍️';
   };
 
+  // Do not render floating Maya AI FAB on Daladala live transit map page to avoid visual collision and map obstruction
+  if (location.pathname.startsWith('/daladala') || location.pathname.startsWith('/service/daladala')) {
+    return null;
+  }
+
   return (
     <>
       {/* FLOATING DRAGGABLE AI FAB OR DOCKED MINI TAB */}

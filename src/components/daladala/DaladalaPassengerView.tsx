@@ -41,6 +41,7 @@ interface DaladalaPassengerViewProps {
   vehicles: DaladalaVehicle[];
   selectedVehicle: DaladalaVehicle | null;
   onSelectVehicle: (v: DaladalaVehicle) => void;
+  onDeselectVehicle?: () => void;
   trafficReports: TrafficReport[];
   userCoords: { lat: number; lng: number } | null;
   onOpenRoutePlanner: () => void;
@@ -57,6 +58,7 @@ export default function DaladalaPassengerView({
   vehicles,
   selectedVehicle,
   onSelectVehicle,
+  onDeselectVehicle,
   trafficReports,
   userCoords,
   onOpenRoutePlanner,
@@ -479,26 +481,38 @@ export default function DaladalaPassengerView({
                 </div>
               </div>
               
-              {/* Status Badge */}
-              <div className="text-right shrink-0">
-                <span className={`inline-block px-2.5 py-1 rounded-full font-black text-[10px] uppercase shadow-xs ${
-                  selectedVehicle.seatStatus === 'available'
-                    ? 'bg-emerald-500 text-white'
-                    : selectedVehicle.seatStatus === 'few'
-                    ? 'bg-amber-500 text-white'
-                    : selectedVehicle.seatStatus === 'standing'
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-red-600 text-white'
-                }`}>
-                  {selectedVehicle.seatStatus === 'available'
-                    ? `🟢 Viti ${selectedVehicle.capacity - selectedVehicle.seatsTaken} Wazi`
-                    : selectedVehicle.seatStatus === 'few'
-                    ? `🟡 Viti ${selectedVehicle.capacity - selectedVehicle.seatsTaken} Wazi`
-                    : selectedVehicle.seatStatus === 'standing'
-                    ? '🟠 Msimamo Tu'
-                    : '🔴 FULL'}
-                </span>
-                <p className="text-[10px] text-neutral-400 mt-1 font-mono">LATRA Verified</p>
+              {/* Status Badge & Close Button */}
+              <div className="flex items-start gap-2 shrink-0">
+                <div className="text-right">
+                  <span className={`inline-block px-2.5 py-1 rounded-full font-black text-[10px] uppercase shadow-xs ${
+                    selectedVehicle.seatStatus === 'available'
+                      ? 'bg-emerald-500 text-white'
+                      : selectedVehicle.seatStatus === 'few'
+                      ? 'bg-amber-500 text-white'
+                      : selectedVehicle.seatStatus === 'standing'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-red-600 text-white'
+                  }`}>
+                    {selectedVehicle.seatStatus === 'available'
+                      ? `🟢 Viti ${selectedVehicle.capacity - selectedVehicle.seatsTaken} Wazi`
+                      : selectedVehicle.seatStatus === 'few'
+                      ? `🟡 Viti ${selectedVehicle.capacity - selectedVehicle.seatsTaken} Wazi`
+                      : selectedVehicle.seatStatus === 'standing'
+                      ? '🟠 Msimamo Tu'
+                      : '🔴 FULL'}
+                  </span>
+                  <p className="text-[10px] text-neutral-400 mt-1 font-mono">LATRA Verified</p>
+                </div>
+
+                {onDeselectVehicle && (
+                  <button
+                    onClick={onDeselectVehicle}
+                    className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition"
+                    title="Funga taarifa za gari hili / Rudi kwenye ramani nzima"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -718,7 +732,13 @@ export default function DaladalaPassengerView({
               return (
                 <div
                   key={v.id}
-                  onClick={() => onSelectVehicle(v)}
+                  onClick={() => {
+                    if (isSelected && onDeselectVehicle) {
+                      onDeselectVehicle();
+                    } else {
+                      onSelectVehicle(v);
+                    }
+                  }}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                     isSelected
                       ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/30 shadow-sm ring-1 ring-blue-500'

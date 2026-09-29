@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -14,7 +14,10 @@ import {
   Check, 
   Sparkles,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Plus,
+  Minus,
+  X
 } from 'lucide-react';
 
 // Fix Leaflet default marker icons
@@ -76,24 +79,106 @@ const createModernBusIcon = (
   // Rotation heading angle for direction arrow
   const headingAngle = vehicle.heading || 0;
 
-  const html = `
-    <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: ${isSelected ? 300 : 100};">
-      ${isSelected ? `
-        <!-- Live Selected Radar Glow -->
+  if (!isSelected) {
+    // 🚏 SLEEK COMPACT MARKER (Prevents visual clutter, overlap & sticker pile-up)
+    const shortPlate = vehicle.plateNumber.replace(/^T\s*/, '');
+    const html = `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: 100;">
         <div style="
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 58px;
-          height: 58px;
+          position: relative;
+          display: flex;
+          align-items: center;
+          background: #ffffff;
+          border: 1.5px solid ${routeColor};
           border-radius: 9999px;
-          background: rgba(37, 99, 235, 0.22);
-          border: 2px solid #3b82f6;
-          animation: daladalaRadarPing 2s infinite;
-          pointer-events: none;
+          padding: 2px 5px 2px 2px;
+          gap: 3.5px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+          cursor: pointer;
+          white-space: nowrap;
+          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        ">
+          <!-- Mini Colored Bus Disc with Heading Direction -->
+          <div style="
+            width: 18px;
+            height: 18px;
+            border-radius: 9999px;
+            background: ${routeColor};
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+          ">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+              <path d="M4 11h16"/>
+              <path d="M6 18v2"/>
+              <path d="M18 18v2"/>
+            </svg>
+          </div>
+
+          <!-- Short plate / Route badge -->
+          <span style="
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #0f172a;
+            line-height: 1;
+            letter-spacing: -0.02em;
+          ">
+            ${shortPlate}
+          </span>
+
+          <!-- Tiny Seat Status Dot -->
+          <span style="
+            width: 5.5px;
+            height: 5.5px;
+            border-radius: 50%;
+            background: ${statusColor};
+            display: inline-block;
+            flex-shrink: 0;
+          "></span>
+        </div>
+
+        <!-- Tiny Minimal Pin Tail -->
+        <div style="
+          width: 0;
+          height: 0;
+          border-left: 3.5px solid transparent;
+          border-right: 3.5px solid transparent;
+          border-top: 3.5px solid ${routeColor};
+          margin-top: -1px;
         "></div>
-      ` : ''}
+      </div>
+    `;
+
+    return L.divIcon({
+      html,
+      className: 'daladala-bus-marker-compact',
+      iconSize: [60, 26],
+      iconAnchor: [30, 24],
+    });
+  }
+
+  // 🌟 EXPANDED / SELECTED MARKER (Elevated, Detailed & Glowing)
+  const html = `
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: 500;">
+      <!-- Live Selected Radar Glow -->
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 62px;
+        height: 62px;
+        border-radius: 9999px;
+        background: rgba(37, 99, 235, 0.25);
+        border: 2px solid #2563eb;
+        animation: daladalaRadarPing 2s infinite;
+        pointer-events: none;
+      "></div>
 
       <!-- Main Daladala Marker Body -->
       <div style="
@@ -101,19 +186,15 @@ const createModernBusIcon = (
         display: flex;
         align-items: center;
         background: #ffffff;
-        border: 2px solid ${isSelected ? '#2563eb' : '#1e293b'};
+        border: 2px solid #2563eb;
         border-radius: 9999px;
-        padding: 2.5px 6px 2.5px 3px;
-        gap: 5px;
-        box-shadow: ${isSelected 
-          ? '0 8px 24px -2px rgba(37, 99, 235, 0.45), 0 3px 8px rgba(0,0,0,0.3)' 
-          : '0 4px 14px rgba(0,0,0,0.22)'};
-        transform: scale(${isSelected ? '1.14' : '1'});
-        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        padding: 3px 8px 3px 4px;
+        gap: 6px;
+        box-shadow: 0 10px 25px -3px rgba(37, 99, 235, 0.5), 0 4px 10px rgba(0,0,0,0.25);
+        transform: scale(1.15);
         cursor: pointer;
         white-space: nowrap;
       ">
-        <!-- Colored Route Dot / Vehicle Glyph with Heading Arrow -->
         <div style="
           width: 22px;
           height: 22px;
@@ -127,7 +208,6 @@ const createModernBusIcon = (
           box-shadow: 0 1px 3px rgba(0,0,0,0.25);
           flex-shrink: 0;
         ">
-          <!-- Bus Silhouette SVG -->
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
             <path d="M4 11h16"/>
@@ -136,36 +216,10 @@ const createModernBusIcon = (
             <circle cx="8" cy="14" r="1.5"/>
             <circle cx="16" cy="14" r="1.5"/>
           </svg>
-
-          <!-- Micro Direction Heading Indicator -->
-          <div style="
-            position: absolute;
-            top: -3px;
-            right: -3px;
-            width: 8px;
-            height: 8px;
-            background: #ffffff;
-            border: 1.5px solid ${routeColor};
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transform: rotate(${headingAngle}deg);
-          ">
-            <div style="
-              width: 0; 
-              height: 0; 
-              border-left: 2px solid transparent;
-              border-right: 2px solid transparent;
-              border-bottom: 4px solid ${routeColor};
-              margin-top: -1px;
-            "></div>
-          </div>
         </div>
 
-        <!-- Plate Number & Seats Info -->
         <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
-          <div style="display: flex; items-center; gap: 3px;">
+          <div style="display: flex; align-items: center; gap: 3px;">
             <span style="
               font-family: ui-monospace, SFMono-Regular, monospace;
               font-size: 10px;
@@ -195,24 +249,6 @@ const createModernBusIcon = (
             </span>
           </div>
         </div>
-
-        ${vehicle.isOffRoute ? `
-          <!-- Off Route Tag -->
-          <div style="
-            background: #ef4444;
-            color: #ffffff;
-            border-radius: 9999px;
-            width: 14px;
-            height: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            font-weight: 900;
-            border: 1.5px solid #ffffff;
-            margin-left: 1px;
-          ">!</div>
-        ` : ''}
       </div>
 
       <!-- Pointer Stem / Pin Tail -->
@@ -221,29 +257,17 @@ const createModernBusIcon = (
         height: 0;
         border-left: 5px solid transparent;
         border-right: 5px solid transparent;
-        border-top: 5px solid ${isSelected ? '#2563eb' : '#1e293b'};
+        border-top: 5px solid #2563eb;
         margin-top: -1px;
       "></div>
-
-      ${isDisplaced ? `
-        <!-- De-clustering Anchor Indicator -->
-        <div style="
-          width: 4px;
-          height: 4px;
-          border-radius: 50%;
-          background: ${routeColor};
-          opacity: 0.8;
-          margin-top: 1px;
-        "></div>
-      ` : ''}
     </div>
   `;
 
   return L.divIcon({
     html,
-    className: 'daladala-bus-marker',
-    iconSize: [84, 42],
-    iconAnchor: [42, 38],
+    className: 'daladala-bus-marker selected',
+    iconSize: [90, 44],
+    iconAnchor: [45, 40],
   });
 };
 
@@ -316,14 +340,30 @@ interface DaladalaMapProps {
   isEdgeToEdge?: boolean;
 }
 
-// Controller to auto-pan when selected vehicle changes
-function MapRecenter({ targetCoords }: { targetCoords: [number, number] | null }) {
+// Controller to auto-pan ONLY when a new vehicle is selected by user
+function MapRecenter({ 
+  selectedVehicleId, 
+  vehicles 
+}: { 
+  selectedVehicleId: string | null; 
+  vehicles: DaladalaVehicle[] 
+}) {
   const map = useMap();
+  const lastPanVehicleIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (targetCoords) {
-      map.flyTo(targetCoords, 14, { duration: 1.2 });
+    // Only pan to vehicle when user actively clicks/selects a vehicle or changes to a different one
+    if (selectedVehicleId && selectedVehicleId !== lastPanVehicleIdRef.current) {
+      lastPanVehicleIdRef.current = selectedVehicleId;
+      const veh = vehicles.find((v) => v.id === selectedVehicleId);
+      if (veh) {
+        map.flyTo([veh.currentLat, veh.currentLng], 14, { duration: 1.0 });
+      }
+    } else if (!selectedVehicleId) {
+      lastPanVehicleIdRef.current = null;
     }
-  }, [targetCoords, map]);
+  }, [selectedVehicleId, map, vehicles]);
+
   return null;
 }
 
@@ -438,7 +478,7 @@ export default function DaladalaMap({
   return (
     <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
       {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter & Visibility */}
-      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2 max-w-[calc(100%-80px)] sm:max-w-md pointer-events-none">
+      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2 max-w-[calc(100%-145px)] sm:max-w-md pointer-events-none">
         {/* Route Filter Pills Bar */}
         <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
           <button
@@ -506,7 +546,31 @@ export default function DaladalaMap({
           </div>
         )}
 
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1.5 pointer-events-auto">
+          {/* Zoom In & Out Controls */}
+          <div className="flex items-center bg-white/95 dark:bg-neutral-900/95 rounded-xl shadow-xl backdrop-blur-md border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+            <button
+              onClick={() => {
+                const mapEl = (window as any).__papoDaladalaMap;
+                if (mapEl) mapEl.zoomIn();
+              }}
+              className="p-2.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition border-r border-neutral-200 dark:border-neutral-800"
+              title="Kuza Ramani (Zoom In)"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                const mapEl = (window as any).__papoDaladalaMap;
+                if (mapEl) mapEl.zoomOut();
+              }}
+              className="p-2.5 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
+              title="Punguza Ukubwa (Zoom Out)"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Toggle Stops Marker Button */}
           <button
             onClick={() => setShowStops(!showStops)}
@@ -566,6 +630,7 @@ export default function DaladalaMap({
         zoom={12}
         className="w-full h-full z-0"
         scrollWheelZoom={true}
+        zoomControl={false}
         ref={(instance) => {
           if (instance) {
             (window as any).__papoDaladalaMap = instance;
@@ -581,9 +646,7 @@ export default function DaladalaMap({
           maxZoom={19}
         />
 
-        {selectedVehicle && (
-          <MapRecenter targetCoords={[selectedVehicle.currentLat, selectedVehicle.currentLng]} />
-        )}
+        <MapRecenter selectedVehicleId={selectedVehicleId} vehicles={vehicles} />
 
         {/* Polylines for Daladala Routes */}
         {activeRoutes.map((route) => {

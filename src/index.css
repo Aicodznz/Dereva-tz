@@ -965,14 +965,15 @@
 /* ==========================================================================
    PapoDaladala Transit Map & Livery Design Styles
    ========================================================================== */
-.daladala-bus-marker {
+.daladala-bus-marker, .daladala-bus-marker-compact {
   background: transparent !important;
   border: none !important;
-  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
   z-index: 100;
 }
-.daladala-bus-marker:hover {
-  z-index: 250 !important;
+.daladala-bus-marker:hover, .daladala-bus-marker-compact:hover {
+  z-index: 350 !important;
+  transform: scale(1.12);
 }
 
 .daladala-stop-marker {

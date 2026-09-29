@@ -84,7 +84,7 @@ export default function DaladalaHome() {
   // State for data
   const [routes, setRoutes] = useState<DaladalaRoute[]>(mockDaladalaRoutes);
   const [vehicles, setVehicles] = useState<DaladalaVehicle[]>(mockDaladalaVehicles);
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(mockDaladalaVehicles[0].id);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
   // Custom fleets registered by specific owners
@@ -397,7 +397,7 @@ export default function DaladalaHome() {
     return () => clearInterval(interval);
   }, [routes]);
 
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) || vehicles[0] || null;
+  const selectedVehicle = selectedVehicleId ? (vehicles.find((v) => v.id === selectedVehicleId) || null) : null;
 
   // Conductor update vehicle callback
   const handleUpdateVehicle = (updated: Partial<DaladalaVehicle>) => {
@@ -663,7 +663,8 @@ export default function DaladalaHome() {
             routes={routes}
             vehicles={vehicles}
             selectedVehicle={selectedVehicle}
-            onSelectVehicle={(v) => setSelectedVehicleId(v.id)}
+            onSelectVehicle={(v) => setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id)}
+            onDeselectVehicle={() => setSelectedVehicleId(null)}
             trafficReports={mockTrafficReports}
             userCoords={userCoords}
             onOpenRoutePlanner={() => setIsRoutePlannerOpen(true)}
@@ -680,10 +681,10 @@ export default function DaladalaHome() {
         )}
 
         {ecosystemMode === 'conductor' && (
-          selectedVehicle ? (
+          (selectedVehicle || vehicles[0]) ? (
             <DaladalaConductorMode
-              vehicle={selectedVehicle}
-              route={routes.find((r) => r.id === selectedVehicle.routeId)}
+              vehicle={selectedVehicle || vehicles[0]}
+              route={routes.find((r) => r.id === (selectedVehicle || vehicles[0]).routeId)}
               onUpdateVehicle={handleUpdateVehicle}
               passengers={passengers}
               onOpenRegisterPassenger={() => setIsRegisterPassengerOpen(true)}
@@ -715,99 +716,73 @@ export default function DaladalaHome() {
         )}
       </main>
 
-      {/* Floating Bottom Quick Action Bar for Daladala Operators (Mobile & Desktop) */}
-      <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-40 flex items-center justify-center pointer-events-none">
-        <div className="bg-neutral-900/95 border border-neutral-700/80 text-white shadow-2xl backdrop-blur-md rounded-2xl p-1.5 flex items-center gap-1.5 pointer-events-auto max-w-md w-full sm:w-auto">
-          {sessionUser ? (
-            <>
-              <div className="px-2 py-1 text-[11px] font-black uppercase tracking-wider text-amber-400 hidden sm:flex items-center gap-1">
-                <Bus className="w-3.5 h-3.5" />
-                <span>{sessionUser.role === 'owner' ? 'Tajiri:' : sessionUser.role === 'conductor' ? 'Konda:' : 'Abiria:'}</span>
-              </div>
+      {/* Floating Bottom Quick Action Bar ONLY for Authenticated Daladala Operators */}
+      {sessionUser && (sessionUser.role === 'owner' || sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
+        <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-40 flex items-center justify-center pointer-events-none">
+          <div className="bg-neutral-900/95 border border-neutral-700/80 text-white shadow-2xl backdrop-blur-md rounded-2xl p-1.5 flex items-center gap-1.5 pointer-events-auto max-w-md w-full sm:w-auto">
+            <div className="px-2 py-1 text-[11px] font-black uppercase tracking-wider text-amber-400 hidden sm:flex items-center gap-1">
+              <Bus className="w-3.5 h-3.5" />
+              <span>{sessionUser.role === 'owner' ? 'Tajiri:' : 'Konda:'}</span>
+            </div>
 
-              {sessionUser.role === 'owner' && (
-                <>
-                  <button
-                    onClick={() => setIsRegisterVehicleOpen(true)}
-                    className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Sajili Chombo</span>
-                  </button>
-
-                  <button
-                    onClick={() => setIsRegisterPassengerOpen(true)}
-                    className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Sajili Abiria</span>
-                  </button>
-
-                  <button
-                    onClick={() => setEcosystemMode(ecosystemMode === 'fleet' ? 'passenger' : 'fleet')}
-                    className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                      ecosystemMode === 'fleet'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
-                    }`}
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{ecosystemMode === 'fleet' ? 'Rudi Ramani' : 'Dasibodi Yangu'}</span>
-                  </button>
-                </>
-              )}
-
-              {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
-                <>
-                  <button
-                    onClick={() => setIsRegisterPassengerOpen(true)}
-                    className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Sajili Abiria</span>
-                  </button>
-
-                  <button
-                    onClick={() => setEcosystemMode(ecosystemMode === 'conductor' ? 'passenger' : 'conductor')}
-                    className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                      ecosystemMode === 'conductor'
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
-                    }`}
-                  >
-                    <Radio className="w-3.5 h-3.5 text-purple-400" />
-                    <span>{ecosystemMode === 'conductor' ? 'Rudi Ramani' : 'Njia ya Konda'}</span>
-                  </button>
-                </>
-              )}
-
-              {sessionUser.role === 'passenger' && (
+            {sessionUser.role === 'owner' && (
+              <>
                 <button
-                  onClick={() => {
-                    setAuthModalInitialRole('owner');
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 transition"
+                  onClick={() => setIsRegisterVehicleOpen(true)}
+                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
                 >
-                  <Building2 className="w-3.5 h-3.5" />
-                  <span>Mimi ni Mmiliki wa Daladala</span>
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Sajili Chombo</span>
                 </button>
-              )}
-            </>
-          ) : (
-            <button
-              onClick={() => {
-                setAuthModalInitialRole('owner');
-                setIsAuthModalOpen(true);
-              }}
-              className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-            >
-              <Lock className="w-3.5 h-3.5 text-neutral-950" />
-              <span>Wahusika wa Daladala: Ingia / Jisajili</span>
-            </button>
-          )}
+
+                <button
+                  onClick={() => setIsRegisterPassengerOpen(true)}
+                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Sajili Abiria</span>
+                </button>
+
+                <button
+                  onClick={() => setEcosystemMode(ecosystemMode === 'fleet' ? 'passenger' : 'fleet')}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
+                    ecosystemMode === 'fleet'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{ecosystemMode === 'fleet' ? 'Rudi Ramani' : 'Dasibodi Yangu'}</span>
+                </button>
+              </>
+            )}
+
+            {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
+              <>
+                <button
+                  onClick={() => setIsRegisterPassengerOpen(true)}
+                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Sajili Abiria</span>
+                </button>
+
+                <button
+                  onClick={() => setEcosystemMode(ecosystemMode === 'conductor' ? 'passenger' : 'conductor')}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
+                    ecosystemMode === 'conductor'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
+                  }`}
+                >
+                  <Radio className="w-3.5 h-3.5 text-purple-400" />
+                  <span>{ecosystemMode === 'conductor' ? 'Rudi Ramani' : 'Njia ya Konda'}</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* MODAL 1: SAJILI CHOMBO CHAKO (VEHICLE REGISTRATION) */}
       {isRegisterVehicleOpen && (
