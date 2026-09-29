@@ -353,8 +353,8 @@ export default function DaladalaHome() {
   // Route Planner visibility
   const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
 
-  // Map sizing & layout modes: 'full' (Full map experience like Google Maps/Uber) or 'standard' (Split page)
-  const [mapDisplayMode, setMapDisplayMode] = useState<'full' | 'standard'>('full');
+  // Map sizing & layout modes: 'standard' (Everything visible) or 'full' (Full map view)
+  const [mapDisplayMode, setMapDisplayMode] = useState<'full' | 'standard'>('standard');
   const [isFullscreenMap, setIsFullscreenMap] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   // Bottom transit sheet mode: 'peek' (minimal bottom bar), 'open' (expanded drawer), or 'hidden' (100% full map only)
@@ -672,62 +672,14 @@ export default function DaladalaHome() {
           userCoords={userCoords}
           resizeTrigger={isFullscreenMap || mapDisplayMode || bottomSheetState || isMapExpanded}
           isEdgeToEdge={true}
+          isFullscreen={isFullscreenMap}
+          onToggleFullscreen={() => setIsFullscreenMap((prev) => !prev)}
+          onOpenRoutePlanner={() => setIsRoutePlannerOpen(true)}
         />
 
-        {/* Map Controls Floating Badge (Top-Right) */}
-        <div className="absolute top-3 right-3 z-[450] flex items-center gap-1.5 sm:gap-2">
-          {isFullscreenMap ? (
-            <button
-              onClick={() => setIsFullscreenMap(false)}
-              className="px-3 py-2 rounded-xl bg-neutral-900/95 hover:bg-neutral-800 text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition active:scale-95"
-              title="Toka Kioo Kizima (Exit Fullscreen)"
-            >
-              <Minimize2 className="w-4 h-4 text-orange-400" />
-              <span>Toka Fulu</span>
-            </button>
-          ) : (
-            <>
-              {/* Fullscreen Edge-to-Edge Toggle */}
-              <button
-                onClick={() => setIsFullscreenMap(true)}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-100 shadow-xl backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-black flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
-                title="Fungua Kioo Kizima (Full Screen)"
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span className="hidden sm:inline">Kioo Kizima</span>
-                <span className="sm:hidden font-bold text-[11px]">Fulu</span>
-              </button>
-
-              {/* View Layout Mode: Full Map vs Split Standard */}
-              <button
-                onClick={() => setMapDisplayMode(mapDisplayMode === 'full' ? 'standard' : 'full')}
-                className={`p-2 sm:px-2.5 sm:py-2 rounded-xl shadow-md backdrop-blur-md text-xs font-bold flex items-center gap-1.5 border transition active:scale-95 ${
-                  mapDisplayMode === 'full'
-                    ? 'bg-blue-600 text-white border-blue-700 shadow-blue-500/20'
-                    : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:bg-white'
-                }`}
-                title={mapDisplayMode === 'full' ? 'Badilisha kwenda Mtazamo wa Kawaida' : 'Weka Ramani Fulu'}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">{mapDisplayMode === 'full' ? 'Ramani Fulu' : 'Kawaida'}</span>
-                <span className="md:hidden text-[11px] font-bold">{mapDisplayMode === 'full' ? 'Fulu' : 'Gawanya'}</span>
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => setIsRoutePlannerOpen(true)}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95"
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Panga Ruti</span>
-            <span className="sm:hidden text-[11px]">Ruti</span>
-          </button>
-        </div>
-
-        {/* Floating Bottom Transit Drawer / Sheet (Active in Full Map Mode or Fullscreen) */}
-        {(mapDisplayMode === 'full' || isFullscreenMap) && ecosystemMode === 'passenger' && (
-          <div className="absolute bottom-0 left-0 right-0 z-[450] pointer-events-none p-2 sm:p-4 flex flex-col items-center justify-end">
+        {/* Floating Bottom Transit Drawer / Sheet (Active ONLY in Fullscreen Map Mode) */}
+        {isFullscreenMap && ecosystemMode === 'passenger' && (
+          <div className="absolute bottom-4 left-0 right-0 z-[450] pointer-events-none p-2 sm:p-4 pb-16 sm:pb-6 flex flex-col items-center justify-end">
             {bottomSheetState === 'hidden' ? (
               /* Floating Re-open Capsule */
               <button

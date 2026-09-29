@@ -485,6 +485,9 @@ export default function DaladalaMap({
   userCoords,
   resizeTrigger,
   isEdgeToEdge = true,
+  isFullscreen,
+  onToggleFullscreen,
+  onOpenRoutePlanner,
 }: DaladalaMapProps) {
   // Tile layer style state (Default to clean, colorful Humanitarian OpenStreetMap)
   const [tileStyle, setTileStyle] = useState<MapTileStyle>('hot');
@@ -570,13 +573,13 @@ export default function DaladalaMap({
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
-      {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter */}
-      <div className="absolute top-3 left-3 z-[400] flex items-center max-w-[calc(100%-120px)] sm:max-w-md pointer-events-none">
-        {/* Route Filter Pills Bar */}
-        <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
+      {/* 🧭 Unified Map Header Bar: Route Selector on Left, Action Buttons on Right (Never overlapping!) */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-[400] flex items-center justify-between gap-1.5 sm:gap-2 pointer-events-none">
+        {/* Left: Route Filter Pills */}
+        <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto flex-1 min-w-0">
           <button
             onClick={() => setMapRouteFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
               mapRouteFilter === 'all'
                 ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
                 : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -593,7 +596,7 @@ export default function DaladalaMap({
               <button
                 key={route.id}
                 onClick={() => setMapRouteFilter(isSelected ? 'all' : route.id)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
                   isSelected
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -608,6 +611,46 @@ export default function DaladalaMap({
               </button>
             );
           })}
+        </div>
+
+        {/* Right: Map Actions (Kioo Kizima & Panga Ruti) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pointer-events-auto">
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md text-xs font-black flex items-center gap-1 border transition active:scale-95 ${
+                isFullscreen 
+                  ? 'bg-orange-600 text-white border-orange-500' 
+                  : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-100 border-neutral-200 dark:border-neutral-700 hover:bg-white'
+              }`}
+              title={isFullscreen ? 'Toka Kioo Kizima (Exit Fullscreen)' : 'Fungua Kioo Kizima (Full Screen)'}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-white" />
+                  <span className="hidden sm:inline font-bold">Toka Kioo</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span className="hidden sm:inline font-bold">Kioo Kizima</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {onOpenRoutePlanner && (
+            <button
+              type="button"
+              onClick={onOpenRoutePlanner}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl text-xs font-black flex items-center gap-1 transition active:scale-95"
+              title="Panga Ruti (Route Planner)"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline font-bold">Panga Ruti</span>
+            </button>
+          )}
         </div>
       </div>
 
