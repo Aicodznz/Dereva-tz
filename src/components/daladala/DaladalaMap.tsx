@@ -566,7 +566,7 @@ export default function DaladalaMap({
   return (
     <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
       {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter */}
-      <div className="absolute top-3 left-3 z-[400] flex items-center max-w-[calc(100%-145px)] sm:max-w-md pointer-events-none">
+      <div className="absolute top-3 left-3 z-[400] flex items-center max-w-[calc(100%-120px)] sm:max-w-md pointer-events-none">
         {/* Route Filter Pills Bar */}
         <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
           <button

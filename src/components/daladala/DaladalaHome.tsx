@@ -45,7 +45,10 @@ import {
   UserPlus,
   Lock,
   LogOut,
-  UserCheck
+  UserCheck,
+  Compass,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -350,10 +353,12 @@ export default function DaladalaHome() {
   // Route Planner visibility
   const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
 
-  // Map sizing modes
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  // Map sizing & layout modes: 'full' (Full map experience like Google Maps/Uber) or 'standard' (Split page)
+  const [mapDisplayMode, setMapDisplayMode] = useState<'full' | 'standard'>('full');
   const [isFullscreenMap, setIsFullscreenMap] = useState(false);
-  const [isBottomSheetCollapsed, setIsBottomSheetCollapsed] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  // Bottom transit sheet mode: 'peek' (minimal bottom bar), 'open' (expanded drawer), or 'hidden' (100% full map only)
+  const [bottomSheetState, setBottomSheetState] = useState<'peek' | 'open' | 'hidden'>('peek');
 
   // Simulated User Location (Dar es Salaam)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>({
@@ -626,12 +631,23 @@ export default function DaladalaHome() {
         </div>
       </header>
 
-      {/* Single Unified Edge-to-Edge Map Section (Prevents duplicate map overlays & marker collisions) */}
+      {/* Dynamic Route Planner Modal Overlay */}
+      {isRoutePlannerOpen && (
+        <DaladalaRoutePlanner
+          routes={routes}
+          onSelectRoute={(routeId) => setSelectedRouteId(routeId)}
+          onClose={() => setIsRoutePlannerOpen(false)}
+        />
+      )}
+
+      {/* Single Unified Edge-to-Edge Map Section */}
       <section 
         className={`w-full transition-all duration-300 ${
           isFullscreenMap 
             ? 'fixed inset-0 z-[500] w-screen h-screen bg-neutral-950 flex flex-col' 
-            : `relative ${isMapExpanded ? 'h-[560px] sm:h-[640px]' : 'h-[360px] sm:h-[440px]'}`
+            : mapDisplayMode === 'full' && ecosystemMode === 'passenger'
+            ? 'relative w-full h-[calc(100dvh-58px)] flex flex-col overflow-hidden'
+            : `relative ${isMapExpanded ? 'h-[580px] sm:h-[660px]' : 'h-[380px] sm:h-[460px]'}`
         }`}
       >
         <DaladalaMap
@@ -654,56 +670,206 @@ export default function DaladalaHome() {
             toast.info(`Kituo: ${stop.name} (${stop.isTerminal ? 'Stendi Kuu' : 'Kituo cha abiria'})`);
           }}
           userCoords={userCoords}
-          resizeTrigger={isFullscreenMap || isMapExpanded}
+          resizeTrigger={isFullscreenMap || mapDisplayMode || bottomSheetState || isMapExpanded}
           isEdgeToEdge={true}
         />
 
-        {/* Map Controls Floating Badge */}
+        {/* Map Controls Floating Badge (Top-Right) */}
         <div className="absolute top-3 right-3 z-[450] flex items-center gap-1.5 sm:gap-2">
           {isFullscreenMap ? (
             <button
               onClick={() => setIsFullscreenMap(false)}
-              className="px-3.5 py-2 rounded-xl bg-neutral-900/95 hover:bg-neutral-800 text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition active:scale-95"
+              className="px-3 py-2 rounded-xl bg-neutral-900/95 hover:bg-neutral-800 text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition active:scale-95"
               title="Toka Kioo Kizima (Exit Fullscreen)"
             >
               <Minimize2 className="w-4 h-4 text-orange-400" />
-              <span>Toka Kioo Kizima</span>
+              <span>Toka Fulu</span>
             </button>
           ) : (
             <>
+              {/* Fullscreen Edge-to-Edge Toggle */}
               <button
                 onClick={() => setIsFullscreenMap(true)}
                 className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-100 shadow-xl backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-black flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
-                title="Fungua Kioo Kizima (Fullscreen Map)"
+                title="Fungua Kioo Kizima (Full Screen)"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span className="hidden sm:inline">Kioo Kizima</span>
+                <span className="sm:hidden font-bold text-[11px]">Fulu</span>
               </button>
 
+              {/* View Layout Mode: Full Map vs Split Standard */}
               <button
-                onClick={() => setIsMapExpanded(!isMapExpanded)}
-                className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 shadow-md backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-bold flex items-center gap-1 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
-                title={isMapExpanded ? 'Punguza Urefu wa Ramani' : 'Ongeza Urefu wa Ramani'}
+                onClick={() => setMapDisplayMode(mapDisplayMode === 'full' ? 'standard' : 'full')}
+                className={`p-2 sm:px-2.5 sm:py-2 rounded-xl shadow-md backdrop-blur-md text-xs font-bold flex items-center gap-1.5 border transition active:scale-95 ${
+                  mapDisplayMode === 'full'
+                    ? 'bg-blue-600 text-white border-blue-700 shadow-blue-500/20'
+                    : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 border-neutral-200 dark:border-neutral-700 hover:bg-white'
+                }`}
+                title={mapDisplayMode === 'full' ? 'Badilisha kwenda Mtazamo wa Kawaida' : 'Weka Ramani Fulu'}
               >
-                {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                <span className="hidden md:inline">{isMapExpanded ? 'Punguza' : 'Panua'}</span>
+                <Compass className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">{mapDisplayMode === 'full' ? 'Ramani Fulu' : 'Kawaida'}</span>
+                <span className="md:hidden text-[11px] font-bold">{mapDisplayMode === 'full' ? 'Fulu' : 'Gawanya'}</span>
               </button>
             </>
           )}
 
           <button
             onClick={() => setIsRoutePlannerOpen(true)}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95"
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95"
           >
             <Navigation className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Panga Ruti</span>
-            <span className="sm:hidden">Ruti</span>
+            <span className="sm:hidden text-[11px]">Ruti</span>
           </button>
         </div>
+
+        {/* Floating Bottom Transit Drawer / Sheet (Active in Full Map Mode or Fullscreen) */}
+        {(mapDisplayMode === 'full' || isFullscreenMap) && ecosystemMode === 'passenger' && (
+          <div className="absolute bottom-0 left-0 right-0 z-[450] pointer-events-none p-2 sm:p-4 flex flex-col items-center justify-end">
+            {bottomSheetState === 'hidden' ? (
+              /* Floating Re-open Capsule */
+              <button
+                type="button"
+                onClick={() => setBottomSheetState('peek')}
+                className="pointer-events-auto px-4 py-2.5 rounded-2xl bg-neutral-900/95 hover:bg-neutral-800 text-white shadow-2xl backdrop-blur-md border border-neutral-700/80 text-xs font-black flex items-center gap-2 animate-bounce transition active:scale-95"
+              >
+                <Bus className="w-4 h-4 text-emerald-400" />
+                <span>Onyesha Vichujio & Orodha ya Mabasi ({filteredVehicles.length})</span>
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+            ) : bottomSheetState === 'peek' ? (
+              /* Compact Peek Bar */
+              <div className="pointer-events-auto w-full max-w-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 p-2.5 sm:p-3 flex items-center justify-between gap-2 transition-all">
+                <div 
+                  onClick={() => setBottomSheetState('open')}
+                  className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-blue-600/10 text-blue-600 flex items-center justify-center shrink-0">
+                    <Bus className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <div className="flex items-center gap-1.5 text-xs font-extrabold text-neutral-900 dark:text-white">
+                      <span>Mabasi {filteredVehicles.length} Yapo Barabarani</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </div>
+                    <p className="text-[11px] text-neutral-500 truncate">
+                      {filterBoardingStop || filterAlightStop ? (
+                        <>Safari: <strong>{filterBoardingStop || 'Kituo Chako'}</strong> ➔ <strong>{filterAlightStop || 'Kushukia'}</strong></>
+                      ) : (
+                        'Bofya hapa kuandika kituo, ruti au kushukia'
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setBottomSheetState('open')}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center gap-1 shadow-sm transition active:scale-95"
+                  >
+                    <span>Fungua</span>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBottomSheetState('hidden')}
+                    className="p-1.5 rounded-xl text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    title="Ficha kabisa uone ramani fulu tu"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Expanded Bottom Sheet: Filter + Live Feeds */
+              <div className="pointer-events-auto w-full max-w-4xl max-h-[72vh] bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+                {/* Drawer Header / Handle */}
+                <div className="p-3 bg-neutral-50/80 dark:bg-neutral-800/80 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600 mx-auto" />
+                    <span className="text-xs font-black text-neutral-800 dark:text-neutral-200">
+                      Vichujio na Orodha ya Daladala
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBottomSheetState('hidden')}
+                      className="px-2.5 py-1 text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg flex items-center gap-1"
+                      title="Ficha uone ramani fulu"
+                    >
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Ramani Fulu Tu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBottomSheetState('peek')}
+                      className="p-1.5 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                      title="Punguza chini"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Drawer Content */}
+                <div className="p-4 overflow-y-auto space-y-4 flex-1">
+                  <DaladalaPassengerView
+                    routes={routes}
+                    vehicles={filteredVehicles}
+                    selectedVehicle={selectedVehicle}
+                    onSelectVehicle={(v) => setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id)}
+                    onDeselectVehicle={() => setSelectedVehicleId(null)}
+                    trafficReports={mockTrafficReports}
+                    userCoords={userCoords}
+                    onOpenRoutePlanner={() => setIsRoutePlannerOpen(true)}
+                    onOpenRegisterVehicle={() => requireRole('owner', () => setIsRegisterVehicleOpen(true))}
+                    onOpenRegisterPassenger={() => requireRole('conductor', () => setIsRegisterPassengerOpen(true))}
+                    onOpenDashboard={() => requireRole('owner', () => setEcosystemMode('fleet'))}
+                    onOpenConductorMode={() => requireRole('conductor', () => setEcosystemMode('conductor'))}
+                    sessionUser={sessionUser}
+                    onOpenAuthModal={(role) => {
+                      setAuthModalInitialRole(role || 'owner');
+                      setIsAuthModalOpen(true);
+                    }}
+                    boardingStop={filterBoardingStop}
+                    onBoardingStopChange={setFilterBoardingStop}
+                    selectedRouteFilter={filterRouteId}
+                    onRouteChange={setFilterRouteId}
+                    alightStop={filterAlightStop}
+                    onAlightStopChange={setFilterAlightStop}
+                    searchQuery={filterSearchQuery}
+                    onSearchQueryChange={setFilterSearchQuery}
+                    seatFilter={filterSeatStatus}
+                    onSeatFilterChange={setFilterSeatStatus}
+                    onSwapStops={() => {
+                      const prev = filterBoardingStop;
+                      setFilterBoardingStop(filterAlightStop);
+                      setFilterAlightStop(prev);
+                    }}
+                    onResetFilters={() => {
+                      setFilterBoardingStop('');
+                      setFilterAlightStop('');
+                      setFilterRouteId('all');
+                      setFilterSearchQuery('');
+                      setFilterSeatStatus('all');
+                      setSelectedRouteId(null);
+                    }}
+                    totalVehiclesCount={vehicles.length}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* Main Container for Details, Filters, and Subviews */}
-      <main className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 flex-1 flex flex-col space-y-4 pb-10">
+      {/* Main Container for Details, Filters, and Subviews (Active in Standard Split View or Operator Modes) */}
+      {(mapDisplayMode === 'standard' || ecosystemMode !== 'passenger') && (
+        <main className="max-w-7xl w-full mx-auto px-3 sm:px-4 py-4 flex-1 flex flex-col space-y-4 pb-10">
         {/* Dynamic Route Planner Modal Overlay */}
         {isRoutePlannerOpen && (
           <DaladalaRoutePlanner
@@ -795,6 +961,7 @@ export default function DaladalaHome() {
           />
         )}
       </main>
+      )}
 
       {/* Floating Bottom Quick Action Bar ONLY for Authenticated Daladala Operators */}
       {sessionUser && (sessionUser.role === 'owner' || sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
