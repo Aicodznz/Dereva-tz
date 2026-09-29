@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DaladalaVehicle, DaladalaRoute, DaladalaPassengerRecord } from '../../types/daladala.types';
+import { DaladalaVehicle, DaladalaRoute, DaladalaPassengerRecord, DaladalaSessionUser } from '../../types/daladala.types';
 import { 
   Users, 
   QrCode, 
@@ -16,7 +16,8 @@ import {
   Radio,
   UserPlus,
   Building2,
-  FileText
+  FileText,
+  LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,6 +28,8 @@ interface DaladalaConductorModeProps {
   passengers?: DaladalaPassengerRecord[];
   onOpenRegisterPassenger?: () => void;
   onOpenDashboard?: () => void;
+  sessionUser?: DaladalaSessionUser | null;
+  onLogout?: () => void;
 }
 
 export default function DaladalaConductorMode({
@@ -36,6 +39,8 @@ export default function DaladalaConductorMode({
   passengers = [],
   onOpenRegisterPassenger,
   onOpenDashboard,
+  sessionUser,
+  onLogout,
 }: DaladalaConductorModeProps) {
   const [activeTab, setActiveTab] = useState<'seats' | 'passengers' | 'scanner' | 'cash' | 'driver'>('seats');
 
@@ -154,6 +159,13 @@ export default function DaladalaConductorMode({
 
         {/* Quick action buttons & Mode Switcher */}
         <div className="flex flex-wrap items-center gap-2">
+          {sessionUser && (
+            <div className="px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-[11px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <span>{sessionUser.fullName.split(' ')[0]}</span>
+            </div>
+          )}
+
           {onOpenRegisterPassenger && (
             <button
               onClick={onOpenRegisterPassenger}
@@ -164,13 +176,26 @@ export default function DaladalaConductorMode({
             </button>
           )}
 
-          {onOpenDashboard && (
+          {/* Only show Dasibodi to owners */}
+          {onOpenDashboard && sessionUser?.role === 'owner' && (
             <button
               onClick={onOpenDashboard}
               className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold text-xs flex items-center gap-1.5 transition active:scale-95"
             >
               <Building2 className="w-3.5 h-3.5 text-blue-600" />
               <span>Dasibodi</span>
+            </button>
+          )}
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="px-2.5 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-800 hover:bg-red-100 text-xs font-bold flex items-center gap-1 transition active:scale-95"
+              title="Toka kwenye Njia ya Kondakta"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Ondoka</span>
             </button>
           )}
 

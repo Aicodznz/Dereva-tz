@@ -184,3 +184,22 @@ export interface DaladalaPassengerRecord {
   boardedAt: string;
   ticketCode: string;
 }
+
+export type DaladalaUserRole = 'guest' | 'passenger' | 'conductor' | 'driver' | 'owner';
+
+export interface DaladalaSessionUser {
+  id: string;
+  role: DaladalaUserRole;
+  fullName: string;
+  phone: string;
+  email?: string;
+  assignedPlate?: string; // for conductor / driver
+  organizationName?: string; // for owner / Chama
+  nidaNumber?: string;
+  mPesaNumber?: string;
+  bankAccount?: string;
+  joinedDate: string;
+  verified: boolean;
+  isCustomRegistered?: boolean;
+}
+

@@ -1,9 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { DaladalaRoute, DaladalaVehicle, DaladalaStop } from '../../types/daladala.types';
-import { Navigation, Compass, Layers } from 'lucide-react';
+import { 
+  Navigation, 
+  Compass, 
+  Layers, 
+  Bus, 
+  Filter, 
+  Eye, 
+  EyeOff, 
+  Check, 
+  Sparkles,
+  MapPin,
+  ChevronRight
+} from 'lucide-react';
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -13,76 +25,216 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Custom Bus Icon Generator
-const createBusIcon = (vehicle: DaladalaVehicle, isSelected: boolean) => {
-  const seatBg = 
-    vehicle.seatStatus === 'available' ? '#16a34a' :
-    vehicle.seatStatus === 'few' ? '#ca8a04' :
-    vehicle.seatStatus === 'standing' ? '#ea580c' : '#dc2626';
+// Tile Layer configurations
+type MapTileStyle = 'voyager' | 'positron' | 'dark' | 'osm';
 
-  const seatLabel = 
-    vehicle.seatStatus === 'available' ? `${vehicle.capacity - vehicle.seatsTaken} Viti` :
-    vehicle.seatStatus === 'few' ? `${vehicle.capacity - vehicle.seatsTaken} Viti` :
+const MAP_TILES: Record<MapTileStyle, { name: string; url: string; attribution: string }> = {
+  voyager: {
+    name: 'Kisasa (Voyager Transit)',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CARTO &copy; OpenStreetMap',
+  },
+  positron: {
+    name: 'Wazi (Positron Minimal)',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CARTO &copy; OpenStreetMap',
+  },
+  dark: {
+    name: 'Usiku (Dark Matter)',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CARTO &copy; OpenStreetMap',
+  },
+  osm: {
+    name: 'Asili (OpenStreetMap)',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+};
+
+/**
+ * Creates an authentic, aerodynamic Tanzanian Daladala Bus Marker
+ */
+const createModernBusIcon = (
+  vehicle: DaladalaVehicle, 
+  isSelected: boolean,
+  isDisplaced: boolean = false
+) => {
+  const routeColor = vehicle.colorHex || '#2563eb';
+  
+  // Status color logic
+  const statusColor = 
+    vehicle.seatStatus === 'available' ? '#10b981' :
+    vehicle.seatStatus === 'few' ? '#f59e0b' :
+    vehicle.seatStatus === 'standing' ? '#f97316' : '#ef4444';
+
+  const seatsLeft = Math.max(0, vehicle.capacity - vehicle.seatsTaken);
+  const statusText = 
+    vehicle.seatStatus === 'available' ? `${seatsLeft} Viti` :
+    vehicle.seatStatus === 'few' ? `${seatsLeft} Viti` :
     vehicle.seatStatus === 'standing' ? 'Msimamo' : 'FULL';
 
+  // Rotation heading angle for direction arrow
+  const headingAngle = vehicle.heading || 0;
+
   const html = `
-    <div style="position: relative; display: flex; flex-direction: column; align-items: center; transform: scale(${isSelected ? '1.2' : '1'}); transition: transform 0.3s;">
-      <div style="
-        background: ${vehicle.colorHex || '#2563eb'};
-        color: white;
-        padding: 4px 7px;
-        border-radius: 9999px;
-        font-size: 10px;
-        font-weight: 800;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-        border: 2px solid white;
-      ">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
-          <path d="M4 11h16"/>
-          <path d="M6 18v2"/>
-          <path d="M18 18v2"/>
-          <circle cx="8" cy="14" r="1.5"/>
-          <circle cx="16" cy="14" r="1.5"/>
-        </svg>
-        <span>${vehicle.plateNumber}</span>
-      </div>
-      <div style="
-        background: ${seatBg};
-        color: white;
-        font-size: 8px;
-        font-weight: 900;
-        padding: 1px 5px;
-        border-radius: 4px;
-        margin-top: -3px;
-        border: 1px solid white;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      ">
-        ${seatLabel}
-      </div>
-      ${vehicle.isOffRoute ? `
+    <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: ${isSelected ? 300 : 100};">
+      ${isSelected ? `
+        <!-- Live Selected Radar Glow -->
         <div style="
           position: absolute;
-          top: -8px;
-          right: -8px;
-          background: #ef4444;
-          color: white;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 58px;
+          height: 58px;
           border-radius: 9999px;
-          width: 16px;
-          height: 16px;
+          background: rgba(37, 99, 235, 0.22);
+          border: 2px solid #3b82f6;
+          animation: daladalaRadarPing 2s infinite;
+          pointer-events: none;
+        "></div>
+      ` : ''}
+
+      <!-- Main Daladala Marker Body -->
+      <div style="
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: #ffffff;
+        border: 2px solid ${isSelected ? '#2563eb' : '#1e293b'};
+        border-radius: 9999px;
+        padding: 2.5px 6px 2.5px 3px;
+        gap: 5px;
+        box-shadow: ${isSelected 
+          ? '0 8px 24px -2px rgba(37, 99, 235, 0.45), 0 3px 8px rgba(0,0,0,0.3)' 
+          : '0 4px 14px rgba(0,0,0,0.22)'};
+        transform: scale(${isSelected ? '1.14' : '1'});
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        cursor: pointer;
+        white-space: nowrap;
+      ">
+        <!-- Colored Route Dot / Vehicle Glyph with Heading Arrow -->
+        <div style="
+          width: 22px;
+          height: 22px;
+          border-radius: 9999px;
+          background: ${routeColor};
+          color: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 9px;
-          font-weight: bold;
-          border: 1.5px solid white;
-          animation: pulse 1.5s infinite;
-        ">!</div>
+          position: relative;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+          flex-shrink: 0;
+        ">
+          <!-- Bus Silhouette SVG -->
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+            <path d="M4 11h16"/>
+            <path d="M6 18v2"/>
+            <path d="M18 18v2"/>
+            <circle cx="8" cy="14" r="1.5"/>
+            <circle cx="16" cy="14" r="1.5"/>
+          </svg>
+
+          <!-- Micro Direction Heading Indicator -->
+          <div style="
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 8px;
+            height: 8px;
+            background: #ffffff;
+            border: 1.5px solid ${routeColor};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(${headingAngle}deg);
+          ">
+            <div style="
+              width: 0; 
+              height: 0; 
+              border-left: 2px solid transparent;
+              border-right: 2px solid transparent;
+              border-bottom: 4px solid ${routeColor};
+              margin-top: -1px;
+            "></div>
+          </div>
+        </div>
+
+        <!-- Plate Number & Seats Info -->
+        <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
+          <div style="display: flex; items-center; gap: 3px;">
+            <span style="
+              font-family: ui-monospace, SFMono-Regular, monospace;
+              font-size: 10px;
+              font-weight: 900;
+              color: #0f172a;
+              letter-spacing: 0.04em;
+            ">
+              ${vehicle.plateNumber}
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 3px; margin-top: 1.5px;">
+            <span style="
+              width: 5px;
+              height: 5px;
+              border-radius: 50%;
+              background: ${statusColor};
+              display: inline-block;
+            "></span>
+            <span style="
+              font-size: 8.5px;
+              font-weight: 800;
+              color: #475569;
+              letter-spacing: 0.02em;
+            ">
+              ${statusText}
+            </span>
+          </div>
+        </div>
+
+        ${vehicle.isOffRoute ? `
+          <!-- Off Route Tag -->
+          <div style="
+            background: #ef4444;
+            color: #ffffff;
+            border-radius: 9999px;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 900;
+            border: 1.5px solid #ffffff;
+            margin-left: 1px;
+          ">!</div>
+        ` : ''}
+      </div>
+
+      <!-- Pointer Stem / Pin Tail -->
+      <div style="
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid ${isSelected ? '#2563eb' : '#1e293b'};
+        margin-top: -1px;
+      "></div>
+
+      ${isDisplaced ? `
+        <!-- De-clustering Anchor Indicator -->
+        <div style="
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: ${routeColor};
+          opacity: 0.8;
+          margin-top: 1px;
+        "></div>
       ` : ''}
     </div>
   `;
@@ -90,29 +242,65 @@ const createBusIcon = (vehicle: DaladalaVehicle, isSelected: boolean) => {
   return L.divIcon({
     html,
     className: 'daladala-bus-marker',
-    iconSize: [80, 40],
-    iconAnchor: [40, 20],
+    iconSize: [84, 42],
+    iconAnchor: [42, 38],
   });
 };
 
-// Custom Stop Icon
-const createStopIcon = (stop: DaladalaStop) => {
+/**
+ * Creates modern, clean Bus Stop icons (Terminal vs Local)
+ */
+const createModernStopIcon = (stop: DaladalaStop) => {
+  if (stop.isTerminal) {
+    // Stendi Kuu (Main Terminal)
+    const html = `
+      <div style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: #ea580c;
+        color: #ffffff;
+        border: 2.5px solid #ffffff;
+        border-radius: 50%;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      ">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+          <path d="M4 11h16"/>
+        </svg>
+      </div>
+    `;
+    return L.divIcon({
+      html,
+      className: 'daladala-stop-marker terminal',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    });
+  }
+
+  // Local transit stop node
   const html = `
     <div style="
-      width: ${stop.isTerminal ? '16px' : '10px'};
-      height: ${stop.isTerminal ? '16px' : '10px'};
-      background: ${stop.isTerminal ? '#ea580c' : '#ffffff'};
-      border: 2.5px solid ${stop.isTerminal ? '#ffffff' : '#2563eb'};
+      width: 11px;
+      height: 11px;
+      background: #ffffff;
+      border: 2.5px solid #2563eb;
       border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+      cursor: pointer;
+      transition: transform 0.2s ease;
     "></div>
   `;
 
   return L.divIcon({
     html,
     className: 'daladala-stop-marker',
-    iconSize: [stop.isTerminal ? 16 : 10, stop.isTerminal ? 16 : 10],
-    iconAnchor: [stop.isTerminal ? 8 : 5, stop.isTerminal ? 8 : 5],
+    iconSize: [11, 11],
+    iconAnchor: [5.5, 5.5],
   });
 };
 
@@ -139,62 +327,19 @@ function MapRecenter({ targetCoords }: { targetCoords: [number, number] | null }
   return null;
 }
 
-// Ensures Leaflet recalculates tile dimensions when map container resizes or enters fullscreen
+// Ensures Leaflet recalculates tile dimensions when map container resizes
 function MapResizeInvalidator({ resizeTrigger }: { resizeTrigger: any }) {
   const map = useMap();
   useEffect(() => {
     map.invalidateSize();
     const t1 = setTimeout(() => map.invalidateSize(), 150);
     const t2 = setTimeout(() => map.invalidateSize(), 400);
-    const t3 = setTimeout(() => map.invalidateSize(), 800);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
     };
   }, [resizeTrigger, map]);
   return null;
-}
-
-// Floating quick map tools
-function MapFloatingControls({ 
-  userCoords,
-  defaultCenter
-}: { 
-  userCoords?: { lat: number; lng: number } | null;
-  defaultCenter: [number, number];
-}) {
-  const map = useMap();
-  return (
-    <div className="leaflet-bottom leaflet-right" style={{ marginBottom: '20px', marginRight: '14px' }}>
-      <div className="leaflet-control flex flex-col gap-1.5 shadow-xl rounded-xl overflow-hidden bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1 border border-neutral-200 dark:border-neutral-800">
-        {userCoords && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              map.flyTo([userCoords.lat, userCoords.lng], 15, { duration: 1.1 });
-            }}
-            className="p-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-blue-600 dark:text-blue-400 transition"
-            title="Nielekeze nilipo (My Location)"
-          >
-            <Navigation className="w-4 h-4" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            map.flyTo(defaultCenter, 12, { duration: 1.1 });
-          }}
-          className="p-2.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition"
-          title="Onyesha Dar es Salaam Yote"
-        >
-          <Compass className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
 }
 
 export default function DaladalaMap({
@@ -208,27 +353,232 @@ export default function DaladalaMap({
   resizeTrigger,
   isEdgeToEdge = true,
 }: DaladalaMapProps) {
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
-  const activeRoutes = selectedRouteId
-    ? routes.filter((r) => r.id === selectedRouteId)
-    : routes;
+  // Tile layer style state
+  const [tileStyle, setTileStyle] = useState<MapTileStyle>('voyager');
+  const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
+
+  // Map Filter: Active Route selection directly on map
+  const [mapRouteFilter, setMapRouteFilter] = useState<string>('all');
+  const [showStops, setShowStops] = useState(true);
+
+  // Sync internal map filter with parent selectedRouteId if provided
+  useEffect(() => {
+    if (selectedRouteId) {
+      setMapRouteFilter(selectedRouteId);
+    }
+  }, [selectedRouteId]);
 
   const defaultCenter: [number, number] = [-6.8140, 39.2450]; // Central Dar es Salaam
 
+  // Filter routes based on route selector
+  const activeRoutes = useMemo(() => {
+    if (mapRouteFilter === 'all') return routes;
+    return routes.filter((r) => r.id === mapRouteFilter);
+  }, [routes, mapRouteFilter]);
+
+  // Filter vehicles based on active routes
+  const filteredVehicles = useMemo(() => {
+    if (mapRouteFilter === 'all') return vehicles;
+    return vehicles.filter((v) => v.routeId === mapRouteFilter);
+  }, [vehicles, mapRouteFilter]);
+
+  /**
+   * 🚗 Intelligent De-clustering & Staggering Algorithm:
+   * When multiple Daladalas are clustered closely (e.g. at Kivukoni, Kariakoo, Mwenge),
+   * they fan out in an arc/circle so every marker is clearly legible and clickable!
+   */
+  const displayedVehicles = useMemo(() => {
+    const proximityThreshold = 0.0035; // ~380 meters
+    const clusters: DaladalaVehicle[][] = [];
+    const visited = new Set<string>();
+
+    filteredVehicles.forEach((veh) => {
+      if (visited.has(veh.id)) return;
+      const cluster = [veh];
+      visited.add(veh.id);
+
+      filteredVehicles.forEach((other) => {
+        if (visited.has(other.id)) return;
+        const d = Math.hypot(veh.currentLat - other.currentLat, veh.currentLng - other.currentLng);
+        if (d < proximityThreshold) {
+          cluster.push(other);
+          visited.add(other.id);
+        }
+      });
+
+      clusters.push(cluster);
+    });
+
+    return clusters.flatMap((cluster) => {
+      if (cluster.length <= 1) {
+        return cluster.map((v) => ({
+          vehicle: v,
+          renderLat: v.currentLat,
+          renderLng: v.currentLng,
+          isDisplaced: false,
+        }));
+      }
+
+      // Displace radially with gentle stagger
+      const radius = 0.0024; // ~260 meters offset
+      return cluster.map((v, idx) => {
+        const angle = (2 * Math.PI * idx) / cluster.length;
+        return {
+          vehicle: v,
+          renderLat: v.currentLat + Math.sin(angle) * radius,
+          renderLng: v.currentLng + Math.cos(angle) * radius * 1.15,
+          isDisplaced: true,
+        };
+      });
+    });
+  }, [filteredVehicles]);
+
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+
   return (
-    <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none border-b border-neutral-200 dark:border-neutral-800' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
+    <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
+      {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter & Visibility */}
+      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2 max-w-[calc(100%-80px)] sm:max-w-md pointer-events-none">
+        {/* Route Filter Pills Bar */}
+        <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
+          <button
+            onClick={() => setMapRouteFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 ${
+              mapRouteFilter === 'all'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <span>Ruti Zote</span>
+            <span className="text-[10px] opacity-75 font-normal">({vehicles.length})</span>
+          </button>
+
+          {routes.map((route) => {
+            const count = vehicles.filter((v) => v.routeId === route.id).length;
+            const isSelected = mapRouteFilter === route.id;
+            return (
+              <button
+                key={route.id}
+                onClick={() => setMapRouteFilter(isSelected ? 'all' : route.id)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <span 
+                  className="w-2 h-2 rounded-full shrink-0" 
+                  style={{ backgroundColor: route.color }} 
+                />
+                <span>{route.routeCode}</span>
+                <span className="text-[10px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 🗺️ Floating Map Layers & Centering Tools (Bottom-Right) */}
+      <div className="absolute bottom-5 right-3 z-[400] flex flex-col items-end gap-2 pointer-events-none">
+        {/* Tile Style Picker Popup */}
+        {isStyleMenuOpen && (
+          <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-2 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 pointer-events-auto mb-1 space-y-1 w-48 text-xs animate-in fade-in zoom-in-95 duration-100">
+            <div className="px-2 py-1 text-[10px] font-black uppercase text-neutral-400 tracking-wider">
+              Muonekano wa Ramani
+            </div>
+            {(Object.keys(MAP_TILES) as MapTileStyle[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setTileStyle(key);
+                  setIsStyleMenuOpen(false);
+                }}
+                className={`w-full px-2.5 py-1.5 rounded-xl text-left font-bold flex items-center justify-between transition ${
+                  tileStyle === key
+                    ? 'bg-blue-600 text-white'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                }`}
+              >
+                <span>{MAP_TILES[key].name}</span>
+                {tileStyle === key && <Check className="w-3.5 h-3.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Toggle Stops Marker Button */}
+          <button
+            onClick={() => setShowStops(!showStops)}
+            className={`p-2.5 rounded-xl shadow-xl backdrop-blur-md border transition ${
+              showStops 
+                ? 'bg-white/95 dark:bg-neutral-900/95 text-blue-600 border-neutral-200 dark:border-neutral-800' 
+                : 'bg-neutral-200/90 dark:bg-neutral-800/90 text-neutral-400 border-transparent'
+            }`}
+            title={showStops ? 'Ficha Vituo vya Mabasi' : 'Onyesha Vituo vya Mabasi'}
+          >
+            {showStops ? <MapPin className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+
+          {/* Switch Map Style Layer Button */}
+          <button
+            onClick={() => setIsStyleMenuOpen(!isStyleMenuOpen)}
+            className="p-2.5 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 shadow-xl backdrop-blur-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 transition"
+            title="Badili Aina ya Ramani (Layer Style)"
+          >
+            <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          </button>
+
+          {/* User Location Center */}
+          {userCoords && (
+            <button
+              onClick={() => {
+                const mapEl = (window as any).__papoDaladalaMap;
+                if (mapEl) {
+                  mapEl.flyTo([userCoords.lat, userCoords.lng], 15, { duration: 1.1 });
+                }
+              }}
+              className="p-2.5 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-blue-600 dark:text-blue-400 shadow-xl backdrop-blur-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 transition"
+              title="Nielekeze Nilipo (My GPS Location)"
+            >
+              <Navigation className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Fit Dar es Salaam View */}
+          <button
+            onClick={() => {
+              const mapEl = (window as any).__papoDaladalaMap;
+              if (mapEl) {
+                mapEl.flyTo(defaultCenter, 12, { duration: 1.1 });
+              }
+            }}
+            className="p-2.5 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 shadow-xl backdrop-blur-md border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 transition"
+            title="Onyesha Dar es Salaam Yote"
+          >
+            <Compass className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       <MapContainer
         center={defaultCenter}
         zoom={12}
         className="w-full h-full z-0"
         scrollWheelZoom={true}
+        ref={(instance) => {
+          if (instance) {
+            (window as any).__papoDaladalaMap = instance;
+          }
+        }}
       >
         <MapResizeInvalidator resizeTrigger={resizeTrigger} />
-        <MapFloatingControls userCoords={userCoords} defaultCenter={defaultCenter} />
 
+        {/* Selected Tile Layer Style */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAP_TILES[tileStyle].attribution}
+          url={MAP_TILES[tileStyle].url}
+          maxZoom={19}
         />
 
         {selectedVehicle && (
@@ -236,54 +586,85 @@ export default function DaladalaMap({
         )}
 
         {/* Polylines for Daladala Routes */}
-        {activeRoutes.map((route) => (
-          <Polyline
-            key={route.id}
-            positions={route.pathCoordinates}
-            pathOptions={{
-              color: route.color,
-              weight: selectedRouteId === route.id ? 6 : 4,
-              opacity: selectedRouteId === route.id ? 0.9 : 0.65,
-              dashArray: selectedRouteId === route.id ? undefined : '4, 4',
-            }}
-          >
-            <Tooltip sticky>
-              <div className="text-xs font-bold text-neutral-900">
-                <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] mr-1">
-                  {route.routeCode}
-                </span>
-                {route.name}
-              </div>
-            </Tooltip>
-          </Polyline>
-        ))}
+        {activeRoutes.map((route) => {
+          const isSelected = selectedRouteId === route.id || mapRouteFilter === route.id;
+          return (
+            <React.Fragment key={route.id}>
+              {/* Outer soft glowing casing line for selected route */}
+              {isSelected && (
+                <Polyline
+                  positions={route.pathCoordinates}
+                  pathOptions={{
+                    color: route.color,
+                    weight: 9,
+                    opacity: 0.35,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              )}
 
-        {/* Bus Stops */}
-        {activeRoutes.flatMap((route) =>
+              {/* Core Route Line */}
+              <Polyline
+                positions={route.pathCoordinates}
+                pathOptions={{
+                  color: route.color,
+                  weight: isSelected ? 5 : 3.5,
+                  opacity: isSelected ? 0.95 : 0.6,
+                  dashArray: isSelected ? undefined : '5, 5',
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              >
+                <Tooltip sticky>
+                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5 p-0.5">
+                    <span 
+                      className="px-1.5 py-0.5 rounded text-white text-[10px] font-black"
+                      style={{ backgroundColor: route.color }}
+                    >
+                      {route.routeCode}
+                    </span>
+                    <span>{route.name}</span>
+                  </div>
+                </Tooltip>
+              </Polyline>
+            </React.Fragment>
+          );
+        })}
+
+        {/* Bus Stops (Stendi & Vituo) */}
+        {showStops && activeRoutes.flatMap((route) =>
           route.stops.map((stop) => (
             <Marker
               key={`${route.id}-${stop.id}`}
               position={[stop.lat, stop.lng]}
-              icon={createStopIcon(stop)}
+              icon={createModernStopIcon(stop)}
               eventHandlers={{
                 click: () => onSelectStop && onSelectStop(stop),
               }}
             >
               <Popup>
-                <div className="p-1 min-w-[150px]">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
-                    <h4 className="font-bold text-xs text-neutral-900">{stop.name}</h4>
+                <div className="p-1 min-w-[170px] space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full" 
+                      style={{ backgroundColor: stop.isTerminal ? '#ea580c' : '#2563eb' }}
+                    />
+                    <h4 className="font-black text-xs text-neutral-900">{stop.name}</h4>
                   </div>
-                  <p className="text-[10px] text-neutral-600 mb-2">
-                    {stop.isTerminal ? 'Stendi Kuu (Terminal)' : `Kituo cha ${stop.zone || 'Daladala'}`}
+                  <p className="text-[10px] text-neutral-500 font-semibold">
+                    {stop.isTerminal ? 'Stendi Kuu (Terminal)' : `Kituo cha abiria (${stop.zone || 'Dar'})`}
                   </p>
+                  <div className="text-[10px] text-neutral-600 bg-neutral-100 p-1.5 rounded-lg flex items-center justify-between font-mono">
+                    <span>Ruti:</span>
+                    <strong className="text-blue-700">{route.routeCode}</strong>
+                  </div>
                   {onSelectStop && (
                     <button
                       onClick={() => onSelectStop(stop)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] py-1 px-2 rounded transition"
+                      className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-[10px] py-1.5 px-2 rounded-lg transition"
                     >
-                      Panda / Shuka Hapa
+                      Chagua Kituo Hiki
                     </button>
                   )}
                 </div>
@@ -292,41 +673,55 @@ export default function DaladalaMap({
           ))
         )}
 
-        {/* Moving Daladala Vehicles */}
-        {vehicles.map((v) => {
+        {/* 🚌 Moving Daladala Vehicles with Intelligent De-clustering */}
+        {displayedVehicles.map(({ vehicle: v, renderLat, renderLng, isDisplaced }) => {
           const isSelected = v.id === selectedVehicleId;
           return (
             <Marker
               key={v.id}
-              position={[v.currentLat, v.currentLng]}
-              icon={createBusIcon(v, isSelected)}
+              position={[renderLat, renderLng]}
+              icon={createModernBusIcon(v, isSelected, isDisplaced)}
               eventHandlers={{
                 click: () => onSelectVehicle(v),
               }}
             >
               <Popup>
-                <div className="p-1 min-w-[210px] space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-neutral-900">{v.plateNumber}</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">
-                      {v.routeCode}
-                    </span>
+                <div className="p-1.5 min-w-[230px] space-y-2">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-neutral-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="tz-number-plate text-xs font-black">{v.plateNumber}</span>
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                        {v.routeCode}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-neutral-500">{v.speedKmH} km/h</span>
                   </div>
-                  <div className="text-xs font-semibold text-blue-700 italic">"{v.nickname}"</div>
-                  <div className="text-[11px] text-neutral-600">
-                    Kuelekea: <strong className="text-neutral-800">{v.nextStopName}</strong> (Dk {v.etaMinutesToNextStop})
+
+                  <div>
+                    <h4 className="text-xs font-black text-neutral-900 italic">"{v.nickname}"</h4>
+                    <p className="text-[11px] text-neutral-600 font-semibold mt-0.5">{v.routeName}</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">
+                      Kuelekea: <strong className="text-neutral-800">{v.nextStopName}</strong> (Dk {v.etaMinutesToNextStop})
+                    </p>
                   </div>
+
                   <div className="flex items-center justify-between text-[10px] pt-1 border-t border-neutral-100">
-                    <span className="text-neutral-500">Spidi: {v.speedKmH} km/h</span>
-                    <span className="font-bold text-emerald-600">
-                      {v.seatStatus === 'available' ? 'Viti Wazi' : v.seatStatus}
+                    <span className="text-neutral-500">Hali ya Viti:</span>
+                    <span className={`font-black uppercase ${
+                      v.seatStatus === 'available' ? 'text-emerald-600' :
+                      v.seatStatus === 'few' ? 'text-amber-600' :
+                      v.seatStatus === 'standing' ? 'text-orange-600' : 'text-red-600'
+                    }`}>
+                      {v.seatStatus === 'available' ? `${v.capacity - v.seatsTaken} Viti Wazi` : v.seatStatus}
                     </span>
                   </div>
+
                   <button
                     onClick={() => onSelectVehicle(v)}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-1.5 rounded-lg shadow-sm transition"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-2 rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
                   >
-                    Angalia Safari & Tiketi
+                    <span>Fungua Safari & Tiketi</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </Popup>
@@ -341,16 +736,16 @@ export default function DaladalaMap({
             icon={L.divIcon({
               html: `
                 <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                  <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(59, 130, 246, 0.25); animation: ping 1.5s infinite; position: absolute;"></div>
-                  <div style="width: 14px; height: 14px; border-radius: 50%; background: #2563eb; border: 2.5px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);"></div>
+                  <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(37, 99, 235, 0.25); animation: daladalaRadarPing 1.8s infinite; position: absolute;"></div>
+                  <div style="width: 14px; height: 14px; border-radius: 50%; background: #2563eb; border: 2.5px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>
                 </div>
               `,
               className: 'user-location-marker',
-              iconSize: [24, 24],
-              iconAnchor: [12, 12],
+              iconSize: [28, 28],
+              iconAnchor: [14, 14],
             })}
           >
-            <Tooltip>Uko hapa</Tooltip>
+            <Tooltip>Uko Hapa (Dar es Salaam)</Tooltip>
           </Marker>
         )}
       </MapContainer>

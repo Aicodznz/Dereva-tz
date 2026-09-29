@@ -5,7 +5,8 @@ import {
   DaladalaStop, 
   TrafficReport, 
   DaladalaTicket,
-  AlightReminder 
+  AlightReminder,
+  DaladalaSessionUser
 } from '../../types/daladala.types';
 import { 
   Bus, 
@@ -29,7 +30,9 @@ import {
   CreditCard,
   UserCheck,
   Building2,
-  UserPlus
+  UserPlus,
+  Lock,
+  Radio
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -45,6 +48,8 @@ interface DaladalaPassengerViewProps {
   onOpenRegisterPassenger?: () => void;
   onOpenDashboard?: () => void;
   onOpenConductorMode?: () => void;
+  sessionUser?: DaladalaSessionUser | null;
+  onOpenAuthModal?: (role?: 'owner' | 'conductor' | 'passenger') => void;
 }
 
 export default function DaladalaPassengerView({
@@ -59,6 +64,8 @@ export default function DaladalaPassengerView({
   onOpenRegisterPassenger,
   onOpenDashboard,
   onOpenConductorMode,
+  sessionUser,
+  onOpenAuthModal,
 }: DaladalaPassengerViewProps) {
   // Search query & filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -277,55 +284,105 @@ export default function DaladalaPassengerView({
         </div>
       )}
 
-      {/* 🚏 Quick Operator Access Banner for Wahusika wa Daladala */}
-      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-800 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-3">
+      {/* 🚏 Role-Aware Operator Access Hub for Wahusika wa Daladala */}
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-neutral-950 text-[10px] font-black uppercase tracking-wider">
-                Eneo la Wahusika wa Daladala
-              </span>
-              <span className="text-[11px] text-blue-200">Wamiliki • Madereva • Makondakta</span>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+              sessionUser?.role === 'owner'
+                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                : sessionUser?.role === 'conductor' || sessionUser?.role === 'driver'
+                ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
+                : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+            }`}>
+              {sessionUser?.role === 'owner' ? (
+                <Building2 className="w-5 h-5" />
+              ) : sessionUser?.role === 'conductor' || sessionUser?.role === 'driver' ? (
+                <Radio className="w-5 h-5" />
+              ) : (
+                <Bus className="w-5 h-5" />
+              )}
             </div>
-            <h3 className="text-base sm:text-lg font-black text-white">
-              Je, Wewe ni Mmiliki, Dereva au Kondakta wa Daladala?
-            </h3>
-            <p className="text-xs text-blue-100 max-w-xl">
-              Sajili chombo chako hewani kwa GPS, orodhesha abiria wanaoingia na kata tiketi, na uone dasibodi ya hesabu ya mapato ya kila siku.
-            </p>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                  {sessionUser ? `Mhusika: ${sessionUser.role === 'owner' ? 'Mmiliki' : sessionUser.role === 'conductor' ? 'Kondakta' : sessionUser.role === 'driver' ? 'Dereva' : 'Abiria'}` : 'Eneo la Wahusika wa Daladala'}
+                </span>
+                <span className="text-[11px] text-neutral-500 hidden sm:inline">• LATRA & UWADAR Portal</span>
+              </div>
+
+              {sessionUser ? (
+                <h3 className="text-sm font-black text-neutral-900 dark:text-white mt-0.5">
+                  {sessionUser.role === 'owner'
+                    ? `Karibu, Mmiliki ${sessionUser.fullName} • Tazama hesabu na magari yako`
+                    : sessionUser.role === 'conductor' || sessionUser.role === 'driver'
+                    ? `Karibu, ${sessionUser.fullName} (${sessionUser.assignedPlate || 'Chombo'}) • Simamia viti & tiketi`
+                    : `Karibu, ${sessionUser.fullName} • Huduma za Abiria na Safari`}
+                </h3>
+              ) : (
+                <h3 className="text-sm font-black text-neutral-900 dark:text-white mt-0.5">
+                  Wamiliki & Makondakta: Ingia au Jisajili Kuona Dasibodi na Kusajili Gari
+                </h3>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
-            {onOpenRegisterVehicle && (
-              <button
-                type="button"
-                onClick={onOpenRegisterVehicle}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
-              >
-                <Bus className="w-4 h-4 text-neutral-950" />
-                <span>Sajili Chombo</span>
-              </button>
-            )}
+            {sessionUser ? (
+              <>
+                {sessionUser.role === 'owner' && onOpenRegisterVehicle && (
+                  <button
+                    type="button"
+                    onClick={onOpenRegisterVehicle}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                  >
+                    <Bus className="w-3.5 h-3.5" />
+                    <span>Sajili Chombo</span>
+                  </button>
+                )}
 
-            {onOpenRegisterPassenger && (
-              <button
-                type="button"
-                onClick={onOpenRegisterPassenger}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
-              >
-                <UserPlus className="w-4 h-4 text-neutral-950" />
-                <span>Sajili Abiria</span>
-              </button>
-            )}
+                {(sessionUser.role === 'owner' || sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenRegisterPassenger && (
+                  <button
+                    type="button"
+                    onClick={onOpenRegisterPassenger}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Sajili Abiria</span>
+                  </button>
+                )}
 
-            {onOpenDashboard && (
+                {sessionUser.role === 'owner' && onOpenDashboard && (
+                  <button
+                    type="button"
+                    onClick={onOpenDashboard}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Dasibodi Yangu</span>
+                  </button>
+                )}
+
+                {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenConductorMode && (
+                  <button
+                    type="button"
+                    onClick={onOpenConductorMode}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                  >
+                    <Radio className="w-3.5 h-3.5" />
+                    <span>Njia ya Konda HUD</span>
+                  </button>
+                )}
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={onOpenDashboard}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-white hover:bg-neutral-100 text-blue-900 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95"
+                onClick={() => onOpenAuthModal?.('owner')}
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95 whitespace-nowrap"
               >
-                <Building2 className="w-4 h-4 text-blue-700" />
-                <span>Dasibodi Yangu</span>
+                <Lock className="w-4 h-4 text-neutral-950" />
+                <span>Ingia / Jisajili kama Mhusika</span>
               </button>
             )}
           </div>
@@ -394,29 +451,37 @@ export default function DaladalaPassengerView({
 
       {/* Main Content Area: Left/Top Selected Vehicle Card, Right/Bottom List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
-        {/* Selected Daladala Detail Card (Features 5, 6, 7, 8, 9, 10, 11, 12, 17, 18, 19) */}
+        {/* Selected Daladala Detail Card */}
         {selectedVehicle ? (
-          <div className="lg:col-span-5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex flex-col space-y-3.5">
-            {/* Header: Plate, Nickname, Model & Close */}
-            <div className="flex items-start justify-between">
-              <div>
+          <div className="lg:col-span-5 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col space-y-4">
+            {/* Header: Plate, Nickname, Model & Route */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-black tracking-tight text-neutral-900 dark:text-white">
-                    {selectedVehicle.plateNumber}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-extrabold text-[10px]">
+                  <div className="tz-number-plate text-sm">
+                    <span className="tz-strip">TZ</span>
+                    <span>{selectedVehicle.plateNumber}</span>
+                  </div>
+                  <span 
+                    className="px-2 py-0.5 rounded text-white font-black text-[10px] shadow-xs"
+                    style={{ backgroundColor: selectedVehicle.colorHex || '#2563eb' }}
+                  >
                     {selectedVehicle.routeCode}
                   </span>
                 </div>
-                <p className="text-xs font-bold text-blue-600 dark:text-blue-400 italic">
-                  "{selectedVehicle.nickname}" • {selectedVehicle.vehicleModel}
-                </p>
-                <p className="text-[11px] text-neutral-500">{selectedVehicle.routeName}</p>
+                <h3 className="text-base font-black text-neutral-900 dark:text-white tracking-tight">
+                  "{selectedVehicle.nickname}"
+                </h3>
+                <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                  <span className="font-semibold text-neutral-700 dark:text-neutral-300">{selectedVehicle.vehicleModel}</span>
+                  <span>•</span>
+                  <span>{selectedVehicle.routeName}</span>
+                </div>
               </div>
               
-              {/* Seat Availability Badge (#6) */}
-              <div className="text-right">
-                <span className={`inline-block px-2.5 py-1 rounded-full font-black text-[10px] uppercase shadow-sm ${
+              {/* Status Badge */}
+              <div className="text-right shrink-0">
+                <span className={`inline-block px-2.5 py-1 rounded-full font-black text-[10px] uppercase shadow-xs ${
                   selectedVehicle.seatStatus === 'available'
                     ? 'bg-emerald-500 text-white'
                     : selectedVehicle.seatStatus === 'few'
@@ -431,10 +496,49 @@ export default function DaladalaPassengerView({
                     ? `🟡 Viti ${selectedVehicle.capacity - selectedVehicle.seatsTaken} Wazi`
                     : selectedVehicle.seatStatus === 'standing'
                     ? '🟠 Msimamo Tu'
-                    : '🔴 FULL (Imejaa)'}
+                    : '🔴 FULL'}
                 </span>
-                <p className="text-[9px] text-neutral-400 mt-0.5">{selectedVehicle.lastUpdated}</p>
+                <p className="text-[10px] text-neutral-400 mt-1 font-mono">LATRA Verified</p>
               </div>
+            </div>
+
+            {/* 🪑 Visual Seat Capacity Meter Gauge */}
+            <div className="bg-neutral-50 dark:bg-neutral-800/60 p-3 rounded-xl space-y-1.5 border border-neutral-100 dark:border-neutral-800">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                  <span>Uwezo wa Viti:</span>
+                  <span className="font-mono">{selectedVehicle.seatsTaken} / {selectedVehicle.capacity}</span>
+                </span>
+                <span className={`font-black text-[11px] ${
+                  selectedVehicle.capacity - selectedVehicle.seatsTaken > 3 
+                    ? 'text-emerald-600 dark:text-emerald-400' 
+                    : selectedVehicle.capacity - selectedVehicle.seatsTaken > 0
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {selectedVehicle.capacity - selectedVehicle.seatsTaken} Viti Vimebaki Wazi
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2.5 rounded-full overflow-hidden flex">
+                <div 
+                  className={`h-full transition-all duration-500 ${
+                    selectedVehicle.seatsTaken / selectedVehicle.capacity > 0.9
+                      ? 'bg-red-500'
+                      : selectedVehicle.seatsTaken / selectedVehicle.capacity > 0.75
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(100, (selectedVehicle.seatsTaken / selectedVehicle.capacity) * 100)}%` }}
+                />
+              </div>
+
+              {selectedVehicle.standingCount > 0 && (
+                <p className="text-[10px] text-orange-600 dark:text-orange-400 font-bold">
+                  + Abiria {selectedVehicle.standingCount} wamesimama (Msimamo)
+                </p>
+              )}
             </div>
 
             {/* 10: Route Change / Off-Route Warning Alert */}
@@ -449,7 +553,7 @@ export default function DaladalaPassengerView({
             )}
 
             {/* Live Metrics: ETA, Next Stop, Speed */}
-            <div className="grid grid-cols-3 gap-2 bg-neutral-50 dark:bg-neutral-800/60 p-2.5 rounded-xl text-center">
+            <div className="grid grid-cols-3 gap-2 bg-neutral-50 dark:bg-neutral-800/60 p-2.5 rounded-xl text-center border border-neutral-100 dark:border-neutral-800">
               <div>
                 <span className="text-[10px] text-neutral-500 font-semibold block">Kituo Kinachofuata</span>
                 <strong className="text-xs text-neutral-900 dark:text-neutral-100 truncate block">
@@ -458,38 +562,69 @@ export default function DaladalaPassengerView({
               </div>
               <div className="border-x border-neutral-200 dark:border-neutral-700 px-1">
                 <span className="text-[10px] text-neutral-500 font-semibold block">Muda wa Kufika (ETA)</span>
-                <strong className="text-xs text-emerald-600 dark:text-emerald-400 block">
+                <strong className="text-xs text-emerald-600 dark:text-emerald-400 block font-mono">
                   Dk {selectedVehicle.etaMinutesToNextStop}
                 </strong>
               </div>
               <div>
-                <span className="text-[10px] text-neutral-500 font-semibold block">Kasi ya Gari</span>
-                <strong className="text-xs text-neutral-900 dark:text-neutral-100 block">
+                <span className="text-[10px] text-neutral-500 font-semibold block">Kasi ya Sasa</span>
+                <strong className="text-xs text-neutral-900 dark:text-neutral-100 block font-mono">
                   {selectedVehicle.speedKmH} km/h
                 </strong>
               </div>
             </div>
 
-            {/* Conductor & Driver Info with Rating (#12) */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 text-xs">
+            {/* 🚏 Live Route Progression Stepper */}
+            {currentRoute && (
+              <div className="p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-neutral-500">Muelekeo wa Safari</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400 font-mono">
+                    Nauli: TSh {currentRoute.baseFareTzs.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-bold text-neutral-800 dark:text-neutral-200 gap-2">
+                  <div className="flex items-center gap-1 truncate">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="truncate">{currentRoute.origin.split(' ')[0]}</span>
+                  </div>
+
+                  <div className="flex-1 flex items-center px-1">
+                    <div className="h-0.5 flex-1 bg-neutral-300 dark:bg-neutral-700 relative flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white dark:border-neutral-900 shadow-sm animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 truncate text-right">
+                    <span className="truncate">{currentRoute.destination.split(' ')[0]}</span>
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Conductor & Driver Info with Rating & Calling */}
+            <div className="flex items-center justify-between p-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 text-xs">
               <div>
-                <p className="font-bold text-neutral-800 dark:text-neutral-200">
+                <p className="font-black text-neutral-900 dark:text-neutral-100">
                   {selectedVehicle.conductorName}
                 </p>
-                <p className="text-[10px] text-neutral-500">Dereva: {selectedVehicle.driverName}</p>
+                <p className="text-[10px] text-neutral-500 font-medium">Dereva: {selectedVehicle.driverName}</p>
                 <div className="flex items-center gap-1 text-amber-500 text-[11px] mt-0.5">
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  <span className="font-bold">{selectedVehicle.rating}</span>
+                  <span className="font-black">{selectedVehicle.rating}</span>
                   <span className="text-[10px] text-neutral-400">({selectedVehicle.ratingCount} kura)</span>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <a
                   href={`tel:${selectedVehicle.conductorPhone}`}
-                  className="p-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition"
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition"
                   title="Piga simu kwa Konda"
                 >
                   <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Piga</span>
                 </a>
                 <button
                   onClick={() => setIsRatingModalOpen(true)}
@@ -502,7 +637,6 @@ export default function DaladalaPassengerView({
 
             {/* Quick Action Buttons: Nishushe Hapa, Kata Tiketi QR, SOS */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              {/* #9: Nishushe Hapa Alarm Button */}
               <button
                 onClick={() => {
                   setTargetAlightStopId(currentRoute?.stops[3]?.id || '');
@@ -514,21 +648,20 @@ export default function DaladalaPassengerView({
                 <span>Nishushe Hapa</span>
               </button>
 
-              {/* #17, #19: QR Ticket & Wallet Payment */}
               <button
                 onClick={() => {
                   setTicketOriginStop(currentRoute?.stops[0]?.id || '');
                   setTicketDestinationStop(currentRoute?.stops[currentRoute.stops.length - 1]?.id || '');
                   setIsTicketModalOpen(true);
                 }}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-extrabold text-xs shadow-md transition"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition"
               >
                 <QrCode className="w-4 h-4" />
                 <span>Kata Tiketi / QR</span>
               </button>
             </div>
 
-            {/* #11: Emergency / SOS Button */}
+            {/* SOS & Route Planner link */}
             <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 onClick={() => setIsSosModalOpen(true)}
@@ -578,44 +711,49 @@ export default function DaladalaPassengerView({
             <span className="text-[11px] text-neutral-500 font-semibold">Live GPS Updates</span>
           </div>
 
-          <div className="space-y-2.5 overflow-y-auto max-h-[380px] pr-1">
+          <div className="space-y-2.5 overflow-y-auto max-h-[460px] pr-1">
             {filteredVehicles.map((v) => {
               const isSelected = selectedVehicle?.id === v.id;
+              const seatsLeft = Math.max(0, v.capacity - v.seatsTaken);
               return (
                 <div
                   key={v.id}
                   onClick={() => onSelectVehicle(v)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 shadow-sm'
+                      ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/30 shadow-sm ring-1 ring-blue-500'
                       : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm"
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shrink-0 shadow-sm relative"
                       style={{ backgroundColor: v.colorHex || '#2563eb' }}
                     >
                       <Bus className="w-5 h-5" />
+                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-black text-xs text-neutral-900 dark:text-white">
-                          {v.plateNumber}
+                      <div className="flex items-center gap-2">
+                        <div className="tz-number-plate text-xs">
+                          <span className="tz-strip">TZ</span>
+                          <span>{v.plateNumber}</span>
+                        </div>
+                        <span className="text-xs font-bold text-neutral-900 dark:text-white">
+                          "{v.nickname}"
                         </span>
-                        <span className="text-[10px] font-bold text-neutral-500">"{v.nickname}"</span>
                       </div>
-                      <p className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 truncate max-w-[200px] sm:max-w-xs">
+                      <p className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 truncate max-w-[200px] sm:max-w-xs mt-0.5">
                         {v.routeName}
                       </p>
-                      <p className="text-[10px] text-neutral-400">
-                        Inakaribia: <strong className="text-neutral-600 dark:text-neutral-300">{v.nextStopName}</strong> ({v.etaMinutesToNextStop} min)
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        Inakaribia: <strong className="text-neutral-700 dark:text-neutral-200">{v.nextStopName}</strong> ({v.etaMinutesToNextStop} min)
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className={`inline-block px-2 py-0.5 rounded-full font-bold text-[9px] uppercase ${
+                    <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[9px] uppercase ${
                       v.seatStatus === 'available'
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                         : v.seatStatus === 'few'
@@ -624,9 +762,15 @@ export default function DaladalaPassengerView({
                         ? 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300'
                         : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
                     }`}>
-                      {v.seatStatus === 'available' ? 'Viti Wazi' : v.seatStatus === 'few' ? 'Viti Vichache' : v.seatStatus === 'standing' ? 'Msimamo' : 'FULL'}
+                      {v.seatStatus === 'available' 
+                        ? `${seatsLeft} Viti Wazi` 
+                        : v.seatStatus === 'few' 
+                        ? `${seatsLeft} Viti` 
+                        : v.seatStatus === 'standing' 
+                        ? 'Msimamo' 
+                        : 'FULL'}
                     </span>
-                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 mt-1">
+                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 mt-1 font-mono">
                       TSh 500 - 600
                     </p>
                   </div>

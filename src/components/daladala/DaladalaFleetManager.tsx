@@ -141,6 +141,9 @@ interface DaladalaFleetManagerProps {
   onAddRoute?: (route: DaladalaRoute) => void;
   onUpdateVehicleCrew?: (vehicleId: string, driverName: string, conductorName: string, conductorPhone: string) => void;
   onOpenRegisterPassenger?: () => void;
+  ownerProfile?: DaladalaOwnerProfile;
+  onUpdateOwnerProfile?: (profile: DaladalaOwnerProfile) => void;
+  onLogout?: () => void;
 }
 
 export default function DaladalaFleetManager({
@@ -153,14 +156,18 @@ export default function DaladalaFleetManager({
   onAddRoute,
   onUpdateVehicleCrew,
   onOpenRegisterPassenger,
+  ownerProfile: propOwnerProfile,
+  onUpdateOwnerProfile,
+  onLogout,
 }: DaladalaFleetManagerProps) {
   // Navigation tabs in Owner Panel
   const [activeTab, setActiveTab] = useState<'revenue' | 'vehicles' | 'passengers' | 'crew' | 'routes' | 'maintenance' | 'terminals'>('revenue');
   const [passengerVehicleFilter, setPassengerVehicleFilter] = useState<string>('all');
   const [passengerSearchQuery, setPassengerSearchQuery] = useState<string>('');
 
-  // Owner authentication & profile state (saved in localStorage)
+  // Owner authentication & profile state (saved in localStorage or from props)
   const [ownerProfile, setOwnerProfile] = useState<DaladalaOwnerProfile>(() => {
+    if (propOwnerProfile) return propOwnerProfile;
     try {
       const saved = localStorage.getItem('papo_daladala_owner_profile');
       if (saved) return JSON.parse(saved);
@@ -170,9 +177,13 @@ export default function DaladalaFleetManager({
     return DEFAULT_OWNER_PROFILE;
   });
 
-  const [isOwnerLoggedIn, setIsOwnerLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('papo_daladala_owner_logged_in') !== 'false';
-  });
+  useEffect(() => {
+    if (propOwnerProfile) {
+      setOwnerProfile(propOwnerProfile);
+    }
+  }, [propOwnerProfile]);
+
+  const [isOwnerLoggedIn, setIsOwnerLoggedIn] = useState<boolean>(true);
 
   // Crew state
   const [crewMembers, setCrewMembers] = useState<DaladalaCrewMember[]>(() => {
@@ -591,6 +602,18 @@ export default function DaladalaFleetManager({
               <Banknote className="w-4 h-4" />
               <span>Toa Pesa (Withdraw)</span>
             </button>
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+                title="Toka kwenye akaunti ya Mmiliki"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span>Ondoka</span>
+              </button>
+            )}
           </div>
         </div>
 
