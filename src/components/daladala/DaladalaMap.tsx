@@ -276,9 +276,85 @@ const createModernBusIcon = (
 };
 
 /**
- * Creates modern, clean Bus Stop icons (Terminal vs Local)
+ * Creates modern, clean Bus Stop icons (Terminal vs Local vs Boarding/Alight Highlights)
  */
-const createModernStopIcon = (stop: DaladalaStop) => {
+const createModernStopIcon = (stop: DaladalaStop, isBoarding: boolean = false, isAlight: boolean = false) => {
+  if (isBoarding) {
+    const html = `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+        <div style="
+          background: #059669;
+          color: #ffffff;
+          padding: 2px 7px;
+          border-radius: 9999px;
+          font-size: 9px;
+          font-weight: 900;
+          box-shadow: 0 4px 10px rgba(5,150,105,0.4);
+          white-space: nowrap;
+          border: 1.5px solid #ffffff;
+          margin-bottom: 2px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
+        ">
+          <span>📍 Kupandia</span>
+        </div>
+        <div style="
+          width: 14px;
+          height: 14px;
+          background: #10b981;
+          border: 2.5px solid #ffffff;
+          border-radius: 50%;
+          box-shadow: 0 0 0 4px rgba(16,185,129,0.35);
+        "></div>
+      </div>
+    `;
+    return L.divIcon({
+      html,
+      className: 'daladala-stop-marker boarding',
+      iconSize: [80, 40],
+      iconAnchor: [40, 36],
+    });
+  }
+
+  if (isAlight) {
+    const html = `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+        <div style="
+          background: #ea580c;
+          color: #ffffff;
+          padding: 2px 7px;
+          border-radius: 9999px;
+          font-size: 9px;
+          font-weight: 900;
+          box-shadow: 0 4px 10px rgba(234,88,12,0.4);
+          white-space: nowrap;
+          border: 1.5px solid #ffffff;
+          margin-bottom: 2px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
+        ">
+          <span>🏁 Kushukia</span>
+        </div>
+        <div style="
+          width: 14px;
+          height: 14px;
+          background: #f97316;
+          border: 2.5px solid #ffffff;
+          border-radius: 50%;
+          box-shadow: 0 0 0 4px rgba(249,115,22,0.35);
+        "></div>
+      </div>
+    `;
+    return L.divIcon({
+      html,
+      className: 'daladala-stop-marker alight',
+      iconSize: [80, 40],
+      iconAnchor: [40, 36],
+    });
+  }
+
   if (stop.isTerminal) {
     // Stendi Kuu (Main Terminal)
     const html = `
@@ -339,6 +415,10 @@ interface DaladalaMapProps {
   onSelectVehicle: (v: DaladalaVehicle) => void;
   selectedRouteId: string | null;
   onSelectStop?: (stop: DaladalaStop) => void;
+  onSetBoardingStop?: (stopName: string) => void;
+  onSetAlightStop?: (stopName: string) => void;
+  boardingStopName?: string;
+  alightStopName?: string;
   userCoords?: { lat: number; lng: number } | null;
   resizeTrigger?: any;
   isEdgeToEdge?: boolean;
@@ -393,6 +473,10 @@ export default function DaladalaMap({
   onSelectVehicle,
   selectedRouteId,
   onSelectStop,
+  onSetBoardingStop,
+  onSetAlightStop,
+  boardingStopName,
+  alightStopName,
   userCoords,
   resizeTrigger,
   isEdgeToEdge = true,
@@ -701,43 +785,71 @@ export default function DaladalaMap({
 
         {/* Bus Stops (Stendi & Vituo) */}
         {showStops && activeRoutes.flatMap((route) =>
-          route.stops.map((stop) => (
-            <Marker
-              key={`${route.id}-${stop.id}`}
-              position={[stop.lat, stop.lng]}
-              icon={createModernStopIcon(stop)}
-              eventHandlers={{
-                click: () => onSelectStop && onSelectStop(stop),
-              }}
-            >
-              <Popup>
-                <div className="p-1 min-w-[170px] space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-2.5 h-2.5 rounded-full" 
-                      style={{ backgroundColor: stop.isTerminal ? '#ea580c' : '#2563eb' }}
-                    />
-                    <h4 className="font-black text-xs text-neutral-900">{stop.name}</h4>
+          route.stops.map((stop) => {
+            const isBoarding = Boolean(
+              boardingStopName && 
+              stop.name.toLowerCase().includes(boardingStopName.trim().toLowerCase())
+            );
+            const isAlight = Boolean(
+              alightStopName && 
+              stop.name.toLowerCase().includes(alightStopName.trim().toLowerCase())
+            );
+
+            return (
+              <Marker
+                key={`${route.id}-${stop.id}`}
+                position={[stop.lat, stop.lng]}
+                icon={createModernStopIcon(stop, isBoarding, isAlight)}
+                eventHandlers={{
+                  click: () => onSelectStop && onSelectStop(stop),
+                }}
+              >
+                <Popup>
+                  <div className="p-1 min-w-[180px] space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full shrink-0" 
+                        style={{ backgroundColor: stop.isTerminal ? '#ea580c' : '#2563eb' }}
+                      />
+                      <h4 className="font-black text-xs text-neutral-900">{stop.name}</h4>
+                    </div>
+                    <p className="text-[10px] text-neutral-500 font-semibold">
+                      {stop.isTerminal ? 'Stendi Kuu (Terminal)' : `Kituo cha abiria (${stop.zone || 'Dar'})`}
+                    </p>
+                    <div className="text-[10px] text-neutral-600 bg-neutral-100 p-1.5 rounded-lg flex items-center justify-between font-mono">
+                      <span>Ruti:</span>
+                      <strong className="text-blue-700">{route.routeCode}</strong>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 pt-1">
+                      {onSetBoardingStop && (
+                        <button
+                          type="button"
+                          onClick={() => onSetBoardingStop(stop.name)}
+                          className={`text-white font-bold text-[10px] py-1 px-1.5 rounded-lg transition text-center ${
+                            isBoarding ? 'bg-emerald-700 font-black ring-1 ring-emerald-400' : 'bg-emerald-600 hover:bg-emerald-500'
+                          }`}
+                        >
+                          📍 Kupandia
+                        </button>
+                      )}
+                      {onSetAlightStop && (
+                        <button
+                          type="button"
+                          onClick={() => onSetAlightStop(stop.name)}
+                          className={`text-white font-bold text-[10px] py-1 px-1.5 rounded-lg transition text-center ${
+                            isAlight ? 'bg-orange-700 font-black ring-1 ring-orange-400' : 'bg-orange-600 hover:bg-orange-500'
+                          }`}
+                        >
+                          🏁 Kushukia
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-[10px] text-neutral-500 font-semibold">
-                    {stop.isTerminal ? 'Stendi Kuu (Terminal)' : `Kituo cha abiria (${stop.zone || 'Dar'})`}
-                  </p>
-                  <div className="text-[10px] text-neutral-600 bg-neutral-100 p-1.5 rounded-lg flex items-center justify-between font-mono">
-                    <span>Ruti:</span>
-                    <strong className="text-blue-700">{route.routeCode}</strong>
-                  </div>
-                  {onSelectStop && (
-                    <button
-                      onClick={() => onSelectStop(stop)}
-                      className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-[10px] py-1.5 px-2 rounded-lg transition"
-                    >
-                      Chagua Kituo Hiki
-                    </button>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          ))
+                </Popup>
+              </Marker>
+            );
+          })
         )}
 
         {/* 🚌 Moving Daladala Vehicles with Intelligent De-clustering */}

@@ -35,6 +35,7 @@ import {
   Radio
 } from 'lucide-react';
 import { toast } from 'sonner';
+import DaladalaJourneyFilter from './DaladalaJourneyFilter';
 
 interface DaladalaPassengerViewProps {
   routes: DaladalaRoute[];
@@ -51,6 +52,21 @@ interface DaladalaPassengerViewProps {
   onOpenConductorMode?: () => void;
   sessionUser?: DaladalaSessionUser | null;
   onOpenAuthModal?: (role?: 'owner' | 'conductor' | 'passenger') => void;
+
+  // Controlled Journey Filter Props
+  boardingStop?: string;
+  onBoardingStopChange?: (val: string) => void;
+  selectedRouteFilter?: string;
+  onRouteChange?: (val: string) => void;
+  alightStop?: string;
+  onAlightStopChange?: (val: string) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (val: string) => void;
+  seatFilter?: 'all' | 'available_only';
+  onSeatFilterChange?: (val: 'all' | 'available_only') => void;
+  onSwapStops?: () => void;
+  onResetFilters?: () => void;
+  totalVehiclesCount?: number;
 }
 
 export default function DaladalaPassengerView({
@@ -68,11 +84,79 @@ export default function DaladalaPassengerView({
   onOpenConductorMode,
   sessionUser,
   onOpenAuthModal,
+  boardingStop: controlledBoardingStop,
+  onBoardingStopChange: controlledOnBoardingStopChange,
+  selectedRouteFilter: controlledSelectedRouteFilter,
+  onRouteChange: controlledOnRouteChange,
+  alightStop: controlledAlightStop,
+  onAlightStopChange: controlledOnAlightStopChange,
+  searchQuery: controlledSearchQuery,
+  onSearchQueryChange: controlledOnSearchQueryChange,
+  seatFilter: controlledSeatFilter,
+  onSeatFilterChange: controlledOnSeatFilterChange,
+  onSwapStops: controlledOnSwapStops,
+  onResetFilters: controlledOnResetFilters,
+  totalVehiclesCount,
 }: DaladalaPassengerViewProps) {
-  // Search query & filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRouteFilter, setSelectedRouteFilter] = useState<string>('all');
-  const [seatFilter, setSeatFilter] = useState<'all' | 'available_only'>('all');
+  // Local fallback state if not controlled by parent
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const [localRouteFilter, setLocalRouteFilter] = useState<string>('all');
+  const [localSeatFilter, setLocalSeatFilter] = useState<'all' | 'available_only'>('all');
+  const [localBoardingStop, setLocalBoardingStop] = useState('');
+  const [localAlightStop, setLocalAlightStop] = useState('');
+
+  const activeBoardingStop = controlledBoardingStop !== undefined ? controlledBoardingStop : localBoardingStop;
+  const activeAlightStop = controlledAlightStop !== undefined ? controlledAlightStop : localAlightStop;
+  const activeRouteFilter = controlledSelectedRouteFilter !== undefined ? controlledSelectedRouteFilter : localRouteFilter;
+  const activeSearchQuery = controlledSearchQuery !== undefined ? controlledSearchQuery : localSearchQuery;
+  const activeSeatFilter = controlledSeatFilter !== undefined ? controlledSeatFilter : localSeatFilter;
+
+  const handleBoardingStopChange = (val: string) => {
+    if (controlledOnBoardingStopChange) controlledOnBoardingStopChange(val);
+    else setLocalBoardingStop(val);
+  };
+
+  const handleAlightStopChange = (val: string) => {
+    if (controlledOnAlightStopChange) controlledOnAlightStopChange(val);
+    else setLocalAlightStop(val);
+  };
+
+  const handleRouteChange = (val: string) => {
+    if (controlledOnRouteChange) controlledOnRouteChange(val);
+    else setLocalRouteFilter(val);
+  };
+
+  const handleSearchQueryChange = (val: string) => {
+    if (controlledOnSearchQueryChange) controlledOnSearchQueryChange(val);
+    else setLocalSearchQuery(val);
+  };
+
+  const handleSeatFilterChange = (val: 'all' | 'available_only') => {
+    if (controlledOnSeatFilterChange) controlledOnSeatFilterChange(val);
+    else setLocalSeatFilter(val);
+  };
+
+  const handleSwapStops = () => {
+    if (controlledOnSwapStops) {
+      controlledOnSwapStops();
+    } else {
+      const prevB = localBoardingStop;
+      setLocalBoardingStop(localAlightStop);
+      setLocalAlightStop(prevB);
+    }
+  };
+
+  const handleResetFilters = () => {
+    if (controlledOnResetFilters) {
+      controlledOnResetFilters();
+    } else {
+      setLocalBoardingStop('');
+      setLocalAlightStop('');
+      setLocalRouteFilter('all');
+      setLocalSearchQuery('');
+      setLocalSeatFilter('all');
+    }
+  };
 
   // Nishushe Hapa (Alight Reminder) state
   const [alightReminder, setAlightReminder] = useState<AlightReminder | null>(() => {
@@ -157,21 +241,53 @@ export default function DaladalaPassengerView({
     }
   }, [vehicles, alightReminder, routes]);
 
-  // Filter daladalas
-  const filteredVehicles = vehicles.filter((v) => {
-    if (selectedRouteFilter !== 'all' && v.routeId !== selectedRouteFilter) return false;
-    if (seatFilter === 'available_only' && v.seatStatus !== 'available' && v.seatStatus !== 'few') return false;
+  // Filter daladalas: if controlled by parent, vehicles is already filtered; otherwise filter locally
+  const filteredVehicles = controlledBoardingStop !== undefined
+    ? vehicles 
+    : vehicles.filter((v) => {
+        if (activeRouteFilter !== 'all' && v.routeId !== activeRouteFilter && v.routeCode !== activeRouteFilter) return false;
+        if (activeSeatFilter === 'available_only' && v.seatStatus !== 'available' && v.seatStatus !== 'few') return false;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchPlate = v.plateNumber.toLowerCase().includes(q);
-      const matchNickname = v.nickname.toLowerCase().includes(q);
-      const matchRoute = v.routeName.toLowerCase().includes(q);
-      const matchNextStop = v.nextStopName.toLowerCase().includes(q);
-      if (!matchPlate && !matchNickname && !matchRoute && !matchNextStop) return false;
-    }
-    return true;
-  });
+        const vehicleRoute = routes.find((r) => r.id === v.routeId);
+
+        if (activeBoardingStop.trim()) {
+          const bTerm = activeBoardingStop.trim().toLowerCase();
+          const hasBoardingStop = 
+            vehicleRoute?.stops.some((s) => s.name.toLowerCase().includes(bTerm) || (s.zone && s.zone.toLowerCase().includes(bTerm))) ||
+            v.nextStopName.toLowerCase().includes(bTerm) ||
+            v.routeName.toLowerCase().includes(bTerm);
+          if (!hasBoardingStop) return false;
+        }
+
+        if (activeAlightStop.trim()) {
+          const aTerm = activeAlightStop.trim().toLowerCase();
+          const hasAlightStop = 
+            vehicleRoute?.stops.some((s) => s.name.toLowerCase().includes(aTerm) || (s.zone && s.zone.toLowerCase().includes(aTerm))) ||
+            vehicleRoute?.destination.toLowerCase().includes(aTerm) ||
+            v.routeName.toLowerCase().includes(aTerm);
+          if (!hasAlightStop) return false;
+        }
+
+        if (activeBoardingStop.trim() && activeAlightStop.trim() && vehicleRoute) {
+          const bTerm = activeBoardingStop.trim().toLowerCase();
+          const aTerm = activeAlightStop.trim().toLowerCase();
+          const hasBoth = 
+            vehicleRoute.stops.some((s) => s.name.toLowerCase().includes(bTerm) || (s.zone && s.zone.toLowerCase().includes(bTerm))) &&
+            vehicleRoute.stops.some((s) => s.name.toLowerCase().includes(aTerm) || (s.zone && s.zone.toLowerCase().includes(aTerm)));
+          if (!hasBoth) return false;
+        }
+
+        if (activeSearchQuery.trim()) {
+          const q = activeSearchQuery.toLowerCase();
+          const matchPlate = v.plateNumber.toLowerCase().includes(q);
+          const matchNickname = v.nickname.toLowerCase().includes(q);
+          const matchRoute = v.routeName.toLowerCase().includes(q);
+          const matchNextStop = v.nextStopName.toLowerCase().includes(q);
+          const matchDriver = v.driverName.toLowerCase().includes(q);
+          if (!matchPlate && !matchNickname && !matchRoute && !matchNextStop && !matchDriver) return false;
+        }
+        return true;
+      });
 
   // Current active route for selected vehicle
   const currentRoute = selectedVehicle
@@ -391,65 +507,24 @@ export default function DaladalaPassengerView({
         </div>
       </div>
 
-      {/* 15: Find My Daladala Search Bar & Quick Filters */}
-      <div className="space-y-2">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tafuta daladala, ruti au kituo (k.m. Mbagala, Posta, Kimara, T 392 DKR)..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs font-bold"
-            >
-              Futa
-            </button>
-          )}
-        </div>
-
-        {/* Route & Seat Availability Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
-          <button
-            onClick={() => setSelectedRouteFilter('all')}
-            className={`px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition ${
-              selectedRouteFilter === 'all'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200'
-            }`}
-          >
-            Ruti Zote
-          </button>
-          {routes.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setSelectedRouteFilter(r.id)}
-              className={`px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition flex items-center gap-1.5 ${
-                selectedRouteFilter === r.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: r.color }} />
-              {r.routeCode}: {r.name.split('⇄')[0].trim()}
-            </button>
-          ))}
-          <button
-            onClick={() => setSeatFilter(seatFilter === 'all' ? 'available_only' : 'all')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition border ${
-              seatFilter === 'available_only'
-                ? 'bg-emerald-600 text-white border-emerald-700'
-                : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-            }`}
-          >
-            🪑 Viti Wazi Tu
-          </button>
-        </div>
-      </div>
+      {/* 15: Find My Daladala: Interactive Journey Filter (Kituo, Ruti, Kituo cha Kushukia) */}
+      <DaladalaJourneyFilter
+        routes={routes}
+        boardingStop={activeBoardingStop}
+        onBoardingStopChange={handleBoardingStopChange}
+        selectedRoute={activeRouteFilter}
+        onRouteChange={handleRouteChange}
+        alightStop={activeAlightStop}
+        onAlightStopChange={handleAlightStopChange}
+        searchQuery={activeSearchQuery}
+        onSearchQueryChange={handleSearchQueryChange}
+        seatFilter={activeSeatFilter}
+        onSeatFilterChange={handleSeatFilterChange}
+        onSwapStops={handleSwapStops}
+        onResetFilters={handleResetFilters}
+        matchingCount={filteredVehicles.length}
+        totalCount={totalVehiclesCount || vehicles.length}
+      />
 
       {/* Main Content Area: Left/Top Selected Vehicle Card, Right/Bottom List */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
@@ -726,7 +801,29 @@ export default function DaladalaPassengerView({
           </div>
 
           <div className="space-y-2.5 overflow-y-auto max-h-[460px] pr-1">
-            {filteredVehicles.map((v) => {
+            {filteredVehicles.length === 0 ? (
+              <div className="py-10 px-4 text-center bg-neutral-50 dark:bg-neutral-800/40 rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-700 flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center text-amber-600">
+                  <Bus className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-neutral-900 dark:text-neutral-100">
+                    Hakuna Mabasi Yaliyopatikana
+                  </h4>
+                  <p className="text-xs text-neutral-500 max-w-sm mt-1">
+                    Hakuna daladala iliyopatikana inayokidhi vituo au ruti uliyoweka. Jaribu kubadilisha kituo cha kupandia, ruti au kituo cha kushukia.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition active:scale-95 shadow-sm"
+                >
+                  Onyesha Mabasi Yote (Reset)
+                </button>
+              </div>
+            ) : (
+              filteredVehicles.map((v) => {
               const isSelected = selectedVehicle?.id === v.id;
               const seatsLeft = Math.max(0, v.capacity - v.seatsTaken);
               return (
@@ -796,7 +893,7 @@ export default function DaladalaPassengerView({
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         </div>
       </div>

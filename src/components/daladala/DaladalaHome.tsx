@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   mockDaladalaRoutes, 
@@ -86,6 +86,13 @@ export default function DaladalaHome() {
   const [vehicles, setVehicles] = useState<DaladalaVehicle[]>(mockDaladalaVehicles);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
+  // Customer Journey Filter State: Kituo cha kupandia, ruti, kituo cha kushukia
+  const [filterBoardingStop, setFilterBoardingStop] = useState<string>('');
+  const [filterRouteId, setFilterRouteId] = useState<string>('all');
+  const [filterAlightStop, setFilterAlightStop] = useState<string>('');
+  const [filterSearchQuery, setFilterSearchQuery] = useState<string>('');
+  const [filterSeatStatus, setFilterSeatStatus] = useState<'all' | 'available_only'>('all');
 
   // Custom fleets registered by specific owners
   const [customOwnerVehicles, setCustomOwnerVehicles] = useState<Record<string, FleetVehicleRecord[]>>(() => {
@@ -397,7 +404,77 @@ export default function DaladalaHome() {
     return () => clearInterval(interval);
   }, [routes]);
 
-  const selectedVehicle = selectedVehicleId ? (vehicles.find((v) => v.id === selectedVehicleId) || null) : null;
+  // Filter Daladalas according to customer criteria: Kituo cha kupandia, Ruti, Kituo cha Kushukia
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      // 1. Route filter
+      if (filterRouteId !== 'all') {
+        if (v.routeId !== filterRouteId && v.routeCode !== filterRouteId) {
+          return false;
+        }
+      }
+
+      // Find route to inspect stops
+      const vehicleRoute = routes.find((r) => r.id === v.routeId);
+
+      // 2. Kituo cha Kupandia (Boarding Stop)
+      if (filterBoardingStop.trim()) {
+        const bTerm = filterBoardingStop.trim().toLowerCase();
+        const hasBoardingStop = 
+          vehicleRoute?.stops.some((s) => s.name.toLowerCase().includes(bTerm) || (s.zone && s.zone.toLowerCase().includes(bTerm))) ||
+          v.nextStopName.toLowerCase().includes(bTerm) ||
+          v.routeName.toLowerCase().includes(bTerm);
+
+        if (!hasBoardingStop) return false;
+      }
+
+      // 3. Kituo cha Kushukia (Alight Stop)
+      if (filterAlightStop.trim()) {
+        const aTerm = filterAlightStop.trim().toLowerCase();
+        const hasAlightStop = 
+          vehicleRoute?.stops.some((s) => s.name.toLowerCase().includes(aTerm) || (s.zone && s.zone.toLowerCase().includes(aTerm))) ||
+          vehicleRoute?.destination.toLowerCase().includes(aTerm) ||
+          v.routeName.toLowerCase().includes(aTerm);
+
+        if (!hasAlightStop) return false;
+      }
+
+      // 4. If BOTH Boarding & Alight Stop are entered, verify that route serves both!
+      if (filterBoardingStop.trim() && filterAlightStop.trim() && vehicleRoute) {
+        const bTerm = filterBoardingStop.trim().toLowerCase();
+        const aTerm = filterAlightStop.trim().toLowerCase();
+        const hasBoth = 
+          vehicleRoute.stops.some((s) => s.name.toLowerCase().includes(bTerm) || (s.zone && s.zone.toLowerCase().includes(bTerm))) &&
+          vehicleRoute.stops.some((s) => s.name.toLowerCase().includes(aTerm) || (s.zone && s.zone.toLowerCase().includes(aTerm)));
+        
+        if (!hasBoth) return false;
+      }
+
+      // 5. Seat Status
+      if (filterSeatStatus === 'available_only') {
+        if (v.seatStatus !== 'available' && v.seatStatus !== 'few') {
+          return false;
+        }
+      }
+
+      // 6. Free text search query (Plate, Nickname, Driver, Route)
+      if (filterSearchQuery.trim()) {
+        const q = filterSearchQuery.trim().toLowerCase();
+        const matchPlate = v.plateNumber.toLowerCase().includes(q);
+        const matchNickname = v.nickname.toLowerCase().includes(q);
+        const matchRoute = v.routeName.toLowerCase().includes(q);
+        const matchNextStop = v.nextStopName.toLowerCase().includes(q);
+        const matchDriver = v.driverName.toLowerCase().includes(q);
+        if (!matchPlate && !matchNickname && !matchRoute && !matchNextStop && !matchDriver) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [vehicles, routes, filterRouteId, filterBoardingStop, filterAlightStop, filterSeatStatus, filterSearchQuery]);
+
+  const selectedVehicle = selectedVehicleId ? (filteredVehicles.find((v) => v.id === selectedVehicleId) || null) : null;
 
   // Conductor update vehicle callback
   const handleUpdateVehicle = (updated: Partial<DaladalaVehicle>) => {
@@ -559,10 +636,20 @@ export default function DaladalaHome() {
       >
         <DaladalaMap
           routes={routes}
-          vehicles={vehicles}
+          vehicles={filteredVehicles}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={(v) => setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id)}
-          selectedRouteId={selectedRouteId}
+          selectedRouteId={filterRouteId === 'all' ? selectedRouteId : filterRouteId}
+          boardingStopName={filterBoardingStop}
+          alightStopName={filterAlightStop}
+          onSetBoardingStop={(st) => {
+            setFilterBoardingStop(st);
+            toast.success(`Kituo cha kupandia: ${st}`);
+          }}
+          onSetAlightStop={(st) => {
+            setFilterAlightStop(st);
+            toast.success(`Kituo cha kushukia: ${st}`);
+          }}
           onSelectStop={(stop) => {
             toast.info(`Kituo: ${stop.name} (${stop.isTerminal ? 'Stendi Kuu' : 'Kituo cha abiria'})`);
           }}
@@ -630,7 +717,7 @@ export default function DaladalaHome() {
         {ecosystemMode === 'passenger' && (
           <DaladalaPassengerView
             routes={routes}
-            vehicles={vehicles}
+            vehicles={filteredVehicles}
             selectedVehicle={selectedVehicle}
             onSelectVehicle={(v) => setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id)}
             onDeselectVehicle={() => setSelectedVehicleId(null)}
@@ -646,6 +733,30 @@ export default function DaladalaHome() {
               setAuthModalInitialRole(role || 'owner');
               setIsAuthModalOpen(true);
             }}
+            boardingStop={filterBoardingStop}
+            onBoardingStopChange={setFilterBoardingStop}
+            selectedRouteFilter={filterRouteId}
+            onRouteChange={setFilterRouteId}
+            alightStop={filterAlightStop}
+            onAlightStopChange={setFilterAlightStop}
+            searchQuery={filterSearchQuery}
+            onSearchQueryChange={setFilterSearchQuery}
+            seatFilter={filterSeatStatus}
+            onSeatFilterChange={setFilterSeatStatus}
+            onSwapStops={() => {
+              const prev = filterBoardingStop;
+              setFilterBoardingStop(filterAlightStop);
+              setFilterAlightStop(prev);
+            }}
+            onResetFilters={() => {
+              setFilterBoardingStop('');
+              setFilterAlightStop('');
+              setFilterRouteId('all');
+              setFilterSearchQuery('');
+              setFilterSeatStatus('all');
+              setSelectedRouteId(null);
+            }}
+            totalVehiclesCount={vehicles.length}
           />
         )}
 
