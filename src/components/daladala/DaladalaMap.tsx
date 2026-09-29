@@ -28,29 +28,33 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Tile Layer configurations
-type MapTileStyle = 'voyager' | 'positron' | 'dark' | 'osm';
+// Tile Layer configurations - 100% Free, reliable tile servers with NO API keys or watermarks
+type MapTileStyle = 'esri' | 'osm' | 'hot' | 'satellite';
 
-const MAP_TILES: Record<MapTileStyle, { name: string; url: string; attribution: string }> = {
-  voyager: {
-    name: 'Kisasa (Voyager Transit)',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; CARTO &copy; OpenStreetMap',
-  },
-  positron: {
-    name: 'Wazi (Positron Minimal)',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; CARTO &copy; OpenStreetMap',
-  },
-  dark: {
-    name: 'Usiku (Dark Matter)',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; CARTO &copy; OpenStreetMap',
+const MAP_TILES: Record<MapTileStyle, { name: string; url: string; attribution: string; maxZoom?: number }> = {
+  esri: {
+    name: 'Esri World Street (Safi & Ya Kisasa)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, HERE, Garmin, USGS, NGA',
+    maxZoom: 19,
   },
   osm: {
-    name: 'Asili (OpenStreetMap)',
+    name: 'OpenStreetMap (Asili & Njia Zote)',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+  },
+  hot: {
+    name: 'Humanitarian OSM (Rangi & Njia Wazi)',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors, Humanitarian OpenStreetMap Team',
+    maxZoom: 19,
+  },
+  satellite: {
+    name: 'Picha za Anga (Satellite Imagery)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+    maxZoom: 18,
   },
 };
 
@@ -393,8 +397,8 @@ export default function DaladalaMap({
   resizeTrigger,
   isEdgeToEdge = true,
 }: DaladalaMapProps) {
-  // Tile layer style state
-  const [tileStyle, setTileStyle] = useState<MapTileStyle>('voyager');
+  // Tile layer style state (Default to clean, reliable Esri World Street map - No API key needed)
+  const [tileStyle, setTileStyle] = useState<MapTileStyle>('esri');
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
 
   // Map Filter: Active Route selection directly on map
@@ -477,8 +481,8 @@ export default function DaladalaMap({
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
-      {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter & Visibility */}
-      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-2 max-w-[calc(100%-145px)] sm:max-w-md pointer-events-none">
+      {/* 🧭 Floating Quick Map Toolbar: Dedicated Row Below Top Controls (Prevents any overlap) */}
+      <div className="absolute top-14 left-3 right-3 sm:right-auto sm:max-w-xl z-[400] flex flex-col gap-2 pointer-events-none">
         {/* Route Filter Pills Bar */}
         <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
           <button
@@ -643,7 +647,7 @@ export default function DaladalaMap({
         <TileLayer
           attribution={MAP_TILES[tileStyle].attribution}
           url={MAP_TILES[tileStyle].url}
-          maxZoom={19}
+          maxZoom={MAP_TILES[tileStyle]?.maxZoom || 19}
         />
 
         <MapRecenter selectedVehicleId={selectedVehicleId} vehicles={vehicles} />
