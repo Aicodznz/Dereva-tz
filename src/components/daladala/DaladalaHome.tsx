@@ -549,95 +549,64 @@ export default function DaladalaHome() {
         </div>
       </header>
 
-      {/* Fullscreen Map Overlay (Kioo Kizima) */}
-      {isFullscreenMap && (
-        <div className="fixed inset-0 z-[200] w-screen h-screen bg-neutral-950 flex flex-col overflow-hidden animate-in fade-in duration-200">
-          <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
-            <div className="flex items-center gap-2 pointer-events-auto">
-              <button
-                onClick={() => setIsFullscreenMap(false)}
-                className="px-3.5 py-2 rounded-xl bg-neutral-900/90 hover:bg-neutral-950 text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-2 transition active:scale-95"
-                title="Toka Kioo Kizima"
-              >
-                <Minimize2 className="w-4 h-4 text-orange-400" />
-                <span>Toka Kioo Kizima</span>
-              </button>
-
-              <div className="px-3 py-2 rounded-xl bg-blue-600/90 text-white shadow-xl backdrop-blur-md text-xs font-bold hidden sm:flex items-center gap-1.5">
-                <Bus className="w-4 h-4" />
-                <span>PapoDaladala Live GPS</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping ml-1" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pointer-events-auto">
-              <button
-                onClick={() => setIsRoutePlannerOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition active:scale-95"
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Panga Ruti</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full h-full relative">
-            <DaladalaMap
-              routes={routes}
-              vehicles={vehicles}
-              selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={(v) => setSelectedVehicleId(v.id)}
-              selectedRouteId={selectedRouteId}
-              onSelectStop={(stop) => {
-                toast.info(`Kituo: ${stop.name} (${stop.isTerminal ? 'Stendi Kuu' : 'Kituo cha abiria'})`);
-              }}
-              userCoords={userCoords}
-              resizeTrigger={isFullscreenMap}
-              isEdgeToEdge={true}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Edge-to-Edge Full Width Map Section (Standard View) */}
-      <section className={`relative w-full transition-all duration-300 ${isMapExpanded ? 'h-[560px] sm:h-[640px]' : 'h-[360px] sm:h-[440px]'}`}>
+      {/* Single Unified Edge-to-Edge Map Section (Prevents duplicate map overlays & marker collisions) */}
+      <section 
+        className={`w-full transition-all duration-300 ${
+          isFullscreenMap 
+            ? 'fixed inset-0 z-[500] w-screen h-screen bg-neutral-950 flex flex-col' 
+            : `relative ${isMapExpanded ? 'h-[560px] sm:h-[640px]' : 'h-[360px] sm:h-[440px]'}`
+        }`}
+      >
         <DaladalaMap
           routes={routes}
           vehicles={vehicles}
           selectedVehicleId={selectedVehicleId}
-          onSelectVehicle={(v) => setSelectedVehicleId(v.id)}
+          onSelectVehicle={(v) => setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id)}
           selectedRouteId={selectedRouteId}
           onSelectStop={(stop) => {
             toast.info(`Kituo: ${stop.name} (${stop.isTerminal ? 'Stendi Kuu' : 'Kituo cha abiria'})`);
           }}
           userCoords={userCoords}
-          resizeTrigger={isMapExpanded}
+          resizeTrigger={isFullscreenMap || isMapExpanded}
           isEdgeToEdge={true}
         />
 
         {/* Map Controls Floating Badge */}
         <div className="absolute top-3 right-3 z-[450] flex items-center gap-1.5 sm:gap-2">
-          <button
-            onClick={() => setIsFullscreenMap(true)}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-100 shadow-xl backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-black flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
-            title="Fungua Kioo Kizima (Fullscreen Map)"
-          >
-            <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden sm:inline">Kioo Kizima</span>
-          </button>
+          {isFullscreenMap ? (
+            <button
+              onClick={() => setIsFullscreenMap(false)}
+              className="px-3.5 py-2 rounded-xl bg-neutral-900/95 hover:bg-neutral-800 text-white border border-neutral-700/80 shadow-2xl backdrop-blur-md text-xs font-black flex items-center gap-1.5 transition active:scale-95"
+              title="Toka Kioo Kizima (Exit Fullscreen)"
+            >
+              <Minimize2 className="w-4 h-4 text-orange-400" />
+              <span>Toka Kioo Kizima</span>
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setIsFullscreenMap(true)}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-100 shadow-xl backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-black flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
+                title="Fungua Kioo Kizima (Fullscreen Map)"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span className="hidden sm:inline">Kioo Kizima</span>
+              </button>
 
-          <button
-            onClick={() => setIsMapExpanded(!isMapExpanded)}
-            className="p-1.5 sm:p-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 shadow-md backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-bold flex items-center gap-1 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
-            title={isMapExpanded ? 'Punguza Urefu wa Ramani' : 'Ongeza Urefu wa Ramani'}
-          >
-            {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            <span className="hidden md:inline">{isMapExpanded ? 'Punguza' : 'Panua'}</span>
-          </button>
+              <button
+                onClick={() => setIsMapExpanded(!isMapExpanded)}
+                className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-200 shadow-md backdrop-blur-md hover:bg-white dark:hover:bg-neutral-800 text-xs font-bold flex items-center gap-1 border border-neutral-200 dark:border-neutral-700 transition active:scale-95"
+                title={isMapExpanded ? 'Punguza Urefu wa Ramani' : 'Ongeza Urefu wa Ramani'}
+              >
+                {isMapExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                <span className="hidden md:inline">{isMapExpanded ? 'Punguza' : 'Panua'}</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => setIsRoutePlannerOpen(true)}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95"
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95"
           >
             <Navigation className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Panga Ruti</span>

@@ -29,31 +29,31 @@ L.Icon.Default.mergeOptions({
 });
 
 // Tile Layer configurations - 100% Free, reliable tile servers with NO API keys or watermarks
-type MapTileStyle = 'esri' | 'osm' | 'hot' | 'satellite';
+type MapTileStyle = 'hot' | 'light' | 'osm' | 'satellite';
 
 const MAP_TILES: Record<MapTileStyle, { name: string; url: string; attribution: string; maxZoom?: number }> = {
-  esri: {
-    name: 'Esri World Street (Safi & Ya Kisasa)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri, HERE, Garmin, USGS, NGA',
+  hot: {
+    name: 'Mitaa ya Kisasa (OSM Humanitarian)',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors, HOT',
     maxZoom: 19,
+  },
+  light: {
+    name: 'Wazi & Minimal (Canvas Light)',
+    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
+    maxZoom: 16,
   },
   osm: {
-    name: 'OpenStreetMap (Asili & Njia Zote)',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    name: 'OpenStreetMap Asili',
+    url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19,
-  },
-  hot: {
-    name: 'Humanitarian OSM (Rangi & Njia Wazi)',
-    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors, Humanitarian OpenStreetMap Team',
     maxZoom: 19,
   },
   satellite: {
     name: 'Picha za Anga (Satellite Imagery)',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+    attribution: '&copy; Esri, Maxar',
     maxZoom: 18,
   },
 };
@@ -397,8 +397,8 @@ export default function DaladalaMap({
   resizeTrigger,
   isEdgeToEdge = true,
 }: DaladalaMapProps) {
-  // Tile layer style state (Default to clean, reliable Esri World Street map - No API key needed)
-  const [tileStyle, setTileStyle] = useState<MapTileStyle>('esri');
+  // Tile layer style state (Default to clean, colorful Humanitarian OpenStreetMap)
+  const [tileStyle, setTileStyle] = useState<MapTileStyle>('hot');
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
 
   // Map Filter: Active Route selection directly on map
@@ -481,8 +481,8 @@ export default function DaladalaMap({
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${isEdgeToEdge ? 'rounded-none' : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-inner'}`}>
-      {/* 🧭 Floating Quick Map Toolbar: Dedicated Row Below Top Controls (Prevents any overlap) */}
-      <div className="absolute top-14 left-3 right-3 sm:right-auto sm:max-w-xl z-[400] flex flex-col gap-2 pointer-events-none">
+      {/* 🧭 Floating Quick Map Toolbar (Top-Left): Route Filter */}
+      <div className="absolute top-3 left-3 z-[400] flex items-center max-w-[calc(100%-145px)] sm:max-w-md pointer-events-none">
         {/* Route Filter Pills Bar */}
         <div className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1.5 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-800 flex items-center gap-1 overflow-x-auto scrollbar-none pointer-events-auto">
           <button

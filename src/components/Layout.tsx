@@ -74,7 +74,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
       </div>
 
-      {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && <Header />}
+      {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && !isDaladalaRoute && <Header />}
 
       <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-24 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
         {children || <Outlet />}
