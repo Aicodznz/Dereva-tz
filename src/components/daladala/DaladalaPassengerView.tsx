@@ -33,10 +33,17 @@ import {
   UserPlus,
   Lock,
   Radio,
-  LogOut
+  LogOut,
+  Calculator,
+  Armchair,
+  Flame,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
+import DaladalaLatraFareCalculatorModal from './DaladalaLatraFareCalculatorModal';
+import DaladalaSeatHoldModal from './DaladalaSeatHoldModal';
+import { mockStopCrowdLevels } from '../../data/daladalaCrowdData';
 
 interface DaladalaPassengerViewProps {
   routes: DaladalaRoute[];
@@ -174,6 +181,12 @@ export default function DaladalaPassengerView({
   });
   const [isAlightModalOpen, setIsAlightModalOpen] = useState(false);
   const [targetAlightStopId, setTargetAlightStopId] = useState<string>('');
+  const [alightProximityDistanceM, setAlightProximityDistanceM] = useState<number>(500);
+
+  // LATRA Fare Calculator & Seat Hold modal states
+  const [isFareCalculatorOpen, setIsFareCalculatorOpen] = useState(false);
+  const [isSeatHoldModalOpen, setIsSeatHoldModalOpen] = useState(false);
+  const [showCrowdDrawer, setShowCrowdDrawer] = useState(false);
 
   // Ticket Modal & Wallet state
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
@@ -229,8 +242,9 @@ export default function DaladalaPassengerView({
 
       setAlightReminder((prev) => (prev ? { ...prev, distanceRemainingM: distMeters } : null));
 
-      // Trigger alarm if within 450 meters or if next stop is the target stop
-      if (distMeters <= 450 || monitoredVehicle.nextStopId === targetStop.id) {
+      // Trigger alarm if within user selected proximity distance or next stop
+      const targetThreshold = (alightReminder as any).triggerDistanceM || alightProximityDistanceM || 450;
+      if (distMeters <= targetThreshold || monitoredVehicle.nextStopId === targetStop.id) {
         setAlightReminder((prev) => (prev ? { ...prev, triggered: true } : null));
         
         // Vibration and Sound Chime
@@ -243,12 +257,20 @@ export default function DaladalaPassengerView({
           audio.play().catch(() => {});
         } catch (e) {}
 
+        if ('speechSynthesis' in window) {
+          try {
+            const u = new SpeechSynthesisUtterance(`Shusha hapa! Umekaribia kituo cha ${targetStop.name}`);
+            u.lang = 'sw-TZ';
+            window.speechSynthesis.speak(u);
+          } catch (e) {}
+        }
+
         toast.warning(`🔔 SHUSHA DEREVA! Kituo cha ${targetStop.name} kiko mbele yako (Mita ${distMeters})!`, {
           duration: 10000,
         });
       }
     }
-  }, [vehicles, alightReminder, routes]);
+  }, [vehicles, alightReminder, routes, alightProximityDistanceM]);
 
   // Filter daladalas: if controlled by parent, vehicles is already filtered; otherwise filter locally
   const filteredVehicles = controlledBoardingStop !== undefined
@@ -357,10 +379,11 @@ export default function DaladalaPassengerView({
       targetLng: targetStop.lng,
       distanceRemainingM: 1200,
       triggered: false,
+      ...({ triggerDistanceM: alightProximityDistanceM } as any),
     });
 
     setIsAlightModalOpen(false);
-    toast.success(`Kengele imewashwa! Utapata arifa kabla ya kufika kituo cha ${targetStop.name}`);
+    toast.success(`Kengele imewashwa! Utapata arifa ukiwa mita ${alightProximityDistanceM} kabla ya kufika kituo cha ${targetStop.name}`);
   };
 
   return (
@@ -408,6 +431,110 @@ export default function DaladalaPassengerView({
           >
             Zima Kengele
           </button>
+        </div>
+      )}
+
+      {/* 🚀 HUDUMA MUHIMU ZA ABIRIA WA KAWAIDA (LATRA FARE & CROWD STATUS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setIsFareCalculatorOpen(true)}
+          className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 text-white flex items-center justify-between shadow-md transition active:scale-[0.98] group text-left border border-blue-500/30"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition shadow-inner">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <strong className="text-xs sm:text-sm font-black">Kikokotoo Rasmi cha Nauli cha LATRA</strong>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-400 text-neutral-950 font-black text-[9px] uppercase">
+                  GN 416
+                </span>
+              </div>
+              <p className="text-[11px] text-white/80 mt-0.5">
+                Hesabu nauli halali kisheria (TSh 500, 600, au 200 ya mwanafunzi)
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition shrink-0" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowCrowdDrawer(!showCrowdDrawer)}
+          className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 flex items-center justify-between shadow-md transition active:scale-[0.98] group text-left border border-amber-400/40"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-black/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+              <Users className="w-5 h-5 text-neutral-950" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <strong className="text-xs sm:text-sm font-black">Msongamano wa Vituo vya Dar</strong>
+                <span className="px-1.5 py-0.5 rounded bg-black text-amber-300 font-mono font-black text-[9px] uppercase">
+                  {mockStopCrowdLevels.length} VITUO
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-900/80 mt-0.5">
+                Wanaosubiri Ubungo Maji, Mwenge, Kariakoo na Kivukoni
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-neutral-950/70 group-hover:translate-x-0.5 transition shrink-0" />
+        </button>
+      </div>
+
+      {/* Stop Crowd Drawer Section */}
+      {showCrowdDrawer && (
+        <div className="p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-md space-y-3 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+              <h4 className="font-black text-xs uppercase tracking-wider text-neutral-900 dark:text-white">
+                Hali ya Msongamano na Foleni Vituo Vikuu vya Dar es Salaam
+              </h4>
+            </div>
+            <button
+              onClick={() => setShowCrowdDrawer(false)}
+              className="text-xs font-bold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            >
+              Funga
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {mockStopCrowdLevels.map((st) => (
+              <div
+                key={st.stopId}
+                className="p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-800/40 space-y-1"
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="text-xs text-neutral-900 dark:text-white truncate">
+                    {st.stopName}
+                  </strong>
+                  <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase ${
+                    st.crowdLevel === 'surge'
+                      ? 'bg-purple-100 text-purple-900 dark:bg-purple-950 dark:text-purple-300'
+                      : st.crowdLevel === 'high'
+                      ? 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-300'
+                      : st.crowdLevel === 'moderate'
+                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300'
+                      : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300'
+                  }`}>
+                    {st.crowdLevel === 'surge' ? 'Kumesheheni' : st.crowdLevel === 'high' ? 'Watu Wengi' : st.crowdLevel === 'moderate' ? 'Wastani' : 'Tulivu'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-neutral-500">
+                  <span>Wanaosubiri: ~{st.waitingPassengersApprox} abiria</span>
+                  <span className="font-mono">Subira: Dk ~{st.avgWaitTimeMinutes}</span>
+                </div>
+                <p className="text-[10px] text-neutral-400 italic">
+                  {st.peakStatusText}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -762,26 +889,37 @@ export default function DaladalaPassengerView({
               </div>
             </div>
 
-            {/* Quick Action Buttons: Nishushe Hapa, Kata Tiketi QR, SOS */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Quick Action Buttons: Shikilia Kiti, Nishushe Hapa, Kata Tiketi QR */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
               <button
+                type="button"
+                onClick={() => setIsSeatHoldModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black text-xs shadow-md transition active:scale-95"
+              >
+                <Armchair className="w-4 h-4" />
+                <span>Shikilia Kiti (Dk 5)</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setTargetAlightStopId(currentRoute?.stops[3]?.id || '');
                   setIsAlightModalOpen(true);
                 }}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold text-xs shadow-md transition"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-800 dark:hover:bg-neutral-700 font-extrabold text-xs shadow-md transition active:scale-95"
               >
-                <Bell className="w-4 h-4" />
+                <Bell className="w-4 h-4 text-amber-400" />
                 <span>Nishushe Hapa</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setTicketOriginStop(currentRoute?.stops[0]?.id || '');
                   setTicketDestinationStop(currentRoute?.stops[currentRoute.stops.length - 1]?.id || '');
                   setIsTicketModalOpen(true);
                 }}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition active:scale-95"
               >
                 <QrCode className="w-4 h-4" />
                 <span>Kata Tiketi / QR</span>
@@ -1024,13 +1162,40 @@ export default function DaladalaPassengerView({
                 </select>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Umbali wa Kuanza Kengele na Arifa:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { val: 300, label: 'Mita 300', desc: 'Karibu kabisa' },
+                    { val: 500, label: 'Mita 500', desc: 'Wastani' },
+                    { val: 1000, label: 'Mita 1,000', desc: 'Kujiandaa mapema' },
+                  ].map((item) => (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => setAlightProximityDistanceM(item.val)}
+                      className={`p-2 rounded-xl text-left border transition ${
+                        alightProximityDistanceM === item.val
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500'
+                          : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                      }`}
+                    >
+                      <strong className="text-xs block font-bold">{item.label}</strong>
+                      <span className="text-[10px] opacity-75 block">{item.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1">
                 <p className="font-bold flex items-center gap-1.5">
                   <Volume2 className="w-3.5 h-3.5" />
                   Jinsi Inavyofanya Kazi:
                 </p>
-                <p className="text-[11px] opacity-90">
-                  Gari likiwa mita 450 kabla ya kufika kituoni, simu yako itatoa sauti ya kengele (chime) na mtetemo (vibrate) ili ujiandae kushuka salama.
+                <p className="text-[11px] opacity-90 leading-relaxed">
+                  Gari likiwa umbali wa mita {alightProximityDistanceM} kabla ya kufika kituoni, simu yako itatoa mlio maalum wa kengele, sauti ya Kiswahili ("Shusha hapa! Umekaribia kituoni") na mtetemo (vibrate) ili ujiandae kushuka salama bila kusahau mzigo.
                 </p>
               </div>
             </div>
@@ -1269,6 +1434,28 @@ export default function DaladalaPassengerView({
             </button>
           </div>
         </div>
+      )}
+
+      {/* 🚀 LATRA FARE CALCULATOR MODAL */}
+      {isFareCalculatorOpen && (
+        <DaladalaLatraFareCalculatorModal
+          routes={routes}
+          initialOriginStop={activeBoardingStop || selectedVehicle?.nextStopName}
+          initialDestinationStop={activeAlightStop || currentRoute?.destination}
+          initialRouteId={selectedVehicle?.routeId || (activeRouteFilter !== 'all' ? activeRouteFilter : undefined)}
+          onClose={() => setIsFareCalculatorOpen(false)}
+        />
+      )}
+
+      {/* 🪑 SEAT HOLD MODAL */}
+      {isSeatHoldModalOpen && selectedVehicle && (
+        <DaladalaSeatHoldModal
+          vehicle={selectedVehicle}
+          route={currentRoute || undefined}
+          initialBoardingStop={activeBoardingStop || selectedVehicle.nextStopName}
+          initialAlightStop={activeAlightStop || currentRoute?.destination}
+          onClose={() => setIsSeatHoldModalOpen(false)}
+        />
       )}
     </div>
   );

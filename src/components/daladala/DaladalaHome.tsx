@@ -572,8 +572,8 @@ export default function DaladalaHome() {
                 ) : (
                   <Radio className="w-3.5 h-3.5" />
                 )}
-                <span className="hidden sm:inline">Kondakta</span>
-                <span className="sm:hidden">Konda</span>
+                <span className="hidden sm:inline">Konda / Dereva</span>
+                <span className="sm:hidden">Konda/Dereva</span>
               </button>
 
               {/* Mmiliki / Stendi (Protected) */}

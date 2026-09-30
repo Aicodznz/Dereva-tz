@@ -203,3 +203,42 @@ export interface DaladalaSessionUser {
   isCustomRegistered?: boolean;
 }
 
+export interface DaladalaSeatHold {
+  id: string;
+  holdCode: string;
+  vehicleId: string;
+  plateNumber: string;
+  passengerName: string;
+  passengerPhone: string;
+  boardingStop: string;
+  alightStop: string;
+  fareTzs: number;
+  passengerType: 'adult' | 'student' | 'special';
+  createdAt: number;
+  expiresAt: number;
+  status: 'active' | 'boarded' | 'expired' | 'cancelled';
+}
+
+export interface ConductorShiftTrip {
+  id: string;
+  tripNumber: number;
+  departureTime: string;
+  origin: string;
+  destination: string;
+  passengersCount: number;
+  cashCollected: number;
+  digitalCollected: number;
+  fuelSpent: number;
+  standFee: number;
+  notes?: string;
+}
+
+export interface StopCrowdLevel {
+  stopId: string;
+  stopName: string;
+  crowdLevel: 'low' | 'moderate' | 'high' | 'surge';
+  waitingPassengersApprox: number;
+  avgWaitTimeMinutes: number;
+  peakStatusText: string;
+}
+

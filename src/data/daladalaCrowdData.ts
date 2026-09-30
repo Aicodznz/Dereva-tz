@@ -1,0 +1,60 @@
+import { StopCrowdLevel } from '../types/daladala.types';
+
+export const mockStopCrowdLevels: StopCrowdLevel[] = [
+  {
+    stopId: 'km_05',
+    stopName: 'Ubungo Maji',
+    crowdLevel: 'high',
+    waitingPassengersApprox: 45,
+    avgWaitTimeMinutes: 6,
+    peakStatusText: 'Muda wa Foleni & Msongamano Mkubwa wa Asubuhi/Jioni',
+  },
+  {
+    stopId: 'mw_01',
+    stopName: 'Mwenge Bus Stand',
+    crowdLevel: 'high',
+    waitingPassengersApprox: 60,
+    avgWaitTimeMinutes: 5,
+    peakStatusText: 'Kituo Kikuu: Mabasi yanajaa haraka sana',
+  },
+  {
+    stopId: 'mb_01',
+    stopName: 'Kariakoo Gerezani',
+    crowdLevel: 'surge',
+    waitingPassengersApprox: 85,
+    avgWaitTimeMinutes: 8,
+    peakStatusText: 'Wafanyabiashara & Wateja wengi: Kuwa makini na mikoba',
+  },
+  {
+    stopId: 'km_13',
+    stopName: 'Kivukoni Ferry',
+    crowdLevel: 'moderate',
+    waitingPassengersApprox: 25,
+    avgWaitTimeMinutes: 4,
+    peakStatusText: 'Abiria wa Kigamboni wanashuka na kupanda',
+  },
+  {
+    stopId: 'km_01',
+    stopName: 'Kimara Mwisho',
+    crowdLevel: 'moderate',
+    waitingPassengersApprox: 30,
+    avgWaitTimeMinutes: 3,
+    peakStatusText: 'Mabasi mengi yanajazia hapa kabla ya kuanza ruti',
+  },
+  {
+    stopId: 'mb_07',
+    stopName: 'Mbagala Rangi Tatu',
+    crowdLevel: 'high',
+    waitingPassengersApprox: 50,
+    avgWaitTimeMinutes: 5,
+    peakStatusText: 'Foleni ya jioni: Shikilia kiti mapema',
+  },
+  {
+    stopId: 'mw_09',
+    stopName: 'Tegeta Nyuki',
+    crowdLevel: 'low',
+    waitingPassengersApprox: 12,
+    avgWaitTimeMinutes: 2,
+    peakStatusText: 'Tulivu: Viti vinapatikana kwa urahisi',
+  },
+];
