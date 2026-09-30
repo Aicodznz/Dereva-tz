@@ -66,7 +66,8 @@ const MAP_TILES: Record<MapTileStyle, { name: string; url: string; attribution: 
 const createModernBusIcon = (
   vehicle: DaladalaVehicle, 
   isSelected: boolean,
-  isDisplaced: boolean = false
+  isDisplaced: boolean = false,
+  isOwnerVehicle: boolean = false
 ) => {
   const routeColor = vehicle.colorHex || '#2563eb';
   
@@ -89,17 +90,31 @@ const createModernBusIcon = (
     // 🚏 SLEEK COMPACT MARKER (Prevents visual clutter, overlap & sticker pile-up)
     const shortPlate = vehicle.plateNumber.replace(/^T\s*/, '');
     const html = `
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: 100;">
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; z-index: ${isOwnerVehicle ? 250 : 100};">
+        ${isOwnerVehicle ? `
+          <div style="
+            position: absolute;
+            top: -8px;
+            background: #f59e0b;
+            color: #000;
+            border-radius: 9999px;
+            font-size: 8px;
+            font-weight: 900;
+            padding: 0 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+            white-space: nowrap;
+          ">YANGU</div>
+        ` : ''}
         <div style="
           position: relative;
           display: flex;
           align-items: center;
           background: #ffffff;
-          border: 1.5px solid ${routeColor};
+          border: ${isOwnerVehicle ? '2.5px solid #f59e0b' : `1.5px solid ${routeColor}`};
           border-radius: 9999px;
           padding: 2px 5px 2px 2px;
           gap: 3.5px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+          box-shadow: ${isOwnerVehicle ? '0 0 10px rgba(245,158,11,0.6)' : '0 2px 6px rgba(0,0,0,0.18)'};
           cursor: pointer;
           white-space: nowrap;
           transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -427,6 +442,10 @@ interface DaladalaMapProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onOpenRoutePlanner?: () => void;
+  isOwnerLoggedIn?: boolean;
+  ownerPlates?: string[];
+  filterOwnerOnly?: boolean;
+  onToggleOwnerOnly?: () => void;
 }
 
 // Controller to auto-pan ONLY when a new vehicle is selected by user
@@ -488,6 +507,10 @@ export default function DaladalaMap({
   isFullscreen,
   onToggleFullscreen,
   onOpenRoutePlanner,
+  isOwnerLoggedIn = false,
+  ownerPlates = [],
+  filterOwnerOnly = false,
+  onToggleOwnerOnly,
 }: DaladalaMapProps) {
   // Tile layer style state (Default to clean, colorful Humanitarian OpenStreetMap)
   const [tileStyle, setTileStyle] = useState<MapTileStyle>('hot');
@@ -588,6 +611,23 @@ export default function DaladalaMap({
             <span>Ruti Zote</span>
             <span className="text-[10px] opacity-75 font-normal">({vehicles.length})</span>
           </button>
+
+          {/* Owner-specific Quick Filter: Only show owner's vehicles */}
+          {isOwnerLoggedIn && ownerPlates.length > 0 && onToggleOwnerOnly && (
+            <button
+              type="button"
+              onClick={onToggleOwnerOnly}
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
+                filterOwnerOnly
+                  ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-300 shadow-md font-black'
+                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-800'
+              }`}
+              title="Onyesha magari yako pekee kwenye ramani"
+            >
+              <span>👑 Gari Zangu Tu</span>
+              <span className="text-[10px] opacity-90 font-mono font-black">({ownerPlates.length})</span>
+            </button>
+          )}
 
           {routes.map((route) => {
             const count = vehicles.filter((v) => v.routeId === route.id).length;
