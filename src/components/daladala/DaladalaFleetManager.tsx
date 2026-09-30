@@ -39,9 +39,13 @@ import {
   Edit3,
   Trash2,
   Send,
-  Navigation
+  Navigation,
+  Crown,
+  Gauge
 } from 'lucide-react';
 import { toast } from 'sonner';
+import DaladalaVehicleDetailsModal from './DaladalaVehicleDetailsModal';
+import DaladalaOwnerFleetMap from './DaladalaOwnerFleetMap';
 
 // Default initial demo owner profile
 const DEFAULT_OWNER_PROFILE: DaladalaOwnerProfile = {
@@ -161,9 +165,28 @@ export default function DaladalaFleetManager({
   onLogout,
 }: DaladalaFleetManagerProps) {
   // Navigation tabs in Owner Panel
-  const [activeTab, setActiveTab] = useState<'revenue' | 'vehicles' | 'passengers' | 'crew' | 'routes' | 'maintenance' | 'terminals'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'vehicles' | 'fleet_map' | 'passengers' | 'crew' | 'routes' | 'maintenance' | 'terminals'>('revenue');
   const [passengerVehicleFilter, setPassengerVehicleFilter] = useState<string>('all');
   const [passengerSearchQuery, setPassengerSearchQuery] = useState<string>('');
+
+  // Selected vehicle for deep inspection details modal
+  const [selectedVehicleForDetails, setSelectedVehicleForDetails] = useState<FleetVehicleRecord | null>(null);
+  const [selectedVehicleForMapId, setSelectedVehicleForMapId] = useState<string | null>(null);
+
+  // STRICT OWNER IDENTIFIERS: Only plates belonging to this owner
+  const ownerPlates = React.useMemo(() => {
+    return fleetRecords.map((f) => f.plateNumber.toUpperCase().trim());
+  }, [fleetRecords]);
+
+  // STRICT OWNER DATA: Only live vehicles belonging to this owner
+  const ownerLiveVehicles = React.useMemo(() => {
+    return vehicles.filter((v) => ownerPlates.includes(v.plateNumber.toUpperCase().trim()));
+  }, [vehicles, ownerPlates]);
+
+  // STRICT OWNER DATA: Only passengers who traveled in this owner's vehicles
+  const ownerPassengers = React.useMemo(() => {
+    return passengers.filter((p) => ownerPlates.includes(p.plateNumber.toUpperCase().trim()));
+  }, [passengers, ownerPlates]);
 
   // Owner authentication & profile state (saved in localStorage or from props)
   const [ownerProfile, setOwnerProfile] = useState<DaladalaOwnerProfile>(() => {
@@ -195,6 +218,11 @@ export default function DaladalaFleetManager({
     }
     return INITIAL_CREW;
   });
+
+  // STRICT OWNER DATA: Only crew members assigned to this owner's vehicles or created by owner
+  const ownerCrewMembers = React.useMemo(() => {
+    return crewMembers.filter((c) => !c.assignedVehiclePlate || ownerPlates.includes(c.assignedVehiclePlate.toUpperCase().trim()));
+  }, [crewMembers, ownerPlates]);
 
   // Modals visibility
   const [showRegisterVehicleModal, setShowRegisterVehicleModal] = useState(false);
@@ -621,17 +649,20 @@ export default function DaladalaFleetManager({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-4 mt-4 border-t border-white/10 text-xs">
           <div className="bg-white/5 rounded-xl p-2.5">
             <span className="text-[10px] text-neutral-400 uppercase font-bold block">Magari Yangu</span>
-            <span className="text-base font-black text-white">{fleetRecords.length} Daladala</span>
+            <span className="text-base font-black text-white flex items-center gap-1.5">
+              <span>{fleetRecords.length} Daladala</span>
+              <span className="text-[10px] font-normal text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">👑 Yako Tu</span>
+            </span>
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Abiria Waliosajiliwa</span>
-            <span className="text-base font-black text-amber-400">{passengers.length} Leo</span>
+            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Abiria wa Vyombo Vyako</span>
+            <span className="text-base font-black text-amber-400">{ownerPassengers.length} Leo</span>
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
-            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Madereva & Makonda</span>
-            <span className="text-base font-black text-white">{crewMembers.length} Wafanyakazi</span>
+            <span className="text-[10px] text-neutral-400 uppercase font-bold block">Wafanyakazi Wako</span>
+            <span className="text-base font-black text-white">{ownerCrewMembers.length} Wafanyakazi</span>
           </div>
 
           <div className="bg-white/5 rounded-xl p-2.5">
@@ -667,6 +698,19 @@ export default function DaladalaFleetManager({
           <span>Magari Yangu ({fleetRecords.length})</span>
         </button>
 
+        {/* Live GPS Fleet Map Tab */}
+        <button
+          onClick={() => setActiveTab('fleet_map')}
+          className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'fleet_map'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-neutral-950 font-black shadow-md'
+              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 border border-amber-200 dark:border-amber-800/60'
+          }`}
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          <span>👑 Ramani ya GPS ({ownerLiveVehicles.length})</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('passengers')}
           className={`px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
@@ -676,7 +720,7 @@ export default function DaladalaFleetManager({
           }`}
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>Orodha ya Abiria ({passengers.length})</span>
+          <span>Orodha ya Abiria ({ownerPassengers.length})</span>
         </button>
 
         <button
@@ -688,7 +732,7 @@ export default function DaladalaFleetManager({
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Madereva & Makonda ({crewMembers.length})</span>
+          <span>Madereva & Makonda ({ownerCrewMembers.length})</span>
         </button>
 
         <button
@@ -847,87 +891,168 @@ export default function DaladalaFleetManager({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {fleetRecords.map((f) => {
-              const liveVehicle = vehicles.find((v) => v.plateNumber === f.plateNumber);
-              return (
-                <div
-                  key={`vehicle_card_${f.id}`}
-                  className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 space-y-3 relative hover:shadow-md transition"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-700">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-sm text-neutral-900 dark:text-white">{f.plateNumber}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                          {f.routeCode}
-                        </span>
+          {fleetRecords.length === 0 ? (
+            <div className="p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950 flex items-center justify-center text-amber-600 mx-auto">
+                <Bus className="w-7 h-7" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-sm text-neutral-900 dark:text-neutral-100">
+                  Bado Hujasajili Daladala Yoyote
+                </h4>
+                <p className="text-xs text-neutral-500 max-w-sm mx-auto mt-1">
+                  Sajili gari lako la kwanza ili uanze kufuatilia mapato, dereva, kondakta na abiria wako moja kwa moja.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRegisterVehicleModal(true)}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition"
+              >
+                + Sajili Daladala Yako ya Kwanza
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {fleetRecords.map((f) => {
+                const liveVehicle = vehicles.find((v) => v.plateNumber === f.plateNumber);
+                const baki = f.todayRevenueTzs - f.fuelExpenseTzs - f.terminalFeeTzs;
+                const progressPct = f.dailyTargetTzs > 0 ? Math.min(100, Math.round((f.todayRevenueTzs / f.dailyTargetTzs) * 100)) : 0;
+
+                return (
+                  <div
+                    key={`vehicle_card_${f.id}`}
+                    className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3 relative hover:shadow-lg transition-all border-l-4 border-l-amber-500 group"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="tz-number-plate text-xs">
+                            <span className="tz-strip">TZ</span>
+                            <span>{f.plateNumber}</span>
+                          </div>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-mono">
+                            {f.routeCode}
+                          </span>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold italic mt-0.5">"{f.nickname}"</p>
                       </div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold italic">"{f.nickname}"</p>
+
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                        Kazini
+                      </span>
                     </div>
 
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      Kazini
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300">
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-500">Dereva:</span>
-                      <strong className="text-neutral-800 dark:text-neutral-200">{f.driverName}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-500">Kondakta:</span>
-                      <strong className="text-neutral-800 dark:text-neutral-200">{f.conductorName}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-500">Lengo la Siku:</span>
-                      <strong className="text-neutral-800 dark:text-neutral-200">TSh {f.dailyTargetTzs.toLocaleString()}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-neutral-500">Mapato ya Leo:</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400">TSh {f.todayRevenueTzs.toLocaleString()}</strong>
-                    </div>
-
-                    {liveVehicle && (
-                      <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px]">
-                        <span className="text-neutral-500">GPS Eneo:</span>
-                        <span className="text-blue-600 font-bold truncate max-w-[150px]">
-                          Kuelekea {liveVehicle.nextStopName}
-                        </span>
+                    <div className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-500">Dereva:</span>
+                        <strong className="text-neutral-800 dark:text-neutral-200">{f.driverName}</strong>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        toast.info(`Ufuatiliaji wa gari ${f.plateNumber} kwenye ramani ya GPS umeanza.`);
-                      }}
-                      className="py-1.5 px-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center gap-1 hover:bg-blue-100 transition"
-                    >
-                      <Navigation className="w-3.5 h-3.5" />
-                      <span>Fuatilia GPS</span>
-                    </button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-500">Kondakta:</span>
+                        <strong className="text-neutral-800 dark:text-neutral-200">{f.conductorName}</strong>
+                      </div>
 
-                    <button
-                      onClick={() => {
-                        toast.success(`Ripoti kamili ya safari za ${f.plateNumber} imepakuliwa.`);
-                      }}
-                      className="py-1.5 px-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 font-bold text-xs flex items-center justify-center gap-1 hover:bg-neutral-200 transition"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Ripoti</span>
-                    </button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-500">Lengo la Siku:</span>
+                        <strong className="text-neutral-800 dark:text-neutral-200 font-mono">TSh {f.dailyTargetTzs.toLocaleString()}</strong>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-500">Mapato ya Leo:</span>
+                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-black">
+                          TSh {f.todayRevenueTzs.toLocaleString()} ({progressPct}%)
+                        </strong>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-neutral-500">Baki ya Tajiri (Net):</span>
+                        <strong className="text-amber-600 dark:text-amber-400 font-mono font-black">
+                          TSh {baki.toLocaleString()}
+                        </strong>
+                      </div>
+
+                      {liveVehicle && (
+                        <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px]">
+                          <span className="text-neutral-500 flex items-center gap-1">
+                            <Navigation className="w-3 h-3 text-blue-500" />
+                            GPS:
+                          </span>
+                          <span className="text-blue-600 font-bold truncate max-w-[170px]">
+                            {liveVehicle.speedKmH} km/h • Kuelekea {liveVehicle.nextStopName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons: Diteli Zote & Ramani ya GPS */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedVehicleForDetails(f)}
+                        className="py-2 px-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Diteli Zote</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (liveVehicle) {
+                            setSelectedVehicleForMapId(liveVehicle.id);
+                          }
+                          setActiveTab('fleet_map');
+                          toast.info(`Ramani ya GPS ya chombo ${f.plateNumber}`);
+                        }}
+                        className="py-2 px-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>Fuatilia GPS</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- TAB 3: RAMANI YA GPS YA MAGARI YANGU ---------------- */}
+      {activeTab === 'fleet_map' && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-800/60 p-3 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+            <div>
+              <h4 className="font-black text-xs text-neutral-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span>Ramani ya GPS ya Magari Yako Tu ({ownerLiveVehicles.length} Hewani)</span>
+              </h4>
+              <p className="text-[11px] text-neutral-500">
+                Fuatilia vyombo vyako vilivyopo barabarani bila kuchanganywa na mabasi ya watu wengine.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 text-xs font-black">
+                👑 Radar Binafsi
+              </span>
+            </div>
           </div>
+
+          <DaladalaOwnerFleetMap
+            vehicles={ownerLiveVehicles}
+            routes={routes}
+            selectedVehicleId={selectedVehicleForMapId}
+            onSelectVehicle={(v) => {
+              const fleetRec = fleetRecords.find((f) => f.plateNumber === v.plateNumber);
+              if (fleetRec) {
+                setSelectedVehicleForDetails(fleetRec);
+              }
+            }}
+          />
         </div>
       )}
 
@@ -977,31 +1102,31 @@ export default function DaladalaFleetManager({
             </div>
           </div>
 
-          {/* Quick Metrics */}
+          {/* Quick Metrics (STRICT TO THIS OWNER'S FLEET) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
-              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Jumla ya Abiria Leo</span>
-              <span className="text-xl font-black text-neutral-900 dark:text-white">{passengers.length} Abiria</span>
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Abiria wa Vyombo Vyako</span>
+              <span className="text-xl font-black text-neutral-900 dark:text-white">{ownerPassengers.length} Abiria</span>
             </div>
 
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
-              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Jumla ya Nauli Zilizokusanywa</span>
-              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                TSh {passengers.reduce((acc, p) => acc + (p.paymentStatus === 'paid' ? p.fareTzs : 0), 0).toLocaleString()}
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Nauli Zilizokusanywa</span>
+              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                TSh {ownerPassengers.reduce((acc, p) => acc + (p.paymentStatus === 'paid' ? p.fareTzs : 0), 0).toLocaleString()}
               </span>
             </div>
 
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
-              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Malipo ya Kidijitali (M-Pesa n.k.)</span>
-              <span className="text-xl font-black text-blue-600 dark:text-blue-400">
-                {passengers.filter(p => p.paymentMethod !== 'cash').length} Abiria
+              <span className="text-[10px] text-neutral-400 font-bold uppercase block">Malipo ya Kidijitali (M-Pesa)</span>
+              <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                {ownerPassengers.filter(p => p.paymentMethod !== 'cash').length} Abiria
               </span>
             </div>
 
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
               <span className="text-[10px] text-neutral-400 font-bold uppercase block">Fedha Taslimu (Cash)</span>
-              <span className="text-xl font-black text-amber-600 dark:text-amber-400">
-                {passengers.filter(p => p.paymentMethod === 'cash').length} Abiria
+              <span className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono">
+                {ownerPassengers.filter(p => p.paymentMethod === 'cash').length} Abiria
               </span>
             </div>
           </div>
@@ -1015,7 +1140,7 @@ export default function DaladalaFleetManager({
                 onChange={(e) => setPassengerVehicleFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-xs font-bold text-neutral-900 dark:text-white"
               >
-                <option value="all">Vyombo Vyote ({passengers.length})</option>
+                <option value="all">Vyombo Vyako Vyote ({ownerPassengers.length})</option>
                 {fleetRecords.map((f) => (
                   <option key={f.id} value={f.plateNumber}>
                     {f.plateNumber} ({f.nickname})
@@ -1037,7 +1162,7 @@ export default function DaladalaFleetManager({
 
           {/* Passenger Table / Manifest List */}
           {(() => {
-            const filteredPassengers = passengers.filter((p) => {
+            const filteredPassengers = ownerPassengers.filter((p) => {
               const matchVehicle = passengerVehicleFilter === 'all' || p.plateNumber === passengerVehicleFilter;
               const q = passengerSearchQuery.toLowerCase().trim();
               const matchQuery = !q || 
@@ -1184,7 +1309,18 @@ export default function DaladalaFleetManager({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {crewMembers.map((c) => (
+            {ownerCrewMembers.length === 0 ? (
+              <div className="col-span-full p-8 text-center bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-2">
+                <Users className="w-8 h-8 text-neutral-400 mx-auto" />
+                <p className="font-bold text-xs text-neutral-700 dark:text-neutral-300">
+                  Bado hujasajili wafanyakazi kwenye vyombo vyako.
+                </p>
+                <p className="text-[11px] text-neutral-500">
+                  Tumia vitufe vya hapo juu kusajili Dereva au Kondakta wako.
+                </p>
+              </div>
+            ) : (
+              ownerCrewMembers.map((c) => (
               <div
                 key={c.id}
                 className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30 space-y-3"
@@ -1262,7 +1398,8 @@ export default function DaladalaFleetManager({
                   </button>
                 </div>
               </div>
-            ))}
+            ))
+          )}
           </div>
         </div>
       )}
@@ -1420,32 +1557,42 @@ export default function DaladalaFleetManager({
                   <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
                     Foleni ya Magari Stendi
                   </span>
-                  {t.queuedVehicles.map((q) => (
-                    <div
-                      key={q.plateNumber}
-                      className={`p-2.5 rounded-lg border flex items-center justify-between text-xs ${
-                        q.status === 'boarding'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
-                          : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-black">{q.queuePosition}. {q.plateNumber}</span>
-                          <span className="text-[9px] font-bold px-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                            {q.routeCode}
+                  {t.queuedVehicles.map((q) => {
+                    const isMyBusInQueue = ownerPlates.includes(q.plateNumber.toUpperCase().trim());
+                    return (
+                      <div
+                        key={q.plateNumber}
+                        className={`p-2.5 rounded-lg border flex items-center justify-between text-xs ${
+                          isMyBusInQueue
+                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-950 dark:text-amber-100 ring-1 ring-amber-400'
+                            : q.status === 'boarding'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                            : 'bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black">{q.queuePosition}. {q.plateNumber}</span>
+                            {isMyBusInQueue && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500 text-neutral-950 font-black text-[9px] uppercase">
+                                👑 Chombo Chako
+                              </span>
+                            )}
+                            <span className="text-[9px] font-bold px-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+                              {q.routeCode}
+                            </span>
+                          </div>
+                          <p className="text-[10px] opacity-80 mt-0.5">Kuelekea: {q.destination}</p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="font-extrabold text-[11px] block">
+                            {q.status === 'boarding' ? `Inajaza (Viti ${q.seatsRemaining})` : `Inafuata (Dk ${q.departureEtaMinutes})`}
                           </span>
                         </div>
-                        <p className="text-[10px] opacity-80 mt-0.5">Kuelekea: {q.destination}</p>
                       </div>
-
-                      <div className="text-right">
-                        <span className="font-extrabold text-[11px] block">
-                          {q.status === 'boarding' ? `Inajaza (Viti ${q.seatsRemaining})` : `Inafuata (Dk ${q.departureEtaMinutes})`}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -2194,6 +2341,19 @@ export default function DaladalaFleetManager({
             </form>
           </div>
         </div>
+      )}
+
+      {/* MODAL 6: DITELI ZOTE ZA CHOMBO CHA MMILIKI (VEHICLE DETAILS MODAL) */}
+      {selectedVehicleForDetails && (
+        <DaladalaVehicleDetailsModal
+          vehicle={selectedVehicleForDetails}
+          liveVehicle={vehicles.find((v) => v.plateNumber === selectedVehicleForDetails.plateNumber)}
+          route={routes.find((r) => r.routeCode === selectedVehicleForDetails.routeCode || r.id === selectedVehicleForDetails.routeCode)}
+          passengers={ownerPassengers}
+          crewMembers={ownerCrewMembers}
+          onClose={() => setSelectedVehicleForDetails(null)}
+          onUpdateCrew={onUpdateVehicleCrew}
+        />
       )}
     </div>
   );

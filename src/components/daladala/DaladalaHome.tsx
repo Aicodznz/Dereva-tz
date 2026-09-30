@@ -97,7 +97,23 @@ export default function DaladalaHome() {
   const [filterSearchQuery, setFilterSearchQuery] = useState<string>('');
   const [filterSeatStatus, setFilterSeatStatus] = useState<'all' | 'available_only'>('all');
   // Owner only filter: when true, only the logged-in owner's vehicles are shown
-  const [filterOwnerOnly, setFilterOwnerOnly] = useState<boolean>(false);
+  // Default to true for owners so they always see their own buses first!
+  const [filterOwnerOnly, setFilterOwnerOnly] = useState<boolean>(() => {
+    try {
+      const savedUserRaw = localStorage.getItem('papo_daladala_session_user');
+      if (savedUserRaw) {
+        const u = JSON.parse(savedUserRaw);
+        if (u.role === 'owner') return true;
+      }
+    } catch (e) {}
+    return true; // Default to true so owner views are strictly protected
+  });
+
+  useEffect(() => {
+    if (sessionUser?.role === 'owner') {
+      setFilterOwnerOnly(true);
+    }
+  }, [sessionUser?.role]);
 
   // Custom fleets registered by specific owners
   const [customOwnerVehicles, setCustomOwnerVehicles] = useState<Record<string, FleetVehicleRecord[]>>(() => {
@@ -147,8 +163,10 @@ export default function DaladalaHome() {
 
     if (user.role === 'owner') {
       setEcosystemMode('fleet');
+      setFilterOwnerOnly(true); // Automatically lock to owner's buses
     } else if (user.role === 'conductor' || user.role === 'driver') {
       setEcosystemMode('conductor');
+      setFilterOwnerOnly(false);
       // If assigned to a plate, select that vehicle
       if (user.assignedPlate) {
         const found = vehicles.find((v) => v.plateNumber === user.assignedPlate);
@@ -156,11 +174,13 @@ export default function DaladalaHome() {
       }
     } else {
       setEcosystemMode('passenger');
+      setFilterOwnerOnly(false);
     }
   };
 
   const handleLogout = () => {
     setSessionUser(null);
+    setFilterOwnerOnly(false);
     try {
       localStorage.removeItem('papo_daladala_session_user');
     } catch (e) {
@@ -419,10 +439,12 @@ export default function DaladalaHome() {
   // Filter Daladalas according to customer criteria: Kituo cha kupandia, Ruti, Kituo cha Kushukia
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
-      // 0. Owner Only Filter: show only vehicles belonging to the logged-in owner
-      if (filterOwnerOnly && sessionUser?.role === 'owner') {
-        const isOwnerBus = ownerPlates.includes(v.plateNumber.toUpperCase().trim());
-        if (!isOwnerBus) return false;
+      // 0. Owner Filter: If user is an owner and either in fleet mode or filterOwnerOnly is active, strictly show only their own vehicles
+      if (sessionUser?.role === 'owner') {
+        if (ecosystemMode === 'fleet' || filterOwnerOnly) {
+          const isOwnerBus = ownerPlates.includes(v.plateNumber.toUpperCase().trim());
+          if (!isOwnerBus) return false;
+        }
       }
 
       // 1. Route filter
@@ -490,7 +512,7 @@ export default function DaladalaHome() {
 
       return true;
     });
-  }, [vehicles, routes, filterRouteId, filterBoardingStop, filterAlightStop, filterSeatStatus, filterSearchQuery, filterOwnerOnly, ownerPlates, sessionUser]);
+  }, [vehicles, routes, filterRouteId, filterBoardingStop, filterAlightStop, filterSeatStatus, filterSearchQuery, filterOwnerOnly, ownerPlates, sessionUser, ecosystemMode]);
 
   const selectedVehicle = selectedVehicleId ? (filteredVehicles.find((v) => v.id === selectedVehicleId) || null) : null;
 
@@ -654,16 +676,17 @@ export default function DaladalaHome() {
         />
       )}
 
-      {/* Single Unified Edge-to-Edge Map Section */}
-      <section 
-        className={`w-full transition-all duration-300 ${
-          isFullscreenMap 
-            ? 'fixed inset-0 z-[500] w-screen h-screen bg-neutral-950 flex flex-col' 
-            : mapDisplayMode === 'full' && ecosystemMode === 'passenger'
-            ? 'relative w-full h-[calc(100dvh-58px)] flex flex-col overflow-hidden'
-            : `relative ${isMapExpanded ? 'h-[580px] sm:h-[660px]' : 'h-[380px] sm:h-[460px]'}`
-        }`}
-      >
+      {/* Single Unified Edge-to-Edge Map Section (Active ONLY in Passenger Mode) */}
+      {ecosystemMode === 'passenger' && (
+        <section 
+          className={`w-full transition-all duration-300 ${
+            isFullscreenMap 
+              ? 'fixed inset-0 z-[500] w-screen h-screen bg-neutral-950 flex flex-col' 
+              : mapDisplayMode === 'full'
+              ? 'relative w-full h-[calc(100dvh-58px)] flex flex-col overflow-hidden'
+              : `relative ${isMapExpanded ? 'h-[580px] sm:h-[660px]' : 'h-[380px] sm:h-[460px]'}`
+          }`}
+        >
         <DaladalaMap
           routes={routes}
           vehicles={filteredVehicles}
@@ -852,6 +875,7 @@ export default function DaladalaHome() {
           </div>
         )}
       </section>
+      )}
 
       {/* Main Container for Details, Filters, and Subviews (Active in Standard Split View or Operator Modes) */}
       {(mapDisplayMode === 'standard' || ecosystemMode !== 'passenger') && (
@@ -957,85 +981,6 @@ export default function DaladalaHome() {
           />
         )}
       </main>
-      )}
-
-      {/* Floating Bottom Quick Action Bar ONLY for Authenticated Daladala Operators */}
-      {sessionUser && (sessionUser.role === 'owner' || sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
-        <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-40 flex items-center justify-center pointer-events-none">
-          <div className="bg-neutral-900/95 border border-neutral-700/80 text-white shadow-2xl backdrop-blur-md rounded-2xl p-1.5 flex items-center gap-1.5 pointer-events-auto max-w-md w-full sm:w-auto">
-            <div className="px-2 py-1 text-[11px] font-black uppercase tracking-wider text-amber-400 hidden sm:flex items-center gap-1">
-              <Bus className="w-3.5 h-3.5" />
-              <span>{sessionUser.role === 'owner' ? 'Tajiri:' : 'Konda:'}</span>
-            </div>
-
-            {sessionUser.role === 'owner' && (
-              <>
-                <button
-                  onClick={() => setIsRegisterVehicleOpen(true)}
-                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Sajili Chombo</span>
-                </button>
-
-                <button
-                  onClick={() => setIsRegisterPassengerOpen(true)}
-                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Sajili Abiria</span>
-                </button>
-
-                <button
-                  onClick={() => setEcosystemMode(ecosystemMode === 'fleet' ? 'passenger' : 'fleet')}
-                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                    ecosystemMode === 'fleet'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span>{ecosystemMode === 'fleet' ? 'Rudi Ramani' : 'Dasibodi Yangu'}</span>
-                </button>
-              </>
-            )}
-
-            {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && (
-              <>
-                <button
-                  onClick={() => setIsRegisterPassengerOpen(true)}
-                  className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Sajili Abiria</span>
-                </button>
-
-                <button
-                  onClick={() => setEcosystemMode(ecosystemMode === 'conductor' ? 'passenger' : 'conductor')}
-                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                    ecosystemMode === 'conductor'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
-                  }`}
-                >
-                  <Radio className="w-3.5 h-3.5 text-purple-400" />
-                  <span>{ecosystemMode === 'conductor' ? 'Rudi Ramani' : 'Njia ya Konda'}</span>
-                </button>
-              </>
-            )}
-
-            {/* Quick Logout Button for Operators */}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95 whitespace-nowrap"
-              title="Ondoka kwenye akaunti (Logout)"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Toka</span>
-            </button>
-          </div>
-        </div>
       )}
 
       {/* MODAL 1: SAJILI CHOMBO CHAKO (VEHICLE REGISTRATION) */}

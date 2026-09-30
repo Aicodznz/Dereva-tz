@@ -535,11 +535,15 @@ export default function DaladalaMap({
     return routes.filter((r) => r.id === mapRouteFilter);
   }, [routes, mapRouteFilter]);
 
-  // Filter vehicles based on active routes
+  // Filter vehicles based on active routes and owner filter
   const filteredVehicles = useMemo(() => {
-    if (mapRouteFilter === 'all') return vehicles;
-    return vehicles.filter((v) => v.routeId === mapRouteFilter);
-  }, [vehicles, mapRouteFilter]);
+    let result = vehicles;
+    if (isOwnerLoggedIn && filterOwnerOnly && ownerPlates.length > 0) {
+      result = result.filter((v) => ownerPlates.includes(v.plateNumber.toUpperCase().trim()));
+    }
+    if (mapRouteFilter === 'all') return result;
+    return result.filter((v) => v.routeId === mapRouteFilter);
+  }, [vehicles, mapRouteFilter, isOwnerLoggedIn, filterOwnerOnly, ownerPlates]);
 
   /**
    * 🚗 Intelligent De-clustering & Staggering Algorithm:
@@ -604,12 +608,14 @@ export default function DaladalaMap({
             onClick={() => setMapRouteFilter('all')}
             className={`px-2.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
               mapRouteFilter === 'all'
-                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
+                ? isOwnerLoggedIn && filterOwnerOnly
+                  ? 'bg-amber-500 text-neutral-950 font-black shadow-md'
+                  : 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
                 : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
-            <span>Ruti Zote</span>
-            <span className="text-[10px] opacity-75 font-normal">({vehicles.length})</span>
+            <span>{isOwnerLoggedIn && filterOwnerOnly ? '👑 Magari Yangu Pekee' : 'Ruti Zote'}</span>
+            <span className="text-[10px] opacity-80 font-mono">({filteredVehicles.length})</span>
           </button>
 
           {/* Owner-specific Quick Filter: Only show owner's vehicles */}
@@ -619,12 +625,12 @@ export default function DaladalaMap({
               onClick={onToggleOwnerOnly}
               className={`px-2.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
                 filterOwnerOnly
-                  ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-300 shadow-md font-black'
-                  : 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-800'
+                  ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-neutral-300 dark:border-neutral-700'
+                  : 'bg-amber-500 text-neutral-950 font-black shadow-md ring-2 ring-amber-300'
               }`}
-              title="Onyesha magari yako pekee kwenye ramani"
+              title={filterOwnerOnly ? 'Bofya kutazama na mabasi mengine ya Dar' : 'Bofya kuona magari yako pekee'}
             >
-              <span>👑 Gari Zangu Tu</span>
+              <span>{filterOwnerOnly ? '🌐 Tazama na ya Wengine' : '👑 Gari Zangu Tu'}</span>
               <span className="text-[10px] opacity-90 font-mono font-black">({ownerPlates.length})</span>
             </button>
           )}

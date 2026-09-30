@@ -37,7 +37,8 @@ import {
   Calculator,
   Armchair,
   Flame,
-  Users
+  Users,
+  Crown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
@@ -618,20 +619,33 @@ export default function DaladalaPassengerView({
                   </button>
                 )}
 
-                {/* Owner specific quick toggle: Gari Zangu Tu */}
+                {/* Owner specific quick dual-toggle: Gari Zangu Tu vs Mabasi Yote */}
                 {sessionUser.role === 'owner' && onToggleOwnerOnly && (
-                  <button
-                    type="button"
-                    onClick={onToggleOwnerOnly}
-                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap ${
-                      filterOwnerOnly
-                        ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-300 shadow-md'
-                        : 'bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300 dark:border-amber-800'
-                    }`}
-                  >
-                    <span>👑 {filterOwnerOnly ? 'Onyesha Zote' : 'Gari Zangu Tu'}</span>
-                    <span className="text-[10px] opacity-80 font-mono">({ownerPlatesCount})</span>
-                  </button>
+                  <div className="flex items-center p-0.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => !filterOwnerOnly && onToggleOwnerOnly()}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition ${
+                        filterOwnerOnly
+                          ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                          : 'text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                      }`}
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      <span>Gari Zangu Tu ({ownerPlatesCount})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => filterOwnerOnly && onToggleOwnerOnly()}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
+                        !filterOwnerOnly
+                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-sm font-black'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span>Mabasi Yote ({totalVehiclesCount})</span>
+                    </button>
+                  </div>
                 )}
 
                 {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenConductorMode && (
@@ -969,10 +983,21 @@ export default function DaladalaPassengerView({
         {/* Right / Secondary: Live Daladala Feed List */}
         <div className="lg:col-span-7 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-extrabold text-xs text-neutral-900 dark:text-neutral-100 uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              Magari Yaliyopo Barabarani ({filteredVehicles.length})
-            </h3>
+            <div>
+              <h3 className="font-extrabold text-xs text-neutral-900 dark:text-neutral-100 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                {sessionUser?.role === 'owner' && filterOwnerOnly ? (
+                  <span>👑 Magari Yako Yaliyopo Barabarani ({filteredVehicles.length})</span>
+                ) : (
+                  <span>Magari Yaliyopo Barabarani ({filteredVehicles.length})</span>
+                )}
+              </h3>
+              {sessionUser?.role === 'owner' && filterOwnerOnly && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                  Unaangalia vyombo vyako pekee vilivyo chini ya usimamizi wako
+                </p>
+              )}
+            </div>
             <span className="text-[11px] text-neutral-500 font-semibold">Live GPS Updates</span>
           </div>
 
@@ -1032,6 +1057,12 @@ export default function DaladalaPassengerView({
                           <span className="tz-strip">TZ</span>
                           <span>{v.plateNumber}</span>
                         </div>
+                        {sessionUser?.role === 'owner' && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-400 text-neutral-950 text-[9px] font-black uppercase shadow-xs">
+                            <Crown className="w-2.5 h-2.5" />
+                            Gari Lako
+                          </span>
+                        )}
                         <span className="text-xs font-bold text-neutral-900 dark:text-white">
                           "{v.nickname}"
                         </span>
