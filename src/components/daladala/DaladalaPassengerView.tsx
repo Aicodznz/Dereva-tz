@@ -32,7 +32,8 @@ import {
   Building2,
   UserPlus,
   Lock,
-  Radio
+  Radio,
+  LogOut
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
@@ -52,6 +53,10 @@ interface DaladalaPassengerViewProps {
   onOpenConductorMode?: () => void;
   sessionUser?: DaladalaSessionUser | null;
   onOpenAuthModal?: (role?: 'owner' | 'conductor' | 'passenger') => void;
+  onLogout?: () => void;
+  filterOwnerOnly?: boolean;
+  onToggleOwnerOnly?: () => void;
+  ownerPlatesCount?: number;
 
   // Controlled Journey Filter Props
   boardingStop?: string;
@@ -84,6 +89,10 @@ export default function DaladalaPassengerView({
   onOpenConductorMode,
   sessionUser,
   onOpenAuthModal,
+  onLogout,
+  filterOwnerOnly = false,
+  onToggleOwnerOnly,
+  ownerPlatesCount = 0,
   boardingStop: controlledBoardingStop,
   onBoardingStopChange: controlledOnBoardingStopChange,
   selectedRouteFilter: controlledSelectedRouteFilter,
@@ -482,6 +491,22 @@ export default function DaladalaPassengerView({
                   </button>
                 )}
 
+                {/* Owner specific quick toggle: Gari Zangu Tu */}
+                {sessionUser.role === 'owner' && onToggleOwnerOnly && (
+                  <button
+                    type="button"
+                    onClick={onToggleOwnerOnly}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap ${
+                      filterOwnerOnly
+                        ? 'bg-amber-500 text-neutral-950 ring-2 ring-amber-300 shadow-md'
+                        : 'bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-300 dark:border-amber-800'
+                    }`}
+                  >
+                    <span>👑 {filterOwnerOnly ? 'Onyesha Zote' : 'Gari Zangu Tu'}</span>
+                    <span className="text-[10px] opacity-80 font-mono">({ownerPlatesCount})</span>
+                  </button>
+                )}
+
                 {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenConductorMode && (
                   <button
                     type="button"
@@ -490,6 +515,19 @@ export default function DaladalaPassengerView({
                   >
                     <Radio className="w-3.5 h-3.5" />
                     <span>Njia ya Konda HUD</span>
+                  </button>
+                )}
+
+                {/* Direct Logout Button */}
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-800 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap shadow-sm"
+                    title="Ondoka kwenye akaunti (Logout)"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-red-500" />
+                    <span>Toka</span>
                   </button>
                 )}
               </>

@@ -96,6 +96,8 @@ export default function DaladalaHome() {
   const [filterAlightStop, setFilterAlightStop] = useState<string>('');
   const [filterSearchQuery, setFilterSearchQuery] = useState<string>('');
   const [filterSeatStatus, setFilterSeatStatus] = useState<'all' | 'available_only'>('all');
+  // Owner only filter: when true, only the logged-in owner's vehicles are shown
+  const [filterOwnerOnly, setFilterOwnerOnly] = useState<boolean>(false);
 
   // Custom fleets registered by specific owners
   const [customOwnerVehicles, setCustomOwnerVehicles] = useState<Record<string, FleetVehicleRecord[]>>(() => {
@@ -206,6 +208,11 @@ export default function DaladalaHome() {
     // Demo Mzee Mwinyi (owner_01)
     return fleetRecords;
   }, [sessionUser, customOwnerVehicles, fleetRecords]);
+
+  // Set of uppercase plate numbers belonging to current owner
+  const ownerPlates = React.useMemo(() => {
+    return currentOwnerFleetRecords.map((f) => f.plateNumber.toUpperCase().trim());
+  }, [currentOwnerFleetRecords]);
 
   // Determine owner profile
   const currentOwnerProfile: DaladalaOwnerProfile = React.useMemo(() => {
@@ -412,6 +419,12 @@ export default function DaladalaHome() {
   // Filter Daladalas according to customer criteria: Kituo cha kupandia, Ruti, Kituo cha Kushukia
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
+      // 0. Owner Only Filter: show only vehicles belonging to the logged-in owner
+      if (filterOwnerOnly && sessionUser?.role === 'owner') {
+        const isOwnerBus = ownerPlates.includes(v.plateNumber.toUpperCase().trim());
+        if (!isOwnerBus) return false;
+      }
+
       // 1. Route filter
       if (filterRouteId !== 'all') {
         if (v.routeId !== filterRouteId && v.routeCode !== filterRouteId) {
@@ -477,7 +490,7 @@ export default function DaladalaHome() {
 
       return true;
     });
-  }, [vehicles, routes, filterRouteId, filterBoardingStop, filterAlightStop, filterSeatStatus, filterSearchQuery]);
+  }, [vehicles, routes, filterRouteId, filterBoardingStop, filterAlightStop, filterSeatStatus, filterSearchQuery, filterOwnerOnly, ownerPlates, sessionUser]);
 
   const selectedVehicle = selectedVehicleId ? (filteredVehicles.find((v) => v.id === selectedVehicleId) || null) : null;
 
@@ -607,10 +620,11 @@ export default function DaladalaHome() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="p-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition"
-                  title="Ondoka (Logout)"
+                  className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-300 font-bold text-xs flex items-center gap-1 shadow-sm transition active:scale-95"
+                  title="Ondoka kwenye akaunti (Logout)"
                 >
                   <LogOut className="w-3.5 h-3.5 text-red-500" />
+                  <span>Toka</span>
                 </button>
               </div>
             ) : (
@@ -675,6 +689,16 @@ export default function DaladalaHome() {
           isFullscreen={isFullscreenMap}
           onToggleFullscreen={() => setIsFullscreenMap((prev) => !prev)}
           onOpenRoutePlanner={() => setIsRoutePlannerOpen(true)}
+          isOwnerLoggedIn={sessionUser?.role === 'owner'}
+          ownerPlates={ownerPlates}
+          filterOwnerOnly={filterOwnerOnly}
+          onToggleOwnerOnly={() => {
+            setFilterOwnerOnly((prev) => {
+              const next = !prev;
+              toast.info(next ? 'Unatazama magari yako pekee (Gari Zangu Tu)' : 'Unatazama mabasi yote ya Dar');
+              return next;
+            });
+          }}
         />
 
         {/* Floating Bottom Transit Drawer / Sheet (Active ONLY in Fullscreen Map Mode) */}
@@ -811,6 +835,16 @@ export default function DaladalaHome() {
                       setSelectedRouteId(null);
                     }}
                     totalVehiclesCount={vehicles.length}
+                    filterOwnerOnly={filterOwnerOnly}
+                    onToggleOwnerOnly={() => {
+                      setFilterOwnerOnly((prev) => {
+                        const next = !prev;
+                        toast.info(next ? 'Unatazama magari yako pekee (Gari Zangu Tu)' : 'Unatazama mabasi yote ya Dar');
+                        return next;
+                      });
+                    }}
+                    ownerPlatesCount={ownerPlates.length}
+                    onLogout={handleLogout}
                   />
                 </div>
               </div>
@@ -875,6 +909,16 @@ export default function DaladalaHome() {
               setSelectedRouteId(null);
             }}
             totalVehiclesCount={vehicles.length}
+            filterOwnerOnly={filterOwnerOnly}
+            onToggleOwnerOnly={() => {
+              setFilterOwnerOnly((prev) => {
+                const next = !prev;
+                toast.info(next ? 'Unatazama magari yako pekee (Gari Zangu Tu)' : 'Unatazama mabasi yote ya Dar');
+                return next;
+              });
+            }}
+            ownerPlatesCount={ownerPlates.length}
+            onLogout={handleLogout}
           />
         )}
 
@@ -979,6 +1023,17 @@ export default function DaladalaHome() {
                 </button>
               </>
             )}
+
+            {/* Quick Logout Button for Operators */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition active:scale-95 whitespace-nowrap"
+              title="Ondoka kwenye akaunti (Logout)"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Toka</span>
+            </button>
           </div>
         </div>
       )}

@@ -943,11 +943,12 @@ export default function DaladalaMap({
         {/* 🚌 Moving Daladala Vehicles with Intelligent De-clustering */}
         {displayedVehicles.map(({ vehicle: v, renderLat, renderLng, isDisplaced }) => {
           const isSelected = v.id === selectedVehicleId;
+          const isOwner = Boolean(ownerPlates && ownerPlates.includes(v.plateNumber.toUpperCase().trim()));
           return (
             <Marker
               key={v.id}
               position={[renderLat, renderLng]}
-              icon={createModernBusIcon(v, isSelected, isDisplaced)}
+              icon={createModernBusIcon(v, isSelected, isDisplaced, isOwner)}
               eventHandlers={{
                 click: () => onSelectVehicle(v),
               }}
@@ -960,6 +961,11 @@ export default function DaladalaMap({
                       <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                         {v.routeCode}
                       </span>
+                      {isOwner && (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-neutral-950 uppercase tracking-tight">
+                          👑 Gari Yangu
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] font-bold text-neutral-500">{v.speedKmH} km/h</span>
                   </div>
