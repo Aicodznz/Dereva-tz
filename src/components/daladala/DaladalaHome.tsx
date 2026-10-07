@@ -22,10 +22,12 @@ import DaladalaMap from './DaladalaMap';
 import DaladalaPassengerView from './DaladalaPassengerView';
 import DaladalaRoutePlanner from './DaladalaRoutePlanner';
 import DaladalaConductorMode from './DaladalaConductorMode';
+import DaladalaDriverMode from './DaladalaDriverMode';
 import DaladalaFleetManager from './DaladalaFleetManager';
 import DaladalaRegisterPassengerModal from './DaladalaRegisterPassengerModal';
 import DaladalaRegisterVehicleModal from './DaladalaRegisterVehicleModal';
 import DaladalaAuthModal from './DaladalaAuthModal';
+import DaladalaDailyOwnerReportModal from './DaladalaDailyOwnerReportModal';
 import { 
   Bus, 
   ArrowLeft, 
@@ -48,7 +50,10 @@ import {
   UserCheck,
   Compass,
   Eye,
-  EyeOff
+  EyeOff,
+  Gauge,
+  Share2,
+  Car
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -71,18 +76,22 @@ export default function DaladalaHome() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialRole, setAuthModalInitialRole] = useState<DaladalaUserRole>('owner');
 
-  // Primary Ecosystem Mode: passenger (Abiria), conductor (Kondakta/Dereva), fleet (Mmiliki/Stendi)
-  const [ecosystemMode, setEcosystemMode] = useState<'passenger' | 'conductor' | 'fleet'>(() => {
+  // Primary Ecosystem Mode: passenger (Abiria), driver (Dereva HUD), conductor (Konda), fleet (Mmiliki/Stendi)
+  const [ecosystemMode, setEcosystemMode] = useState<'passenger' | 'driver' | 'conductor' | 'fleet'>(() => {
     try {
       const savedUserRaw = localStorage.getItem('papo_daladala_session_user');
       if (savedUserRaw) {
         const u: DaladalaSessionUser = JSON.parse(savedUserRaw);
         if (u.role === 'owner') return 'fleet';
-        if (u.role === 'conductor' || u.role === 'driver') return 'conductor';
+        if (u.role === 'driver') return 'driver';
+        if (u.role === 'conductor') return 'conductor';
       }
     } catch (e) {}
     return 'passenger';
   });
+
+  // End-of-Day Daily Owner WhatsApp Report Modal
+  const [isDailyReportOpen, setIsDailyReportOpen] = useState(false);
 
   // State for data
   const [routes, setRoutes] = useState<DaladalaRoute[]>(mockDaladalaRoutes);
@@ -164,7 +173,14 @@ export default function DaladalaHome() {
     if (user.role === 'owner') {
       setEcosystemMode('fleet');
       setFilterOwnerOnly(true); // Automatically lock to owner's buses
-    } else if (user.role === 'conductor' || user.role === 'driver') {
+    } else if (user.role === 'driver') {
+      setEcosystemMode('driver');
+      setFilterOwnerOnly(false);
+      if (user.assignedPlate) {
+        const found = vehicles.find((v) => v.plateNumber === user.assignedPlate);
+        if (found) setSelectedVehicleId(found.id);
+      }
+    } else if (user.role === 'conductor') {
       setEcosystemMode('conductor');
       setFilterOwnerOnly(false);
       // If assigned to a plate, select that vehicle
@@ -193,18 +209,25 @@ export default function DaladalaHome() {
   };
 
   // Helper guard: restricts feature to logged-in role
-  const requireRole = (targetRole: 'owner' | 'conductor', onAllowed: () => void) => {
+  const requireRole = (targetRole: 'owner' | 'conductor' | 'driver', onAllowed: () => void) => {
     if (!sessionUser) {
       setAuthModalInitialRole(targetRole);
       setIsAuthModalOpen(true);
-      toast.info(`Tafadhali ingia au jisajili kama ${targetRole === 'owner' ? 'Mmiliki wa Daladala' : 'Kondakta au Dereva'} kwanza.`);
+      toast.info(`Tafadhali ingia au jisajili kama ${targetRole === 'owner' ? 'Mmiliki wa Daladala' : targetRole === 'driver' ? 'Dereva' : 'Kondakta'} kwanza.`);
       return false;
     }
 
     if (targetRole === 'owner' && sessionUser.role !== 'owner') {
       setAuthModalInitialRole('owner');
       setIsAuthModalOpen(true);
-      toast.warning(`Umeingia kama ${sessionUser.role === 'conductor' ? 'Kondakta' : 'Abiria'}. Sehemu hii ya mapato na hesabu ni ya Wamiliki wa Daladala pekee.`);
+      toast.warning(`Umeingia kama ${sessionUser.role}. Sehemu hii ya mapato na hesabu ni ya Wamiliki wa Daladala pekee.`);
+      return false;
+    }
+
+    if (targetRole === 'driver' && sessionUser.role !== 'driver' && sessionUser.role !== 'conductor' && sessionUser.role !== 'owner') {
+      setAuthModalInitialRole('driver');
+      setIsAuthModalOpen(true);
+      toast.warning(`Tafadhali ingia kama Dereva.`);
       return false;
     }
 
@@ -566,7 +589,7 @@ export default function DaladalaHome() {
               {/* Abiria (Public - Always accessible) */}
               <button
                 onClick={() => setEcosystemMode('passenger')}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                className={`px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
                   ecosystemMode === 'passenger'
                     ? 'bg-white dark:bg-neutral-900 text-blue-600 shadow-sm'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
@@ -577,25 +600,44 @@ export default function DaladalaHome() {
                 <span>Abiria</span>
               </button>
 
+              {/* Dereva (Dedicated HUD - Protected) */}
+              <button
+                onClick={() => {
+                  requireRole('driver', () => setEcosystemMode('driver'));
+                }}
+                className={`px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                  ecosystemMode === 'driver'
+                    ? 'bg-white dark:bg-neutral-900 text-blue-600 shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
+                }`}
+                title={sessionUser?.role === 'driver' || sessionUser?.role === 'conductor' || sessionUser?.role === 'owner' ? 'Skrini Maalum ya Dereva (HUD, Speedometer & Vituo)' : 'Inahitaji Kuingia kama Dereva'}
+              >
+                {(!sessionUser || (sessionUser.role !== 'driver' && sessionUser.role !== 'conductor' && sessionUser.role !== 'owner')) ? (
+                  <Lock className="w-3 h-3 text-neutral-400" />
+                ) : (
+                  <Gauge className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                <span>Dereva</span>
+              </button>
+
               {/* Kondakta (Protected) */}
               <button
                 onClick={() => {
                   requireRole('conductor', () => setEcosystemMode('conductor'));
                 }}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                className={`px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
                   ecosystemMode === 'conductor'
                     ? 'bg-white dark:bg-neutral-900 text-blue-600 shadow-sm'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
                 }`}
-                title={sessionUser?.role === 'conductor' || sessionUser?.role === 'driver' || sessionUser?.role === 'owner' ? 'Hali ya Kondakta na Dereva' : 'Inahitaji Kuingia kama Konda/Dereva'}
+                title={sessionUser?.role === 'conductor' || sessionUser?.role === 'driver' || sessionUser?.role === 'owner' ? 'Hali ya Kondakta (Viti, Tiketi & Chenji)' : 'Inahitaji Kuingia kama Konda'}
               >
                 {(!sessionUser || (sessionUser.role !== 'conductor' && sessionUser.role !== 'driver' && sessionUser.role !== 'owner')) ? (
                   <Lock className="w-3 h-3 text-neutral-400" />
                 ) : (
-                  <Radio className="w-3.5 h-3.5" />
+                  <Radio className="w-3.5 h-3.5 text-purple-500" />
                 )}
-                <span className="hidden sm:inline">Konda / Dereva</span>
-                <span className="sm:hidden">Konda/Dereva</span>
+                <span>Konda</span>
               </button>
 
               {/* Mmiliki / Stendi (Protected) */}
@@ -603,7 +645,7 @@ export default function DaladalaHome() {
                 onClick={() => {
                   requireRole('owner', () => setEcosystemMode('fleet'));
                 }}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                className={`px-2 sm:px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
                   ecosystemMode === 'fleet'
                     ? 'bg-white dark:bg-neutral-900 text-blue-600 shadow-sm'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900'
@@ -613,12 +655,22 @@ export default function DaladalaHome() {
                 {(!sessionUser || sessionUser.role !== 'owner') ? (
                   <Lock className="w-3 h-3 text-neutral-400" />
                 ) : (
-                  <Building2 className="w-3.5 h-3.5" />
+                  <Building2 className="w-3.5 h-3.5 text-amber-500" />
                 )}
-                <span className="hidden sm:inline">Mmiliki</span>
-                <span className="sm:hidden">Mmiliki</span>
+                <span>Mmiliki</span>
               </button>
             </div>
+
+            {/* Daily WhatsApp Summary Button */}
+            <button
+              type="button"
+              onClick={() => setIsDailyReportOpen(true)}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+              title="Fungua au Tuma Ripoti ya Hesabu ya Leo WhatsApp ya Tajiri"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Hesabu ya Leo</span>
+            </button>
 
             {/* Operator Login / User Profile Capsule */}
             {sessionUser ? (
@@ -946,6 +998,28 @@ export default function DaladalaHome() {
           />
         )}
 
+        {ecosystemMode === 'driver' && (
+          (selectedVehicle || vehicles[0]) ? (
+            <DaladalaDriverMode
+              vehicle={selectedVehicle || vehicles[0]}
+              route={routes.find((r) => r.id === (selectedVehicle || vehicles[0]).routeId)}
+              allVehicles={vehicles}
+              onSelectVehicle={(v) => setSelectedVehicleId(v.id)}
+              onUpdateVehicle={handleUpdateVehicle}
+              passengers={passengers}
+              fleetRecords={fleetRecords}
+              sessionUser={sessionUser}
+              onOpenConductorMode={() => setEcosystemMode('conductor')}
+              onOpenFleetDashboard={() => setEcosystemMode('fleet')}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800">
+              <p className="text-sm font-bold text-neutral-500">Tafadhali chagua daladala kwenye ramani kwanza.</p>
+            </div>
+          )
+        )}
+
         {ecosystemMode === 'conductor' && (
           (selectedVehicle || vehicles[0]) ? (
             <DaladalaConductorMode
@@ -1011,6 +1085,18 @@ export default function DaladalaHome() {
         initialRole={authModalInitialRole}
         vehicles={vehicles}
       />
+
+      {/* MODAL 4: RIPOTI YA HESABU YA TAJIRI (DAILY WHATSAPP & PDF REPORT) */}
+      {isDailyReportOpen && (
+        <DaladalaDailyOwnerReportModal
+          vehicle={selectedVehicle ? fleetRecords.find(f => f.plateNumber === selectedVehicle.plateNumber) || null : fleetRecords[0]}
+          fleetRecords={currentOwnerFleetRecords.length > 0 ? currentOwnerFleetRecords : fleetRecords}
+          passengers={passengers}
+          ownerName={currentOwnerProfile.fullName}
+          ownerPhone={currentOwnerProfile.phone}
+          onClose={() => setIsDailyReportOpen(false)}
+        />
+      )}
     </div>
   );
 }

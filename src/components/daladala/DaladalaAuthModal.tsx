@@ -112,6 +112,16 @@ export default function DaladalaAuthModal({
         joinedDate: '2023-04-12',
         verified: true,
       };
+    } else if (role === 'driver') {
+      demoUser = {
+        id: 'driver_01',
+        role: 'driver',
+        fullName: 'Athumani Juma (Dereva Bingwa)',
+        phone: '0714 552 901',
+        assignedPlate: 'T 392 DKR',
+        joinedDate: '2023-09-10',
+        verified: true,
+      };
     } else if (role === 'conductor') {
       demoUser = {
         id: 'konda_01',
@@ -134,7 +144,7 @@ export default function DaladalaAuthModal({
     }
 
     onLoginSuccess(demoUser);
-    toast.success(`Umeingia kama ${demoUser.fullName} (${demoUser.role === 'owner' ? 'Mmiliki' : demoUser.role === 'conductor' ? 'Kondakta' : 'Abiria'})`);
+    toast.success(`Umeingia kama ${demoUser.fullName} (${demoUser.role === 'owner' ? 'Mmiliki' : demoUser.role === 'driver' ? 'Dereva' : demoUser.role === 'conductor' ? 'Kondakta' : 'Abiria'})`);
     onClose();
   };
 
@@ -244,7 +254,7 @@ export default function DaladalaAuthModal({
             <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500">
               Chagua Nafasi Yako (Role):
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedRole('owner')}
@@ -261,6 +271,20 @@ export default function DaladalaAuthModal({
 
               <button
                 type="button"
+                onClick={() => setSelectedRole('driver')}
+                className={`p-2.5 rounded-2xl border text-left flex flex-col items-center justify-center text-center transition active:scale-95 ${
+                  selectedRole === 'driver'
+                    ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-black shadow-sm ring-1 ring-blue-600'
+                    : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 text-neutral-600 dark:text-neutral-400'
+                }`}
+              >
+                <Bus className="w-5 h-5 mb-1 text-blue-500" />
+                <span className="text-xs font-black">Dereva</span>
+                <span className="text-[9px] opacity-75">HUD & Speedometer</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setSelectedRole('conductor')}
                 className={`p-2.5 rounded-2xl border text-left flex flex-col items-center justify-center text-center transition active:scale-95 ${
                   selectedRole === 'conductor'
@@ -269,7 +293,7 @@ export default function DaladalaAuthModal({
                 }`}
               >
                 <Radio className="w-5 h-5 mb-1 text-purple-500" />
-                <span className="text-xs font-black">Kondakta / Dereva</span>
+                <span className="text-xs font-black">Kondakta</span>
                 <span className="text-[9px] opacity-75">Viti & Tiketi</span>
               </button>
 
@@ -357,14 +381,23 @@ export default function DaladalaAuthModal({
                 <p className="text-[10px] font-black uppercase text-neutral-400 tracking-wider text-center">
                   Au Jaribu Moja kwa Moja (Akaunti za Mfano):
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                   <button
                     type="button"
                     onClick={() => handleQuickDemoLogin('owner')}
                     className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800 text-left transition"
                   >
-                    <span className="block font-black text-xs">👑 Tajiri / Mmiliki</span>
-                    <span className="text-[9px] opacity-80">Mzee Mwinyi (Magari 3)</span>
+                    <span className="block font-black text-xs">👑 Mmiliki</span>
+                    <span className="text-[9px] opacity-80">Mzee Mwinyi (3)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickDemoLogin('driver')}
+                    className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold border border-blue-200 dark:border-blue-800 text-left transition"
+                  >
+                    <span className="block font-black text-xs">🚍 Dereva</span>
+                    <span className="text-[9px] opacity-80">Athumani (Speed)</span>
                   </button>
 
                   <button
@@ -373,7 +406,7 @@ export default function DaladalaAuthModal({
                     className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-950 text-purple-800 dark:text-purple-300 font-bold border border-purple-200 dark:border-purple-800 text-left transition"
                   >
                     <span className="block font-black text-xs">🎫 Kondakta</span>
-                    <span className="text-[9px] opacity-80">Bakari (T 392 DKR)</span>
+                    <span className="text-[9px] opacity-80">Bakari (Tiketi)</span>
                   </button>
 
                   <button
@@ -382,7 +415,7 @@ export default function DaladalaAuthModal({
                     className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-left transition"
                   >
                     <span className="block font-black text-xs">👥 Abiria</span>
-                    <span className="text-[9px] opacity-80">Ramani ya kawaida</span>
+                    <span className="text-[9px] opacity-80">Ramani ya Dar</span>
                   </button>
                 </div>
               </div>

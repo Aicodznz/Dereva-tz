@@ -41,11 +41,13 @@ import {
   Send,
   Navigation,
   Crown,
-  Gauge
+  Gauge,
+  Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaVehicleDetailsModal from './DaladalaVehicleDetailsModal';
 import DaladalaOwnerFleetMap from './DaladalaOwnerFleetMap';
+import DaladalaDailyOwnerReportModal from './DaladalaDailyOwnerReportModal';
 
 // Default initial demo owner profile
 const DEFAULT_OWNER_PROFILE: DaladalaOwnerProfile = {
@@ -250,6 +252,9 @@ export default function DaladalaFleetManager({
   const totalNetProfit = totalRevenue - totalFuel - totalTerminalFee;
   const digitalCollections = fleetRecords.reduce((acc, f) => acc + f.digitalCollectedTzs, 0);
   const cashCollections = fleetRecords.reduce((acc, f) => acc + f.cashCollectedTzs, 0);
+
+  // Daily WhatsApp / PDF Accounting Summary Modal State
+  const [showDailyReportModal, setShowDailyReportModal] = useState(false);
 
   // ----------------------------------------------------
   // FORM STATES: REGISTER VEHICLE
@@ -629,6 +634,15 @@ export default function DaladalaFleetManager({
             >
               <Banknote className="w-4 h-4" />
               <span>Toa Pesa (Withdraw)</span>
+            </button>
+
+            <button
+              onClick={() => setShowDailyReportModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md transition active:scale-95"
+              title="Tuma Ripoti ya Hesabu ya Leo WhatsApp ya Tajiri"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Hesabu ya WhatsApp</span>
             </button>
 
             {onLogout && (
@@ -2353,6 +2367,17 @@ export default function DaladalaFleetManager({
           crewMembers={ownerCrewMembers}
           onClose={() => setSelectedVehicleForDetails(null)}
           onUpdateCrew={onUpdateVehicleCrew}
+        />
+      )}
+
+      {/* MODAL 7: RIPOTI YA HESABU YA LEO YA TAJIRI (WHATSAPP & PDF REPORT) */}
+      {showDailyReportModal && (
+        <DaladalaDailyOwnerReportModal
+          fleetRecords={fleetRecords}
+          passengers={ownerPassengers}
+          ownerName={ownerProfile.fullName}
+          ownerPhone={ownerProfile.phone}
+          onClose={() => setShowDailyReportModal(false)}
         />
       )}
     </div>

@@ -41,6 +41,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { speakKiswahili } from '../../utils/daladalaAudioVoice';
 
 interface DaladalaConductorModeProps {
   vehicle: DaladalaVehicle;
@@ -176,15 +177,9 @@ export default function DaladalaConductorMode({
     return () => clearInterval(interval);
   }, [isDwellRunning]);
 
-  // Swahili voice synthesis helper
+  // Swahili voice synthesis helper with chime & clear transit audio
   const playSwahiliVoice = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'sw-TZ';
-      utterance.rate = 0.92;
-      window.speechSynthesis.speak(utterance);
-    }
+    speakKiswahili(text, true);
     toast.info(`📢 Tangazo: "${text}"`);
   };
 
