@@ -44,6 +44,7 @@ import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
 import DaladalaLatraFareCalculatorModal from './DaladalaLatraFareCalculatorModal';
 import DaladalaSeatHoldModal from './DaladalaSeatHoldModal';
+import DaladalaFeatureShowcaseBanner from './DaladalaFeatureShowcaseBanner';
 import { mockStopCrowdLevels } from '../../data/daladalaCrowdData';
 
 interface DaladalaPassengerViewProps {
@@ -59,6 +60,8 @@ interface DaladalaPassengerViewProps {
   onOpenRegisterPassenger?: () => void;
   onOpenDashboard?: () => void;
   onOpenConductorMode?: () => void;
+  onOpenDriverMode?: () => void;
+  onOpenDailyReport?: () => void;
   sessionUser?: DaladalaSessionUser | null;
   onOpenAuthModal?: (role?: 'owner' | 'conductor' | 'passenger') => void;
   onLogout?: () => void;
@@ -95,6 +98,8 @@ export default function DaladalaPassengerView({
   onOpenRegisterPassenger,
   onOpenDashboard,
   onOpenConductorMode,
+  onOpenDriverMode,
+  onOpenDailyReport,
   sessionUser,
   onOpenAuthModal,
   onLogout,
@@ -389,6 +394,14 @@ export default function DaladalaPassengerView({
 
   return (
     <div className="flex flex-col h-full space-y-4">
+      {/* 🌟 Dedicated Showcase Hub for New Features (Driver HUD, WhatsApp Owner Report, Voice GPS) */}
+      <DaladalaFeatureShowcaseBanner
+        onOpenDriverMode={() => onOpenDriverMode ? onOpenDriverMode() : onOpenConductorMode?.()}
+        onOpenDailyReport={() => onOpenDailyReport ? onOpenDailyReport() : undefined}
+        onOpenConductorMode={() => onOpenConductorMode ? onOpenConductorMode() : undefined}
+        onOpenFleetMode={() => onOpenDashboard ? onOpenDashboard() : undefined}
+      />
+
       {/* 14: Weather & Traffic Status Banner */}
       <div className="bg-gradient-to-r from-amber-500/10 via-blue-500/10 to-emerald-500/10 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
