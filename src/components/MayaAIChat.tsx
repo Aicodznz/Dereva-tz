@@ -680,8 +680,13 @@ export default function MayaAIChat() {
     return 'Mteja Voice 🛍️';
   };
 
-  // Do not render floating Maya AI FAB on Daladala live transit map page to avoid visual collision and map obstruction
-  if (location.pathname.startsWith('/daladala') || location.pathname.startsWith('/service/daladala')) {
+  // Do not render floating Maya AI FAB on Daladala or Profile pages to avoid visual collision and screen obstruction
+  if (
+    location.pathname.startsWith('/daladala') || 
+    location.pathname.startsWith('/service/daladala') ||
+    location.pathname === '/profile' ||
+    location.pathname.startsWith('/profile/')
+  ) {
     return null;
   }
 

@@ -31,7 +31,11 @@ import {
   Eye, 
   RefreshCw,
   Zap,
-  Info
+  Info,
+  Ban,
+  Smartphone,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -97,6 +101,10 @@ export default function DaladalaDriverMode({
 
   // Daily Accounting Report Modal State
   const [isDailyReportOpen, setIsDailyReportOpen] = useState(false);
+
+  // Road Safety & Hands-Free Mount Mode
+  const [handsFreeLocked, setHandsFreeLocked] = useState<boolean>(true);
+  const [isSafetyModalOpen, setIsSafetyModalOpen] = useState<boolean>(false);
 
   // Active stop object
   const currentStop = stops[currentStopIndex] || {
@@ -309,6 +317,69 @@ export default function DaladalaDriverMode({
             <Share2 className="w-3.5 h-3.5" />
             <span>Hesabu ya Tajiri</span>
           </button>
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 🛡️ ROAD SAFETY & HANDS-FREE MOUNT PROTOCOL BANNER         */}
+      {/* ========================================================= */}
+      <div className="p-3.5 sm:p-4 rounded-3xl bg-gradient-to-r from-neutral-900 via-neutral-900 to-amber-950/40 text-white border border-amber-500/40 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0 mt-0.5 relative">
+              <Smartphone className="w-5 h-5 text-amber-400" />
+              <Ban className="w-3.5 h-3.5 text-rose-500 absolute -top-1 -right-1" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" />
+                  SHERIA YA USALAMA BARABARANI
+                </span>
+                <span className="text-xs font-black text-amber-400">
+                  Simu Haishikwi Mkononi! Weka Kwenye Stendi (Phone Mount)
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 mt-1 leading-relaxed">
+                Dereva hapaswi kuchezea simu akiwa kwenye usukani. Skrini hii inajiendesha <strong className="text-white">100% kwa Sauti (Hands-Free) na GPS</strong>. Shughuli zote za kukata nauli na ripoti hufanywa na <strong className="text-amber-300">Kondakta (Konda)</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            {/* Drive Lock Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !handsFreeLocked;
+                setHandsFreeLocked(next);
+                if (next) {
+                  toast.success('Hali ya Usalama (Hands-Free Lock) Imewashwa: Skrini imefungwa ili usichezee simu!');
+                } else {
+                  toast.info('Hali ya Usalama imefunguliwa kwa matengenezo.');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
+                handsFreeLocked
+                  ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+              }`}
+              title="Funga skrini ili dereva asibonyeze kimakosa akiwa barabarani"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>{handsFreeLocked ? 'Skrini Imelindwa (Drive Lock)' : 'Fungua Skrini'}</span>
+            </button>
+
+            {/* Read Safety Guide Modal Button */}
+            <button
+              type="button"
+              onClick={() => setIsSafetyModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1.5 transition active:scale-95"
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Kwanini Usichezee Simu?</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -692,6 +763,108 @@ export default function DaladalaDriverMode({
                 <span>Tuma Taarifa Sasa</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* ROAD SAFETY EXPLANATION MODAL (USALAMA BARABARANI)        */}
+      {/* ========================================================= */}
+      {isSafetyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-neutral-900 border border-neutral-700 rounded-3xl p-6 shadow-2xl text-white space-y-5 max-h-[90vh] overflow-y-auto">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 relative">
+                  <Smartphone className="w-6 h-6" />
+                  <Ban className="w-4 h-4 text-rose-500 absolute -top-1 -right-1" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded bg-rose-600 text-white">
+                    Sheria ya Trafiki & LATRA
+                  </span>
+                  <h3 className="text-lg font-black text-white mt-1">
+                    Kwanini Dereva Hapaswi Kuchezea Simu?
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsSafetyModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Core Pillars */}
+            <div className="space-y-3.5 text-xs">
+              
+              {/* Point 1 */}
+              <div className="p-3.5 rounded-2xl bg-neutral-800/80 border border-neutral-700 flex gap-3">
+                <span className="text-xl">🛑</span>
+                <div>
+                  <h4 className="font-bold text-amber-400 text-sm">
+                    1. Sheria Inakataza Dereva Kushika Simu
+                  </h4>
+                  <p className="text-neutral-300 mt-1 leading-relaxed">
+                    Kwa mujibu wa Sheria za Usalama Barabarani na miongozo ya LATRA, dereva yeyote <strong>hapaswi kushika simu mkononi, kuandika meseji, wala kuchezea skrini</strong> anapoendesha gari. Kufanya hivyo husababisha ajali mbaya na faini ya papo hapo ya Trafiki.
+                  </p>
+                </div>
+              </div>
+
+              {/* Point 2 */}
+              <div className="p-3.5 rounded-2xl bg-neutral-800/80 border border-neutral-700 flex gap-3">
+                <span className="text-xl">📱</span>
+                <div>
+                  <h4 className="font-bold text-emerald-400 text-sm">
+                    2. Simu Inakaa Kwenye Kishikio (Phone Mount) cha Dashibodi
+                  </h4>
+                  <p className="text-neutral-300 mt-1 leading-relaxed">
+                    Dereva haishiki simu mkononi. Simu inafungwa kwenye stendi maalum ya dashibodi (cradle/mount) mbele ya usukani na kutumika kama <strong>Dashibodi ya Kidijitali (HUD)</strong> tu, kama unavyotazama kioo au mshale wa spidi wa gari.
+                  </p>
+                </div>
+              </div>
+
+              {/* Point 3 */}
+              <div className="p-3.5 rounded-2xl bg-neutral-800/80 border border-neutral-700 flex gap-3">
+                <span className="text-xl">🔊</span>
+                <div>
+                  <h4 className="font-bold text-blue-400 text-sm">
+                    3. Mfumo Unatumia Sauti ya Kiswahili Pekee (Hands-Free)
+                  </h4>
+                  <p className="text-neutral-300 mt-1 leading-relaxed">
+                    Dereva hahitaji hata kusoma skrini! Gari likikaribia kituo au likizidisha spidi ya 50km/h, simu yenyewe <strong>inatamka kwa sauti ya Kiswahili</strong> kupitia spika au redio ya gari: <em>"Kituo kinachofuata ni Mwenge"</em> au <em>"Punguza mwendo, umepitiliza spidi ya LATRA!"</em>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Point 4 */}
+              <div className="p-3.5 rounded-2xl bg-neutral-800/80 border border-neutral-700 flex gap-3">
+                <span className="text-xl">🤝</span>
+                <div>
+                  <h4 className="font-bold text-purple-400 text-sm">
+                    4. Kondakta (Konda) Ndiye Anayeshika Simu
+                  </h4>
+                  <p className="text-neutral-300 mt-1 leading-relaxed">
+                    Kazi zote za kuingiza abiria, kukata nauli, kuthibitisha malipo ya M-Pesa, na kutuma hesabu ya siku WhatsApp ya tajiri <strong>hufanywa na Kondakta</strong> kwenye simu yake. Mikono miwili ya dereva inabaki kwenye usukani (saa 10 na dakika 10).
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Button */}
+            <button
+              type="button"
+              onClick={() => setIsSafetyModalOpen(false)}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-neutral-950 font-black text-sm transition shadow-lg shadow-amber-500/20"
+            >
+              Nimeelewa, Zingatia Usalama Barabarani!
+            </button>
           </div>
         </div>
       )}

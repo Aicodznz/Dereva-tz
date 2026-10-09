@@ -38,11 +38,15 @@ import {
   Armchair,
   Flame,
   Users,
-  Crown
+  Crown,
+  ShieldCheck,
+  EyeOff,
+  GraduationCap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
 import DaladalaLatraFareCalculatorModal from './DaladalaLatraFareCalculatorModal';
+import DaladalaStudentFareModal from './DaladalaStudentFareModal';
 import DaladalaSeatHoldModal from './DaladalaSeatHoldModal';
 import DaladalaFeatureShowcaseBanner from './DaladalaFeatureShowcaseBanner';
 import { mockStopCrowdLevels } from '../../data/daladalaCrowdData';
@@ -191,6 +195,7 @@ export default function DaladalaPassengerView({
 
   // LATRA Fare Calculator & Seat Hold modal states
   const [isFareCalculatorOpen, setIsFareCalculatorOpen] = useState(false);
+  const [isStudentFareModalOpen, setIsStudentFareModalOpen] = useState(false);
   const [isSeatHoldModalOpen, setIsSeatHoldModalOpen] = useState(false);
   const [showCrowdDrawer, setShowCrowdDrawer] = useState(false);
 
@@ -205,6 +210,7 @@ export default function DaladalaPassengerView({
 
   // SOS Modal state
   const [isSosModalOpen, setIsSosModalOpen] = useState(false);
+  const [sosTab, setSosTab] = useState<'contacts' | 'anti_crime'>('contacts');
 
   // Rating Modal state
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
@@ -400,6 +406,11 @@ export default function DaladalaPassengerView({
         onOpenDailyReport={() => onOpenDailyReport ? onOpenDailyReport() : undefined}
         onOpenConductorMode={() => onOpenConductorMode ? onOpenConductorMode() : undefined}
         onOpenFleetMode={() => onOpenDashboard ? onOpenDashboard() : undefined}
+        onOpenSafetyModal={() => {
+          setSosTab('anti_crime');
+          setIsSosModalOpen(true);
+        }}
+        onOpenStudentFareModal={() => setIsStudentFareModalOpen(true)}
       />
 
       {/* 14: Weather & Traffic Status Banner */}
@@ -448,8 +459,8 @@ export default function DaladalaPassengerView({
         </div>
       )}
 
-      {/* 🚀 HUDUMA MUHIMU ZA ABIRIA WA KAWAIDA (LATRA FARE & CROWD STATUS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* 🚀 HUDUMA MUHIMU ZA ABIRIA WA KAWAIDA (LATRA FARE, WANAFUNZI & CROWD STATUS) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => setIsFareCalculatorOpen(true)}
@@ -461,13 +472,37 @@ export default function DaladalaPassengerView({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <strong className="text-xs sm:text-sm font-black">Kikokotoo Rasmi cha Nauli cha LATRA</strong>
+                <strong className="text-xs sm:text-sm font-black">Kikokotoo cha LATRA</strong>
                 <span className="px-1.5 py-0.5 rounded bg-emerald-400 text-neutral-950 font-black text-[9px] uppercase">
                   GN 416
                 </span>
               </div>
               <p className="text-[11px] text-white/80 mt-0.5">
-                Hesabu nauli halali kisheria (TSh 500, 600, au 200 ya mwanafunzi)
+                Hesabu nauli halali kisheria (TSh 500, 600, au 700+)
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition shrink-0" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsStudentFareModalOpen(true)}
+          className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-600 to-emerald-800 hover:from-emerald-600 hover:to-teal-500 text-white flex items-center justify-between shadow-md transition active:scale-[0.98] group text-left border border-emerald-500/30"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition shadow-inner">
+              <GraduationCap className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <strong className="text-xs sm:text-sm font-black">Wanafunzi &amp; Watoto</strong>
+                <span className="px-1.5 py-0.5 rounded bg-amber-400 text-neutral-950 font-black text-[9px] uppercase">
+                  TSh 200 Flat
+                </span>
+              </div>
+              <p className="text-[11px] text-white/85 mt-0.5">
+                Bila simujanja: Sarafu ya 200 au Kadi ya Shule &amp; Pochi ya Mzazi
               </p>
             </div>
           </div>
@@ -485,7 +520,7 @@ export default function DaladalaPassengerView({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <strong className="text-xs sm:text-sm font-black">Msongamano wa Vituo vya Dar</strong>
+                <strong className="text-xs sm:text-sm font-black">Msongamano Vituoni</strong>
                 <span className="px-1.5 py-0.5 rounded bg-black text-amber-300 font-mono font-black text-[9px] uppercase">
                   {mockStopCrowdLevels.length} VITUO
                 </span>
@@ -1344,60 +1379,182 @@ export default function DaladalaPassengerView({
         </div>
       )}
 
-      {/* 11: Emergency / SOS Modal */}
+      {/* 11: Emergency / SOS Modal with Anti-Kidnapping & Safety Protection */}
       {isSosModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-6 h-6 text-red-600" />
-                <h3 className="font-extrabold text-sm text-red-600">
-                  Msaada wa Dharura & Usalama (SOS)
-                </h3>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-600">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-red-600 dark:text-red-400">
+                    Msaada wa Dharura & Kinga ya Usalama
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Jeshi la Polisi (112) • Kinga Dhidi ya Watekaji na Uhalifu
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setIsSosModalOpen(false)}>
-                <X className="w-4 h-4 text-neutral-400" />
+              <button 
+                onClick={() => setIsSosModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-neutral-600 dark:text-neutral-300">
-              Ikiwa unashuhudia uhalifu, uendeshaji hatarishi, udhalilishaji, au ajali kwenye daladala, bofya namba hizi mara moja:
-            </p>
-
-            <div className="space-y-2">
-              <a
-                href="tel:112"
-                className="w-full py-3 px-4 rounded-xl bg-red-600 text-white font-extrabold text-xs flex items-center justify-between shadow-md"
+            {/* Tab switchers: SOS Contacts vs Anti-Crime / Kidnapping Shield */}
+            <div className="flex rounded-xl bg-neutral-100 dark:bg-neutral-800 p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setSosTab('contacts')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  sosTab === 'contacts'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                }`}
               >
-                <span>Jeshi la Polisi / Namba ya Dharura</span>
-                <span className="font-mono text-sm">Piga 112</span>
-              </a>
-              <a
-                href="tel:199"
-                className="w-full py-3 px-4 rounded-xl bg-amber-600 text-white font-extrabold text-xs flex items-center justify-between shadow-md"
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Namba za Dharura</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSosTab('anti_crime')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  sosTab === 'anti_crime'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                }`}
               >
-                <span>Usalama Barabarani (Traffic Police)</span>
-                <span className="font-mono text-sm">Piga 199</span>
-              </a>
-              <a
-                href="tel:116"
-                className="w-full py-3 px-4 rounded-xl bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-between shadow-md"
-              >
-                <span>Dawati la Jinsia na Watoto</span>
-                <span className="font-mono text-sm">Piga 116</span>
-              </a>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Kinga ya Watekaji & Uhalifu</span>
+              </button>
             </div>
 
-            <button
-              onClick={() => {
-                const text = `Niko ndani ya daladala ${selectedVehicle?.plateNumber || ''} ruti ya ${selectedVehicle?.routeName || ''}, naomba msaada wa kiusalama.`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-              }}
-              className="w-full py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 flex items-center justify-center gap-2"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Tuma Mahali Nilipo WhatsApp kwa Ndugu</span>
-            </button>
+            {sosTab === 'contacts' ? (
+              <div className="space-y-3">
+                <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                  Ikiwa unashuhudia uhalifu, tishio la utekaji, uendeshaji hatarishi, au ajali kwenye daladala, bofya namba hizi mara moja kupiga simu bure:
+                </p>
+
+                <div className="space-y-2">
+                  <a
+                    href="tel:112"
+                    className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-between shadow-md transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>Jeshi la Polisi / Namba ya Dharura</span>
+                    </div>
+                    <span className="font-mono text-sm bg-black/20 px-2 py-0.5 rounded">Piga 112</span>
+                  </a>
+
+                  <a
+                    href="tel:199"
+                    className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs flex items-center justify-between shadow-md transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      <span>Usalama Barabarani (Traffic Police)</span>
+                    </div>
+                    <span className="font-mono text-sm bg-black/20 px-2 py-0.5 rounded">Piga 199</span>
+                  </a>
+
+                  <a
+                    href="tel:116"
+                    className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-between shadow-md transition"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>Dawati la Jinsia na Watoto</span>
+                    </div>
+                    <span className="font-mono text-sm bg-black/20 px-2 py-0.5 rounded">Piga 116</span>
+                  </a>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      const text = `🚨 TAARIFA YA KIUSALAMA: Niko ndani ya daladala namba ${selectedVehicle?.plateNumber || '(bila namba)'} kwenye ruti ya ${selectedVehicle?.routeName || 'Dar es Salaam'}. Nisaidie kufuatilia safari yangu au ripoti dharura.`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    className="w-full py-3 px-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 font-bold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <Share2 className="w-4 h-4 text-emerald-600" />
+                    <span>Tuma Mahali Nilipo WhatsApp kwa Ndugu / Wazazi</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-black uppercase">Jinsi PapoDaladala Inavyokukinga dhidi ya Uhalifu & Watekaji</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Ufuatiliaji wa PapoDaladala haumfanyi abiria kuwa hatarini—kinyume chake, unaondoa mazingira ya utekaji na kuweka uwazi:
+                  </p>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1">
+                    <div className="flex items-center gap-2 font-black text-neutral-900 dark:text-white">
+                      <EyeOff className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span>1. Hakuna Mtu wala Abiria Anayeonekana Kwenye Ramani</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Ramani inaonyesha basi la umma pekee lililosajiliwa (mfano T 842 DFM). Majina ya abiria, sura, namba za simu, na nani anayesubiri kituo gani <strong>haviwekwi wazi kamwe</strong>. Hakuna mtekaji anayeweza kujua nani yumo ndani.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1">
+                    <div className="flex items-center gap-2 font-black text-neutral-900 dark:text-white">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>2. Kinga Dhidi ya Magari Feki &quot;Mchomoko&quot;</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Utekaji mijini hutokea mtu akipanda magari bubu yasiyo na usajili usiku. PapoDaladala inathibitisha namba za LATRA na picha ya gari. Ukiona gari halipo kwenye mfumo, jua si gari rasmi la ruti hiyo.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1">
+                    <div className="flex items-center gap-2 font-black text-neutral-900 dark:text-white">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>3. Kengele ya Geofencing Gari Likitoka Ruti (Off-Route)</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Kama gari litalazimishwa kuacha barabara kuu kuelekea vichochoroni au maeneo yasiyo salama, mfumo hutoa arifa ya papo hapo kwa mmiliki wa gari na uongozi wa stendi.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1">
+                    <div className="flex items-center gap-2 font-black text-neutral-900 dark:text-white">
+                      <Users className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                      <span>4. Usalama wa Umati (Public Transit Safety)</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Daladala hubeba abiria 30 hadi 45+ na hupita barabara kuu zenye vituo vya polisi na kamera za usalama, jambo linalofanya iwe vigumu kwa wahalifu kuiteka tofauti na gari binafsi au bodaboda usiku.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    onClick={() => {
+                      const text = `Ninatumia usafiri wa daladala ${selectedVehicle?.plateNumber || ''}. Tafadhali fuatilia safari yangu: niko salama kuelekea ${selectedVehicle?.routeName || 'kituoni'}.`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-extrabold text-xs flex items-center justify-center gap-2 shadow hover:opacity-95 transition"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Shiriki Safari Yangu (Live Share) kwa Wazazi / Ndugu</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1488,6 +1645,13 @@ export default function DaladalaPassengerView({
           initialDestinationStop={activeAlightStop || currentRoute?.destination}
           initialRouteId={selectedVehicle?.routeId || (activeRouteFilter !== 'all' ? activeRouteFilter : undefined)}
           onClose={() => setIsFareCalculatorOpen(false)}
+        />
+      )}
+
+      {/* 🎒 STUDENT & KIDS FARE MODAL (WITHOUT SMARTPHONES) */}
+      {isStudentFareModalOpen && (
+        <DaladalaStudentFareModal
+          onClose={() => setIsStudentFareModalOpen(false)}
         />
       )}
 

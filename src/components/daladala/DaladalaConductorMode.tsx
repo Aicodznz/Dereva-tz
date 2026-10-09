@@ -268,7 +268,15 @@ export default function DaladalaConductorMode({
       return;
     }
 
-    if (scannedTicketCode.toUpperCase().includes('DL-') || scannedTicketCode.includes('PAPO-DALADALA')) {
+    const codeUpper = scannedTicketCode.toUpperCase();
+    if (codeUpper.includes('STD-') || codeUpper.includes('TZ-STD') || codeUpper.includes('MWANAFUNZI')) {
+      setScanResult({
+        valid: true,
+        message: 'Kadi Halali ya Mwanafunzi! Nauli TSh 200 imekatwa kutoka Pochi ya Mzazi (SMS imetumwa).',
+        passenger: 'Amina Juma (Shule ya Sekondari Jangwani - Kidato cha 2)',
+      });
+      toast.success('Kadi ya Mwanafunzi Imethibitishwa: TSh 200!');
+    } else if (codeUpper.includes('DL-') || codeUpper.includes('PAPO-DALADALA')) {
       setScanResult({
         valid: true,
         message: 'Tiketi Halali! Nauli Imethibitishwa.',
@@ -1221,6 +1229,40 @@ export default function DaladalaConductorMode({
                 className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md transition active:scale-95"
               >
                 Thibitisha
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[10px] text-neutral-400 font-bold uppercase">Mifano ya Haraka:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setScannedTicketCode('TZ-STD-2026-8941');
+                  setScanResult({
+                    valid: true,
+                    message: 'Kadi Halali ya Mwanafunzi! Nauli TSh 200 imekatwa kutoka Pochi ya Mzazi (SMS imetumwa).',
+                    passenger: 'Amina Juma (Kidato cha 2 - Jangwani Sec)',
+                  });
+                  toast.success('Kadi ya Mwanafunzi Imesomwa kwa NFC!');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1"
+              >
+                <span>🎒 Gusa Kadi ya Mwanafunzi (NFC TSh 200)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScannedTicketCode('DL-984210');
+                  setScanResult({
+                    valid: true,
+                    message: 'Tiketi Halali! Nauli Imethibitishwa.',
+                    passenger: 'Mteja wa Papo Hapo',
+                  });
+                  toast.success('Tiketi ya Mtu Mzima Imethibitishwa!');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold"
+              >
+                <span>🎟️ Tiketi ya Mtu Mzima</span>
               </button>
             </div>
           </div>

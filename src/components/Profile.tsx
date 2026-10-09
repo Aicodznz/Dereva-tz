@@ -54,7 +54,8 @@ import {
   X,
   Loader2,
   Printer,
-  Compass
+  Compass,
+  Plus
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -333,11 +334,11 @@ export default function Profile() {
   const initialLetter = userDisplayName.charAt(0).toUpperCase();
 
   return (
-    <div className="max-w-2xl mx-auto min-h-screen bg-neutral-100/70 dark:bg-neutral-950 pb-28 text-neutral-900 dark:text-neutral-100 font-sans select-none">
+    <div className="max-w-2xl mx-auto min-h-screen bg-neutral-100/70 dark:bg-neutral-950 pb-36 sm:pb-28 text-neutral-900 dark:text-neutral-100 font-sans select-none">
       
-      {/* 1. TOP USER HEADER (AliExpress / Temu Style) */}
-      <div className="bg-white dark:bg-neutral-900 px-4 pt-3 pb-3 border-b border-neutral-200/70 dark:border-neutral-800 shadow-sm sticky top-0 z-30">
-        <div className="flex items-center justify-between gap-2">
+      {/* 1. TOP USER HEADER */}
+      <div className="bg-white dark:bg-neutral-900 px-4 pt-4 pb-4 border-b border-neutral-200/70 dark:border-neutral-800 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
           
           {/* User Avatar + Display Name */}
           <div 
@@ -345,7 +346,7 @@ export default function Profile() {
             className="flex items-center gap-3 cursor-pointer group flex-1 min-w-0"
           >
             <div className="relative shrink-0">
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-tr from-orange-600 via-amber-500 to-red-600 p-[2px] shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-gradient-to-tr from-orange-600 via-amber-500 to-red-600 p-[2px] shadow-sm group-hover:scale-105 transition-transform">
                 <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-neutral-800 flex items-center justify-center">
                   {profile.photoURL ? (
                     <img 
@@ -365,27 +366,36 @@ export default function Profile() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-base sm:text-lg font-black tracking-tight truncate text-neutral-900 dark:text-white capitalize">
                   {userDisplayName}
                 </h1>
-                <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded-md shrink-0">
-                  {profile.role === 'rider' ? 'Dereva' : 'VIP'}
+                <span className="text-[10px] sm:text-[11px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-full shrink-0 border border-orange-200/50 dark:border-orange-900/30">
+                  {profile.role === 'rider' ? 'Dereva' : 'VIP Member'}
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
                 {profile.phoneNumber || profile.email || 'Papo Hapo Super App'}
               </p>
             </div>
           </div>
 
-          {/* Right Header Controls: Flag, Settings Cog, Bell with Badge */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Quick Header Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Quick Dark/Light Toggle */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Washa Hali ya Mchana' : 'Washa Hali ya Usiku'}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-700 dark:text-neutral-300 bg-neutral-100/80 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+            </button>
+
             {/* Country Flag (Tanzania) with Language Toggle */}
             <button
               onClick={() => setActiveModal({ type: 'settings' })}
               title="Tanzania / Swahili"
-              className="w-8 h-8 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 hover:scale-105 active:scale-95 transition-transform"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-neutral-200 dark:border-neutral-700 flex items-center justify-center bg-neutral-50 dark:bg-neutral-800 hover:scale-105 active:scale-95 transition-transform"
             >
               <img 
                 src="https://flagcdn.com/w40/tz.png" 
@@ -398,20 +408,20 @@ export default function Profile() {
             <button
               onClick={() => setActiveModal({ type: 'settings' })}
               title="Mipangilio / Settings"
-              className="w-9 h-9 rounded-full flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-700 dark:text-neutral-300 bg-neutral-100/80 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
 
             {/* Notification Bell with Badge */}
             <Link
               to="/notifications"
               title="Taarifa / Notifications"
-              className="w-9 h-9 rounded-full flex items-center justify-center relative text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center relative text-neutral-700 dark:text-neutral-300 bg-neutral-100/80 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
               {unreadNotifications > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white font-black text-[10px] px-1.5 py-0.2 rounded-full min-w-[18px] text-center shadow-sm">
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white font-black text-[9px] px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-sm">
                   {unreadNotifications > 99 ? '99+' : unreadNotifications}
                 </span>
               )}
@@ -421,17 +431,17 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* 2. PROMOTIONAL TICKER / BANNER (Spring Sale / Super Sale) */}
+      {/* 2. PROMOTIONAL TICKER / BANNER */}
       <div 
         onClick={() => setActiveModal({ type: 'coupons' })}
-        className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200/60 dark:border-neutral-800 px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-orange-50/50 dark:hover:bg-neutral-800/60 transition-colors"
+        className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200/60 dark:border-neutral-800 px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-orange-50/50 dark:hover:bg-neutral-800/60 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="font-black text-[11px] sm:text-xs tracking-wider text-neutral-900 dark:text-white uppercase bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 px-2 py-0.5 rounded">
+          <span className="font-black text-[10px] sm:text-xs tracking-wider text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-500/20 px-2 py-0.5 rounded-full uppercase shrink-0">
             SUPER SALE
           </span>
-          <span className="text-xs text-neutral-600 dark:text-neutral-300 truncate">
-            {language === 'sw' ? 'Ofa za Usafiri & Chakula: Pata hadi 20% Punguzo!' : 'Ends: Leo 23:59 EAT'}
+          <span className="text-xs text-neutral-700 dark:text-neutral-300 truncate font-medium">
+            {language === 'sw' ? 'Ofa za Usafiri & Chakula: Pata hadi 20% Punguzo!' : 'Ride & Food Offers: Get up to 20% off!'}
           </span>
         </div>
         <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />
@@ -439,18 +449,120 @@ export default function Profile() {
 
       <div className="p-3.5 space-y-3.5">
         
-        {/* 3. "MY ORDERS" SECTION (Exact match to uploaded layout) */}
-        <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-neutral-900 overflow-hidden">
-          <CardContent className="p-4 space-y-4">
+        {/* 3. PAPO HAPO FINTECH WALLET & COINS CARD */}
+        <div className="rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-950 text-white shadow-md border border-neutral-800/80 p-4 sm:p-5 relative">
+          {/* Subtle Ambient Light Gradients */}
+          <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-bl from-orange-500/20 via-amber-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-purple-500/15 via-pink-500/10 to-transparent rounded-full blur-xl pointer-events-none" />
+
+          <div className="relative z-10 space-y-3.5">
+            {/* Header: Title & Badges */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                    {language === 'sw' ? 'Pochi & Sarafu' : 'Wallet & Coins'}
+                  </h3>
+                  <p className="text-[11px] text-amber-300/90 font-medium">
+                    Papo Hapo Digital Account
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveModal({ type: 'coupons' })}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white text-[11px] font-bold transition-colors"
+              >
+                <Ticket className="w-3.5 h-3.5 text-orange-400" />
+                <span>{language === 'sw' ? 'Vocha 4' : '4 Coupons'}</span>
+              </button>
+            </div>
+
+            {/* Balances Display: Dual Column (Wallet Cash + Coins) */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/10">
+              <div 
+                onClick={() => setActiveModal({ type: 'wallet' })}
+                className="cursor-pointer hover:opacity-90 transition-opacity p-2.5 rounded-xl bg-white/5 border border-white/5"
+              >
+                <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block">
+                  {language === 'sw' ? 'Salio la Pochi' : 'Wallet Balance'}
+                </span>
+                <p className="text-lg sm:text-xl font-black text-white font-mono tracking-tight mt-0.5">
+                  TZS {(profile.walletBalance || 0).toLocaleString()}
+                </p>
+                <span className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                  <ShieldCheck className="w-3 h-3" />
+                  {language === 'sw' ? 'Tayari kwa malipo' : 'Ready for payment'}
+                </span>
+              </div>
+
+              <div 
+                onClick={() => setActiveModal({ type: 'daily_coins' })}
+                className="cursor-pointer hover:opacity-90 transition-opacity p-2.5 rounded-xl bg-white/5 border border-white/5"
+              >
+                <span className="text-[10px] text-amber-300/80 font-bold uppercase tracking-wider block">
+                  {language === 'sw' ? 'Sarafu za Papo' : 'Papo Coins'}
+                </span>
+                <p className="text-lg sm:text-xl font-black text-amber-300 font-mono tracking-tight mt-0.5 flex items-center gap-1">
+                  <span>{profile.points || 0}</span>
+                  <Coins className="w-4 h-4 text-amber-400 shrink-0" />
+                </p>
+                <span className="text-[10px] text-amber-200/70 font-medium mt-0.5 block truncate">
+                  ≈ TZS {((profile.points || 0) * 10).toLocaleString()} {language === 'sw' ? 'punguzo' : 'value'}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons Row */}
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <Button
+                size="sm"
+                onClick={() => setActiveModal({ type: 'wallet' })}
+                className="h-9 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/10 shadow-none flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 text-orange-400" />
+                <span>{language === 'sw' ? 'Weka Salio' : 'Top Up'}</span>
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={handleClaimDailyCoins}
+                disabled={claimingCoins}
+                className="h-9 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-neutral-950 font-black text-xs rounded-xl shadow-md border-none flex items-center justify-center gap-1.5"
+              >
+                {claimingCoins ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-neutral-950" />
+                    <span>{language === 'sw' ? 'Chukua +15 Bure' : 'Claim +15 Free'}</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. "MY ORDERS" SECTION */}
+        <Card className="border-none shadow-sm rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
+          <CardContent className="p-4 space-y-3.5">
             
             {/* Header: Title & View All */}
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-black text-neutral-900 dark:text-white tracking-tight">
-                {language === 'sw' ? 'Oda na Safari Zangu' : 'My orders'}
-              </h2>
+              <div>
+                <h2 className="text-base font-black text-neutral-900 dark:text-white tracking-tight">
+                  {language === 'sw' ? 'Oda na Safari Zangu' : 'My Orders & Rides'}
+                </h2>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {language === 'sw' ? 'Fuatilia safari, chakula na vifurushi' : 'Track your rides, food & packages'}
+                </p>
+              </div>
               <button 
                 onClick={() => setView('orders')}
-                className="text-xs font-bold text-neutral-500 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-orange-500 flex items-center gap-1 transition-colors"
+                className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-0.5 transition-colors"
               >
                 <span>{language === 'sw' ? 'Tazama zote' : 'View all'}</span>
                 <ChevronRight className="w-4 h-4" />
@@ -463,53 +575,59 @@ export default function Profile() {
               {/* To pay */}
               <button 
                 onClick={() => setView('orders')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+                className="flex flex-col items-center gap-1.5 py-1 px-0.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
               >
                 <div className="relative">
-                  <CreditCard className="w-6 h-6 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-orange-50 dark:group-hover:bg-orange-950/40 transition-colors">
+                    <CreditCard className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  </div>
                   {orderStats.toPay > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-red-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-red-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
                       {orderStats.toPay}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-                  {language === 'sw' ? 'Ya Kulipa' : 'To pay'}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 leading-tight">
+                  {language === 'sw' ? 'Kulipa' : 'To pay'}
                 </span>
               </button>
 
               {/* In Prep (To ship) */}
               <button 
                 onClick={() => setView('orders')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+                className="flex flex-col items-center gap-1.5 py-1 px-0.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
               >
                 <div className="relative">
-                  <Package className="w-6 h-6 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-orange-50 dark:group-hover:bg-orange-950/40 transition-colors">
+                    <Package className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  </div>
                   {orderStats.preparing > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-orange-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
                       {orderStats.preparing}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-                  {language === 'sw' ? 'Jikoni/Duka' : 'To ship'}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 leading-tight">
+                  {language === 'sw' ? 'Inaandaliwa' : 'To ship'}
                 </span>
               </button>
 
               {/* Shipped (On the way) */}
               <button 
                 onClick={() => setView('orders')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+                className="flex flex-col items-center gap-1.5 py-1 px-0.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
               >
                 <div className="relative">
-                  <Truck className="w-6 h-6 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/40 transition-colors">
+                    <Truck className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-emerald-600 transition-colors stroke-[1.75]" />
+                  </div>
                   {orderStats.onTheWay > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-emerald-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+                    <span className="absolute -top-1 -right-1 bg-emerald-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900 animate-pulse">
                       {orderStats.onTheWay}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 leading-tight">
                   {language === 'sw' ? 'Safarini' : 'Shipped'}
                 </span>
               </button>
@@ -517,36 +635,40 @@ export default function Profile() {
               {/* To review */}
               <button 
                 onClick={() => setView('orders')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+                className="flex flex-col items-center gap-1.5 py-1 px-0.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
               >
                 <div className="relative">
-                  <MessageSquare className="w-6 h-6 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-950/40 transition-colors">
+                    <MessageSquare className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-blue-600 transition-colors stroke-[1.75]" />
+                  </div>
                   {orderStats.toReview > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-blue-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
                       {orderStats.toReview}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-                  {language === 'sw' ? 'Tathmini' : 'To review'}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 leading-tight">
+                  {language === 'sw' ? 'Tathmini' : 'Review'}
                 </span>
               </button>
 
               {/* Returns / Msaada */}
               <button 
                 onClick={() => setView('chat')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+                className="flex flex-col items-center gap-1.5 py-1 px-0.5 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
               >
                 <div className="relative">
-                  <RotateCcw className="w-6 h-6 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-neutral-200 dark:group-hover:bg-neutral-700 transition-colors">
+                    <RotateCcw className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
+                  </div>
                   {orderStats.returns > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-neutral-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-neutral-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-neutral-900">
                       {orderStats.returns}
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-                  {language === 'sw' ? 'Msaada' : 'Returns'}
+                <span className="text-[10px] sm:text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 leading-tight">
+                  {language === 'sw' ? 'Msaada' : 'Help'}
                 </span>
               </button>
 
@@ -557,41 +679,41 @@ export default function Profile() {
               
               <button 
                 onClick={() => setView('orders')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
               >
-                <Clock className="w-5 h-5 text-neutral-700 dark:text-neutral-300 stroke-[1.75]" />
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                <Clock className="w-4 h-4 text-neutral-600 dark:text-neutral-400 stroke-[1.75]" />
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                   {language === 'sw' ? 'Historia' : 'History'}
                 </span>
               </button>
 
               <button 
                 onClick={() => setActiveModal({ type: 'wishlist' })}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
               >
-                <Heart className="w-5 h-5 text-neutral-700 dark:text-neutral-300 stroke-[1.75]" />
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                <Heart className="w-4 h-4 text-pink-500 stroke-[1.75]" />
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                   {language === 'sw' ? 'Vipendwa' : 'Wishlist'}
                 </span>
               </button>
 
               <button 
                 onClick={() => setActiveModal({ type: 'coupons' })}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
               >
-                <Ticket className="w-5 h-5 text-neutral-700 dark:text-neutral-300 stroke-[1.75]" />
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
+                <Ticket className="w-4 h-4 text-orange-500 stroke-[1.75]" />
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                   {language === 'sw' ? 'Kuponi' : 'Coupons'}
                 </span>
               </button>
 
               <button 
                 onClick={() => navigate('/services')}
-                className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+                className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-neutral-50/80 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all active:scale-95"
               >
-                <Store className="w-5 h-5 text-neutral-700 dark:text-neutral-300 stroke-[1.75]" />
-                <span className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300">
-                  {language === 'sw' ? 'Maduka' : 'Followed stores'}
+                <Store className="w-4 h-4 text-purple-500 stroke-[1.75]" />
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                  {language === 'sw' ? 'Maduka' : 'Stores'}
                 </span>
               </button>
 
@@ -600,211 +722,172 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        {/* 4. HERO GAMIFICATION / SAVINGS BANNER ("Stack coins & coupons for more savings") */}
-        <motion.div 
-          whileHover={{ scale: 1.01 }}
-          className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-md p-4 cursor-pointer"
-          onClick={() => setActiveModal({ type: 'daily_coins' })}
-        >
-          {/* Background Decorative Circles */}
-          <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
-
-          <div className="relative z-10 flex items-center justify-between gap-3">
-            <div className="space-y-2 flex-1">
-              <div className="space-y-0.5">
-                <h3 className="text-base sm:text-lg font-black tracking-tight leading-tight drop-shadow-sm">
-                  {language === 'sw' ? 'Kusanya Sarafu na Vocha' : 'Stack coins & coupons for more savings'}
-                </h3>
-                <p className="text-xs text-white/80 font-medium">
-                  {language === 'sw' ? 'Sarafu zako:' : 'Your balance:'} <strong className="text-amber-300 font-black">{profile.points || 0} Papo Coins</strong> (≈ TZS {((profile.points || 0) * 10).toLocaleString()})
-                </p>
-              </div>
-
-              <div>
-                <Button 
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClaimDailyCoins();
-                  }}
-                  className="h-8 bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs px-4 rounded-xl shadow-md border-none"
-                >
-                  {claimingCoins ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (language === 'sw' ? 'Chukua Sasa' : 'Get now')}
-                </Button>
-              </div>
-            </div>
-
-            {/* 3D Coin Badge & Indicator */}
-            <div className="flex flex-col items-end shrink-0 gap-1">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-300/20 rounded-2xl flex items-center justify-center p-1 border border-white/20 backdrop-blur-sm">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-inner text-amber-950">
-                  <Coins className="w-7 h-7" />
-                </div>
-              </div>
-              <span className="text-[10px] text-white/70 font-black px-1.5 py-0.5 bg-black/20 rounded-full">
-                2 / 2
-              </span>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* 5. 2-COLUMN SPLIT CARDS (Bundle Deals & Coins +10) */}
+        {/* 5. 2-COLUMN SPLIT CARDS (Bundle Deals & Daily Coins) */}
         <div className="grid grid-cols-2 gap-3">
           
           {/* Bundle Deals */}
           <div 
             onClick={() => navigate('/services')}
-            className="bg-amber-50/80 dark:bg-neutral-900 border border-amber-200/50 dark:border-neutral-800 rounded-2xl p-3.5 flex flex-col justify-between cursor-pointer hover:shadow-sm transition-all"
+            className="bg-gradient-to-br from-amber-50 to-orange-50/60 dark:from-neutral-900 dark:to-neutral-900 border border-amber-200/50 dark:border-neutral-800 rounded-2xl p-3.5 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all group"
           >
             <div>
-              <h4 className="font-black text-sm text-neutral-900 dark:text-white">
-                {language === 'sw' ? 'Ofa za Vifurushi' : 'Bundle deals'}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/40 px-2 py-0.5 rounded-full uppercase">
+                  {language === 'sw' ? 'Ofa Moto' : 'Hot Sale'}
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+              </div>
+              <h4 className="font-black text-sm text-neutral-900 dark:text-white mt-2">
+                {language === 'sw' ? 'Ofa za Vifurushi' : 'Bundle Deals'}
               </h4>
-              <p className="text-[11px] text-red-600 dark:text-red-400 font-bold mt-0.5">
-                {language === 'sw' ? 'Bei ya Jumla' : 'Hot sale'}
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
+                {language === 'sw' ? 'Punguzo la bei ya jumla' : 'Wholesale discounts'}
               </p>
             </div>
 
-            <div className="flex items-center justify-between mt-3 pt-2">
-              <Button 
-                size="sm"
-                className="h-7 bg-white dark:bg-neutral-800 hover:bg-neutral-100 text-neutral-900 dark:text-white font-black text-[10px] px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-none"
-              >
-                {language === 'sw' ? 'Nunua sasa' : 'Shop now'}
-              </Button>
-              <div className="w-8 h-8 rounded-lg bg-orange-500/10 dark:bg-orange-500/20 flex items-center justify-center text-orange-600">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
+            <div className="pt-3">
+              <span className="inline-flex items-center gap-1 text-xs font-black text-orange-600 group-hover:underline">
+                <span>{language === 'sw' ? 'Nunua sasa' : 'Shop now'}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
             </div>
           </div>
 
-          {/* Coins +10 */}
+          {/* Daily Coins Task */}
           <div 
-            onClick={() => handleClaimDailyCoins()}
-            className="bg-amber-50/80 dark:bg-neutral-900 border border-amber-200/50 dark:border-neutral-800 rounded-2xl p-3.5 flex flex-col justify-between cursor-pointer hover:shadow-sm transition-all"
+            onClick={() => setActiveModal({ type: 'daily_coins' })}
+            className="bg-gradient-to-br from-amber-50 to-yellow-50/60 dark:from-neutral-900 dark:to-neutral-900 border border-amber-200/50 dark:border-neutral-800 rounded-2xl p-3.5 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all group"
           >
             <div>
-              <div className="flex items-center gap-1.5">
-                <h4 className="font-black text-sm text-neutral-900 dark:text-white">
-                  {language === 'sw' ? 'Sarafu' : 'Coins'}
-                </h4>
-                <span className="bg-amber-400 text-neutral-950 font-black text-[9px] px-1.5 py-0.2 rounded">
-                  +10
+              <div className="flex items-center justify-between">
+                <span className="bg-amber-400 text-neutral-950 font-black text-[10px] px-2 py-0.5 rounded-full">
+                  +15 COINS
                 </span>
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-4 h-4" />
+                </div>
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5 truncate">
-                {language === 'sw' ? 'Kusanya bure' : 'Get more coins'}
+              <h4 className="font-black text-sm text-neutral-900 dark:text-white mt-2">
+                {language === 'sw' ? 'Sarafu za Leo' : 'Daily Coins'}
+              </h4>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
+                {language === 'sw' ? 'Kusanya bure kila siku' : 'Collect free daily'}
               </p>
             </div>
 
-            <div className="flex items-center justify-between mt-3 pt-2">
-              <Button 
-                size="sm"
-                className="h-7 bg-white dark:bg-neutral-800 hover:bg-neutral-100 text-neutral-900 dark:text-white font-black text-[10px] px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-none"
-              >
-                {language === 'sw' ? 'Kusanya' : 'Collect'}
-              </Button>
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-500">
-                <Sparkles className="w-5 h-5" />
-              </div>
+            <div className="pt-3">
+              <span className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:underline">
+                <span>{language === 'sw' ? 'Kusanya sasa' : 'Collect now'}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
             </div>
           </div>
 
         </div>
 
         {/* 6. GAMIFIED PERKS ROW (Prize Land, Play & Earn, Merge Boss, GoGo Match) */}
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl p-3.5 shadow-sm">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-sm">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-100 dark:border-neutral-800">
+            <h3 className="text-xs font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              {language === 'sw' ? 'Zawadi na Burudani' : 'Rewards & Perks'}
+            </h3>
+            <span className="text-[10px] font-bold text-orange-600 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-full">
+              Papo Hapo Play
+            </span>
+          </div>
+
           <div className="grid grid-cols-4 gap-2 text-center">
             
             {/* Prize Land */}
             <button 
               onClick={() => setActiveModal({ type: 'game_prize' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
             >
-              <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-500 shadow-sm">
-                <Gift className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-500 shadow-sm group-hover:scale-105 transition-transform">
+                <Gift className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200">
-                {language === 'sw' ? 'Zawadi Papo' : 'Prize Land'}
+              <span className="text-[10px] sm:text-[11px] font-bold text-neutral-800 dark:text-neutral-200 truncate w-full">
+                {language === 'sw' ? 'Zawadi' : 'Prize Land'}
               </span>
             </button>
 
             {/* Play & Earn */}
             <button 
               onClick={() => setActiveModal({ type: 'game_trivia' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
             >
-              <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 shadow-sm">
-                <Zap className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-105 transition-transform">
+                <Zap className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200">
-                {language === 'sw' ? 'Jibu & Pata' : 'Play & Earn'}
+              <span className="text-[10px] sm:text-[11px] font-bold text-neutral-800 dark:text-neutral-200 truncate w-full">
+                {language === 'sw' ? 'Jibu & Pata' : 'Trivia Quiz'}
               </span>
             </button>
 
-            {/* Merge Boss / Ride Perks */}
+            {/* Ride Perks */}
             <button 
               onClick={() => navigate('/taxi')}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
             >
-              <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-purple-600 shadow-sm">
-                <Award className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center text-purple-600 shadow-sm group-hover:scale-105 transition-transform">
+                <Award className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200">
-                {language === 'sw' ? 'Bonasi Safari' : 'Ride Perks'}
+              <span className="text-[10px] sm:text-[11px] font-bold text-neutral-800 dark:text-neutral-200 truncate w-full">
+                {language === 'sw' ? 'Bonasi' : 'Ride Perks'}
               </span>
             </button>
 
             {/* GoGo Match */}
             <button 
               onClick={() => setActiveModal({ type: 'coupons' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95"
+              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
             >
-              <div className="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center text-pink-600 shadow-sm">
-                <Flame className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-2xl bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center text-pink-600 shadow-sm group-hover:scale-105 transition-transform">
+                <Flame className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200">
-                {language === 'sw' ? 'Bahati Papo' : 'GoGo Match'}
+              <span className="text-[10px] sm:text-[11px] font-bold text-neutral-800 dark:text-neutral-200 truncate w-full">
+                {language === 'sw' ? 'Bahati' : 'Lucky Land'}
               </span>
             </button>
 
           </div>
         </div>
 
-        {/* 7. PAPO HAPO SUPER APP SERVICES HUB (Explicitly answering the user prompt) */}
-        <Card className="border-none shadow-sm rounded-2xl bg-white dark:bg-neutral-900 overflow-hidden">
-          <CardContent className="p-4 space-y-3.5">
+        {/* 7. PAPO HAPO SUPER APP SERVICES HUB */}
+        <Card className="border-none shadow-sm rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
+          <CardContent className="p-4 space-y-3">
             
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base font-black text-neutral-900 dark:text-white tracking-tight">
-                  {language === 'sw' ? 'Huduma za Papo Hapo' : 'Papo Hapo Super App Services'}
+                  {language === 'sw' ? 'Huduma za Papo Hapo' : 'Super App Services'}
                 </h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {language === 'sw' ? 'Huduma zote kiganjani mwako' : 'All daily on-demand services'}
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {language === 'sw' ? 'Huduma zote kiganjani mwako' : 'All on-demand daily services'}
                 </p>
               </div>
               <Link 
                 to="/services" 
-                className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-0.5"
               >
                 <span>{language === 'sw' ? 'Zote' : 'All'}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="grid grid-cols-4 gap-2.5 pt-1">
+            <div className="grid grid-cols-4 gap-2 pt-1">
               
               {/* 1. Usafiri / Taxi & Boda */}
               <Link
                 to="/taxi"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-orange-50/50 dark:bg-neutral-800/60 hover:bg-orange-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-orange-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Car className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Teksi & Boda' : 'Taxi & Rides'}
                 </span>
               </Link>
@@ -812,12 +895,12 @@ export default function Profile() {
               {/* 2. Chakula / Food Delivery */}
               <Link
                 to="/"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-amber-50/50 dark:bg-neutral-800/60 hover:bg-amber-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-amber-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <UtensilsCrossed className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Chakula' : 'Food'}
                 </span>
               </Link>
@@ -825,12 +908,12 @@ export default function Profile() {
               {/* 3. Supermarket & Mboga */}
               <Link
                 to="/"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-emerald-50/50 dark:bg-neutral-800/60 hover:bg-emerald-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-emerald-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <ShoppingBag className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Supermarket' : 'Grocery'}
                 </span>
               </Link>
@@ -838,12 +921,12 @@ export default function Profile() {
               {/* 4. Vifurushi & Mizigo */}
               <Link
                 to="/service/vifurushi"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-blue-50/50 dark:bg-neutral-800/60 hover:bg-blue-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-blue-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Truck className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Vifurushi' : 'Courier'}
                 </span>
               </Link>
@@ -851,12 +934,12 @@ export default function Profile() {
               {/* 5. Dawa / Pharmacy */}
               <Link
                 to="/"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-red-50/50 dark:bg-neutral-800/60 hover:bg-red-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-red-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Pill className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Dawa' : 'Pharmacy'}
                 </span>
               </Link>
@@ -864,12 +947,12 @@ export default function Profile() {
               {/* 6. Saluni & Urembo */}
               <Link
                 to="/services"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-purple-50/50 dark:bg-neutral-800/60 hover:bg-purple-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-purple-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Scissors className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Saluni' : 'Salon'}
                 </span>
               </Link>
@@ -877,25 +960,25 @@ export default function Profile() {
               {/* 7. Kukodisha Magari */}
               <Link
                 to="/car-rental"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-sky-50/50 dark:bg-neutral-800/60 hover:bg-sky-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-sky-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Compass className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
-                  {language === 'sw' ? 'Kodi Gari' : 'Car Rental'}
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
+                  {language === 'sw' ? 'Kodi Gari' : 'Rental'}
                 </span>
               </Link>
 
               {/* 8. Print & Nyaraka */}
               <Link
                 to="/print"
-                className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-teal-50/50 dark:bg-neutral-800/60 hover:bg-teal-100/50 dark:hover:bg-neutral-800 transition-colors text-center group"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 hover:bg-teal-50 dark:hover:bg-neutral-800 transition-all text-center group active:scale-95"
               >
                 <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
                   <Printer className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-black text-neutral-800 dark:text-neutral-200 leading-tight">
+                <span className="text-[10px] font-bold text-neutral-800 dark:text-neutral-200 leading-tight">
                   {language === 'sw' ? 'Print' : 'Print'}
                 </span>
               </Link>
@@ -907,117 +990,220 @@ export default function Profile() {
 
         {/* 8. DRIVER ACCOUNT / UPGRADE BANNER */}
         {(profile.role === 'rider' || (profile.role as string) === 'driver' || profile.driverType || profile.licensePlate) ? (
-          <div className="p-4 rounded-2xl bg-neutral-900 text-white shadow-sm space-y-3">
+          <div className="p-4 rounded-2xl sm:rounded-3xl bg-neutral-900 text-white shadow-sm space-y-3 border border-neutral-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bike className="w-5 h-5 text-orange-400" />
-                <span className="font-black text-xs uppercase tracking-wider text-orange-400">
-                  {language === 'sw' ? 'Akaunti ya Dereva' : 'Driver Account'}
-                </span>
+                <div className="w-8 h-8 rounded-xl bg-orange-500/20 flex items-center justify-center text-orange-400">
+                  <Bike className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-black text-xs uppercase tracking-wider text-orange-400 block">
+                    {language === 'sw' ? 'Akaunti ya Dereva' : 'Driver Account'}
+                  </span>
+                  <span className="text-[11px] text-neutral-400">Papo Hapo Driver Partner</span>
+                </div>
               </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 font-bold text-[9px] uppercase border-none">
+              <Badge className="bg-emerald-500/20 text-emerald-400 font-bold text-[10px] uppercase border-none px-2 py-0.5">
                 {profile.approvalStatus || 'Approved'}
               </Badge>
             </div>
 
-            <div className="text-xs space-y-1 opacity-90 font-mono">
+            <div className="text-xs space-y-1 opacity-90 font-mono bg-white/5 p-2.5 rounded-xl border border-white/5">
               <p><strong className="text-neutral-400">Chombo:</strong> {profile.vehicleType || 'Bodaboda / Taxi'} {profile.vehicleBrand || ''}</p>
-              {profile.licensePlate && <p><strong className="text-neutral-400">Namba ya Bamba:</strong> {profile.licensePlate}</p>}
+              {profile.licensePlate && <p><strong className="text-neutral-400">Bamba:</strong> {profile.licensePlate}</p>}
             </div>
 
-            <div className="pt-1 flex gap-2">
-              <Button 
-                onClick={async () => {
-                  if (profile.role !== 'rider') {
-                    await updateRole('rider');
-                  }
-                  navigate('/');
-                }}
-                className="flex-1 h-9 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase"
-              >
-                {language === 'sw' ? 'Ingia Dashboard ya Dereva' : 'Go to Driver Mode'}
-              </Button>
-            </div>
+            <Button 
+              onClick={async () => {
+                if (profile.role !== 'rider') {
+                  await updateRole('rider');
+                }
+                navigate('/');
+              }}
+              className="w-full h-10 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs uppercase tracking-wider"
+            >
+              {language === 'sw' ? 'Ingia Dashboard ya Dereva' : 'Go to Driver Mode'}
+            </Button>
           </div>
         ) : (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-600/10 border border-orange-200 dark:border-orange-900/50 flex items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-600/10 border border-orange-200/80 dark:border-orange-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
             <div className="space-y-0.5 min-w-0">
-              <h4 className="font-black text-xs uppercase tracking-wider text-orange-700 dark:text-orange-400">
-                {language === 'sw' ? 'Unataka Kazi ya Udereva?' : 'Drive with Papo Hapo'}
-              </h4>
-              <p className="text-[11px] text-neutral-600 dark:text-neutral-300">
-                {language === 'sw' ? 'Sajili pikipiki, bajaji au teksi upate kipato kila siku.' : 'Earn money by driving passengers and deliveries.'}
+              <div className="flex items-center gap-1.5 text-orange-700 dark:text-orange-400 font-black text-xs uppercase tracking-wider">
+                <Car className="w-4 h-4" />
+                <span>{language === 'sw' ? 'Unataka Kazi ya Udereva?' : 'Drive with Papo Hapo'}</span>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                {language === 'sw' ? 'Sajili pikipiki, bajaji au teksi upate kipato kila siku kwa usalama.' : 'Earn money by driving passengers and delivering goods.'}
               </p>
             </div>
-            <Link to="/register/driver" className="shrink-0">
-              <Button size="sm" className="h-8 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-sm">
-                {language === 'sw' ? 'Sajili' : 'Register'}
+            <Link to="/register/driver" className="w-full sm:w-auto shrink-0">
+              <Button size="sm" className="w-full sm:w-auto h-9 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-sm px-4">
+                {language === 'sw' ? 'Sajili Dereva Sasa' : 'Register as Driver'}
               </Button>
             </Link>
           </div>
         )}
 
-        {/* 9. BOTTOM UTILITY ICONS BAR (Payment, Bonus, Shopping credits, Perks, Help Center) */}
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl p-4 shadow-sm">
-          <div className="grid grid-cols-5 gap-1 text-center">
-            
-            {/* Payment */}
-            <button 
+        {/* 9. ACCOUNT SETTINGS & PREFERENCES LIST */}
+        <Card className="border-none shadow-sm rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
+          <CardContent className="p-4 space-y-1">
+            <div className="pb-2 mb-1 border-b border-neutral-100 dark:border-neutral-800">
+              <h3 className="text-xs font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                {language === 'sw' ? 'Akaunti & Mipangilio' : 'Account & Preferences'}
+              </h3>
+            </div>
+
+            {/* Wallet & Payment */}
+            <button
               onClick={() => setActiveModal({ type: 'wallet' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
             >
-              <Wallet className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
-              <span className="text-[10px] font-medium text-neutral-700 dark:text-neutral-300">
-                {language === 'sw' ? 'Malipo' : 'Payment'}
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Pochi & Malipo' : 'Wallet & Payment'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    TZS {(profile.walletBalance || 0).toLocaleString()} • M-Pesa, Tigo Pesa
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
             </button>
 
-            {/* Bonus */}
-            <button 
-              onClick={() => setActiveModal({ type: 'bonus' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
-            >
-              <Coins className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
-              <span className="text-[10px] font-medium text-neutral-700 dark:text-neutral-300">
-                {language === 'sw' ? 'Bonasi' : 'Bonus'}
-              </span>
-            </button>
-
-            {/* Shopping credits */}
-            <button 
-              onClick={() => setActiveModal({ type: 'wallet' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
-            >
-              <CreditCard className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
-              <span className="text-[10px] font-medium text-neutral-700 dark:text-neutral-300">
-                {language === 'sw' ? 'Salio' : 'Credits'}
-              </span>
-            </button>
-
-            {/* Perks */}
-            <button 
+            {/* Coupons & Vouchers */}
+            <button
               onClick={() => setActiveModal({ type: 'coupons' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
             >
-              <Award className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
-              <span className="text-[10px] font-medium text-neutral-700 dark:text-neutral-300">
-                {language === 'sw' ? 'Faida' : 'Perks'}
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-orange-600 flex items-center justify-center">
+                  <Ticket className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Vocha na Kuponi Zangu' : 'My Coupons & Vouchers'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {language === 'sw' ? 'Punguzo la safari na vyakula' : 'Discounts on rides & orders'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
             </button>
 
-            {/* Help Center */}
-            <button 
+            {/* Referral / Bonus */}
+            <button
+              onClick={() => setActiveModal({ type: 'bonus' })}
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                  <Gift className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Mwalike Rafiki & Pata TZS 2,500' : 'Invite Friends & Earn'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {language === 'sw' ? 'Msimbo wako wa mwaliko' : 'Your referral code'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+            </button>
+
+            {/* Edit Profile Info */}
+            <button
+              onClick={() => setView('edit')}
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Badili Wasifu & Maelezo' : 'Edit Profile Info'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {language === 'sw' ? 'Jina, picha na simu' : 'Name, photo & phone number'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+            </button>
+
+            {/* Change Password */}
+            <button
+              onClick={() => setView('password')}
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Usalama & Nenosiri' : 'Security & Password'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {language === 'sw' ? 'Badili nenosiri la akaunti' : 'Update your password'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
+            </button>
+
+            {/* Customer Help & Support */}
+            <button
               onClick={() => setActiveModal({ type: 'help' })}
-              className="flex flex-col items-center gap-1.5 p-1 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-transform active:scale-95 group"
+              className="w-full py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center justify-between transition-colors group"
             >
-              <Headphones className="w-5 h-5 text-neutral-700 dark:text-neutral-300 group-hover:text-orange-600 transition-colors stroke-[1.75]" />
-              <span className="text-[10px] font-medium text-neutral-700 dark:text-neutral-300">
-                {language === 'sw' ? 'Msaada' : 'Help'}
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 flex items-center justify-center">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-bold text-neutral-900 dark:text-white block">
+                    {language === 'sw' ? 'Msaada kwa Wateja (24/7)' : 'Customer Help & Support'}
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Live Chat, WhatsApp & Simu
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 transition-colors" />
             </button>
 
-          </div>
-        </div>
+            {/* Logout Button */}
+            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                onClick={logout}
+                className="w-full py-2.5 px-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-between transition-colors text-red-600 group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 flex items-center justify-center">
+                    <LogOut className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs font-bold block">
+                      {language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out'}
+                    </span>
+                    <span className="text-[11px] text-red-500/80">
+                      {language === 'sw' ? 'Funga kikao cha sasa' : 'End current session'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-red-400 group-hover:text-red-600 transition-colors" />
+              </button>
+            </div>
+
+          </CardContent>
+        </Card>
 
       </div>
 

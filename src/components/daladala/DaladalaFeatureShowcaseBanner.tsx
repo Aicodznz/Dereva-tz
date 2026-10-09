@@ -12,7 +12,9 @@ import {
   CheckCircle2, 
   Car, 
   MapPin, 
-  FileText 
+  FileText,
+  ShieldAlert,
+  GraduationCap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -28,6 +30,8 @@ interface DaladalaFeatureShowcaseBannerProps {
   onOpenDailyReport: () => void;
   onOpenConductorMode: () => void;
   onOpenFleetMode: () => void;
+  onOpenSafetyModal?: () => void;
+  onOpenStudentFareModal?: () => void;
 }
 
 export default function DaladalaFeatureShowcaseBanner({
@@ -35,6 +39,8 @@ export default function DaladalaFeatureShowcaseBanner({
   onOpenDailyReport,
   onOpenConductorMode,
   onOpenFleetMode,
+  onOpenSafetyModal,
+  onOpenStudentFareModal,
 }: DaladalaFeatureShowcaseBannerProps) {
   const [activeVoiceStation, setActiveVoiceStation] = useState<string | null>(null);
   const [showVoicePlayer, setShowVoicePlayer] = useState<boolean>(false);
@@ -88,14 +94,38 @@ export default function DaladalaFeatureShowcaseBanner({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowVoicePlayer(!showVoicePlayer)}
-          className="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
-        >
-          <Volume2 className="w-4 h-4 text-blue-400" />
-          <span>{showVoicePlayer ? 'Ficha Kisanduku cha Sauti' : 'Jaribu Sauti za Kiswahili 🔊'}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {onOpenStudentFareModal && (
+            <button
+              type="button"
+              onClick={onOpenStudentFareModal}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+            >
+              <GraduationCap className="w-4 h-4 text-emerald-400" />
+              <span>Wanafunzi &amp; Watoto 🎒 (TSh 200)</span>
+            </button>
+          )}
+
+          {onOpenSafetyModal && (
+            <button
+              type="button"
+              onClick={onOpenSafetyModal}
+              className="px-3 py-1.5 rounded-xl bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+            >
+              <ShieldAlert className="w-4 h-4 text-red-400" />
+              <span>Kinga ya Watekaji 🛡️</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowVoicePlayer(!showVoicePlayer)}
+            className="px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+          >
+            <Volume2 className="w-4 h-4 text-blue-400" />
+            <span>{showVoicePlayer ? 'Ficha Kisanduku cha Sauti' : 'Jaribu Sauti 🔊'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 4 Feature Action Cards Grid */}
