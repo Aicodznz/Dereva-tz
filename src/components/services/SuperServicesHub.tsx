@@ -96,6 +96,17 @@ export default function SuperServicesHub() {
       features: ['Fast Charging reservation', 'Mtungi wa gesi 6kg / 15kg mlangoni', 'Engine oil delivery']
     },
     {
+      id: 'papopay',
+      category: 'fintech_loans',
+      title: 'PapoPay Cashless Super Fintech',
+      swTitle: 'PapoPay - Malipo ya Nauli & QR 🇹🇿',
+      desc: 'Lipa nauli ya Daladala na BRT kwa NFC/QR bila chenji, kadi ya mwanafunzi (TZS 200), na Lipa Namba ya madukani bila makato.',
+      icon: Wallet,
+      badge: 'FINTECH 🇹🇿',
+      color: 'from-emerald-500 via-teal-600 to-emerald-800',
+      features: ['Lipa Nauli ya Daladala sekunde 1 tu (Tap & Go)', 'Kadi ya Mwanafunzi & Arifa za Wazazi', 'Lipa Namba ya Wafanyabiashara 0% Makato', 'LUKU, Maji, Faini za Polisi & Tuma Pesa']
+    },
+    {
       id: 'recharge_bills',
       category: 'fintech_loans',
       title: 'Recharge & Bill Payment',
@@ -337,6 +348,7 @@ export default function SuperServicesHub() {
 
 // Subcomponent: Dedicated Interactive Workflows for Each Service
 function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; onClose: () => void }) {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [confirmedData, setConfirmedData] = useState<any>(null);
@@ -391,6 +403,7 @@ function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; on
           <div>
             <h3 className="text-lg font-black uppercase tracking-tight">
               {serviceId === 'doctor_appointment' && '🩺 Miadi ya Daktari & Kliniki'}
+              {serviceId === 'papopay' && '💳 PapoPay Super Fintech 🇹🇿'}
               {serviceId === 'service_booking' && '🛠️ Huduma za Nyumbani & Wataalamu'}
               {serviceId === 'flight_booking' && '✈️ Tiketi za Ndege (Flights)'}
               {serviceId === 'fuel_delivery' && '⛽ Mafuta & Breakdown ya Dharura'}
@@ -593,8 +606,33 @@ function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; on
                 </div>
               )}
 
+              {/* PapoPay Dedicated Card */}
+              {serviceId === 'papopay' && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-2">
+                    <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm block">
+                      PapoPay: Mfumo Rasmi wa Malipo Bila Chenji 🇹🇿
+                    </span>
+                    <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                      Lipa nauli za daladala, mwendokasi, boda na bajaji kwa NFC Tap & Go au QR. Dhibiti kadi za nauli za wanafunzi (TZS 200 kwa safari bila mtoto kuhitaji simu), lipia madukani kwa Lipa Namba bila makato, na ununue LUKU papo hapo.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate('/papopay');
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>Fungua PapoPay App Kamili</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* General Fallback Inputs for other services */}
-              {!['doctor_appointment', 'service_booking', 'flight_booking', 'fuel_delivery', 'recharge_bills'].includes(serviceId) && (
+              {!['doctor_appointment', 'service_booking', 'flight_booking', 'fuel_delivery', 'recharge_bills', 'papopay'].includes(serviceId) && (
                 <div className="space-y-3">
                   <div className="p-4 rounded-2xl bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 text-xs space-y-1">
                     <span className="font-bold text-orange-600 block">Huduma ya Papo Hapo Ipo Tayari</span>

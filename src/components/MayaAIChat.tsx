@@ -680,10 +680,13 @@ export default function MayaAIChat() {
     return 'Mteja Voice 🛍️';
   };
 
-  // Do not render floating Maya AI FAB on Daladala or Profile pages to avoid visual collision and screen obstruction
+  // Do not render floating Maya AI FAB on Daladala, Profile, or PapoPay pages to avoid visual collision and screen obstruction
   if (
     location.pathname.startsWith('/daladala') || 
     location.pathname.startsWith('/service/daladala') ||
+    location.pathname.startsWith('/papopay') ||
+    location.pathname.startsWith('/service/papopay') ||
+    location.pathname.startsWith('/pay') ||
     location.pathname === '/profile' ||
     location.pathname.startsWith('/profile/')
   ) {

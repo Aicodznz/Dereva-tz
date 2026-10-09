@@ -55,7 +55,8 @@ import {
   Loader2,
   Printer,
   Compass,
-  Plus
+  Plus,
+  GraduationCap
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -517,28 +518,37 @@ export default function Profile() {
             </div>
 
             {/* Action Buttons Row */}
-            <div className="grid grid-cols-2 gap-2 pt-0.5">
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
               <Button
                 size="sm"
-                onClick={() => setActiveModal({ type: 'wallet' })}
-                className="h-9 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/10 shadow-none flex items-center justify-center gap-1.5"
+                onClick={() => navigate('/papopay?tab=transit')}
+                className="h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] rounded-xl shadow-md border-none flex items-center justify-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5 text-orange-400" />
-                <span>{language === 'sw' ? 'Weka Salio' : 'Top Up'}</span>
+                <Wallet className="w-3.5 h-3.5 text-white" />
+                <span>PapoPay 💳</span>
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={() => navigate('/papopay?tab=student_card')}
+                className="h-9 bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] rounded-xl border border-white/10 shadow-none flex items-center justify-center gap-1"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-pink-400" />
+                <span>Mwanafunzi 🎒</span>
               </Button>
 
               <Button
                 size="sm"
                 onClick={handleClaimDailyCoins}
                 disabled={claimingCoins}
-                className="h-9 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-neutral-950 font-black text-xs rounded-xl shadow-md border-none flex items-center justify-center gap-1.5"
+                className="h-9 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-neutral-950 font-black text-[11px] rounded-xl shadow-md border-none flex items-center justify-center gap-1"
               >
                 {claimingCoins ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <>
                     <Sparkles className="w-3.5 h-3.5 text-neutral-950" />
-                    <span>{language === 'sw' ? 'Chukua +15 Bure' : 'Claim +15 Free'}</span>
+                    <span>+15 Sarafu</span>
                   </>
                 )}
               </Button>
@@ -879,6 +889,19 @@ export default function Profile() {
 
             <div className="grid grid-cols-4 gap-2 pt-1">
               
+              {/* 0. PapoPay Fintech */}
+              <Link
+                to="/papopay"
+                className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all text-center group active:scale-95 border border-emerald-200/50 dark:border-emerald-800/40"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 leading-tight">
+                  PapoPay 💳
+                </span>
+              </Link>
+
               {/* 1. Usafiri / Taxi & Boda */}
               <Link
                 to="/taxi"

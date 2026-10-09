@@ -14,8 +14,10 @@ import {
   MapPin, 
   FileText,
   ShieldAlert,
-  GraduationCap
+  GraduationCap,
+  Wallet
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
   announceNextStation, 
@@ -42,6 +44,7 @@ export default function DaladalaFeatureShowcaseBanner({
   onOpenSafetyModal,
   onOpenStudentFareModal,
 }: DaladalaFeatureShowcaseBannerProps) {
+  const navigate = useNavigate();
   const [activeVoiceStation, setActiveVoiceStation] = useState<string | null>(null);
   const [showVoicePlayer, setShowVoicePlayer] = useState<boolean>(false);
 
@@ -105,6 +108,15 @@ export default function DaladalaFeatureShowcaseBanner({
               <span>Wanafunzi &amp; Watoto 🎒 (TSh 200)</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => navigate('/papopay?tab=transit')}
+            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 transition active:scale-95 shadow-md"
+          >
+            <Wallet className="w-4 h-4 text-white" />
+            <span>Lipa Nauli PapoPay 💳</span>
+          </button>
 
           {onOpenSafetyModal && (
             <button

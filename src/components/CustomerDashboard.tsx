@@ -9,7 +9,7 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ChevronLeft, Megaphone, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home, Printer, Ticket
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home, Printer, Ticket, Wallet
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -588,6 +588,7 @@ export default function CustomerDashboard() {
   const services = [
     { id: 'teksi', label: 'PapoRide', icon: Car, color: 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600', sub: 'Agiza gari, boda au bajaji 🚕', category: 'taxi', badge: 'ONLY1K' },
     { id: 'daladala', label: 'PapoDaladala', icon: Bus, color: 'bg-gradient-to-br from-blue-500 via-indigo-600 to-sky-700', sub: 'Live GPS, Viti Wazi & Nauli 🚌', category: 'daladala', badge: 'GPS LIVE' },
+    { id: 'papopay', label: 'PapoPay', icon: Wallet, color: 'bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800', sub: 'Lipa Nauli, QR & Kadi ya Mwanafunzi 💳', category: 'papopay', badge: 'LIPA PAPO' },
     { id: 'chakula', label: 'PapoFood', icon: Utensils, color: 'bg-gradient-to-br from-red-400 via-red-500 to-rose-600', sub: 'Chakula kutoka migahawa 🍔', category: 'restaurant', badge: 'ONLY1K' },
     { id: 'sokoni', label: 'PapoMart', icon: ShoppingCart, color: 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600', sub: 'Nunua bidhaa za sokoni 🛒', category: 'grocery', badge: 'ONLY1K' },
     { id: 'vifurushi', label: 'PapoSend', icon: Package, color: 'bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600', sub: 'Tuma vifurushi na House Shifting 📦', category: 'parcel', badge: 'ONLY1K' },
@@ -1012,6 +1013,8 @@ export default function CustomerDashboard() {
                           ? '#' 
                           : service.id === 'super_services'
                           ? '/services'
+                          : service.id === 'papopay'
+                          ? '/papopay'
                           : service.id === 'teksi' 
                           ? '/taxi' 
                           : service.id === 'daladala'
