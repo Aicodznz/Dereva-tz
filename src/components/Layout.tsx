@@ -42,8 +42,9 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
   const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala') || location.pathname === '/service/daladala';
   const isProductDetailRoute = location.pathname.startsWith('/product/') || location.pathname.startsWith('/product');
-  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || isProductDetailRoute || profile?.role === 'rider' || isVendorOrAdmin;
-  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute;
+  const isPapoPayRoute = location.pathname === '/papopay' || location.pathname.startsWith('/papopay') || location.pathname === '/pay';
+  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || isProductDetailRoute || profile?.role === 'rider' || isVendorOrAdmin || isPapoPayRoute;
+  const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute || isPapoPayRoute;
   const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
 
   // Responsive scroll detection: scroll down -> hide bottom bar, scroll up -> show bottom bar
