@@ -128,6 +128,9 @@ import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
 import { NfcTapPaymentModal } from "./tegex/NfcTapPaymentModal";
 import { checkNfcSupport } from "../utils/nfcPayment";
+import { WebRtcCallModal } from "./tegex/WebRtcCallModal";
+import { CallOptionsModal } from "./tegex/CallOptionsModal";
+import { CallType } from "../utils/webrtcService";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
 import { PapoShareSplitFareModal } from "./rider/PapoShareSplitFareModal";
@@ -709,6 +712,13 @@ export default function TaxiBooking() {
   const [shareMode, setShareMode] = useState<'solo' | 'share'>('solo');
   const [papoShareSubOption, setPapoShareSubOption] = useState<'auto' | 'stendi'>('auto');
   const [showPapoSplitModal, setShowPapoSplitModal] = useState<boolean>(false);
+
+  // WebRTC In-App VoIP Audio & Video Calling State
+  const [isWebRtcCallOpen, setIsWebRtcCallOpen] = useState<boolean>(false);
+  const [isCallOptionsOpen, setIsCallOptionsOpen] = useState<boolean>(false);
+  const [activeCallType, setActiveCallType] = useState<CallType>('audio');
+  const [incomingCallData, setIncomingCallData] = useState<any>(null);
+
   const [allowSharingConsent, setAllowSharingConsent] = useState<boolean>(true);
   const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
   const [verifiedOnlySharing, setVerifiedOnlySharing] = useState<boolean>(false);
@@ -1057,6 +1067,30 @@ export default function TaxiBooking() {
   useEffect(() => {
     setAutoFollow(true);
   }, [step, activeRide?.status]);
+
+  // Listen for real-time incoming WebRTC calls from driver
+  useEffect(() => {
+    if (!activeRide?.id || !user?.uid) return;
+    const q = query(
+      collection(db, 'calls'),
+      where('rideId', '==', activeRide.id),
+      where('status', '==', 'ringing'),
+      limit(1)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          if (data && data.caller?.role === 'driver' && data.status === 'ringing') {
+            setIncomingCallData(data);
+            setActiveCallType(data.callType || 'audio');
+            setIsWebRtcCallOpen(true);
+          }
+        }
+      });
+    });
+    return () => unsub();
+  }, [activeRide?.id, user?.uid]);
 
   const isSpectator = useMemo(() => {
     const paramRideId = searchParams.get("rideId");
@@ -6288,9 +6322,7 @@ const getEndPin = (etaText: string) => {
                     driverLocation: driverLivePos || activeRide.driverLocation,
                   } as any
                 }
-                onCall={() =>
-                  window.open(`tel:${activeRide.driverInfo?.phone}`)
-                }
+                onCall={() => setIsCallOptionsOpen(true)}
                 onMessage={() => {
                   if (activeRide.driverId) {
                     setSearchParams({ to: activeRide.driverId });
@@ -6333,6 +6365,7 @@ const getEndPin = (etaText: string) => {
                 }
                 user={user}
                 profile={profile}
+                onCall={() => setIsCallOptionsOpen(true)}
                 onGoHome={() => {
                   setStep("map");
                   toast.info("Umerudi nyumbani. Safari yako inaendelea kufuatiliwa!");
@@ -7699,6 +7732,58 @@ const getEndPin = (etaText: string) => {
           }
         }}
       />
+
+      {/* In-App Call Options Modal (WebRTC Voice, HD Video, or Cellular GSM) */}
+      {activeRide && (
+        <>
+          <CallOptionsModal
+            isOpen={isCallOptionsOpen}
+            onClose={() => setIsCallOptionsOpen(false)}
+            targetUser={{
+              id: activeRide.driverId || 'driver',
+              name: activeRide.driverInfo?.name || (activeRide as any)?.driver?.name || 'Dereva Papo Hapo',
+              photo: activeRide.driverInfo?.photo || (activeRide as any)?.driver?.photo || '',
+              role: 'driver',
+              phone: activeRide.driverInfo?.phone || (activeRide as any)?.driver?.phone || '',
+            }}
+            onStartInAppCall={(type) => {
+              setIncomingCallData(null);
+              setActiveCallType(type);
+              setIsWebRtcCallOpen(true);
+            }}
+            onCallCellPhone={() => {
+              const p = activeRide.driverInfo?.phone || (activeRide as any)?.driver?.phone;
+              if (p) window.open(`tel:${p}`);
+            }}
+          />
+
+          <WebRtcCallModal
+            isOpen={isWebRtcCallOpen}
+            onClose={() => {
+              setIsWebRtcCallOpen(false);
+              setIncomingCallData(null);
+            }}
+            rideId={activeRide.id || rideId || 'ride'}
+            currentUser={{
+              id: user?.uid || 'passenger',
+              name: profile?.displayName || (profile as any)?.name || user?.displayName || 'Mteja',
+              photo: profile?.photoURL || user?.photoURL || '',
+              role: 'passenger',
+              phone: profile?.phone || user?.phoneNumber || '',
+            }}
+            otherUser={{
+              id: activeRide.driverId || 'driver',
+              name: activeRide.driverInfo?.name || (activeRide as any)?.driver?.name || 'Dereva Papo Hapo',
+              photo: activeRide.driverInfo?.photo || (activeRide as any)?.driver?.photo || '',
+              role: 'driver',
+              phone: activeRide.driverInfo?.phone || (activeRide as any)?.driver?.phone || '',
+            }}
+            initialCallType={activeCallType}
+            isIncoming={!!incomingCallData}
+            incomingCallId={incomingCallData?.id}
+          />
+        </>
+      )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -187,6 +187,14 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (request.auth.uid == routeId || isAdmin());
     }
 
+    // 25. WEBRTC AUDIO & VIDEO CALLS (CODEWITHKAEL PATTERN)
+    match /calls/{callId} {
+      allow read, write: if true;
+      match /{sub=**} {
+        allow read, write: if true;
+      }
+    }
+
     // Default deny for safety
     match /{document=**} {
       allow read, write: if isSignedIn() && isAdmin();

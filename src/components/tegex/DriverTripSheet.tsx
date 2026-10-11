@@ -9,12 +9,13 @@ interface DriverTripSheetProps {
   onArrive: () => void;
   onStart: () => void;
   onComplete: () => void;
+  onCall?: () => void;
   onMessage?: () => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
 }
 
-export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, onMessage, isMinimized, onToggleMinimize }: DriverTripSheetProps) {
+export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, onCall, onMessage, isMinimized, onToggleMinimize }: DriverTripSheetProps) {
   const isArriving = ride.status === 'accepted' || ride.status === 'driver_arriving';
   const isArrived = ride.status === 'driver_arrived';
   const isOnTrip = ride.status === 'on_trip';
@@ -142,9 +143,9 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
                  <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 active:scale-90 transition-transform" title="Google Maps">
                     <MapIcon className="w-4 h-4" />
                  </a>
-                 <a href={`tel:${ride.customerInfo?.phone || '0700000000'}`} className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform">
+                 <button type="button" onClick={onCall || (() => window.open(`tel:${ride.customerInfo?.phone || '0700000000'}`))} className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform cursor-pointer" title="Piga simu (In-App WebRTC au GSM)">
                     <Phone className="w-4 h-4" />
-                 </a>
+                 </button>
                  <button 
                    onClick={onMessage}
                    className="w-9 h-9 rounded-xl bg-[#7F77DD]/10 border border-[#7F77DD]/20 flex items-center justify-center text-[#7F77DD] active:scale-90 transition-transform"

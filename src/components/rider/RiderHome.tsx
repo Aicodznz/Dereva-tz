@@ -49,6 +49,9 @@ import StreetHailModal from './StreetHailModal';
 import PapoShareStendiModal from '../driver/PapoShareStendiModal';
 import { NfcTapPaymentModal } from '../tegex/NfcTapPaymentModal';
 import { checkNfcSupport } from '../../utils/nfcPayment';
+import { WebRtcCallModal } from '../tegex/WebRtcCallModal';
+import { CallOptionsModal } from '../tegex/CallOptionsModal';
+import { CallType } from '../../utils/webrtcService';
 import { 
   listenDriverActiveStandRoute, 
   updateStandDriverLocation, 
@@ -534,6 +537,13 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [isPapoShareStendiModalOpen, setIsPapoShareStendiModalOpen] = useState(false);
   const isNfcHardwareSupported = checkNfcSupport();
   const [isNfcTerminalOpen, setIsNfcTerminalOpen] = useState(false);
+  
+  // WebRTC In-App VoIP Audio & Video Calling State
+  const [isWebRtcCallOpen, setIsWebRtcCallOpen] = useState<boolean>(false);
+  const [isCallOptionsOpen, setIsCallOptionsOpen] = useState<boolean>(false);
+  const [activeCallType, setActiveCallType] = useState<CallType>('audio');
+  const [incomingCallData, setIncomingCallData] = useState<any>(null);
+
   const [activeDriverStandRoute, setActiveDriverStandRoute] = useState<StandPoolingRoute | null>(null);
   const prevDashboardPassengerCountRef = useRef<number | null>(null);
 
@@ -895,6 +905,30 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
 
   const { ride: activeRide } = useRideStatus(rideId);
   const [realTripRoute, setRealTripRoute] = useState<[number, number][]>([]);
+
+  // Listen for real-time incoming WebRTC calls from customer/passenger
+  useEffect(() => {
+    if (!activeRide?.id || !user?.uid) return;
+    const q = query(
+      collection(db, 'calls'),
+      where('rideId', '==', activeRide.id),
+      where('status', '==', 'ringing'),
+      limit(1)
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          if (data && data.caller?.role === 'passenger' && data.status === 'ringing') {
+            setIncomingCallData(data);
+            setActiveCallType(data.callType || 'audio');
+            setIsWebRtcCallOpen(true);
+          }
+        }
+      });
+    });
+    return () => unsub();
+  }, [activeRide?.id, user?.uid]);
 
   // Road Alerts / Status generator anchored at specific fixed map coordinates
   const roadAlerts = useMemo(() => {
@@ -4287,6 +4321,7 @@ const getEndPin = (etaText: string) => {
                 onArrive={() => handleUpdateStatus('driver_arrived')}
                 onStart={() => handleUpdateStatus('on_trip')}
                 onComplete={handleComplete}
+                onCall={() => setIsCallOptionsOpen(true)}
                 onMessage={() => {
                   setSearchParams({ to: activeRide.customerId });
                   setIsChatOpen(true);
@@ -4972,6 +5007,58 @@ const getEndPin = (etaText: string) => {
             toast.success(`✓ Umepokea TZS ${receipt.amount.toLocaleString()} kwa NFC Tap!`);
           }}
         />
+
+        {/* In-App Call Options Modal (WebRTC Voice, HD Video, or Cellular GSM) */}
+        {activeRide && (
+          <>
+            <CallOptionsModal
+              isOpen={isCallOptionsOpen}
+              onClose={() => setIsCallOptionsOpen(false)}
+              targetUser={{
+                id: activeRide.customerId || 'passenger',
+                name: activeRide.customerInfo?.name || 'Mteja',
+                photo: activeRide.customerInfo?.photo || activeRide.customerInfo?.avatar || '',
+                role: 'passenger',
+                phone: activeRide.customerInfo?.phone || '',
+              }}
+              onStartInAppCall={(type) => {
+                setIncomingCallData(null);
+                setActiveCallType(type);
+                setIsWebRtcCallOpen(true);
+              }}
+              onCallCellPhone={() => {
+                const p = activeRide.customerInfo?.phone;
+                if (p) window.open(`tel:${p}`);
+              }}
+            />
+
+            <WebRtcCallModal
+              isOpen={isWebRtcCallOpen}
+              onClose={() => {
+                setIsWebRtcCallOpen(false);
+                setIncomingCallData(null);
+              }}
+              rideId={activeRide.id}
+              currentUser={{
+                id: user?.uid || (profile as any)?.id || 'driver',
+                name: profile?.displayName || (profile as any)?.name || 'Dereva Papo Hapo',
+                photo: profile?.photoURL || (profile as any)?.photo || '',
+                role: 'driver',
+                phone: profile?.phone || (profile as any)?.phoneNumber || '',
+              }}
+              otherUser={{
+                id: activeRide.customerId || 'passenger',
+                name: activeRide.customerInfo?.name || 'Mteja',
+                photo: activeRide.customerInfo?.photo || activeRide.customerInfo?.avatar || '',
+                role: 'passenger',
+                phone: activeRide.customerInfo?.phone || '',
+              }}
+              initialCallType={activeCallType}
+              isIncoming={!!incomingCallData}
+              incomingCallId={incomingCallData?.id}
+            />
+          </>
+        )}
       </AnimatePresence>
     </div>
   );

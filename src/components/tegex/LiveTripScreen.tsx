@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2, Home, Heart } from 'lucide-react';
+import { Shield, Clock, Navigation2, MapPin, MessageSquare, Star, Trash2, Users, Package, Sparkles, CheckCircle2, Home, Heart, Phone } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
 import { useRouting } from '../../hooks/useRouting';
@@ -20,6 +20,7 @@ import {
 
 interface LiveTripScreenProps {
   ride: Ride;
+  onCall?: () => void;
   onMessage?: () => void;
   onCancel?: () => void;
   onGoHome?: () => void;
@@ -65,6 +66,7 @@ const MapControl = ({ position, target }: { position: { lat: number, lng: number
 
 export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({ 
   ride, 
+  onCall,
   onMessage, 
   onCancel, 
   onGoHome,
@@ -568,7 +570,7 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
             </div>
 
             {/* Unified Quick Actions & Distance Panel Footer */}
-            <div className={`grid grid-cols-5 gap-1 mt-2 pt-2 border-t ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`}>
+            <div className={`grid ${onCall ? 'grid-cols-6' : 'grid-cols-5'} gap-1 mt-2 pt-2 border-t ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`}>
               {/* Distance Left Panel */}
               <div className={`col-span-1 rounded-xl p-1 border flex flex-col items-center justify-center text-center select-none ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80' : 'bg-neutral-50 border-neutral-200/60'}`}>
                 <Navigation2 className="w-3 h-3 text-indigo-500 mb-0.5" />
@@ -577,6 +579,18 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                   {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
                 </span>
               </div>
+
+              {/* Call Button (In-App VoIP & Phone) */}
+              {onCall && (
+                <button 
+                  onClick={onCall}
+                  className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/40' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100/80 text-emerald-600'}`}
+                  title="Piga simu kwa dereva"
+                >
+                  <Phone className="w-3 h-3 text-emerald-500 mb-0.5" />
+                  <span className="text-[7px] font-black uppercase tracking-widest">Call</span>
+                </button>
+              )}
 
               {/* Share Trip Button */}
               <button 
