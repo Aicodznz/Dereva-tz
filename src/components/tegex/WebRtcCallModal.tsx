@@ -586,7 +586,7 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
             {/* Center Title & Duration (like image.png timestamp) */}
             <div className="flex flex-col items-center text-center">
               <p className="text-sm sm:text-base font-black text-white tracking-wider drop-shadow-md">
-                {callStatus === 'connected' ? formatDuration(callDuration) : 'Papo Hapo WebRTC'}
+                {callStatus === 'connected' ? formatDuration(callDuration) : 'Simu ya Papo Hapo'}
               </p>
               {isVideoModeActive && (
                 <p className="text-[10px] text-white/80 font-bold uppercase tracking-wider drop-shadow-xs">

@@ -143,7 +143,7 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
                  <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 active:scale-90 transition-transform" title="Google Maps">
                     <MapIcon className="w-4 h-4" />
                  </a>
-                 <button type="button" onClick={onCall || (() => window.open(`tel:${ride.customerInfo?.phone || '0700000000'}`))} className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform cursor-pointer" title="Piga simu (In-App WebRTC au GSM)">
+                 <button type="button" onClick={onCall || (() => window.open(`tel:${ride.customerInfo?.phone || '0700000000'}`))} className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 active:scale-90 transition-transform cursor-pointer" title="Piga simu kwa mteja">
                     <Phone className="w-4 h-4" />
                  </button>
                  <button 
