@@ -427,7 +427,27 @@ export default function LocationPicker({
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [recentPlaces, setRecentPlaces] = useState<{ address: string; lat: number; lng: number }[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('location_picker_filter');
+      if (saved) return saved;
+    } catch {}
+    return 'location_only';
+  });
+
+  const showVendors = categoryFilter !== 'location_only';
+
+  const toggleShowVendors = () => {
+    if (showVendors) {
+      setCategoryFilter('location_only');
+      try { localStorage.setItem('location_picker_filter', 'location_only'); } catch {}
+      setSelectedVendor(null);
+      setSelectedDriver(null);
+    } else {
+      setCategoryFilter('all');
+      try { localStorage.setItem('location_picker_filter', 'all'); } catch {}
+    }
+  };
   const [isAROpen, setIsAROpen] = useState(false);
   const [activeRoute, setActiveRoute] = useState<any>(null);
 
@@ -586,7 +606,8 @@ export default function LocationPicker({
   }, [isOpen, arRouteId, preSelectedVendorId]);
 
   const categories = [
-    { id: 'all', label: 'Zote', icon: <Layers size={14} /> },
+    { id: 'location_only', label: 'Lokesheni Tu', icon: <MapPin size={13} className={categoryFilter === 'location_only' ? 'text-white dark:text-neutral-900 shrink-0' : 'text-orange-500 shrink-0'} /> },
+    { id: 'all', label: 'Maduka Yote', icon: <Layers size={14} /> },
     { id: 'vehicles', label: 'Magari / Boda', icon: <Car size={14} className="text-yellow-500 shrink-0" /> },
     { id: 'food', label: 'Chakula', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('food').options.html || '' }} className="scale-50" /> },
     { id: 'grocery', label: 'Soko', icon: <div dangerouslySetInnerHTML={{ __html: getVendorIcon('grocery').options.html || '' }} className="scale-50" /> },
@@ -598,6 +619,9 @@ export default function LocationPicker({
   ];
 
   const filteredVendors = React.useMemo(() => {
+    // If the user selected 'location_only', do not show any vendor markers
+    if (categoryFilter === 'location_only') return [];
+
     const isBusTicketEnabled = businessConfig?.services?.bus_ticket?.enabled === true;
     const availableVendors = vendors.filter(v => {
       if (v.category === 'bus_ticket') {
@@ -1153,19 +1177,45 @@ export default function LocationPicker({
 
             {/* Map Area */}
             <div className={`relative ${isMapExpanded ? 'flex-1 h-full mx-0 rounded-none' : 'h-[270px] sm:h-[300px] mx-3 sm:mx-3.5 rounded-2xl'} shrink-0 bg-neutral-100 dark:bg-neutral-800 overflow-hidden border border-neutral-200/80 dark:border-neutral-700/80 shadow-xs transition-all duration-300 z-10`}>
-              {/* Map Type Toggle */}
-              <div className="absolute top-2.5 left-2.5 z-[1000] flex bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-white/60 dark:border-neutral-700/60">
-                <button 
-                  onClick={() => setMapType('standard')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'standard' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
+              {/* Map Type & Show/Hide Stores Toggle in Top Left */}
+              <div className="absolute top-2.5 left-2.5 z-[1000] flex flex-wrap items-center gap-1.5 max-w-[calc(100%-84px)]">
+                <div className="flex bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-white/60 dark:border-neutral-700/60">
+                  <button 
+                    onClick={() => setMapType('standard')}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'standard' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
+                  >
+                    Ramani
+                  </button>
+                  <button 
+                    onClick={() => setMapType('satellite')}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'satellite' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
+                  >
+                    Satellite
+                  </button>
+                </div>
+
+                {/* Direct Toggle for Lokesheni Tu (Ficha Maduka) vs Onyesha Maduka */}
+                <button
+                  type="button"
+                  onClick={toggleShowVendors}
+                  className={`px-2.5 py-1 rounded-xl text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border backdrop-blur-md transition-all cursor-pointer ${
+                    categoryFilter === 'location_only'
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-400/80 shadow-orange-500/20 ring-2 ring-orange-400/30'
+                      : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-200 border-white/60 dark:border-neutral-700/60 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                  }`}
+                  title={categoryFilter === 'location_only' ? "Hali ya Lokesheni Tu imewashwa (Maduka yamefichwa). Bonyeza kuonyesha maduka." : "Bonyeza kuficha maduka uone lokesheni tu bila vizuizi."}
                 >
-                  Ramani
-                </button>
-                <button 
-                  onClick={() => setMapType('satellite')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'satellite' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
-                >
-                  Satellite
+                  {categoryFilter === 'location_only' ? (
+                    <>
+                      <MapPin className="w-3 h-3 text-white" />
+                      <span>📍 Lokesheni Tu</span>
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="w-3 h-3 text-blue-500" />
+                      <span>🏬 Ficha Maduka</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -1267,7 +1317,7 @@ export default function LocationPicker({
                     ))}
 
                     {/* Real and Simulated Driver/Vehicle Markers */}
-                    {(categoryFilter === 'all' || categoryFilter === 'vehicles') && (
+                    {categoryFilter !== 'location_only' && (categoryFilter === 'all' || categoryFilter === 'vehicles') && (
                       <>
                         {/* Real Drivers from Firebase */}
                         {realDrivers?.map((drv) => (
@@ -1310,7 +1360,7 @@ export default function LocationPicker({
                     )}
 
                     {/* Render active route's path / polyline on the 2D map */}
-                    {activeRoute && activeRoute.stops && activeRoute.stops.length > 0 && (
+                    {categoryFilter !== 'location_only' && activeRoute && activeRoute.stops && activeRoute.stops.length > 0 && (
                       <>
                         <Polyline 
                           positions={activeRoute.stops.map((stop: any) => [stop.lat, stop.lng])} 
@@ -1376,15 +1426,32 @@ export default function LocationPicker({
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => setCategoryFilter(cat.id)}
+                      onClick={() => {
+                        setCategoryFilter(cat.id);
+                        try { localStorage.setItem('location_picker_filter', cat.id); } catch {}
+                        if (cat.id === 'location_only') {
+                          setSelectedVendor(null);
+                          setSelectedDriver(null);
+                        }
+                      }}
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                         categoryFilter === cat.id 
-                          ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' 
+                          ? cat.id === 'location_only'
+                            ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-xs font-black'
+                            : 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' 
                           : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                       }`}
                     >
-                      <div className={`w-4 h-4 flex items-center justify-center rounded-md ${categoryFilter === cat.id ? 'bg-white/20 dark:bg-neutral-900/20' : 'bg-neutral-100 dark:bg-neutral-800'}`}>
-                        {cat.id === 'all' ? <Layers size={10} className={categoryFilter === cat.id ? 'text-white dark:text-neutral-900' : 'text-neutral-500'} /> : (
+                      <div className={`w-4 h-4 flex items-center justify-center rounded-md ${
+                        categoryFilter === cat.id 
+                          ? 'bg-white/20 dark:bg-neutral-900/20' 
+                          : 'bg-neutral-100 dark:bg-neutral-800'
+                      }`}>
+                        {cat.id === 'location_only' ? (
+                          <MapPin size={10} className={categoryFilter === cat.id ? 'text-white' : 'text-orange-500'} />
+                        ) : cat.id === 'all' ? (
+                          <Layers size={10} className={categoryFilter === cat.id ? 'text-white dark:text-neutral-900' : 'text-neutral-500'} />
+                        ) : (
                           <div className="w-4 h-4 scale-[0.35] flex items-center justify-center">
                              {cat.icon}
                           </div>
@@ -1396,8 +1463,18 @@ export default function LocationPicker({
                 </div>
               </div>
 
+              {/* Clean Location Mode Floating Helper Pill */}
+              {categoryFilter === 'location_only' && (
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none transition-all">
+                  <div className="bg-neutral-900/90 dark:bg-black/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-orange-500/40 flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                    <span>Lokesheni Tu: Gusa ramani popote kuchagua anwani</span>
+                  </div>
+                </div>
+              )}
+
               {/* Subtle No Stores Found Pill if category filter has no results (non-blocking) */}
-              {categoryFilter !== 'all' && filteredVendors.length === 0 && (
+              {categoryFilter !== 'all' && categoryFilter !== 'location_only' && filteredVendors.length === 0 && (
                 <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
                   <div className="bg-neutral-900/85 backdrop-blur-md text-white text-[10px] font-bold px-3.5 py-1.5 rounded-full shadow-lg border border-white/10 flex items-center gap-1.5">
                     <span>ℹ️</span>
