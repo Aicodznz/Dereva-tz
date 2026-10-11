@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2 } from 'lucide-react';
+import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2, Radio } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from '../../ThemeContext';
 import { useAuth } from '../../AuthContext';
 import { UssdPaymentModal } from './UssdPaymentModal';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
+import { NfcTapPaymentModal } from './NfcTapPaymentModal';
 
 interface TripCompleteScreenProps {
   ride: Ride;
@@ -14,8 +15,9 @@ interface TripCompleteScreenProps {
 
 export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, onPay }) => {
   const { user, profile } = useAuth();
-  const [method, setMethod] = useState<'cash' | 'mpesa' | 'tigopesa' | 'airtel' | 'wallet'>('mpesa');
+  const [method, setMethod] = useState<'cash' | 'mpesa' | 'tigopesa' | 'airtel' | 'wallet' | 'nfc'>('nfc');
   const [showUssdModal, setShowUssdModal] = useState(false);
+  const [showNfcModal, setShowNfcModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const { resolvedTheme } = useTheme();
   const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
@@ -54,7 +56,9 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
   ));
 
   const handlePayClick = () => {
-    if (method === 'mpesa' || method === 'tigopesa' || method === 'airtel') {
+    if (method === 'nfc') {
+      setShowNfcModal(true);
+    } else if (method === 'mpesa' || method === 'tigopesa' || method === 'airtel') {
       setShowUssdModal(true);
     } else {
       onPay(method);
@@ -64,6 +68,11 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
   const handleUssdSuccess = (txId: string, phone: string, op: string) => {
     setShowUssdModal(false);
     onPay(op || method);
+  };
+
+  const handleNfcSuccess = (receipt: { txId: string; method: string; amount: number; time: string }) => {
+    setShowNfcModal(false);
+    onPay('nfc_tap');
   };
 
   const handleFallbackToCash = () => {
@@ -135,7 +144,20 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
             <div className="space-y-2.5">
                <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest text-center">Chagua Njia ya Malipo</p>
-               <div className="grid grid-cols-3 gap-2">
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setMethod('nfc')} 
+                    className={`p-2.5 rounded-2xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      method === 'nfc' 
+                        ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-700 dark:text-teal-300 shadow-xs ring-1 ring-teal-500' 
+                        : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                     <Radio className="w-4 h-4 text-teal-500 animate-pulse" />
+                     <span className="text-[8.5px] font-black uppercase">NFC Tap</span>
+                  </button>
+
                   <button 
                     type="button"
                     onClick={() => setMethod('mpesa')} 
@@ -151,19 +173,6 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
 
                   <button 
                     type="button"
-                    onClick={() => setMethod('cash')} 
-                    className={`p-2.5 rounded-2xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                      method === 'cash' 
-                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500' 
-                        : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                     <Banknote className="w-4 h-4 text-emerald-500" />
-                     <span className="text-[8.5px] font-black uppercase">Taslimu</span>
-                  </button>
-
-                  <button 
-                    type="button"
                     onClick={() => setMethod('wallet')} 
                     className={`p-2.5 rounded-2xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
                       method === 'wallet' 
@@ -174,6 +183,19 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
                      <Wallet className="w-4 h-4 text-amber-500" />
                      <span className="text-[8.5px] font-black uppercase">Mkoba</span>
                   </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => setMethod('cash')} 
+                    className={`p-2.5 rounded-2xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      method === 'cash' 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500' 
+                        : 'bg-neutral-50 dark:bg-neutral-850 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                     <Banknote className="w-4 h-4 text-emerald-500" />
+                     <span className="text-[8.5px] font-black uppercase">Taslimu</span>
+                  </button>
                </div>
             </div>
 
@@ -182,7 +204,7 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
               onClick={handlePayClick}
               className="w-full h-13 bg-emerald-600 text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>{method === 'mpesa' ? 'Lipa kwa M-Pesa' : method === 'cash' ? 'Lipa Pesa Mkononi' : 'Lipa kwa Mkoba'}</span>
+              <span>{method === 'nfc' ? 'Gusisha Simu (Lipa kwa NFC)' : method === 'mpesa' ? 'Lipa kwa M-Pesa' : method === 'cash' ? 'Lipa Pesa Mkononi' : 'Lipa kwa Mkoba'}</span>
             </button>
 
             <button
@@ -195,6 +217,18 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
           </div>
         </div>
       </div>
+
+      {/* NFC Tap Payment Modal */}
+      <NfcTapPaymentModal
+        isOpen={showNfcModal}
+        amount={fare}
+        rideId={ride?.id}
+        driverName={(ride as any)?.driver?.name || (ride as any)?.driverInfo?.name || "Dereva Papo Hapo"}
+        passengerName={profile?.displayName || "Mteja"}
+        mode="passenger"
+        onClose={() => setShowNfcModal(false)}
+        onSuccess={handleNfcSuccess}
+      />
 
       {/* USSD Prompt Simulation */}
       <UssdPaymentModal

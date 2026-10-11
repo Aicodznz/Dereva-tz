@@ -47,6 +47,7 @@ import {
   Wallet,
   Banknote,
   Smartphone,
+  Radio,
   ChevronDown,
   RefreshCw,
   RotateCw,
@@ -125,6 +126,8 @@ import { DriverArrivedScreen } from "./tegex/DriverArrivedScreen";
 import { LiveTripScreen } from "./tegex/LiveTripScreen";
 import { TripCompleteScreen } from "./tegex/TripCompleteScreen";
 import { RatingScreen } from "./tegex/RatingScreen";
+import { NfcTapPaymentModal } from "./tegex/NfcTapPaymentModal";
+import { checkNfcSupport } from "../utils/nfcPayment";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
 import { PapoShareSplitFareModal } from "./rider/PapoShareSplitFareModal";
@@ -691,8 +694,14 @@ export default function TaxiBooking() {
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'wallet' | 'card' | 'nfc'>('cash');
+  const [showNfcPaymentModal, setShowNfcPaymentModal] = useState<boolean>(false);
+  const [hasNfcSupport, setHasNfcSupport] = useState<boolean>(() => checkNfcSupport());
   const [selectedMobileOperator, setSelectedMobileOperator] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa'>('mpesa');
+
+  useEffect(() => {
+    setHasNfcSupport(checkNfcSupport());
+  }, []);
   const [pickupNote, setPickupNote] = useState<string>('');
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
@@ -5695,6 +5704,7 @@ const getEndPin = (etaText: string) => {
                           {paymentMethod === 'mobile_money' && <Smartphone className="w-4 h-4 stroke-[2.2]" />}
                           {paymentMethod === 'wallet' && <Wallet className="w-4 h-4 stroke-[2.2]" />}
                           {paymentMethod === 'card' && <CreditCard className="w-4 h-4 stroke-[2.2]" />}
+                          {paymentMethod === 'nfc' && <Radio className="w-4 h-4 stroke-[2.2] text-teal-500 animate-pulse" />}
                         </div>
                         <div className="min-w-0">
                           <p className="text-[10.5px] font-black text-neutral-900 dark:text-white leading-tight truncate">
@@ -5704,10 +5714,12 @@ const getEndPin = (etaText: string) => {
                                 ? `📱 ${selectedMobileOperator === 'mpesa' ? 'Vodacom M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` 
                                 : paymentMethod === 'wallet' 
                                   ? '👛 Papo Mkoba' 
-                                  : '💳 Kadi ya Benki'}
+                                  : paymentMethod === 'card'
+                                    ? '💳 Kadi ya Benki'
+                                    : '📡 NFC Tap & Pay'}
                           </p>
                           <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-medium">
-                            {paymentMethod === 'cash' ? 'Lipa dereva mkononi mwisho wa safari' : paymentMethod === 'mobile_money' ? 'Malipo ya simu papohapo' : paymentMethod === 'wallet' ? 'Salio la pochi kwenye app' : 'Visa / Mastercard'}
+                            {paymentMethod === 'cash' ? 'Lipa dereva mkononi mwisho wa safari' : paymentMethod === 'mobile_money' ? 'Malipo ya simu papohapo' : paymentMethod === 'wallet' ? 'Salio la pochi kwenye app' : paymentMethod === 'card' ? 'Visa / Mastercard' : 'Gusa simu ya dereva au kadi (0% makato)'}
                           </p>
                         </div>
                       </div>
@@ -5936,7 +5948,7 @@ const getEndPin = (etaText: string) => {
                                 {(selectedRide.id === 'mini' || selectedRide.id === 'bajaj') && shareMode === 'share' ? ' (PAPOSHARE)' : ''}
                               </span>
                               <span className="text-[10px] normal-case tracking-normal px-2 py-0.5 rounded-full bg-white/20 font-bold hidden sm:inline-block">
-                                {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : '💳 Kadi'}
+                                {paymentMethod === 'cash' ? '💵 Cash' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'TigoPesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Mkoba' : paymentMethod === 'card' ? '💳 Kadi' : '📡 NFC Tap'}
                               </span>
                             </div>
                           )
@@ -5978,6 +5990,7 @@ const getEndPin = (etaText: string) => {
                               {paymentMethod === 'mobile_money' && <Smartphone className="w-3 h-3 stroke-[2.2]" />}
                               {paymentMethod === 'wallet' && <Wallet className="w-3 h-3 stroke-[2.2]" />}
                               {paymentMethod === 'card' && <CreditCard className="w-3 h-3 stroke-[2.2]" />}
+                              {paymentMethod === 'nfc' && <Radio className="w-3 h-3 stroke-[2.2] text-teal-500 animate-pulse" />}
                             </div>
                             <div className="text-left truncate">
                               <span className="text-[10px] font-black block truncate">
@@ -5987,7 +6000,9 @@ const getEndPin = (etaText: string) => {
                                     ? `📱 ${selectedMobileOperator === 'mpesa' ? 'M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel' : 'HaloPesa'}` 
                                     : paymentMethod === 'wallet' 
                                       ? '👛 Papo Mkoba' 
-                                      : '💳 Kadi ya Benki'}
+                                      : paymentMethod === 'card'
+                                        ? '💳 Kadi ya Benki'
+                                        : '📡 NFC Tap & Pay'}
                               </span>
                             </div>
                           </div>
@@ -6341,6 +6356,22 @@ const getEndPin = (etaText: string) => {
                 isSpectator={isSpectator}
               />
             </motion.div>
+          )}
+
+          {/* Floating NFC Tap to Pay Trigger for Active Trips */}
+          {activeRide && ["arriving", "on_trip"].includes(step) && !isMapFullscreen && (
+            <div className="absolute top-20 right-4 z-[75] flex items-center gap-2 pointer-events-auto">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNfcPaymentModal(true)}
+                className="px-3 py-1.5 rounded-full bg-teal-600/95 hover:bg-teal-500 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-teal-950/40 border border-teal-400/40 backdrop-blur-md flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                title={hasNfcSupport ? "Gusa simu ya dereva kulipa kwa NFC" : "Fungua Contactless Tap Pay"}
+              >
+                <Radio className="w-3.5 h-3.5 text-teal-200 animate-pulse" />
+                <span>NFC Tap Pay</span>
+              </motion.button>
+            </div>
           )}
 
           {step === "completed" && activeRide && (
@@ -6944,7 +6975,7 @@ const getEndPin = (etaText: string) => {
                         <div>
                           <p className="font-black text-[11px] uppercase text-neutral-800 dark:text-neutral-200">{selectedRide.name}</p>
                           <p className="text-[9.5px] text-neutral-500 dark:text-neutral-400 font-semibold">
-                            {paymentMethod === 'cash' ? '💵 Pesa Taslimu' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'Vodacom M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Papo Mkoba' : '💳 Kadi ya Benki'}
+                            {paymentMethod === 'cash' ? '💵 Pesa Taslimu' : paymentMethod === 'mobile_money' ? `📱 ${selectedMobileOperator === 'mpesa' ? 'Vodacom M-Pesa' : selectedMobileOperator === 'tigopesa' ? 'Tigo Pesa' : selectedMobileOperator === 'airtel' ? 'Airtel Money' : 'HaloPesa'}` : paymentMethod === 'wallet' ? '👛 Papo Mkoba' : paymentMethod === 'card' ? '💳 Kadi ya Benki' : '📡 NFC Tap & Pay'}
                           </p>
                         </div>
                       </div>
@@ -7307,6 +7338,73 @@ const getEndPin = (etaText: string) => {
                     {paymentMethod === 'card' && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
                 </div>
+
+                {/* 5. NFC Tap & Pay (Gusa Simu / Kadi ya NFC) */}
+                <div
+                  onClick={() => setPaymentMethod('nfc')}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
+                    paymentMethod === 'nfc'
+                      ? 'bg-teal-50/90 dark:bg-teal-950/40 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
+                      : (theme === 'dark' ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700' : 'bg-neutral-50 border-neutral-200 hover:border-neutral-300')
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-300 flex items-center justify-center shrink-0">
+                        <Radio className="w-5 h-5 stroke-[2.2] animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-xs font-black">NFC Tap & Pay (Gusa Simu / Kadi)</p>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[8.5px] font-black ${
+                            hasNfcSupport 
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20'
+                          }`}>
+                            {hasNfcSupport ? 'NFC Chip Ipo ✅' : 'Contactless 📡'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">
+                          {hasNfcSupport
+                            ? 'Simu yako ina NFC! Gusa nyuma ya simu ya dereva kulipa bila intaneti'
+                            : 'Gusa kadi ya NFC au simu ya dereva kwa mguso (0% makato)'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'nfc' ? 'border-teal-600 bg-teal-600 text-white' : 'border-neutral-300 dark:border-neutral-700'
+                    }`}>
+                      {paymentMethod === 'nfc' && <Check className="w-3 h-3 stroke-[3]" />}
+                    </div>
+                  </div>
+
+                  {/* NFC Info & Live Sensor Test Strip */}
+                  {paymentMethod === 'nfc' && (
+                    <div className="pt-2 border-t border-teal-200/60 dark:border-teal-900/60 space-y-2">
+                      <div className="flex items-center justify-between text-[9.5px]">
+                        <span className="text-neutral-500 dark:text-neutral-400">Hali ya Simu Yako:</span>
+                        <span className="font-black text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                          <span className={`w-1.5 h-1.5 rounded-full ${hasNfcSupport ? 'bg-emerald-500 animate-ping' : 'bg-teal-500'}`} />
+                          {hasNfcSupport ? 'Web NFC Chip Inatumika (Ready)' : 'Contactless SoftPOS Inatumika'}
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-neutral-600 dark:text-neutral-400 leading-tight">
+                        Hauhitaji kutoa pesa taslimu wala kuweka PIN ya mtandao. Mwisho wa safari utagusa simu yako nyuma ya simu ya dereva na malipo yatathibitika mara moja kwa sauti na mtetemo.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNfcPaymentModal(true);
+                        }}
+                        className="w-full py-1.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-black flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                      >
+                        <Zap className="w-3.5 h-3.5 fill-white" />
+                        <span>Jaribu Kugusa NFC Sasa (Test Tap)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Confirm Button */}
@@ -7582,6 +7680,24 @@ const getEndPin = (etaText: string) => {
         destinationAddress={destination || "Unapokwenda"}
         rideId={activeRide?.id}
         theme={theme === 'dark' ? 'dark' : 'light'}
+      />
+
+      {/* Passenger NFC Tap to Pay Terminal Modal */}
+      <NfcTapPaymentModal
+        isOpen={showNfcPaymentModal}
+        amount={Number(activeRide?.fare) || selectedRide?.price || 3500}
+        rideId={activeRide?.id || rideId || undefined}
+        driverName={activeRide?.driverInfo?.name || (activeRide as any)?.driver?.name || "Dereva Papo Hapo"}
+        passengerName={profile?.displayName || user?.displayName || "Mteja"}
+        mode="passenger"
+        onClose={() => setShowNfcPaymentModal(false)}
+        onSuccess={(receipt) => {
+          setShowNfcPaymentModal(false);
+          toast.success(`✓ Malipo ya NFC TZS ${receipt.amount.toLocaleString()} yamethibitishwa!`);
+          if (step === 'completed' || step === 'arriving' || step === 'on_trip') {
+            handlePayment('nfc_tap');
+          }
+        }}
       />
 
       <style>{`

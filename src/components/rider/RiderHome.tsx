@@ -13,7 +13,7 @@ import {
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
   AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers,
   ExternalLink, Play, Square, Check,
-  CornerUpRight, CornerUpLeft, ArrowUp
+  CornerUpRight, CornerUpLeft, ArrowUp, Radio
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -47,6 +47,8 @@ import PaymentConfirmScreen from '../tegex/PaymentConfirmScreen';
 import RateCustomerScreen from '../tegex/RateCustomerScreen';
 import StreetHailModal from './StreetHailModal';
 import PapoShareStendiModal from '../driver/PapoShareStendiModal';
+import { NfcTapPaymentModal } from '../tegex/NfcTapPaymentModal';
+import { checkNfcSupport } from '../../utils/nfcPayment';
 import { 
   listenDriverActiveStandRoute, 
   updateStandDriverLocation, 
@@ -530,6 +532,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [trafficColor, setTrafficColor] = useState<'red' | 'yellow' | 'green'>('green');
   const [isStreetHailModalOpen, setIsStreetHailModalOpen] = useState(false);
   const [isPapoShareStendiModalOpen, setIsPapoShareStendiModalOpen] = useState(false);
+  const isNfcHardwareSupported = checkNfcSupport();
+  const [isNfcTerminalOpen, setIsNfcTerminalOpen] = useState(false);
   const [activeDriverStandRoute, setActiveDriverStandRoute] = useState<StandPoolingRoute | null>(null);
   const prevDashboardPassengerCountRef = useRef<number | null>(null);
 
@@ -3917,11 +3921,27 @@ const getEndPin = (etaText: string) => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsStreetHailModalOpen(true)}
-                className="h-8 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors"
+                className="h-8 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Pakia mteja papo hapo (Street Hail)"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span className="hidden xs:inline">Pakia</span>
+              </motion.button>
+
+              {/* Driver NFC Receiver Terminal Quick Action */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsNfcTerminalOpen(true)}
+                className={`h-8 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isNfcHardwareSupported 
+                    ? 'bg-teal-600 hover:bg-teal-500 text-white border border-teal-400/40 shadow-teal-500/20' 
+                    : 'bg-teal-900/60 hover:bg-teal-800 text-teal-200 border border-teal-700/50'
+                }`}
+                title={isNfcHardwareSupported ? "Simu yako ina NFC: Gonga kufungua terminal ya kupokea malipo" : "Fungua SoftPOS Contactless Terminal"}
+              >
+                <Radio className="w-3.5 h-3.5 text-teal-300 animate-pulse" />
+                <span className="hidden xs:inline">NFC Tap</span>
               </motion.button>
               
               <button 
@@ -4936,6 +4956,21 @@ const getEndPin = (etaText: string) => {
           driverUser={user}
           driverProfile={profile}
           currentGpsPosition={position}
+        />
+
+        {/* Driver NFC Tap Terminal Receiver Modal */}
+        <NfcTapPaymentModal
+          isOpen={isNfcTerminalOpen}
+          amount={activeRide?.fare || 3500}
+          rideId={activeRide?.id}
+          passengerName={activeRide?.customerInfo?.name || "Mteja"}
+          driverName={profile?.displayName || "Dereva Papo Hapo"}
+          mode="driver"
+          onClose={() => setIsNfcTerminalOpen(false)}
+          onSuccess={(receipt) => {
+            setIsNfcTerminalOpen(false);
+            toast.success(`✓ Umepokea TZS ${receipt.amount.toLocaleString()} kwa NFC Tap!`);
+          }}
         />
       </AnimatePresence>
     </div>
