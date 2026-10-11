@@ -94,6 +94,7 @@ export class WebRTCManager {
   public localStream: MediaStream | null = null;
   public remoteStream: MediaStream | null = null;
   public activeCallId: string | null = null;
+  public currentFacingMode: 'user' | 'environment' = 'user';
   private unsubDoc: Unsubscribe | null = null;
   private unsubCandidates: Unsubscribe | null = null;
 
@@ -386,6 +387,39 @@ export class WebRTCManager {
       return videoTrack.enabled;
     }
     return false;
+  }
+
+  // Switch between front and back camera (flip camera)
+  public async switchCamera(): Promise<'user' | 'environment'> {
+    if (!this.localStream) return this.currentFacingMode;
+    const currentVideoTrack = this.localStream.getVideoTracks()[0];
+    if (!currentVideoTrack) return this.currentFacingMode;
+    const nextFacing = this.currentFacingMode === 'user' ? 'environment' : 'user';
+    this.currentFacingMode = nextFacing;
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextFacing, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+        const newTrack = newStream.getVideoTracks()[0];
+        if (newTrack) {
+          if (this.pc) {
+            const sender = this.pc.getSenders().find((s) => s.track?.kind === 'video');
+            if (sender) {
+              await sender.replaceTrack(newTrack);
+            }
+          }
+          currentVideoTrack.stop();
+          this.localStream.removeTrack(currentVideoTrack);
+          this.localStream.addTrack(newTrack);
+        }
+      }
+    } catch (err) {
+      console.warn('[WebRTC] Camera flip not supported or single camera:', err);
+    }
+    return this.currentFacingMode;
   }
 
   // Cleanup peer connection and listeners without stopping local tracks yet
