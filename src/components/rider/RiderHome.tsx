@@ -51,7 +51,9 @@ import { NfcTapPaymentModal } from '../tegex/NfcTapPaymentModal';
 import { checkNfcSupport } from '../../utils/nfcPayment';
 import { WebRtcCallModal } from '../tegex/WebRtcCallModal';
 import { CallOptionsModal } from '../tegex/CallOptionsModal';
-import { CallType } from '../../utils/webrtcService';
+import { IncomingCallBanner } from '../tegex/IncomingCallBanner';
+import { CallType, webrtcService } from '../../utils/webrtcService';
+import { callNotificationService } from '../../utils/callNotificationService';
 import { 
   listenDriverActiveStandRoute, 
   updateStandDriverLocation, 
@@ -543,6 +545,8 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [isCallOptionsOpen, setIsCallOptionsOpen] = useState<boolean>(false);
   const [activeCallType, setActiveCallType] = useState<CallType>('audio');
   const [incomingCallData, setIncomingCallData] = useState<any>(null);
+  const [showIncomingBanner, setShowIncomingBanner] = useState<boolean>(false);
+  const [autoAnswerCall, setAutoAnswerCall] = useState<boolean>(false);
 
   const [activeDriverStandRoute, setActiveDriverStandRoute] = useState<StandPoolingRoute | null>(null);
   const prevDashboardPassengerCountRef = useRef<number | null>(null);
@@ -920,14 +924,68 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
         if (change.type === 'added') {
           const data = change.doc.data();
           if (data && data.caller?.role === 'passenger' && data.status === 'ringing') {
-            setIncomingCallData(data);
+            const callObj = { ...data, id: change.doc.id };
+            setIncomingCallData(callObj);
             setActiveCallType(data.callType || 'audio');
-            setIsWebRtcCallOpen(true);
+            setShowIncomingBanner(true);
+
+            // Trigger system Web Notification with action buttons
+            callNotificationService.showIncomingCallNotification({
+              callId: change.doc.id,
+              callerName: data.caller?.name || activeRide.customerInfo?.name || 'Mteja / Abiria',
+              callerPhoto: data.caller?.photo || activeRide.customerInfo?.photo,
+              callerRole: 'passenger',
+              callType: data.callType || 'audio',
+              rideId: activeRide.id,
+              onAnswer: () => {
+                callNotificationService.closeNotification();
+                setAutoAnswerCall(true);
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              },
+              onDecline: () => {
+                callNotificationService.closeNotification();
+                webrtcService.declineCall(change.doc.id);
+                setIncomingCallData(null);
+                setShowIncomingBanner(false);
+              },
+              onOpen: () => {
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              },
+            });
+          }
+        } else if (change.type === 'modified') {
+          const data = change.doc.data();
+          if (data && (data.status === 'ended' || data.status === 'declined')) {
+            callNotificationService.closeNotification();
+            setShowIncomingBanner(false);
+            setIncomingCallData(null);
           }
         }
       });
     });
-    return () => unsub();
+
+    const unsubAction = callNotificationService.onAction((action, cId) => {
+      if (action === 'answer') {
+        setAutoAnswerCall(true);
+        setIsWebRtcCallOpen(true);
+        setShowIncomingBanner(false);
+      } else if (action === 'decline') {
+        if (cId) webrtcService.declineCall(cId);
+        setIncomingCallData(null);
+        setShowIncomingBanner(false);
+      } else if (action === 'open') {
+        setIsWebRtcCallOpen(true);
+        setShowIncomingBanner(false);
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubAction();
+      callNotificationService.closeNotification();
+    };
   }, [activeRide?.id, user?.uid]);
 
   // Road Alerts / Status generator anchored at specific fixed map coordinates
@@ -5032,11 +5090,46 @@ const getEndPin = (etaText: string) => {
               }}
             />
 
+            {/* Floating Heads-Up Call Notification Banner */}
+            {incomingCallData && (
+              <IncomingCallBanner
+                isOpen={showIncomingBanner && !isWebRtcCallOpen}
+                caller={{
+                  id: incomingCallData.caller?.id || activeRide.customerId || 'passenger',
+                  name: incomingCallData.caller?.name || activeRide.customerInfo?.name || 'Mteja / Abiria',
+                  photo: incomingCallData.caller?.photo || activeRide.customerInfo?.photo || '',
+                  role: 'passenger',
+                }}
+                callType={incomingCallData.callType || activeCallType}
+                onAnswer={() => {
+                  callNotificationService.closeNotification();
+                  setAutoAnswerCall(true);
+                  setIsWebRtcCallOpen(true);
+                  setShowIncomingBanner(false);
+                }}
+                onDecline={() => {
+                  callNotificationService.closeNotification();
+                  if (incomingCallData.id) {
+                    webrtcService.declineCall(incomingCallData.id);
+                  }
+                  setIncomingCallData(null);
+                  setShowIncomingBanner(false);
+                }}
+                onExpand={() => {
+                  setIsWebRtcCallOpen(true);
+                  setShowIncomingBanner(false);
+                }}
+              />
+            )}
+
             <WebRtcCallModal
               isOpen={isWebRtcCallOpen}
               onClose={() => {
                 setIsWebRtcCallOpen(false);
                 setIncomingCallData(null);
+                setAutoAnswerCall(false);
+                setShowIncomingBanner(false);
+                callNotificationService.closeNotification();
               }}
               rideId={activeRide.id}
               currentUser={{
@@ -5056,6 +5149,7 @@ const getEndPin = (etaText: string) => {
               initialCallType={activeCallType}
               isIncoming={!!incomingCallData}
               incomingCallId={incomingCallData?.id}
+              autoAnswer={autoAnswerCall}
             />
           </>
         )}

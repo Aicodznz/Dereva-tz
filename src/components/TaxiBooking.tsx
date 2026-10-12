@@ -130,7 +130,9 @@ import { NfcTapPaymentModal } from "./tegex/NfcTapPaymentModal";
 import { checkNfcSupport } from "../utils/nfcPayment";
 import { WebRtcCallModal } from "./tegex/WebRtcCallModal";
 import { CallOptionsModal } from "./tegex/CallOptionsModal";
-import { CallType } from "../utils/webrtcService";
+import { IncomingCallBanner } from "./tegex/IncomingCallBanner";
+import { CallType, webrtcService } from "../utils/webrtcService";
+import { callNotificationService } from "../utils/callNotificationService";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
 import { PapoShareSplitFareModal } from "./rider/PapoShareSplitFareModal";
@@ -718,6 +720,8 @@ export default function TaxiBooking() {
   const [isCallOptionsOpen, setIsCallOptionsOpen] = useState<boolean>(false);
   const [activeCallType, setActiveCallType] = useState<CallType>('audio');
   const [incomingCallData, setIncomingCallData] = useState<any>(null);
+  const [showIncomingBanner, setShowIncomingBanner] = useState<boolean>(false);
+  const [autoAnswerCall, setAutoAnswerCall] = useState<boolean>(false);
 
   const [allowSharingConsent, setAllowSharingConsent] = useState<boolean>(true);
   const [womenOnlySharing, setWomenOnlySharing] = useState<boolean>(false);
@@ -1082,14 +1086,69 @@ export default function TaxiBooking() {
         if (change.type === 'added') {
           const data = change.doc.data();
           if (data && data.caller?.role === 'driver' && data.status === 'ringing') {
-            setIncomingCallData(data);
+            const callObj = { ...data, id: change.doc.id };
+            setIncomingCallData(callObj);
             setActiveCallType(data.callType || 'audio');
-            setIsWebRtcCallOpen(true);
+            setShowIncomingBanner(true);
+
+            // Display native system push notification with Answer and Decline actions
+            callNotificationService.showIncomingCallNotification({
+              callId: change.doc.id,
+              callerName: data.caller?.name || activeRide.driverInfo?.name || 'Dereva Wako',
+              callerPhoto: data.caller?.photo || activeRide.driverInfo?.photo,
+              callerRole: 'driver',
+              callType: data.callType || 'audio',
+              rideId: activeRide.id,
+              onAnswer: () => {
+                callNotificationService.closeNotification();
+                setAutoAnswerCall(true);
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              },
+              onDecline: () => {
+                callNotificationService.closeNotification();
+                webrtcService.declineCall(change.doc.id);
+                setIncomingCallData(null);
+                setShowIncomingBanner(false);
+              },
+              onOpen: () => {
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              },
+            });
+          }
+        } else if (change.type === 'modified') {
+          const data = change.doc.data();
+          if (data && (data.status === 'ended' || data.status === 'declined')) {
+            callNotificationService.closeNotification();
+            setShowIncomingBanner(false);
+            setIncomingCallData(null);
           }
         }
       });
     });
-    return () => unsub();
+
+    // Listen for interactive click actions coming from system push notification / service worker
+    const unsubAction = callNotificationService.onAction((action, cId) => {
+      if (action === 'answer') {
+        setAutoAnswerCall(true);
+        setIsWebRtcCallOpen(true);
+        setShowIncomingBanner(false);
+      } else if (action === 'decline') {
+        if (cId) webrtcService.declineCall(cId);
+        setIncomingCallData(null);
+        setShowIncomingBanner(false);
+      } else if (action === 'open') {
+        setIsWebRtcCallOpen(true);
+        setShowIncomingBanner(false);
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubAction();
+      callNotificationService.closeNotification();
+    };
   }, [activeRide?.id, user?.uid]);
 
   const isSpectator = useMemo(() => {
@@ -7757,11 +7816,46 @@ const getEndPin = (etaText: string) => {
             }}
           />
 
+          {/* Floating Heads-Up Call Notification Banner */}
+          {incomingCallData && (
+            <IncomingCallBanner
+              isOpen={showIncomingBanner && !isWebRtcCallOpen}
+              caller={{
+                id: incomingCallData.caller?.id || activeRide.driverId || 'driver',
+                name: incomingCallData.caller?.name || activeRide.driverInfo?.name || 'Dereva Wako',
+                photo: incomingCallData.caller?.photo || activeRide.driverInfo?.photo || '',
+                role: 'driver',
+              }}
+              callType={incomingCallData.callType || activeCallType}
+              onAnswer={() => {
+                callNotificationService.closeNotification();
+                setAutoAnswerCall(true);
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              }}
+              onDecline={() => {
+                callNotificationService.closeNotification();
+                if (incomingCallData.id) {
+                  webrtcService.declineCall(incomingCallData.id);
+                }
+                setIncomingCallData(null);
+                setShowIncomingBanner(false);
+              }}
+              onExpand={() => {
+                setIsWebRtcCallOpen(true);
+                setShowIncomingBanner(false);
+              }}
+            />
+          )}
+
           <WebRtcCallModal
             isOpen={isWebRtcCallOpen}
             onClose={() => {
               setIsWebRtcCallOpen(false);
               setIncomingCallData(null);
+              setAutoAnswerCall(false);
+              setShowIncomingBanner(false);
+              callNotificationService.closeNotification();
             }}
             rideId={activeRide.id || rideId || 'ride'}
             currentUser={{
@@ -7781,6 +7875,7 @@ const getEndPin = (etaText: string) => {
             initialCallType={activeCallType}
             isIncoming={!!incomingCallData}
             incomingCallId={incomingCallData?.id}
+            autoAnswer={autoAnswerCall}
           />
         </>
       )}

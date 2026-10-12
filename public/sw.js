@@ -82,3 +82,50 @@ self.addEventListener('fetch', (e) => {
     );
   }
 });
+
+// ==========================================
+// WebRTC Call Notification Interactive Clicks
+// ==========================================
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const action = event.action; // 'answer', 'decline', or '' (body click)
+  const data = event.notification.data || {};
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // 1. If an app window/tab is already open, focus it and broadcast the call action
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus().then((focusedClient) => {
+            if (focusedClient) {
+              focusedClient.postMessage({
+                type: 'NOTIFICATION_CALL_ACTION',
+                action: action || 'open',
+                callId: data.callId,
+                callData: data,
+              });
+            }
+          });
+        }
+      }
+
+      // 2. If no window is open, open the app
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('/taxi');
+      }
+    })
+  );
+});
+
+self.addEventListener('notificationclose', (event) => {
+  const data = event.notification.data || {};
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    clientList.forEach((client) => {
+      client.postMessage({
+        type: 'NOTIFICATION_CALL_CLOSED',
+        callId: data.callId,
+      });
+    });
+  });
+});
+

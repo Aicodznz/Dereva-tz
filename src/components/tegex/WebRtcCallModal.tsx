@@ -23,6 +23,7 @@ import {
   CallStatus,
 } from '../../utils/webrtcService';
 import { callAudio } from '../../utils/callAudio';
+import { callNotificationService } from '../../utils/callNotificationService';
 
 interface WebRtcCallModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ interface WebRtcCallModalProps {
   initialCallType?: CallType;
   isIncoming?: boolean;
   incomingCallId?: string;
+  autoAnswer?: boolean;
 }
 
 export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
@@ -44,6 +46,7 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
   initialCallType = 'audio',
   isIncoming = false,
   incomingCallId,
+  autoAnswer = false,
 }) => {
   const [callType, setCallType] = useState<CallType>(initialCallType);
   const [callStatus, setCallStatus] = useState<CallStatus>(isIncoming ? 'ringing' : 'calling');
@@ -64,6 +67,7 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
   // Initialize or respond to call
   useEffect(() => {
     if (!isOpen) {
+      callNotificationService.closeNotification();
       webrtcService.cleanup();
       callAudio.stopAll();
       if (timerRef.current) clearInterval(timerRef.current);
@@ -76,8 +80,12 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
     setIsVideoEnabled(initialCallType === 'video');
 
     if (isIncoming && incomingCallId) {
-      setCallStatus('ringing');
-      callAudio.startIncomingRingtone();
+      if (autoAnswer) {
+        handleAnswer();
+      } else {
+        setCallStatus('ringing');
+        callAudio.startIncomingRingtone();
+      }
     } else {
       // Outgoing call initiation
       setCallStatus('calling');
@@ -121,11 +129,12 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
     }
 
     return () => {
+      callNotificationService.closeNotification();
       webrtcService.cleanup();
       callAudio.stopAll();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isOpen, isIncoming, incomingCallId, rideId]);
+  }, [isOpen, isIncoming, incomingCallId, rideId, autoAnswer]);
 
   // Attach media streams when elements or state change
   useEffect(() => {
@@ -159,6 +168,7 @@ export const WebRtcCallModal: React.FC<WebRtcCallModalProps> = ({
   };
 
   const handleAnswer = async () => {
+    callNotificationService.closeNotification();
     if (!incomingCallId) return;
     try {
       setCallStatus('connected');
