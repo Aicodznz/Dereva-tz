@@ -4,9 +4,11 @@ import {
   Scan, ShoppingBag, ShoppingCart, CheckCircle2, AlertCircle, X, 
   Camera, RefreshCw, Zap, Sparkles, Plus, Trash2, Receipt, 
   Volume2, VolumeX, ShieldCheck, Activity, Check, QrCode, 
-  Eye, Sliders, Cpu, ArrowRight, CornerDownRight, Package
+  Eye, Sliders, Cpu, ArrowRight, CornerDownRight, Package,
+  UserX, UserPlus
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
+import { FaceRegistrationModal } from './FaceRegistrationModal';
 import { toast } from 'sonner';
 
 export interface GroceryItem {
@@ -160,6 +162,8 @@ export const PysourceVisionCheckout: React.FC<PysourceVisionCheckoutProps> = ({
 
   // Checkout & Payment State
   const [paymentMethod, setPaymentMethod] = useState<'face' | 'nfc' | 'wallet'>('face');
+  const [isUserFaceRegistered, setIsUserFaceRegistered] = useState(true);
+  const [isFaceRegisterOpen, setIsFaceRegisterOpen] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [receipt, setLastReceipt] = useState<{
     id: string;
@@ -286,6 +290,16 @@ export const PysourceVisionCheckout: React.FC<PysourceVisionCheckoutProps> = ({
 
     if (userBalance < grandTotal) {
       toast.error("Salio la mkoba wako halitoshi!");
+      return;
+    }
+
+    // Check if customer using Face Pay is unregistered
+    if (paymentMethod === 'face' && !isUserFaceRegistered) {
+      speak("Samahani, uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako kwanza ili kukamilisha malipo haya.");
+      toast.error("Uso Haujasajiliwa! Tafadhali sajili uso wako kwenye PapoPay kwanza ili kulipa.", {
+        icon: '⚠️'
+      });
+      setIsFaceRegisterOpen(true);
       return;
     }
 
@@ -750,6 +764,44 @@ export const PysourceVisionCheckout: React.FC<PysourceVisionCheckoutProps> = ({
                       </button>
                     ))}
                   </div>
+
+                  {/* Face ID Registration Status & Quick Tester */}
+                  {paymentMethod === 'face' && (
+                    <div className="flex items-center justify-between text-[11px] p-2.5 rounded-2xl bg-white/5 border border-white/10 mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${isUserFaceRegistered ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                        <span className={isUserFaceRegistered ? "text-emerald-300 font-bold" : "text-amber-300 font-bold"}>
+                          {isUserFaceRegistered ? "Uso: Umesajiliwa" : "Uso: Haujasajiliwa"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStatus = !isUserFaceRegistered;
+                            setIsUserFaceRegistered(newStatus);
+                            if (!newStatus) {
+                              toast.warning("Hali imewekwa kuwa: Mtu Asiyesajiliwa! Ukibofya Lipa Sasa utaambiwa ujisajili.");
+                            } else {
+                              toast.success("Hali imewekwa kuwa: Uso Umesajiliwa.");
+                            }
+                          }}
+                          className="text-[10px] text-cyan-300 underline font-mono hover:text-white"
+                        >
+                          {isUserFaceRegistered ? "Jaribu Asiyesajiliwa" : "Weka Aliyesajiliwa"}
+                        </button>
+                        {!isUserFaceRegistered && (
+                          <button
+                            type="button"
+                            onClick={() => setIsFaceRegisterOpen(true)}
+                            className="px-2 py-0.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[10px]"
+                          >
+                            Sajili Sasa
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Main Action Button */}
@@ -842,6 +894,18 @@ export const PysourceVisionCheckout: React.FC<PysourceVisionCheckoutProps> = ({
           </div>
 
         </motion.div>
+
+        {/* Live Face Registration Modal for Smart Counter */}
+        <FaceRegistrationModal
+          isOpen={isFaceRegisterOpen}
+          onClose={() => setIsFaceRegisterOpen(false)}
+          initialName="Mteja wa Duka"
+          onSuccess={(regData) => {
+            setIsUserFaceRegistered(true);
+            speak(`Hongera ${regData.name.split(' ')[0]}! Uso wako umesajiliwa. Sasa unaweza kukamilisha malipo yako ya kaunta.`);
+            toast.success(`Uso wa ${regData.name} umesajiliwa! Unaweza kulipa sasa kwa uso.`);
+          }}
+        />
       </div>
     </AnimatePresence>
   );

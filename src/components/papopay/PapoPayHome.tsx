@@ -10,7 +10,7 @@ import {
   Flame, MapPin, Coffee, LayoutGrid, Calendar, ArrowLeftRight, 
   Layers, TrendingUp, Gift, Tag, Link2, MessageSquare, Trophy, 
   UserCheck, X, FileText, Globe, Clock, Shield, Sliders, ScanFace, Smile,
-  Scan, Activity
+  Scan, Activity, UserX, UserPlus
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -21,6 +21,7 @@ import { useLanguage } from '../../LanguageContext';
 import { FacePaymentModal } from '../tegex/FacePaymentModal';
 import { PapoPayKioskTerminal } from './PapoPayKioskTerminal';
 import { PysourceVisionCheckout } from './PysourceVisionCheckout';
+import { FaceRegistrationModal } from './FaceRegistrationModal';
 
 export type PapoPayNavSection = 
   | 'overview' 
@@ -146,12 +147,38 @@ export default function PapoPayHome() {
   const [isKioskModalOpen, setIsKioskModalOpen] = useState(false);
   const [isVisionCheckoutOpen, setIsVisionCheckoutOpen] = useState(false);
   const [isFaceIdActive, setIsFaceIdActive] = useState(true);
+  const [isFaceRegistered, setIsFaceRegistered] = useState(true);
+  const [isFaceRegisterModalOpen, setIsFaceRegisterModalOpen] = useState(false);
   const [faceDailyLimit, setFaceDailyLimit] = useState(500000);
   const [facePayTarget, setFacePayTarget] = useState<{ amount: number; recipient: string; service: string }>({
     amount: 25500,
     recipient: 'Papo Hapo Ocean View Grill',
     service: 'Meza No. 04 - Chakula'
   });
+
+  const speakVoicePrompt = (text: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'sw-TZ';
+        utterance.rate = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch {}
+  };
+
+  const handleTriggerFacePayment = (target: { amount: number; recipient: string; service: string }) => {
+    setFacePayTarget(target);
+    if (!isFaceRegistered) {
+      speakVoicePrompt("Uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako kwanza.");
+      toast.error("Uso haujasajiliwa! Tafadhali sajili uso wako kwenye PapoPay kwanza ili kulipa.", { icon: '⚠️' });
+      setIsFaceRegisterModalOpen(true);
+      return;
+    }
+    setIsFacePayModalOpen(true);
+  };
   const [isNfcPayingRestaurant, setIsNfcPayingRestaurant] = useState(false);
   const [isNfcWithdrawing, setIsNfcWithdrawing] = useState(false);
   const [isNfcDepositing, setIsNfcDepositing] = useState(false);
@@ -1921,17 +1948,25 @@ export default function PapoPayHome() {
                         <button
                           type="button"
                           onClick={() => {
-                            setFacePayTarget({
+                            handleTriggerFacePayment({
                               amount: 5000,
                               recipient: 'PapoPay Demo Checkout',
                               service: 'Jaribio la Biometric Liveness Scan'
                             });
-                            setIsFacePayModalOpen(true);
                           }}
                           className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 flex items-center gap-2 active:scale-95 transition-all"
                         >
                           <ScanFace className="w-4 h-4" />
                           <span>Jaribu Kulipa kwa Uso Sasa (Demo)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsFaceRegisterModalOpen(true)}
+                          className="px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all"
+                        >
+                          <UserPlus className="w-4 h-4 text-cyan-300" />
+                          <span>Sajili Uso Wako Sasa</span>
                         </button>
 
                         <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono text-cyan-300">
@@ -1991,12 +2026,11 @@ export default function PapoPayHome() {
                         <button
                           type="button"
                           onClick={() => {
-                            setFacePayTarget({
+                            handleTriggerFacePayment({
                               amount: item.amount,
                               recipient: item.merchant,
                               service: item.title
                             });
-                            setIsFacePayModalOpen(true);
                           }}
                           className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
                         >
@@ -2053,14 +2087,24 @@ export default function PapoPayHome() {
                           </p>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1.5 ${
-                        isFaceIdActive 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-neutral-500/10 text-neutral-500'
-                      }`}>
-                        <span className={`w-2 h-2 rounded-full ${isFaceIdActive ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`} />
-                        {isFaceIdActive ? 'Face ID: Active' : 'Face ID: Imesitishwa'}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1.5 ${
+                          isFaceRegistered 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${isFaceRegistered ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                          {isFaceRegistered ? 'Uso: Umesajiliwa' : 'Uso: Bado Haujasajiliwa'}
+                        </span>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1.5 ${
+                          isFaceIdActive 
+                            ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30' 
+                            : 'bg-neutral-500/10 text-neutral-500'
+                        }`}>
+                          <span className={`w-2 h-2 rounded-full ${isFaceIdActive ? 'bg-cyan-500' : 'bg-neutral-400'}`} />
+                          {isFaceIdActive ? 'Face ID: Active' : 'Face ID: Imesitishwa'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2112,34 +2156,67 @@ export default function PapoPayHome() {
                         ))}
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Simulation Toggle: Test Registered vs Unregistered */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStatus = !isFaceRegistered;
+                            setIsFaceRegistered(newStatus);
+                            if (!newStatus) {
+                              toast.warning("Hali imebadilishwa kuwa: Mtu Asiyesajiliwa. Jaribu kulipa kwa uso sasa uone jinsi mfumo unavyomwambia ajisajili!");
+                            } else {
+                              toast.success("Hali imebadilishwa kuwa: Uso Umesajiliwa!");
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition-all border text-xs flex items-center gap-1.5 ${
+                            !isFaceRegistered
+                              ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
+                              : 'bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 border-neutral-300/40 dark:border-neutral-700'
+                          }`}
+                          title="Jaribu mwitikio wa mfumo wakati mtu asiyesajiliwa anapojaribu kulipa"
+                        >
+                          <UserX className="w-3.5 h-3.5 text-amber-500" />
+                          <span>{!isFaceRegistered ? 'Hali: Asiyesajiliwa (Inajaribiwa)' : 'Jaribu Mtu Asiyesajiliwa'}</span>
+                        </button>
+
+                        {/* Open Face Registration Modal */}
+                        <button
+                          type="button"
+                          onClick={() => setIsFaceRegisterModalOpen(true)}
+                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>{isFaceRegistered ? 'Sajili / Badili Uso' : 'Sajili Uso Wako Sasa'}</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => {
                             setIsFaceIdActive(!isFaceIdActive);
                             toast(isFaceIdActive ? 'Face Pay imesitishwa kwa muda' : 'Face Pay imewashwa tena!');
                           }}
-                          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                          className={`px-3 py-1.5 rounded-xl font-bold transition-all text-xs ${
                             isFaceIdActive 
                               ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/30' 
                               : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30'
                           }`}
                         >
-                          {isFaceIdActive ? 'Sitisha Face Pay' : 'Washa Face Pay'}
+                          {isFaceIdActive ? 'Sitisha' : 'Washa'}
                         </button>
+
                         <button
                           type="button"
                           onClick={() => {
-                            setFacePayTarget({
+                            handleTriggerFacePayment({
                               amount: 2500,
                               recipient: 'PapoPay Biometric Health Test',
                               service: 'Uhakiki wa Uhai & Kupepesa Macho'
                             });
-                            setIsFacePayModalOpen(true);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-bold"
+                          className="px-3 py-1.5 rounded-xl bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-bold text-xs"
                         >
-                          Fanya Jaribio la Liveness Check
+                          Jaribio la Liveness
                         </button>
                       </div>
                     </div>
@@ -2901,6 +2978,7 @@ export default function PapoPayHome() {
         amount={facePayTarget.amount}
         recipientName={facePayTarget.recipient}
         serviceTitle={facePayTarget.service}
+        isRegistered={isFaceRegistered}
         onClose={() => setIsFacePayModalOpen(false)}
         onSuccess={(receipt) => {
           setIsFacePayModalOpen(false);
@@ -2970,6 +3048,18 @@ export default function PapoPayHome() {
           setTransactions(prev => [newTx, ...prev]);
           setSelectedReceipt(newTx);
           setIsReceiptModalOpen(true);
+        }}
+      />
+
+      {/* Biometric Face Registration Modal */}
+      <FaceRegistrationModal
+        isOpen={isFaceRegisterModalOpen}
+        onClose={() => setIsFaceRegisterModalOpen(false)}
+        initialName={profile?.displayName || (profile as any)?.name || 'Baraka Juma'}
+        initialPhone={profile?.phoneNumber || '0754 123 456'}
+        onSuccess={(regData) => {
+          setIsFaceRegistered(true);
+          toast.success(`Uso wa ${regData.name} umesajiliwa kikamilifu! Sasa unaweza kulipa kwa uso.`);
         }}
       />
 

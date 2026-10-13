@@ -4,9 +4,11 @@ import {
   ScanFace, CheckCircle2, AlertCircle, X, ShieldCheck, 
   Camera, RefreshCw, Zap, Sparkles, Smile, Eye, UserCheck, 
   Store, Bus, Utensils, Receipt, Printer, ArrowRight, 
-  Volume2, VolumeX, ShieldAlert, Activity, Check, QrCode
+  Volume2, VolumeX, ShieldAlert, Activity, Check, QrCode,
+  UserX, UserPlus
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
+import { FaceRegistrationModal } from './FaceRegistrationModal';
 import { toast } from 'sonner';
 
 interface PapoPayKioskTerminalProps {
@@ -24,6 +26,7 @@ interface SimulatedCustomer {
   faceEmbeddingId: string;
   avatar: string;
   category: string;
+  isRegistered?: boolean;
 }
 
 const CUSTOMERS_DB: SimulatedCustomer[] = [
@@ -33,7 +36,8 @@ const CUSTOMERS_DB: SimulatedCustomer[] = [
     walletBalance: 240000,
     faceEmbeddingId: 'EMB-TZ-8841-BJM',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    category: 'Mteja Binafsi'
+    category: 'Mteja Binafsi',
+    isRegistered: true
   },
   {
     id: 'cust_02',
@@ -41,7 +45,8 @@ const CUSTOMERS_DB: SimulatedCustomer[] = [
     walletBalance: 85500,
     faceEmbeddingId: 'EMB-TZ-1092-ASS',
     avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    category: 'Abiria BRT / Mwanafunzi'
+    category: 'Abiria BRT / Mwanafunzi',
+    isRegistered: true
   },
   {
     id: 'cust_03',
@@ -49,7 +54,17 @@ const CUSTOMERS_DB: SimulatedCustomer[] = [
     walletBalance: 610000,
     faceEmbeddingId: 'EMB-TZ-5531-EPM',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    category: 'Mfanyabiashara'
+    category: 'Mfanyabiashara',
+    isRegistered: true
+  },
+  {
+    id: 'cust_unregistered',
+    name: 'Mtu Asiyesajiliwa (Mgeni Mpya)',
+    walletBalance: 0,
+    faceEmbeddingId: '',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    category: 'Hajasajiliwa / Mgeni',
+    isRegistered: false
   }
 ];
 
@@ -59,9 +74,12 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
   onBalanceDeduct
 }) => {
   const [kioskMode, setKioskMode] = useState<KioskMode>('transit_gate');
+  const [customersList, setCustomersList] = useState<SimulatedCustomer[]>(CUSTOMERS_DB);
   const [selectedCustomer, setSelectedCustomer] = useState<SimulatedCustomer>(CUSTOMERS_DB[0]);
   const [isScanning, setIsScanning] = useState(false);
   const [isGateOpen, setIsGateOpen] = useState(false);
+  const [faceRecognitionStatus, setFaceRecognitionStatus] = useState<'idle' | 'unregistered'>('idle');
+  const [isKioskEnrollOpen, setIsKioskEnrollOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [fps, setFps] = useState(30);
   const [recentTransactions, setRecentTransactions] = useState<Array<{
@@ -180,6 +198,23 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
     setIsGateOpen(false);
 
     speak("Inasoma uso na kuthibitisha");
+
+    // Check if the detected person is unregistered in PapoPay
+    if (selectedCustomer.isRegistered === false) {
+      setTimeout(() => {
+        setIsScanning(false);
+        setIsGateOpen(false);
+        setFaceRecognitionStatus('unregistered');
+
+        speak("Samahani, uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako kwanza ili kuendelea.");
+        toast.error("Uso Haujasajiliwa! Mtu huyu hana Face ID. Tafadhali sajili uso wako kwanza.", {
+          icon: '⚠️'
+        });
+      }, 1600);
+      return;
+    }
+
+    setFaceRecognitionStatus('idle');
 
     setTimeout(() => {
       // Step 2: Recognized!
@@ -378,7 +413,7 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6"
+                    className="absolute inset-0 bg-emerald-950/85 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-20"
                   >
                     <div className="w-20 h-20 rounded-full bg-emerald-500 text-white flex items-center justify-center mb-3 shadow-[0_0_40px_#10b981] animate-bounce">
                       <Check className="w-10 h-10 stroke-[3]" />
@@ -392,6 +427,46 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                     <span className="mt-4 px-3 py-1 rounded-full bg-emerald-400/20 text-emerald-300 text-xs font-mono font-bold border border-emerald-400/40">
                       TURNSTILE GATE 02: OPEN 🟢
                     </span>
+                  </motion.div>
+                )}
+
+                {/* Unregistered Face Alert Overlay */}
+                {faceRecognitionStatus === 'unregistered' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="absolute inset-0 bg-amber-950/92 backdrop-blur-md flex flex-col items-center justify-center text-center p-6 z-20"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center mb-3 shadow-[0_0_35px_#f59e0b] animate-bounce">
+                      <UserX className="w-8 h-8 stroke-[2.5]" />
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-black border border-amber-500/40 uppercase mb-1">
+                      Lango Limefungwa &bull; Not Registered 🔒
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black text-white">
+                      USO WAKO HAUJASAJILIWA!
+                    </h3>
+                    <p className="text-amber-200 text-xs font-medium mt-1 max-w-sm">
+                      Kamera imegundua kuwa bado hujasajili Face ID yako kwenye PapoPay. Tafadhali jisajili uso wako ili uweze kupita au kulipa.
+                    </p>
+
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsKioskEnrollOpen(true)}
+                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Sajili Uso Wako Sasa Hapa</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFaceRecognitionStatus('idle')}
+                        className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors"
+                      >
+                        Funga Ilani
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </div>
@@ -422,27 +497,46 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
 
               {/* Simulated Customer Switcher (To test multi-face identification) */}
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                  Chagua Mteja Mfano (Jaribu Nyuso Tofauti):
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {CUSTOMERS_DB.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCustomer(c)}
-                      className={`p-2 rounded-xl flex items-center gap-2 text-left transition-all ${
-                        selectedCustomer.id === c.id 
-                          ? 'bg-cyan-500/20 border border-cyan-400 text-white' 
-                          : 'bg-black/30 hover:bg-black/50 border border-white/5 text-neutral-400'
-                      }`}
-                    >
-                      <img src={c.avatar} alt={c.name} className="w-7 h-7 rounded-full object-cover" />
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-bold text-white truncate">{c.name.split(' ')[0]}</p>
-                        <p className="text-[9px] text-cyan-300 font-mono">TZS {c.walletBalance.toLocaleString()}</p>
-                      </div>
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                    Chagua Mteja Mfano (Jaribu Nyuso Tofauti):
+                  </span>
+                  <span className="text-[10px] text-cyan-400 font-mono">
+                    Jaribu aliyesajiliwa vs asiyesajiliwa
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {customersList.map(c => {
+                    const isSelected = selectedCustomer.id === c.id;
+                    const isReg = c.isRegistered !== false;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setFaceRecognitionStatus('idle');
+                        }}
+                        className={`p-2 rounded-xl flex items-center gap-2 text-left transition-all ${
+                          isSelected 
+                            ? isReg 
+                              ? 'bg-cyan-500/20 border border-cyan-400 text-white shadow-xs' 
+                              : 'bg-amber-500/20 border border-amber-400 text-white shadow-xs'
+                            : 'bg-black/30 hover:bg-black/50 border border-white/5 text-neutral-400'
+                        }`}
+                      >
+                        <div className="relative shrink-0">
+                          <img src={c.avatar} alt={c.name} className="w-8 h-8 rounded-full object-cover" />
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-black ${isReg ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-white truncate">{c.name.split(' ')[0]}</p>
+                          <p className={`text-[9px] font-mono ${isReg ? 'text-cyan-300' : 'text-amber-400 font-bold'}`}>
+                            {isReg ? `TZS ${c.walletBalance.toLocaleString()}` : '⚠️ Hajasajiliwa'}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -470,20 +564,40 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-white/10 space-y-2 text-xs">
-                  <div className="flex justify-between text-neutral-400">
-                    <span>Mteja aliyetambuliwa:</span>
-                    <span className="font-bold text-white">{selectedCustomer.name}</span>
+                {selectedCustomer.isRegistered === false ? (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 space-y-2.5">
+                    <div className="flex items-center gap-2 font-black text-amber-300">
+                      <UserX className="w-4 h-4 shrink-0" />
+                      <span>Mteja Huyu Hajasajiliwa Kwenye PapoPay!</span>
+                    </div>
+                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                      Mfumo hauwezi kukata malipo wala kufungua geti kwa kuwa uso huu haujasajiliwa kwenye hifadhidata ya PapoPay.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsKioskEnrollOpen(true)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Sajili Uso Wako Sasa Hapa Kiosk</span>
+                    </button>
                   </div>
-                  <div className="flex justify-between text-neutral-400">
-                    <span>Salio la Mkoba:</span>
-                    <span className="font-mono text-emerald-400 font-bold">TZS {selectedCustomer.walletBalance.toLocaleString()}</span>
+                ) : (
+                  <div className="pt-3 border-t border-white/10 space-y-2 text-xs">
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Mteja aliyetambuliwa:</span>
+                      <span className="font-bold text-white">{selectedCustomer.name}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Salio la Mkoba:</span>
+                      <span className="font-mono text-emerald-400 font-bold">TZS {selectedCustomer.walletBalance.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Face ID Vector:</span>
+                      <span className="font-mono text-cyan-300">{selectedCustomer.faceEmbeddingId}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-neutral-400">
-                    <span>Face ID Vector:</span>
-                    <span className="font-mono text-cyan-300">{selectedCustomer.faceEmbeddingId}</span>
-                  </div>
-                </div>
+                )}
 
                 {/* If Retail Checkout: Show YOLO Detected Items Breakdown */}
                 {kioskMode === 'retail_checkout' && (
@@ -626,6 +740,29 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
           </div>
 
         </motion.div>
+
+        {/* Live Kiosk Face Registration Flow */}
+        <FaceRegistrationModal
+          isOpen={isKioskEnrollOpen}
+          onClose={() => setIsKioskEnrollOpen(false)}
+          initialName={selectedCustomer.name.includes('Mtu Asiyesajiliwa') ? 'Mteja Mpya' : selectedCustomer.name}
+          onSuccess={(newReg) => {
+            const enrolledCustomer: SimulatedCustomer = {
+              id: newReg.embeddingId,
+              name: newReg.name,
+              walletBalance: 125000,
+              faceEmbeddingId: newReg.embeddingId,
+              avatar: newReg.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              category: 'Mteja Aliyesajiliwa Mpya',
+              isRegistered: true
+            };
+            setCustomersList(prev => [enrolledCustomer, ...prev]);
+            setSelectedCustomer(enrolledCustomer);
+            setFaceRecognitionStatus('idle');
+            speak(`Hongera ${newReg.name.split(' ')[0]}! Uso wako umesajiliwa kwenye Kiosk. Sasa unaweza kupita au kulipa.`);
+            toast.success(`Uso wa ${newReg.name} umesajiliwa kikamilifu kwenye Kiosk!`, { icon: '🎉' });
+          }}
+        />
       </div>
     </AnimatePresence>
   );

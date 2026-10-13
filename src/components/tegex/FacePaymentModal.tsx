@@ -4,9 +4,10 @@ import {
   ScanFace, CheckCircle2, AlertCircle, X, ShieldCheck, 
   Camera, RefreshCw, Zap, Sparkles, Smile, Eye, UserCheck, 
   Lock, Volume2, VolumeX, ShieldAlert, Cpu, Activity, Play,
-  HelpCircle, AlertTriangle
+  HelpCircle, AlertTriangle, UserX, UserPlus
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
+import { FaceRegistrationModal } from '../papopay/FaceRegistrationModal';
 import { toast } from 'sonner';
 
 interface FacePaymentModalProps {
@@ -17,6 +18,7 @@ interface FacePaymentModalProps {
   recipientName?: string;
   serviceTitle?: string;
   payerName?: string;
+  isRegistered?: boolean;
 }
 
 type LivenessPhase = 
@@ -27,6 +29,7 @@ type LivenessPhase =
   | 'verifying'
   | 'success'
   | 'spoof_rejected'
+  | 'unregistered'
   | 'error';
 
 export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
@@ -36,13 +39,16 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
   amount,
   recipientName = 'PapoPay Merchant',
   serviceTitle = 'Malipo ya Papo Hapo',
-  payerName = 'Baraka Juma'
+  payerName = 'Baraka Juma',
+  isRegistered = true
 }) => {
   const [phase, setPhase] = useState<LivenessPhase>('initializing');
   const [progress, setProgress] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [isRegisteredUser, setIsRegisteredUser] = useState<boolean>(isRegistered);
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState<boolean>(false);
   const [faceConfidence, setFaceConfidence] = useState<number>(98.7);
   const [livenessScore, setLivenessScore] = useState<number>(99.4);
   const [blinkCount, setBlinkCount] = useState<number>(0);
@@ -172,6 +178,15 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
       speakInstruction('Weka uso wako katikati ya mduara');
     }, 800);
 
+    // If user has not registered their face, notify them to register!
+    if (!isRegisteredUser) {
+      const tUnreg = setTimeout(() => {
+        triggerUnregisteredFaceTest();
+      }, 2000);
+      timersRef.current.push(t1, tUnreg);
+      return;
+    }
+
     // Phase 2: Blink Detection (Murtaza's Anti-Spoofing Check)
     const t2 = setTimeout(() => {
       setPhase('blink_detect');
@@ -253,6 +268,21 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
       icon: '🛡️'
     });
     speakInstruction('Tahadhari, mfumo umegundua picha feki. Malipo yamesitishwa.');
+  };
+
+  // Unregistered Face Detection Simulator
+  // When a user has not registered their face with PapoPay Face ID
+  const triggerUnregisteredFaceTest = () => {
+    clearAllTimers();
+    setIsSpoofTesting(false);
+    setPhase('unregistered');
+    setErrorMessage('Uso Haujasajiliwa Kwenye Mfumo (Face Not Registered)');
+    playStepBeep(440, 300);
+
+    toast.error('Uso haujasajiliwa kwenye PapoPay! Tafadhali sajili uso wako ili uweze kulipa.', {
+      icon: '⚠️'
+    });
+    speakInstruction('Uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako ili uweze kulipa.');
   };
 
   useEffect(() => {
@@ -440,6 +470,31 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                   </motion.div>
                 )}
 
+                {/* Unregistered Face Overlay */}
+                {phase === 'unregistered' && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="absolute inset-0 bg-amber-950/90 backdrop-blur-xs flex flex-col items-center justify-center text-amber-400 p-4 text-center z-20"
+                  >
+                    <UserX className="w-16 h-16 text-amber-400 mb-2 drop-shadow-[0_0_20px_#f59e0b] animate-bounce" />
+                    <p className="text-sm font-black uppercase tracking-wider text-white">
+                      USO HAUJASAJILIWA!
+                    </p>
+                    <p className="text-xs text-amber-200 font-medium mt-1">
+                      Uso huu haupatikani kwenye hifadhidata ya PapoPay.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsEnrollModalOpen(true)}
+                      className="mt-3 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-1.5 active:scale-95 transition-all"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Sajili Uso Wako Sasa</span>
+                    </button>
+                  </motion.div>
+                )}
+
                 {/* Success Checkmark Splash */}
                 {phase === 'success' && (
                   <motion.div
@@ -522,6 +577,26 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                 </div>
               )}
 
+              {phase === 'unregistered' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-1.5 text-amber-400 font-black text-sm">
+                    <UserX className="w-4 h-4" />
+                    <span>Uso Haujasajiliwa Kwenye PapoPay!</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-300">
+                    Tafadhali sajili uso wako ili uweze kulipa kwa tabasamu mara moja.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsEnrollModalOpen(true)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Sajili Uso Wako Sasa (Face ID)</span>
+                  </button>
+                </div>
+              )}
+
               {phase === 'success' && (
                 <div className="text-emerald-400 font-black text-sm">
                   Malipo yamekamilika kikamilifu! ✨
@@ -532,39 +607,65 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
             {/* Progress Bar */}
             <div className="w-full mt-3 bg-neutral-800 rounded-full h-2 overflow-hidden">
               <motion.div
-                className={`h-full ${phase === 'spoof_rejected' ? 'bg-rose-500' : 'bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400'}`}
+                className={`h-full ${
+                  phase === 'spoof_rejected' 
+                    ? 'bg-rose-500' 
+                    : phase === 'unregistered'
+                    ? 'bg-amber-500'
+                    : 'bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400'
+                }`}
                 style={{ width: `${progress}%` }}
                 transition={{ duration: 0.3 }}
               />
             </div>
           </div>
 
-          {/* Interactive Anti-Spoofing Testing Banner */}
-          <div className="px-5 py-2 bg-neutral-900/90 border-t border-white/5 flex items-center justify-between text-[11px]">
+          {/* Interactive Anti-Spoofing & Unregistered Face Testing Banner */}
+          <div className="px-5 py-2.5 bg-neutral-900/90 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
             <div className="flex items-center gap-1.5 text-neutral-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Murtaza AI Anti-Spoofing Active</span>
+              <span>Murtaza AI Engine</span>
             </div>
-            <button
-              type="button"
-              onClick={triggerSpoofAttackTest}
-              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-bold text-[10px] border border-rose-500/30 transition-colors flex items-center gap-1"
-              title="Jaribu uwezo wa mfumo kuzuia picha feki"
-            >
-              <AlertTriangle className="w-3 h-3" />
-              <span>Jaribu Picha Feki (Spoof Test)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={triggerUnregisteredFaceTest}
+                className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 font-bold text-[10px] border border-amber-500/30 transition-colors flex items-center gap-1"
+                title="Jaribu mwitikio wa mfumo kwa mtu asiyesajiliwa"
+              >
+                <UserX className="w-3 h-3" />
+                <span>Jaribu Mtu Asiyesajiliwa</span>
+              </button>
+              <button
+                type="button"
+                onClick={triggerSpoofAttackTest}
+                className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 font-bold text-[10px] border border-rose-500/30 transition-colors flex items-center gap-1"
+                title="Jaribu uwezo wa mfumo kuzuia picha feki"
+              >
+                <AlertTriangle className="w-3 h-3" />
+                <span>Picha Feki</span>
+              </button>
+            </div>
           </div>
 
           {/* Action Fallback buttons */}
           <div className="p-4 pt-2 flex gap-2 bg-[#0a0f1d]">
             <button
               type="button"
-              onClick={() => startCamera()}
+              onClick={() => {
+                setIsRegisteredUser(true);
+                startCamera();
+              }}
               className="flex-1 py-2.5 rounded-2xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/30 text-cyan-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>{phase === 'spoof_rejected' ? 'Rudia Ukiwa Uso Halisi' : 'Rudia Utambuzi'}</span>
+              <span>
+                {phase === 'spoof_rejected' 
+                  ? 'Rudia Ukiwa Uso Halisi' 
+                  : phase === 'unregistered'
+                  ? 'Rudia Utambuzi'
+                  : 'Rudia Utambuzi'}
+              </span>
             </button>
             <button
               type="button"
@@ -575,6 +676,18 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
             </button>
           </div>
         </motion.div>
+
+        {/* Live Face Registration Modal if Unregistered */}
+        <FaceRegistrationModal
+          isOpen={isEnrollModalOpen}
+          onClose={() => setIsEnrollModalOpen(false)}
+          initialName={payerName}
+          onSuccess={(registeredData) => {
+            setIsRegisteredUser(true);
+            toast.success(`Uso wa ${registeredData.name} umesajiliwa kikamilifu! Sasa unaweza kulipa.`);
+            startCamera();
+          }}
+        />
       </div>
     </AnimatePresence>
   );
