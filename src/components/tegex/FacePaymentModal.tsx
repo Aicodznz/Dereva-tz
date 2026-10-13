@@ -4,10 +4,11 @@ import {
   ScanFace, CheckCircle2, AlertCircle, X, ShieldCheck, 
   Camera, RefreshCw, Zap, Sparkles, Smile, Eye, UserCheck, 
   Lock, Volume2, VolumeX, ShieldAlert, Cpu, Activity, Play,
-  HelpCircle, AlertTriangle, UserX, UserPlus
+  HelpCircle, AlertTriangle, UserX, UserPlus, Sliders, Sun, Maximize2
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
 import { FaceRegistrationModal } from '../papopay/FaceRegistrationModal';
+import { BiometricFaceCanvas, BiometricHudMode } from '../papopay/BiometricFaceCanvas';
 import { toast } from 'sonner';
 
 interface FacePaymentModalProps {
@@ -49,10 +50,13 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isRegisteredUser, setIsRegisteredUser] = useState<boolean>(isRegistered);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState<boolean>(false);
+  const [hudMode, setHudMode] = useState<BiometricHudMode>('mesh');
   const [faceConfidence, setFaceConfidence] = useState<number>(98.7);
   const [livenessScore, setLivenessScore] = useState<number>(99.4);
   const [blinkCount, setBlinkCount] = useState<number>(0);
   const [headYaw, setHeadYaw] = useState<number>(0);
+  const [lightingQuality, setLightingQuality] = useState<number>(92);
+  const [distanceCm, setDistanceCm] = useState<number>(45);
   const [fps, setFps] = useState<number>(30);
   const [txId, setTxId] = useState<string>('');
   const [isSpoofTesting, setIsSpoofTesting] = useState<boolean>(false);
@@ -389,9 +393,52 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
             </div>
           </div>
 
+          {/* AI Face Detection HUD Mode Selector */}
+          <div className="px-6 pt-2 pb-1 flex items-center justify-between">
+            <span className="text-[10px] font-mono text-cyan-300/80 uppercase tracking-wider flex items-center gap-1">
+              <Cpu className="w-3 h-3 text-cyan-400" />
+              <span>Mtindo wa AI:</span>
+            </span>
+            <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded-xl border border-cyan-500/20 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setHudMode('mesh')}
+                className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
+                  hudMode === 'mesh' ? 'bg-cyan-500 text-neutral-950 shadow-xs' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                🌐 3D Mesh
+              </button>
+              <button
+                type="button"
+                onClick={() => setHudMode('neural_box')}
+                className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
+                  hudMode === 'neural_box' ? 'bg-cyan-500 text-neutral-950 shadow-xs' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                🎯 YOLO Box
+              </button>
+              <button
+                type="button"
+                onClick={() => setHudMode('liveness_depth')}
+                className={`px-2 py-0.5 rounded-lg font-bold transition-all ${
+                  hudMode === 'liveness_depth' ? 'bg-cyan-500 text-neutral-950 shadow-xs' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                🌡️ Depth
+              </button>
+            </div>
+          </div>
+
           {/* Biometric Viewport */}
-          <div className="px-6 py-3 flex flex-col items-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-full overflow-hidden border-4 border-cyan-500/40 bg-neutral-950 flex items-center justify-center shadow-inner">
+          <div className="px-6 py-2 flex flex-col items-center">
+            <div className={`relative w-64 h-64 sm:w-72 sm:h-72 rounded-full overflow-hidden border-4 ${
+              phase === 'unregistered' 
+                ? 'border-amber-500 shadow-amber-500/40' 
+                : phase === 'spoof_rejected'
+                ? 'border-rose-500 shadow-rose-500/40'
+                : 'border-cyan-500/50 shadow-cyan-500/30'
+            } bg-neutral-950 flex items-center justify-center shadow-xl transition-colors duration-300`}>
               {/* Camera Video feed */}
               <video
                 ref={videoRef}
@@ -399,6 +446,18 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                 muted
                 autoPlay
                 className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+              />
+
+              {/* High-Performance 3D Biometric Face Canvas */}
+              <BiometricFaceCanvas
+                phase={phase}
+                isUnregistered={!isRegisteredUser || phase === 'unregistered'}
+                hudMode={hudMode}
+                faceConfidence={faceConfidence}
+                blinkCount={blinkCount}
+                headYaw={headYaw}
+                lightingQuality={lightingQuality}
+                distanceCm={distanceCm}
               />
 
               {/* Hidden canvas for snapshot */}
@@ -419,39 +478,20 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 6, ease: "linear" }}
-                  className="absolute inset-2 rounded-full border-2 border-dashed border-cyan-400/40"
+                  className={`absolute inset-2 rounded-full border-2 border-dashed ${
+                    phase === 'unregistered' ? 'border-amber-400/50' : 'border-cyan-400/40'
+                  }`}
                 />
 
                 {/* Laser scan line running up & down */}
-                {phase !== 'spoof_rejected' && (
+                {phase !== 'spoof_rejected' && phase !== 'unregistered' && (
                   <motion.div
                     animate={{ y: [0, 240, 0] }}
                     transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
                     className="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#22d3ee]"
                   />
                 )}
-
-                {/* Facial Landmark Tracking Dots (MediaPipe/Nicholas Renotte/Murtaza style HUD) */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative w-44 h-52 border border-cyan-400/30 rounded-[48px] flex items-center justify-center">
-                    {/* Corner Guides */}
-                    <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
-                    <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-cyan-400" />
-                    <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-cyan-400" />
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
-
-                    {/* Landmark dots simulation */}
-                    <span className="absolute top-16 left-12 w-2 h-2 rounded-full bg-cyan-400/80 shadow-[0_0_8px_#22d3ee] animate-ping" />
-                    <span className="absolute top-16 right-12 w-2 h-2 rounded-full bg-cyan-400/80 shadow-[0_0_8px_#22d3ee] animate-ping" />
-                    <span className="absolute top-26 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-emerald-400/90 shadow-[0_0_8px_#34d399]" />
-                    <span className="absolute bottom-12 left-1/2 -translate-x-1/2 w-8 h-2 rounded-full border border-cyan-300/80" />
-
-                    {/* Biometric Mesh Label */}
-                    <span className="absolute -bottom-7 text-[9px] font-mono text-cyan-300 bg-black/70 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
-                      468 MESH POINTS &bull; LIVENESS ACTIVE
-                    </span>
-                  </div>
-                </div>
+              </div>
 
                 {/* Spoof Rejected Overlay */}
                 {phase === 'spoof_rejected' && (
@@ -512,7 +552,6 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                   </motion.div>
                 )}
               </div>
-            </div>
 
             {/* Instruction Banner & Interactive Prompt */}
             <div className="mt-3 text-center max-w-xs space-y-1">

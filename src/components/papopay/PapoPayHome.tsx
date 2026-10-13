@@ -22,6 +22,7 @@ import { FacePaymentModal } from '../tegex/FacePaymentModal';
 import { PapoPayKioskTerminal } from './PapoPayKioskTerminal';
 import { PysourceVisionCheckout } from './PysourceVisionCheckout';
 import { FaceRegistrationModal } from './FaceRegistrationModal';
+import { PapoPayWakalaPOS } from './PapoPayWakalaPOS';
 
 export type PapoPayNavSection = 
   | 'overview' 
@@ -146,6 +147,7 @@ export default function PapoPayHome() {
   const [isFacePayModalOpen, setIsFacePayModalOpen] = useState(false);
   const [isKioskModalOpen, setIsKioskModalOpen] = useState(false);
   const [isVisionCheckoutOpen, setIsVisionCheckoutOpen] = useState(false);
+  const [isWakalaModalOpen, setIsWakalaModalOpen] = useState(false);
   const [isFaceIdActive, setIsFaceIdActive] = useState(true);
   const [isFaceRegistered, setIsFaceRegistered] = useState(true);
   const [isFaceRegisterModalOpen, setIsFaceRegisterModalOpen] = useState(false);
@@ -868,6 +870,20 @@ export default function PapoPayHome() {
                 </span>
               </button>
 
+              {/* Wakala & Merchant POS (Kuweka Pesa kwa Uso & Maduka) */}
+              <button
+                onClick={() => setIsWakalaModalOpen(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 group"
+              >
+                <div className="flex items-center gap-3">
+                  <Store className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  <span>Wakala &amp; POS (Madukani/Hotel)</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30">
+                  WAKALA
+                </span>
+              </button>
+
               {/* My Virtual Cards & Student NFC */}
               <button
                 onClick={() => setActiveSection('virtual_cards')}
@@ -1233,6 +1249,32 @@ export default function PapoPayHome() {
                         </span>
                       </div>
                       <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Pysource Smart Checkout</span>
+                    </div>
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-emerald-500 text-neutral-950 flex items-center justify-center shadow-xs transition-transform group-hover:translate-x-0.5 font-black">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Card 4e: Wakala & Merchant POS (Maduka, Migahawa & Hoteli) */}
+                <div 
+                  onClick={() => setIsWakalaModalOpen(true)}
+                  className="p-4 rounded-3xl bg-gradient-to-r from-teal-950/20 via-emerald-950/20 to-cyan-950/20 dark:bg-[#061f1c] border border-emerald-400/60 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-xs border border-emerald-400/30">
+                      <Store className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-base sm:text-lg font-black font-mono text-neutral-900 dark:text-white">
+                          Wakala &amp; POS
+                        </h3>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-400/20 text-emerald-600 dark:text-emerald-300 text-[9px] font-black uppercase">
+                          CASH-IN
+                        </span>
+                      </div>
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Weka/Toa Pesa kwa Uso</span>
                     </div>
                   </div>
                   <div className="w-7 h-7 rounded-full bg-emerald-500 text-neutral-950 flex items-center justify-center shadow-xs transition-transform group-hover:translate-x-0.5 font-black">
@@ -1966,13 +2008,38 @@ export default function PapoPayHome() {
                           className="px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all"
                         >
                           <UserPlus className="w-4 h-4 text-cyan-300" />
-                          <span>Sajili Uso Wako Sasa</span>
+                          <span>{isFaceRegistered ? 'Sasisha Uso Wako' : 'Sajili Uso Wako Sasa'}</span>
                         </button>
 
-                        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono text-cyan-300">
-                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                          <span>Anti-Spoofing &bull; 99.8% Usahihi</span>
+                        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono">
+                          {isFaceRegistered ? (
+                            <div className="flex items-center gap-1.5 text-emerald-400">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span className="font-bold">Uso Umesajiliwa</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-amber-400">
+                              <UserX className="w-4 h-4" />
+                              <span className="font-bold">Haujasajiliwa (Unregistered)</span>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Quick Test Toggle for Registered vs Unregistered Face */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFaceRegistered(prev => !prev);
+                            toast.info(`Hali ya majaribio ya uso imebadilishwa kuwa: ${!isFaceRegistered ? 'Umesajiliwa' : 'Haujasajiliwa'}`);
+                          }}
+                          className="px-3 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 text-[11px] font-mono text-neutral-300 flex items-center gap-1.5 transition-colors"
+                          title="Bofya kubadili hali ya usajili ili kupima utambuzi wa mtu asiyesajiliwa"
+                        >
+                          <span>Majaribio:</span>
+                          <span className={isFaceRegistered ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                            {isFaceRegistered ? '✓ Aliyesajiliwa' : '⚠️ Asiyesajiliwa'}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2068,6 +2135,36 @@ export default function PapoPayHome() {
                     >
                       <ScanFace className="w-4 h-4" />
                       <span>Fungua Kiosk Terminal Hapa</span>
+                    </button>
+                  </div>
+
+                  {/* WAKALA & MERCHANT POS BANNER (DUKA, MGAHAWA, HOTEL, FACE CASH-IN & CASH-OUT) */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-cyan-950/60 border border-emerald-400/50 flex flex-col md:flex-row items-center justify-between gap-5 shadow-xl">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                        <Building2 className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-black text-white">
+                            Kituo cha Wakala &amp; Merchant POS (Maduka, Migahawa &amp; Hoteli)
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-bold border border-emerald-400/30">
+                            WAKALA CASH-IN / CASH-OUT
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-300">
+                          Mteja anataka kuweka pesa kwenye akaunti yake kwa uso (Face Cash-In) au kutoa pesa taslimu (Cash-Out)? Pia malipo ya haraka ya madukani, migahawani na hotelini kwa kuangalia kamera tu!
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsWakalaModalOpen(true)}
+                      className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 shrink-0 transition-all active:scale-95"
+                    >
+                      <Store className="w-4 h-4" />
+                      <span>Fungua Terminal ya Wakala Hapa</span>
                     </button>
                   </div>
 
@@ -3060,6 +3157,48 @@ export default function PapoPayHome() {
         onSuccess={(regData) => {
           setIsFaceRegistered(true);
           toast.success(`Uso wa ${regData.name} umesajiliwa kikamilifu! Sasa unaweza kulipa kwa uso.`);
+        }}
+      />
+
+      {/* PapoPay Wakala & Merchant POS (Maduka, Migahawa & Hoteli) */}
+      <PapoPayWakalaPOS
+        isOpen={isWakalaModalOpen}
+        onClose={() => setIsWakalaModalOpen(false)}
+        onBalanceDeposit={(amount, customerName) => {
+          setBalanceTZS(prev => prev + amount);
+          const newTx: TransactionItem = {
+            id: `tx_${Date.now()}`,
+            title: `Kuweka Pesa kwa Wakala (Face Cash-In)`,
+            subtitle: `Wakala Kituo: TZ-WAKALA-0842-DAR • Uso Umethibitishwa (${customerName})`,
+            amount,
+            type: 'credit',
+            category: 'deposit',
+            date: 'Leo',
+            time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
+            refCode: `WAKALA-DEP-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'completed'
+          };
+          setTransactions(prev => [newTx, ...prev]);
+          setSelectedReceipt(newTx);
+          setIsReceiptModalOpen(true);
+        }}
+        onBalanceWithdraw={(amount, customerName) => {
+          setBalanceTZS(prev => Math.max(0, prev - amount));
+          const newTx: TransactionItem = {
+            id: `tx_${Date.now()}`,
+            title: `Kutoa Pesa kwa Wakala (Face Cash-Out)`,
+            subtitle: `Wakala Kituo: TZ-WAKALA-0842-DAR • Pesa Taslimu kwa Uso (${customerName})`,
+            amount,
+            type: 'debit',
+            category: 'withdraw',
+            date: 'Leo',
+            time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
+            refCode: `WAKALA-WTH-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'completed'
+          };
+          setTransactions(prev => [newTx, ...prev]);
+          setSelectedReceipt(newTx);
+          setIsReceiptModalOpen(true);
         }}
       />
 

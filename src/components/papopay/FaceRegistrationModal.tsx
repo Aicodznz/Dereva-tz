@@ -7,6 +7,7 @@ import {
   Phone, User, Check
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
+import { BiometricFaceCanvas } from './BiometricFaceCanvas';
 import { toast } from 'sonner';
 
 interface FaceRegistrationModalProps {
@@ -314,7 +315,7 @@ export const FaceRegistrationModal: React.FC<FaceRegistrationModalProps> = ({
             {/* STEP 2: CAMERA CAPTURE */}
             {step === 'camera_capture' && (
               <div className="space-y-4 flex flex-col items-center">
-                <div className="relative w-60 h-60 rounded-full overflow-hidden border-4 border-cyan-500/50 bg-black flex items-center justify-center shadow-inner">
+                <div className="relative w-64 h-64 rounded-full overflow-hidden border-4 border-cyan-500/60 bg-black flex items-center justify-center shadow-2xl shadow-cyan-950/60">
                   <video
                     ref={videoRef}
                     playsInline
@@ -324,16 +325,26 @@ export const FaceRegistrationModal: React.FC<FaceRegistrationModalProps> = ({
                   />
                   <canvas ref={canvasRef} className="hidden" />
 
-                  {/* Biometric overlay */}
+                  {/* High-Performance 3D Biometric Face Canvas */}
+                  <BiometricFaceCanvas
+                    phase="align_center"
+                    isUnregistered={false}
+                    hudMode="mesh"
+                    faceConfidence={99.1}
+                    lightingQuality={94}
+                    distanceCm={42}
+                  />
+
+                  {/* Biometric overlay ring */}
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-                      className="w-48 h-48 rounded-full border-2 border-dashed border-cyan-400/50"
+                      className="w-52 h-52 rounded-full border-2 border-dashed border-cyan-400/50"
                     />
                     <div className="absolute inset-4 border border-cyan-400/20 rounded-full" />
-                    <span className="absolute bottom-4 text-[9px] font-mono text-cyan-300 bg-black/70 px-2 py-0.5 rounded-full">
-                      ANGALIA HAPA
+                    <span className="absolute bottom-3 text-[9px] font-mono text-cyan-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-cyan-500/30">
+                      468 MESH POINTS &bull; LIVE TRACKING
                     </span>
                   </div>
                 </div>
