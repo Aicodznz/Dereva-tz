@@ -13,7 +13,7 @@ import {
   Scan, Activity, UserX, UserPlus
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../AuthContext';
@@ -870,19 +870,33 @@ export default function PapoPayHome() {
                 </span>
               </button>
 
-              {/* Wakala & Merchant POS (Kuweka Pesa kwa Uso & Maduka) */}
-              <button
-                onClick={() => setIsWakalaModalOpen(true)}
+              {/* Dedicated Wakala Panel */}
+              <Link
+                to="/wakala"
                 className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 group"
               >
                 <div className="flex items-center gap-3">
-                  <Store className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
-                  <span>Wakala &amp; POS (Madukani/Hotel)</span>
+                  <Banknote className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  <span>Portal ya Wakala (Cash-In/Out)</span>
                 </div>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30">
                   WAKALA
                 </span>
-              </button>
+              </Link>
+
+              {/* Dedicated Merchant POS Panel */}
+              <Link
+                to="/merchant"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 group"
+              >
+                <div className="flex items-center gap-3">
+                  <ScanFace className="w-4 h-4 text-cyan-500 group-hover:scale-110 transition-transform" />
+                  <span>Merchant POS (Maduka &amp; Hotel)</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30">
+                  POS
+                </span>
+              </Link>
 
               {/* My Virtual Cards & Student NFC */}
               <button
@@ -2138,34 +2152,53 @@ export default function PapoPayHome() {
                     </button>
                   </div>
 
-                  {/* WAKALA & MERCHANT POS BANNER (DUKA, MGAHAWA, HOTEL, FACE CASH-IN & CASH-OUT) */}
-                  <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-cyan-950/60 border border-emerald-400/50 flex flex-col md:flex-row items-center justify-between gap-5 shadow-xl">
+                  {/* WAKALA & MERCHANT POS BANNER (DEDICATED PANELS) */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-cyan-950/60 border border-emerald-400/50 flex flex-col lg:flex-row items-center justify-between gap-5 shadow-xl">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
                         <Building2 className="w-7 h-7" />
                       </div>
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h4 className="text-base font-black text-white">
-                            Kituo cha Wakala &amp; Merchant POS (Maduka, Migahawa &amp; Hoteli)
+                            Portals za Wakala &amp; Merchant POS (Panel Zao Maalum)
                           </h4>
                           <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-bold border border-emerald-400/30">
-                            WAKALA CASH-IN / CASH-OUT
+                            PANEL ZA KUJITEGEMEA
                           </span>
                         </div>
                         <p className="text-xs text-neutral-300">
-                          Mteja anataka kuweka pesa kwenye akaunti yake kwa uso (Face Cash-In) au kutoa pesa taslimu (Cash-Out)? Pia malipo ya haraka ya madukani, migahawani na hotelini kwa kuangalia kamera tu!
+                          Mawakala na Wamiliki wa Maduka, Migahawa &amp; Hoteli wana paneli zao maalum za kujisajili, kulogin, na kusimamia malipo ya uso bila kuwa sawa na watumiaji wa kawaida!
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsWakalaModalOpen(true)}
-                      className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 shrink-0 transition-all active:scale-95"
-                    >
-                      <Store className="w-4 h-4" />
-                      <span>Fungua Terminal ya Wakala Hapa</span>
-                    </button>
+
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full lg:w-auto">
+                      <Link
+                        to="/wakala"
+                        className="flex-1 lg:flex-initial px-5 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                      >
+                        <Banknote className="w-4 h-4" />
+                        <span>Fungua Panel ya Wakala</span>
+                      </Link>
+
+                      <Link
+                        to="/merchant"
+                        className="flex-1 lg:flex-initial px-5 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                      >
+                        <ScanFace className="w-4 h-4" />
+                        <span>Fungua Merchant POS</span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsWakalaModalOpen(true)}
+                        className="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors"
+                        title="Fungua terminal ya haraka hapa"
+                      >
+                        <Store className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* BIOMETRIC ENROLLMENT & ANTI-SPOOFING MANAGEMENT (MURTAZA SECURITY ENGINE) */}

@@ -30,6 +30,12 @@ import RegisterChoice from './components/auth/RegisterChoice';
 import RegisterCustomer from './components/auth/RegisterCustomer';
 import RegisterDriver from './components/auth/RegisterDriver';
 import RegisterVendor from './components/auth/RegisterVendor';
+import RegisterWakala from './components/auth/RegisterWakala';
+import RegisterMerchantPOS from './components/auth/RegisterMerchantPOS';
+import WakalaLogin from './components/auth/WakalaLogin';
+import MerchantLogin from './components/auth/MerchantLogin';
+import WakalaDashboard from './components/wakala/WakalaDashboard';
+import MerchantPOSDashboard from './components/merchant/MerchantPOSDashboard';
 
 import TaxiBooking from './components/TaxiBooking';
 import CarRental from './components/CarRental';
@@ -105,6 +111,21 @@ function AppContent() {
         <Route path="/register/customer" element={<RegisterCustomer />} />
         <Route path="/register/driver" element={<RegisterDriver />} />
         <Route path="/register/vendor" element={<RegisterVendor />} />
+        <Route path="/register/wakala" element={<RegisterWakala />} />
+        <Route path="/register/merchant" element={<RegisterMerchantPOS />} />
+
+        {/* Dedicated Wakala & Merchant POS Auth Routes */}
+        <Route path="/wakala/login" element={<WakalaLogin />} />
+        <Route path="/merchant/login" element={<MerchantLogin />} />
+        <Route path="/pos/login" element={<MerchantLogin />} />
+
+        {/* Dedicated Wakala & Merchant POS Standalone Portals */}
+        <Route path="/wakala" element={<WakalaDashboard />} />
+        <Route path="/wakala/dashboard" element={<WakalaDashboard />} />
+        <Route path="/merchant" element={<MerchantPOSDashboard />} />
+        <Route path="/merchant/dashboard" element={<MerchantPOSDashboard />} />
+        <Route path="/merchant-pos" element={<MerchantPOSDashboard />} />
+        <Route path="/pos" element={<MerchantPOSDashboard />} />
 
         {/* App Routes (With Layout) */}
         <Route element={<Layout />}>

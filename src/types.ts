@@ -1,4 +1,4 @@
-export type UserRole = 'customer' | 'vendor' | 'rider' | 'driver' | 'admin';
+export type UserRole = 'customer' | 'vendor' | 'rider' | 'driver' | 'admin' | 'wakala' | 'merchant_pos';
 
 export interface UserProfile {
   uid: string;
@@ -12,6 +12,16 @@ export interface UserProfile {
   createdAt: any;
   approvalStatus?: 'pending' | 'approved' | 'suspended';
   status?: string;
+  // Wakala fields
+  wakalaId?: string;
+  wakalaFloatBalance?: number;
+  commissionEarned?: number;
+  agentLocation?: string;
+  // Merchant POS fields
+  posTerminalId?: string;
+  merchantCategory?: 'duka' | 'mgahawa' | 'hotel' | 'other';
+  merchantStoreName?: string;
+  settlementAccount?: string;
   driverType?: 'taxi' | 'delivery';
   vehicleType?: string;
   driverRegVehicle?: string;

@@ -1,6 +1,6 @@
 import React from 'react';
 import AuthLayout from './AuthLayout';
-import { ShoppingBag, Truck, Store, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Truck, Store, ArrowRight, Banknote, ScanFace } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../../AuthContext';
@@ -19,23 +19,37 @@ export default function RegisterChoice() {
   const options = [
     {
       title: "I'm a Customer",
-      subtitle: "Mimi ni Mteja",
+      subtitle: "Mimi ni Mteja (PapoPay Mkoba & Huduma)",
       icon: ShoppingBag,
-      color: "bg-blue-50 text-blue-600",
+      color: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
       path: "/register/customer"
     },
     {
+      title: "Wakala wa PapoPay",
+      subtitle: "Kituo cha Kuweka & Kutoa Pesa kwa Uso (Cash-In / Cash-Out)",
+      icon: Banknote,
+      color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+      path: "/register/wakala"
+    },
+    {
+      title: "Merchant POS (Maduka & Hoteli)",
+      subtitle: "Duka, Mgahawa, Hotel & Kaunta ya Malipo ya Uso",
+      icon: ScanFace,
+      color: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-400",
+      path: "/register/merchant"
+    },
+    {
       title: "I'm a Driver",
-      subtitle: "Mimi ni Dereva",
+      subtitle: "Mimi ni Dereva (Taxi & Safari)",
       icon: Truck,
-      color: "bg-green-50 text-green-600",
+      color: "bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400",
       path: "/register/driver"
     },
     {
       title: "I'm a Vendor",
-      subtitle: "Mimi ni Muuzaji",
+      subtitle: "Mimi ni Muuzaji wa Bidhaa / Duka Mtandaoni",
       icon: Store,
-      color: "bg-orange-50 text-orange-600",
+      color: "bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400",
       path: "/register/vendor"
     }
   ];

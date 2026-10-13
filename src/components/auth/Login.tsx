@@ -159,7 +159,24 @@ export default function Login() {
           </Button>
         </div>
 
-        <p className="text-center text-sm text-neutral-600 mt-6">
+        <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to="/wakala/login"
+              className="py-2.5 px-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors"
+            >
+              <span>Wakala Login</span>
+            </Link>
+            <Link
+              to="/merchant/login"
+              className="py-2.5 px-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-cyan-100 transition-colors"
+            >
+              <span>Merchant POS</span>
+            </Link>
+          </div>
+        </div>
+
+        <p className="text-center text-sm text-neutral-600 mt-4">
           {t('dont_have_account')}{' '}
           <Link to="/register" className="text-orange-600 font-bold hover:underline">
             {t('sign_up')}
