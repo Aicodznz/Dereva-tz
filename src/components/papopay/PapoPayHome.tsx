@@ -9,7 +9,8 @@ import {
   Utensils, Store, Banknote, ShoppingBag, Scissors, Pill, Building2, 
   Flame, MapPin, Coffee, LayoutGrid, Calendar, ArrowLeftRight, 
   Layers, TrendingUp, Gift, Tag, Link2, MessageSquare, Trophy, 
-  UserCheck, X, FileText, Globe, Clock, Shield, Sliders
+  UserCheck, X, FileText, Globe, Clock, Shield, Sliders, ScanFace, Smile,
+  Scan, Activity
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -17,6 +18,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../AuthContext';
 import { useLanguage } from '../../LanguageContext';
+import { FacePaymentModal } from '../tegex/FacePaymentModal';
+import { PapoPayKioskTerminal } from './PapoPayKioskTerminal';
+import { PysourceVisionCheckout } from './PysourceVisionCheckout';
 
 export type PapoPayNavSection = 
   | 'overview' 
@@ -136,8 +140,18 @@ export default function PapoPayHome() {
   const [topUpPhone, setTopUpPhone] = useState(profile?.phoneNumber || '0754 123 456');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
 
-  // NFC Interactive state
-  const [nfcSubCategory, setNfcSubCategory] = useState<'restaurant' | 'services' | 'transit'>('restaurant');
+  // NFC & Face Payment Interactive state
+  const [nfcSubCategory, setNfcSubCategory] = useState<'restaurant' | 'services' | 'transit' | 'face' | 'vision_checkout'>('restaurant');
+  const [isFacePayModalOpen, setIsFacePayModalOpen] = useState(false);
+  const [isKioskModalOpen, setIsKioskModalOpen] = useState(false);
+  const [isVisionCheckoutOpen, setIsVisionCheckoutOpen] = useState(false);
+  const [isFaceIdActive, setIsFaceIdActive] = useState(true);
+  const [faceDailyLimit, setFaceDailyLimit] = useState(500000);
+  const [facePayTarget, setFacePayTarget] = useState<{ amount: number; recipient: string; service: string }>({
+    amount: 25500,
+    recipient: 'Papo Hapo Ocean View Grill',
+    service: 'Meza No. 04 - Chakula'
+  });
   const [isNfcPayingRestaurant, setIsNfcPayingRestaurant] = useState(false);
   const [isNfcWithdrawing, setIsNfcWithdrawing] = useState(false);
   const [isNfcDepositing, setIsNfcDepositing] = useState(false);
@@ -799,6 +813,34 @@ export default function PapoPayHome() {
                 </span>
               </button>
 
+              {/* Express Kiosk Terminal (Murtaza AI) */}
+              <button
+                onClick={() => setIsKioskModalOpen(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 group"
+              >
+                <div className="flex items-center gap-3">
+                  <ScanFace className="w-4 h-4 text-cyan-500 group-hover:scale-110 transition-transform" />
+                  <span>Kiosk &amp; Mageti ya BRT</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-400/30">
+                  KIOSK
+                </span>
+              </button>
+
+              {/* Smart Shopping Cart / Kaunta ya Vitu (Pysource YOLO Vision) */}
+              <button
+                onClick={() => setIsVisionCheckoutOpen(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 group"
+              >
+                <div className="flex items-center gap-3">
+                  <Scan className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+                  <span>Kaunta ya Vitu (YOLO)</span>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30">
+                  YOLO
+                </span>
+              </button>
+
               {/* My Virtual Cards & Student NFC */}
               <button
                 onClick={() => setActiveSection('virtual_cards')}
@@ -1091,6 +1133,82 @@ export default function PapoPayHome() {
                     </div>
                   </div>
                   <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center justify-center transition-colors">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Card 4b: Face Payment (Smile to Pay) */}
+                <div 
+                  onClick={() => {
+                    setActiveSection('make_payment');
+                    setNfcSubCategory('face');
+                  }}
+                  className="p-4 rounded-3xl bg-white dark:bg-[#111625] border border-cyan-300/80 dark:border-cyan-800/80 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shadow-xs">
+                      <ScanFace className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black font-mono text-neutral-900 dark:text-white">
+                        Face Payment
+                      </h3>
+                      <span className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">Smile-to-Pay ⚡</span>
+                    </div>
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300 flex items-center justify-center transition-colors">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Card 4c: Express Terminal Kiosk (Murtaza AI) */}
+                <div 
+                  onClick={() => setIsKioskModalOpen(true)}
+                  className="p-4 rounded-3xl bg-gradient-to-r from-cyan-950/10 via-blue-950/10 to-indigo-950/10 dark:bg-[#0f172a] border border-cyan-400/50 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 flex items-center justify-center shadow-xs border border-cyan-400/30">
+                      <Store className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-base sm:text-lg font-black font-mono text-neutral-900 dark:text-white">
+                          Kiosk Terminal
+                        </h3>
+                        <span className="px-1.5 py-0.2 rounded bg-cyan-400/20 text-cyan-600 dark:text-cyan-300 text-[9px] font-black uppercase">
+                          AI
+                        </span>
+                      </div>
+                      <span className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">Kaunta &amp; Mageti ya BRT</span>
+                    </div>
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-cyan-500 text-white flex items-center justify-center shadow-xs transition-transform group-hover:translate-x-0.5">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Card 4d: Smart Kaunta ya Vitu (Pysource YOLO Vision) */}
+                <div 
+                  onClick={() => setIsVisionCheckoutOpen(true)}
+                  className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950/15 via-teal-950/10 to-cyan-950/15 dark:bg-[#061817] border border-emerald-400/50 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group relative overflow-hidden"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shadow-xs border border-emerald-400/30">
+                      <Scan className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-base sm:text-lg font-black font-mono text-neutral-900 dark:text-white">
+                          Kaunta ya Vitu
+                        </h3>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-400/20 text-emerald-600 dark:text-emerald-300 text-[9px] font-black uppercase">
+                          YOLO
+                        </span>
+                      </div>
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Pysource Smart Checkout</span>
+                    </div>
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-emerald-500 text-neutral-950 flex items-center justify-center shadow-xs transition-transform group-hover:translate-x-0.5 font-black">
                     <ArrowUpRight className="w-4 h-4" />
                   </div>
                 </div>
@@ -1520,18 +1638,24 @@ export default function PapoPayHome() {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
                     { id: 'restaurant', label: '🍽️ Migahawani & Cafe' },
                     { id: 'transit', label: '🚌 Daladala & BRT' },
-                    { id: 'services', label: '🛍️ Maduka & Saluni' }
+                    { id: 'services', label: '🛍️ Maduka & Saluni' },
+                    { id: 'face', label: '✨ Lipa kwa Uso (Face Pay)' },
+                    { id: 'vision_checkout', label: '🛒 Kaunta ya Vitu (YOLO)' }
                   ].map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setNfcSubCategory(cat.id as any)}
                       className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
                         nfcSubCategory === cat.id
-                          ? 'bg-[#3b66f5] text-white shadow-md'
+                          ? (cat.id === 'face' 
+                              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md' 
+                              : cat.id === 'vision_checkout'
+                                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                                : 'bg-[#3b66f5] text-white shadow-md')
                           : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200'
                       }`}
                     >
@@ -1597,18 +1721,36 @@ export default function PapoPayHome() {
                       <p className="text-xs text-emerald-700 dark:text-emerald-300">
                         Gusa simu yako au kadi ya PapoPay kwenye stika ya NFC ya Meza No. 04. Mfumo utakusanya bili, kuwajulisha jikoni kuwa umelipa, na kukupatia Stakabadhi ya EFD ya TRA papo hapo.
                       </p>
-                      <button
-                        disabled={isNfcPayingRestaurant}
-                        onClick={() => handleNfcRestaurantPay('Papo Hapo Ocean View Grill', 'Meza No. 04', 'Samaki wa Kupaka + Chips + Juice', 25500)}
-                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
-                      >
-                        {isNfcPayingRestaurant ? (
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Radio className="w-5 h-5" />
-                        )}
-                        <span>Gusisha Mezani (Lipa TZS 25,500 Sasa)</span>
-                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          disabled={isNfcPayingRestaurant}
+                          onClick={() => handleNfcRestaurantPay('Papo Hapo Ocean View Grill', 'Meza No. 04', 'Samaki wa Kupaka + Chips + Juice', 25500)}
+                          className="py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        >
+                          {isNfcPayingRestaurant ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Radio className="w-4 h-4" />
+                          )}
+                          <span>Gusisha NFC (TZS 25,500)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFacePayTarget({
+                              amount: 25500,
+                              recipient: 'Papo Hapo Ocean View Grill',
+                              service: 'Meza No. 04 - Bili ya Chakula'
+                            });
+                            setIsFacePayModalOpen(true);
+                          }}
+                          className="py-4 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        >
+                          <ScanFace className="w-4 h-4 animate-pulse" />
+                          <span>Lipa kwa Uso (Face Pay) ⚡</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1750,6 +1892,344 @@ export default function PapoPayHome() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. DEDICATED FACE PAYMENT SHOWCASE & QUICK PAY (NICHOLAS RENOTTE & MURTAZA AI) */}
+              {nfcSubCategory === 'face' && (
+                <div className="space-y-6">
+                  {/* Hero Banner for Face Pay */}
+                  <div className="p-8 rounded-[36px] bg-gradient-to-br from-[#0b162c] via-[#102447] to-[#0d121f] text-white border border-cyan-500/30 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+                    
+                    <div className="relative z-10 max-w-2xl space-y-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-300 text-xs font-black uppercase tracking-wider">
+                        <ScanFace className="w-3.5 h-3.5 animate-pulse" />
+                        <span>Smile-to-Pay Biometric Revolution ⚡</span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                        Lipa kwa Tabasamu: Hakuna Simu ya Mkononi, Hakuna Kadi wala PIN!
+                      </h3>
+
+                      <p className="text-sm text-cyan-100/80 leading-relaxed">
+                        Teknolojia ya kisasa ya Computer Vision &amp; Deep Learning (Face Biometrics yenye 468 facial mesh points na liveness detection). Unaangalia kamera ya muuzaji au dereva, unatabasamu, na malipo yanapita papo hapo kwa sekunde 2.
+                      </p>
+
+                      <div className="pt-2 flex flex-wrap gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFacePayTarget({
+                              amount: 5000,
+                              recipient: 'PapoPay Demo Checkout',
+                              service: 'Jaribio la Biometric Liveness Scan'
+                            });
+                            setIsFacePayModalOpen(true);
+                          }}
+                          className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/25 flex items-center gap-2 active:scale-95 transition-all"
+                        >
+                          <ScanFace className="w-4 h-4" />
+                          <span>Jaribu Kulipa kwa Uso Sasa (Demo)</span>
+                        </button>
+
+                        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-mono text-cyan-300">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          <span>Anti-Spoofing &bull; 99.8% Usahihi</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3 Quick Face-Payment Merchant Presets */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {[
+                      {
+                        title: 'Kahawa & Pastry (Cafe)',
+                        merchant: 'Kariakoo Specialty Coffee',
+                        amount: 6500,
+                        tag: 'SMILE TO PAY',
+                        desc: 'Cappuccino kubwa + Croissant'
+                      },
+                      {
+                        title: 'Supermarket Express Check-out',
+                        merchant: 'Shoppers Plaza Mikocheni',
+                        amount: 32000,
+                        tag: 'FACE KIOSK',
+                        desc: 'Bila kusubiri foleni kaunta'
+                      },
+                      {
+                        title: 'Nauli ya Bolt / Papo Hapo',
+                        merchant: 'Dereva Hamisi (Toyota Crown)',
+                        amount: 14500,
+                        tag: 'RIDE PAY',
+                        desc: 'Masaki ➔ Uwanja wa Ndege (JNIA)'
+                      }
+                    ].map((item, idx) => (
+                      <div 
+                        key={idx}
+                        className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-cyan-500/20 dark:border-cyan-500/10 shadow-xs hover:border-cyan-500/40 transition-all flex flex-col justify-between space-y-4"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800">
+                              {item.tag}
+                            </span>
+                            <span className="font-mono text-base font-black text-neutral-900 dark:text-white">
+                              TZS {item.amount.toLocaleString()}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-black text-neutral-900 dark:text-white">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-neutral-500">
+                            {item.merchant} &bull; {item.desc}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFacePayTarget({
+                              amount: item.amount,
+                              recipient: item.merchant,
+                              service: item.title
+                            });
+                            setIsFacePayModalOpen(true);
+                          }}
+                          className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                        >
+                          <ScanFace className="w-4 h-4" />
+                          <span>Lipa TZS {item.amount.toLocaleString()} kwa Uso</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* KIOSK TERMINAL LAUNCHER BANNER (MURTAZA'S WORKSHOP) */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-900/40 via-cyan-900/30 to-indigo-900/40 border border-cyan-400/40 flex flex-col md:flex-row items-center justify-between gap-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-400 text-cyan-400 flex items-center justify-center shrink-0 shadow-lg shadow-cyan-500/20">
+                        <Store className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-black text-white">
+                            PapoPay Express Terminal (Kiosk &amp; Mageti ya BRT)
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 text-[10px] font-bold">
+                            Murtaza AI
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-300">
+                          Mfumo wa Skrini ya Kaunta, Self-Checkout na Mageti ya Moja kwa Moja ya Treni/BRT (Turnstile Auto Gate Passage).
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsKioskModalOpen(true)}
+                      className="w-full md:w-auto px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/30 flex items-center justify-center gap-2 shrink-0 transition-all active:scale-95"
+                    >
+                      <ScanFace className="w-4 h-4" />
+                      <span>Fungua Kiosk Terminal Hapa</span>
+                    </button>
+                  </div>
+
+                  {/* BIOMETRIC ENROLLMENT & ANTI-SPOOFING MANAGEMENT (MURTAZA SECURITY ENGINE) */}
+                  <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
+                    <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800/80 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-neutral-900 dark:text-white">
+                            Usimamizi wa Face ID &amp; Anti-Spoofing Profile
+                          </h4>
+                          <p className="text-xs text-neutral-400">
+                            Usalama wa kibayometriki &bull; Murtaza OpenCV + MediaPipe Engine
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1.5 ${
+                        isFaceIdActive 
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-neutral-500/10 text-neutral-500'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${isFaceIdActive ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`} />
+                        {isFaceIdActive ? 'Face ID: Active' : 'Face ID: Imesitishwa'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-neutral-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-neutral-400">Mesh Landmarks</span>
+                        <div className="text-lg font-black text-cyan-600 dark:text-cyan-400 font-mono">
+                          468 Points
+                        </div>
+                        <p className="text-[10px] text-neutral-500">Murtaza cvzone Vector</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-neutral-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-neutral-400">Anti-Spoofing Rating</span>
+                        <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                          99.8% Genuine Live
+                        </div>
+                        <p className="text-[10px] text-neutral-500">Ulinzi wa Picha Feki / Video</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-neutral-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-neutral-400">Kikomo kwa Siku</span>
+                        <div className="text-lg font-black text-blue-600 dark:text-blue-400 font-mono">
+                          TZS {faceDailyLimit.toLocaleString()}
+                        </div>
+                        <p className="text-[10px] text-neutral-500">Max Face Transaction</p>
+                      </div>
+                    </div>
+
+                    {/* Limit Selector & Quick Controls */}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-neutral-600 dark:text-neutral-400">Kikomo cha Siku:</span>
+                        {[100000, 250000, 500000, 1000000].map(limit => (
+                          <button
+                            key={limit}
+                            type="button"
+                            onClick={() => {
+                              setFaceDailyLimit(limit);
+                              toast.success(`Kikomo cha Face Pay kimewekwa kuwa TZS ${limit.toLocaleString()}`);
+                            }}
+                            className={`px-2.5 py-1 rounded-xl font-mono font-bold transition-all ${
+                              faceDailyLimit === limit 
+                                ? 'bg-cyan-500 text-white shadow-xs' 
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200'
+                            }`}
+                          >
+                            {limit >= 1000000 ? `${limit/1000000}M` : `${limit/1000}k`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFaceIdActive(!isFaceIdActive);
+                            toast(isFaceIdActive ? 'Face Pay imesitishwa kwa muda' : 'Face Pay imewashwa tena!');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                            isFaceIdActive 
+                              ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/30' 
+                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30'
+                          }`}
+                        >
+                          {isFaceIdActive ? 'Sitisha Face Pay' : 'Washa Face Pay'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFacePayTarget({
+                              amount: 2500,
+                              recipient: 'PapoPay Biometric Health Test',
+                              service: 'Uhakiki wa Uhai & Kupepesa Macho'
+                            });
+                            setIsFacePayModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-bold"
+                        >
+                          Fanya Jaribio la Liveness Check
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. SMART SHOPPING CART & KAUNTA YA VITU (PYSOURCE YOLO VISION) */}
+              {nfcSubCategory === 'vision_checkout' && (
+                <div className="space-y-6">
+                  {/* Hero Showcase Banner */}
+                  <div className="p-8 rounded-[36px] bg-gradient-to-br from-[#061817] via-[#092b28] to-[#0c1f2e] text-white border border-emerald-500/40 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-10 -left-10 w-80 h-80 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="relative z-10 max-w-2xl space-y-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/30 text-emerald-300 text-xs font-black uppercase tracking-wider">
+                        <Scan className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                        <span>Teknolojia ya Pysource &bull; Sergio Canu Computer Vision</span>
+                      </div>
+
+                      <h3 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+                        Kaunta ya Vitu &amp; Smart Shopping Cart <br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
+                          Bila Kuchanganua Barcode Moja Moja!
+                        </span>
+                      </h3>
+
+                      <p className="text-sm text-neutral-300 leading-relaxed">
+                        Mteja anapoweka bidhaa zake mezani au kwenye trei ya kaunta ya supermarket, kamera ya juu (Top-down Camera) inazitambua zote kwa wakati mmoja kwa kutumia <strong>YOLO Instance Detection</strong>, kuhesabu bili kamili, na kutoa fursa ya kulipa kwa uso au kadi kwa sekunde 1 tu.
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-4 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsVisionCheckoutOpen(true)}
+                          className="px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-xl shadow-emerald-500/30 flex items-center gap-2.5 active:scale-95 transition-all"
+                        >
+                          <Scan className="w-4 h-4" />
+                          <span>Fungua Kaunta ya Vitu Sasa (Live YOLO Scanner)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsKioskModalOpen(true)}
+                          className="px-5 py-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-bold text-xs uppercase tracking-wider transition-all"
+                        >
+                          Fungua Kiosk Terminal Mode
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Highlights Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center font-black">
+                        <Zap className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-base font-black text-neutral-900 dark:text-white">
+                        Multi-Object YOLOv11 Tracking
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Inatambua bidhaa zaidi ya 10 zikiwa zimerundikwa au kupangwa pamoja mezani kwa chini ya milisekunde 18 bila kuhitaji kugeuza bidhaa kutafuta barcode.
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 flex items-center justify-center font-black">
+                        <Activity className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-base font-black text-neutral-900 dark:text-white">
+                        Uhesabuji wa Bili Kiotomatiki
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Bili inajisasisha mara moja kitu kinapowekwa au kuondolewa mezani, ikiwemo Kodi ya Ongezeko la Thamani (TRA VAT 18%) na punguzo la ofa.
+                      </p>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center font-black">
+                        <ScanFace className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-base font-black text-neutral-900 dark:text-white">
+                        Malipo ya Uso (Face Pay) Kauntani
+                      </h4>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        Baada ya YOLO kukokotoa vitu, mteja anatazama tu skrini ya kaunta, anathibitisha kwa kupepesa macho, na kiasi kinakatwa kutoka mkoba wa PapoPay papo hapo.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2414,6 +2894,84 @@ export default function PapoPayHome() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* PapoPay Face Payment (Smile-to-Pay) Modal */}
+      <FacePaymentModal
+        isOpen={isFacePayModalOpen}
+        amount={facePayTarget.amount}
+        recipientName={facePayTarget.recipient}
+        serviceTitle={facePayTarget.service}
+        onClose={() => setIsFacePayModalOpen(false)}
+        onSuccess={(receipt) => {
+          setIsFacePayModalOpen(false);
+          const val = receipt.amount;
+          setBalanceTZS(prev => Math.max(0, prev - val));
+          
+          const newTx: TransactionItem = {
+            id: `tx_${Date.now()}`,
+            title: `Malipo ya Uso (Face Pay) - ${facePayTarget.recipient}`,
+            subtitle: `${facePayTarget.service} • Smile-to-Pay Verified (${receipt.faceScore}%)`,
+            amount: val,
+            type: 'debit',
+            category: 'merchant',
+            date: 'Leo',
+            time: receipt.time,
+            refCode: `TRX: ${receipt.txId}`,
+            status: 'completed'
+          };
+
+          setTransactions(prev => [newTx, ...prev]);
+          setSelectedReceipt(newTx);
+          setIsReceiptModalOpen(true);
+        }}
+      />
+
+      {/* PapoPay Express Terminal (Murtaza AI Kiosk & Mageti ya BRT) */}
+      <PapoPayKioskTerminal
+        isOpen={isKioskModalOpen}
+        onClose={() => setIsKioskModalOpen(false)}
+        onBalanceDeduct={(amount, description) => {
+          setBalanceTZS(prev => Math.max(0, prev - amount));
+          const newTx: TransactionItem = {
+            id: `tx_${Date.now()}`,
+            title: `Kiosk Terminal - ${description}`,
+            subtitle: `Murtaza AI Face Recognition Pass (TZ-DAR-KIOSK-048)`,
+            amount,
+            type: 'debit',
+            category: 'merchant',
+            date: 'Leo',
+            time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
+            refCode: `KIO-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'completed'
+          };
+          setTransactions(prev => [newTx, ...prev]);
+        }}
+      />
+
+      {/* Smart Shopping Cart / Kaunta ya Vitu (Pysource YOLO Vision) */}
+      <PysourceVisionCheckout
+        isOpen={isVisionCheckoutOpen}
+        onClose={() => setIsVisionCheckoutOpen(false)}
+        userBalance={balanceTZS}
+        onPaymentSuccess={(amount, receiptDesc) => {
+          setBalanceTZS(prev => Math.max(0, prev - amount));
+          const newTx: TransactionItem = {
+            id: `tx_${Date.now()}`,
+            title: `Smart Kaunta (YOLO) - ${receiptDesc}`,
+            subtitle: `Pysource Vision Multi-Item Checkout (No Barcode Required)`,
+            amount,
+            type: 'debit',
+            category: 'merchant',
+            date: 'Leo',
+            time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
+            refCode: `YOLO-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'completed'
+          };
+          setTransactions(prev => [newTx, ...prev]);
+          setSelectedReceipt(newTx);
+          setIsReceiptModalOpen(true);
+        }}
+      />
 
     </div>
   );
