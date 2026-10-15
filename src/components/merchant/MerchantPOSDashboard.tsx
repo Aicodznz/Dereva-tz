@@ -505,6 +505,7 @@ export default function MerchantPOSDashboard() {
 
               {/* 3D Face Biometric Canvas */}
               <BiometricFaceCanvas
+                videoRef={videoRef}
                 phase={
                   verificationPhase === 'unregistered'
                     ? 'unregistered'

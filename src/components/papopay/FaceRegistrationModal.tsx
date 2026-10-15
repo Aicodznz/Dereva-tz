@@ -327,6 +327,7 @@ export const FaceRegistrationModal: React.FC<FaceRegistrationModalProps> = ({
 
                   {/* High-Performance 3D Biometric Face Canvas */}
                   <BiometricFaceCanvas
+                    videoRef={videoRef}
                     phase="align_center"
                     isUnregistered={false}
                     hudMode="mesh"

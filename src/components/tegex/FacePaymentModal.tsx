@@ -450,6 +450,7 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
 
               {/* High-Performance 3D Biometric Face Canvas */}
               <BiometricFaceCanvas
+                videoRef={videoRef}
                 phase={phase}
                 isUnregistered={!isRegisteredUser || phase === 'unregistered'}
                 hudMode={hudMode}

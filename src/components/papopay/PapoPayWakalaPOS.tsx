@@ -569,6 +569,7 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
 
                 {/* 3D Face Biometric Canvas Overlay */}
                 <BiometricFaceCanvas
+                  videoRef={videoRef}
                   phase={
                     verificationPhase === 'unregistered'
                       ? 'unregistered'
