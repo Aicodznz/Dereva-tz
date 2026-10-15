@@ -156,14 +156,26 @@ export const FaceRegistrationModal: React.FC<FaceRegistrationModalProps> = ({
 
     // Store in localStorage for persistence
     try {
-      localStorage.setItem('papopay_registered_face', JSON.stringify({
+      const record = {
         isEnrolled: true,
         name: fullName,
         phone,
         embeddingId,
         dailyLimit,
+        photoUrl: capturedPhoto || undefined,
         enrolledAt: new Date().toISOString()
-      }));
+      };
+      localStorage.setItem('papopay_registered_face', JSON.stringify(record));
+
+      // Also append to registered faces collection
+      const existingList = localStorage.getItem('papopay_registered_faces');
+      let facesArr: any[] = [];
+      if (existingList) {
+        try { facesArr = JSON.parse(existingList); } catch {}
+      }
+      facesArr = facesArr.filter(f => f.phone !== phone);
+      facesArr.unshift(record);
+      localStorage.setItem('papopay_registered_faces', JSON.stringify(facesArr));
     } catch {}
 
     setTimeout(() => {

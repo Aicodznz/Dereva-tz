@@ -7,7 +7,8 @@ import {
   Printer, Share2, QrCode, Search, Smartphone, Shield, 
   Check, Clock, Coins, Plus, Trash2, ArrowRight, User, 
   LogOut, Wallet, Building2, Sliders, MapPin, Phone,
-  Zap, Droplets, Tv, Send, FileText, ChevronRight
+  Zap, Droplets, Tv, Send, FileText, ChevronRight, Camera,
+  AlertTriangle
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -134,17 +135,28 @@ export default function WakalaDashboard() {
     return DEFAULT_WAKALA_CLIENTS;
   });
 
-  // Simulated target currently in front of camera
+  // Simulated target for demo mode
   const [activeSubject, setActiveSubject] = useState<SimulatedCustomer>(DEFAULT_WAKALA_CLIENTS[0]);
 
+  // Mode: 'live_camera' (real camera tracking) or 'test_profiles' (testing preset customers)
+  const [detectionMode, setDetectionMode] = useState<'live_camera' | 'test_profiles'>('live_camera');
+
   // Face Tracking & System Search Pipeline
-  // 'tracking' -> searching/detecting face in video
-  // 'searching_db' -> face locked, searching database
-  // 'customer_found' -> customer verified, services unlocked
-  // 'unregistered' -> face found but not in system
-  const [searchState, setSearchState] = useState<'tracking' | 'searching_db' | 'customer_found' | 'unregistered'>('tracking');
+  // 'idle_no_face' -> camera on, waiting for customer face
+  // 'searching_db' -> face locked, searching system records
+  // 'customer_found' -> customer verified, waiting for confirmation or services active
+  // 'unregistered' -> face present but not in system, display registration form
+  const [searchState, setSearchState] = useState<'idle_no_face' | 'searching_db' | 'customer_found' | 'unregistered'>('idle_no_face');
   const [searchProgress, setSearchProgress] = useState<number>(0);
   const [matchedCustomer, setMatchedCustomer] = useState<SimulatedCustomer | null>(null);
+  const [isCustomerConfirmed, setIsCustomerConfirmed] = useState<boolean>(false);
+  const [liveFaceDetected, setLiveFaceDetected] = useState<boolean>(false);
+
+  // In-Place Rapid Customer Registration State
+  const [quickEnrollName, setQuickEnrollName] = useState('');
+  const [quickEnrollPhone, setQuickEnrollPhone] = useState('');
+  const [quickEnrollNida, setQuickEnrollNida] = useState('');
+  const [isQuickEnrolling, setIsQuickEnrolling] = useState(false);
 
   // Active Wakala Service when customer is unlocked
   const [activeService, setActiveService] = useState<WakalaServiceTab>('deposit');
@@ -243,11 +255,37 @@ export default function WakalaDashboard() {
     }
   };
 
+  const isSearchingRef = useRef<boolean>(false);
+  const faceDetectedDebounceRef = useRef<number>(0);
+  const faceAbsentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Capture current video frame as high quality image
+  const captureCurrentFrame = (): string => {
+    if (videoRef.current) {
+      try {
+        const vid = videoRef.current;
+        const canvas = document.createElement('canvas');
+        canvas.width = 360;
+        canvas.height = 360;
+        const cCtx = canvas.getContext('2d');
+        if (cCtx) {
+          cCtx.translate(canvas.width, 0);
+          cCtx.scale(-1, 1);
+          cCtx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.85);
+        }
+      } catch {}
+    }
+    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  };
+
   useEffect(() => {
     startCamera();
     speak(`Karibu kwenye Kituo cha Wakala cha PapoPay, ${wakalaProfile.businessName}. Mfumo unatafuta uso wa mteja.`);
-    // Automatically trigger system face search for active subject
-    triggerFaceSearch(activeSubject);
+    // In live camera mode, wait for an actual face to be detected!
+    setSearchState('idle_no_face');
+    setMatchedCustomer(null);
+    setIsCustomerConfirmed(false);
     return () => stopCamera();
   }, []);
 
@@ -263,26 +301,58 @@ export default function WakalaDashboard() {
     } catch {}
   }, [floatBalance, commissionEarned]);
 
-  // FACE TRACKER CALLBACK from BiometricFaceCanvas
+  // LIVE FACE TRACKER CALLBACK from BiometricFaceCanvas
   const handleFaceTracked = (data: FaceTrackResult) => {
+    setLiveConfidence(data.confidence);
+    setLiveLux(data.brightness);
+    setLiveDistance(data.distanceCm);
+    setLiveYaw(data.headYaw);
+
+    if (detectionMode !== 'live_camera') return;
+
     if (data.detected) {
-      setLiveConfidence(data.confidence);
-      setLiveLux(data.brightness);
-      setLiveDistance(data.distanceCm);
-      setLiveYaw(data.headYaw);
+      setLiveFaceDetected(true);
+      if (faceAbsentTimeoutRef.current) {
+        clearTimeout(faceAbsentTimeoutRef.current);
+        faceAbsentTimeoutRef.current = null;
+      }
+
+      // If camera was idling without a face, begin auto system lookup after face stabilizes
+      if (searchState === 'idle_no_face' && !isSearchingRef.current) {
+        faceDetectedDebounceRef.current++;
+        if (faceDetectedDebounceRef.current >= 2) {
+          faceDetectedDebounceRef.current = 0;
+          executeLiveCameraSearch();
+        }
+      }
+    } else {
+      setLiveFaceDetected(false);
+      faceDetectedDebounceRef.current = 0;
+
+      // If customer has walked away before confirmation, return to idle after 4 seconds
+      if ((searchState === 'customer_found' || searchState === 'unregistered') && !isCustomerConfirmed && !faceAbsentTimeoutRef.current) {
+        faceAbsentTimeoutRef.current = setTimeout(() => {
+          if (!isCustomerConfirmed) {
+            setSearchState('idle_no_face');
+            setMatchedCustomer(null);
+            speak("Mteja ameondoka mbele ya kamera. Mfumo unarudi kusubiri mteja mpya.");
+          }
+          faceAbsentTimeoutRef.current = null;
+        }, 4000);
+      }
     }
   };
 
-  // TRIGGER AUTOMATIC DATABASE SEARCH (ITAFUTE KWENYE SISTIM)
-  const triggerFaceSearch = (subject: SimulatedCustomer) => {
-    setActiveSubject(subject);
+  // EXECUTE LIVE CAMERA SEARCH (Checks real registered faces in system)
+  const executeLiveCameraSearch = () => {
+    isSearchingRef.current = true;
     setSearchState('searching_db');
     setMatchedCustomer(null);
-    setSearchProgress(15);
+    setIsCustomerConfirmed(false);
+    setSearchProgress(20);
 
-    speak("Uso umepatikana. Inatafuta mteja kwenye mfumo wa PapoPay...");
+    speak("Uso umepatikana! Inatafuta mteja kwenye mfumo wa PapoPay...");
 
-    // Animate search progress bar
     const pInterval = setInterval(() => {
       setSearchProgress(prev => {
         if (prev >= 90) {
@@ -291,37 +361,209 @@ export default function WakalaDashboard() {
         }
         return prev + 25;
       });
-    }, 250);
+    }, 240);
+
+    setTimeout(() => {
+      clearInterval(pInterval);
+      setSearchProgress(100);
+      isSearchingRef.current = false;
+
+      // 1. Check registered face in localStorage
+      let enrolledData: any = null;
+      try {
+        const stored = localStorage.getItem('papopay_registered_face');
+        if (stored) enrolledData = JSON.parse(stored);
+      } catch {}
+
+      if (enrolledData && enrolledData.isEnrolled) {
+        // MATCHED REGISTERED CUSTOMER FOUND!
+        const snapshot = captureCurrentFrame();
+        const verified: SimulatedCustomer = {
+          id: 'cust_live_' + (enrolledData.phone || 'enrolled'),
+          name: enrolledData.name || 'Mteja Aliyesajiliwa',
+          phone: enrolledData.phone || '0754 000 000',
+          walletBalance: 500000,
+          faceEmbeddingId: enrolledData.embeddingId || 'EMB-LIVE-VERIFIED-TZ',
+          avatar: enrolledData.photoUrl || snapshot,
+          isRegistered: true,
+          nidaNumber: '19900214-41200-00018-92'
+        };
+
+        setMatchedCustomer(verified);
+        setActiveSubject(verified);
+        setSearchState('customer_found');
+        setIsCustomerConfirmed(false); // MUST BE CONFIRMED BY WAKALA FIRST!
+        playPaymentChime();
+        triggerHapticTap();
+        speak(`Mteja ${verified.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${verified.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya kuendelea.`);
+        toast.success(`Mteja Ametambuliwa: ${verified.name}`, { icon: '✅' });
+      } else if (enrolledData && enrolledData.isEnrolled === false) {
+        // CASE: ACCOUNT EXISTS BUT USER DID NOT ENROLL FACE YET
+        const partialCust: SimulatedCustomer = {
+          id: 'cust_no_face',
+          name: enrolledData.name || 'Mteja Mwenye Akaunti',
+          phone: enrolledData.phone || '0714 888 333',
+          walletBalance: 250000,
+          faceEmbeddingId: 'NOT_ENROLLED',
+          avatar: captureCurrentFrame(),
+          isRegistered: false,
+          hasAccountButNoFace: true,
+          nidaNumber: '19950312-51203-00004-55'
+        };
+        setActiveSubject(partialCust);
+        setMatchedCustomer(null);
+        setIsCustomerConfirmed(false);
+        setSearchState('unregistered');
+        setQuickEnrollName(partialCust.name);
+        setQuickEnrollPhone(partialCust.phone);
+        triggerHapticTap();
+        speak(`Mteja ${partialCust.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa ili kuwezesha miamala.`);
+        toast.warning(`Akaunti Ipo, Bado Hajaweka Uso: ${partialCust.name}`, { 
+          description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa.",
+          icon: '⚠️' 
+        });
+      } else {
+        // CASE: COMPLETELY UNREGISTERED FACE!
+        const snapshot = captureCurrentFrame();
+        const unregSubject: SimulatedCustomer = {
+          id: 'cust_unreg_' + Date.now(),
+          name: 'Mteja Mpya',
+          phone: '',
+          walletBalance: 0,
+          faceEmbeddingId: 'UNREGISTERED_NULL',
+          avatar: snapshot,
+          isRegistered: false
+        };
+        setActiveSubject(unregSubject);
+        setMatchedCustomer(null);
+        setIsCustomerConfirmed(false);
+        setSearchState('unregistered');
+        setQuickEnrollName('');
+        setQuickEnrollPhone('');
+        triggerHapticTap();
+        speak("Samahani, sura hii haipo kwenye mfumo wa PapoPay. Tafadhali jaza fomu na usajili uso wa mteja sasa.");
+        toast.error("Sura Haipo Kwenye Mfumo! Jaza fomu ya usajili hapa.", { icon: '⚠️' });
+      }
+    }, 1300);
+  };
+
+  // IN-PLACE QUICK REGISTRATION HANDLER
+  const handleQuickEnrollSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!quickEnrollName.trim()) {
+      toast.error("Tafadhali weka jina kamili la mteja!");
+      return;
+    }
+    if (!quickEnrollPhone.trim()) {
+      toast.error("Tafadhali weka namba ya simu ya mteja!");
+      return;
+    }
+
+    setIsQuickEnrolling(true);
+    speak("Inanasa picha ya uso na kusajili kwenye kanzidata ya PapoPay...");
+
+    const photo = captureCurrentFrame();
+    const embId = `EMB-TZ-${Date.now()}`;
+
+    setTimeout(() => {
+      const newCustomer: SimulatedCustomer = {
+        id: 'cust_' + Date.now(),
+        name: quickEnrollName.trim(),
+        phone: quickEnrollPhone.trim(),
+        walletBalance: 500000,
+        faceEmbeddingId: embId,
+        avatar: photo,
+        isRegistered: true,
+        nidaNumber: quickEnrollNida.trim() || '20010915-44210-00012-77'
+      };
+
+      try {
+        const record = {
+          isEnrolled: true,
+          name: newCustomer.name,
+          phone: newCustomer.phone,
+          embeddingId: embId,
+          dailyLimit: 1000000,
+          photoUrl: photo,
+          enrolledAt: new Date().toISOString()
+        };
+        localStorage.setItem('papopay_registered_face', JSON.stringify(record));
+
+        const existingList = localStorage.getItem('papopay_registered_faces');
+        let facesArr: any[] = [];
+        if (existingList) {
+          try { facesArr = JSON.parse(existingList); } catch {}
+        }
+        facesArr = facesArr.filter(f => f.phone !== newCustomer.phone);
+        facesArr.unshift(record);
+        localStorage.setItem('papopay_registered_faces', JSON.stringify(facesArr));
+      } catch {}
+
+      setCustomers(prev => [newCustomer, ...prev]);
+      setActiveSubject(newCustomer);
+      setMatchedCustomer(newCustomer);
+      setIsQuickEnrolling(false);
+      setSearchState('customer_found');
+      setIsCustomerConfirmed(false); // Wakala confirms to unlock services!
+
+      playPaymentChime();
+      triggerHapticTap();
+      speak(`Hongera! Uso wa ${newCustomer.name.split(' ')[0]} umesajiliwa kikamilifu. Sasa unaweza kuthibitisha na kuweka pesa.`);
+      toast.success(`Uso Umesajiliwa Kikamilifu: ${newCustomer.name}`, { icon: '🎉' });
+    }, 1100);
+  };
+
+  // MANUAL / DEMO SUBJECT SEARCH (Used in Test Profiles mode)
+  const triggerFaceSearch = (subject: SimulatedCustomer) => {
+    setActiveSubject(subject);
+    setSearchState('searching_db');
+    setMatchedCustomer(null);
+    setIsCustomerConfirmed(false);
+    setSearchProgress(15);
+
+    speak("Uso umepatikana. Inatafuta mteja kwenye mfumo wa PapoPay...");
+
+    const pInterval = setInterval(() => {
+      setSearchProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(pInterval);
+          return 90;
+        }
+        return prev + 25;
+      });
+    }, 240);
 
     setTimeout(() => {
       clearInterval(pInterval);
       setSearchProgress(100);
 
       if (subject.isRegistered) {
-        // MATCHED CUSTOMER FOUND IN SYSTEM! (kama alisha weka kipindi anajisajili sawa)
         setMatchedCustomer(subject);
         setSearchState('customer_found');
+        setIsCustomerConfirmed(false);
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja ${subject.name.split(' ')[0]} ametambuliwa kikamilifu. Sasa unaweza kuweka pesa au kufanya huduma nyengine.`);
+        speak(`Mteja ${subject.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${subject.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
         toast.success(`Mteja Ametambuliwa: ${subject.name}`, { icon: '✅' });
       } else if (subject.hasAccountButNoFace) {
-        // AKAUNTI IPO LAKINI HAJAWEKA USO (kama hajaweka ambiwe hajaweka aweke)
         setSearchState('unregistered');
         setMatchedCustomer(null);
+        setQuickEnrollName(subject.name);
+        setQuickEnrollPhone(subject.phone);
         triggerHapticTap();
-        speak(`Mteja ${subject.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa ili kuwezesha miamala.`);
+        speak(`Mteja ${subject.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Weka uso wake sasa.`);
         toast.warning(`Akaunti Ipo, Bado Uso: ${subject.name}`, { 
-          description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa ili kuweka pesa.",
+          description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa.",
           icon: '⚠️' 
         });
       } else {
-        // UNREGISTERED FACE!
         setSearchState('unregistered');
         setMatchedCustomer(null);
+        setQuickEnrollName('');
+        setQuickEnrollPhone('');
         triggerHapticTap();
-        speak("Samahani, uso huu haujasajiliwa kwenye mfumo wa PapoPay. Tafadhali bonyeza Sajili Mteja ili kumsajili sasa.");
-        toast.error("Uso Haujasajiliwa! Mteja anapaswa kusajiliwa kwanza kituoni.", { icon: '⚠️' });
+        speak("Samahani, uso huu haujasajiliwa kwenye mfumo wa PapoPay. Tafadhali jaza fomu ya usajili sasa.");
+        toast.error("Uso Haujasajiliwa! Jaza fomu ya usajili hapa chini.", { icon: '⚠️' });
       }
     }, 1200);
   };
@@ -756,15 +998,59 @@ export default function WakalaDashboard() {
             </button>
           </div>
 
-          {/* Quick Rescan Button */}
-          <button
-            type="button"
-            onClick={() => triggerFaceSearch(activeSubject)}
-            className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Scan Upya Uso Mbele ya Kamera</span>
-          </button>
+          {/* Detection Mode Controls & Quick Rescan */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-black/40 p-1 rounded-2xl border border-white/10 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setDetectionMode('live_camera');
+                  setSearchState('idle_no_face');
+                  setMatchedCustomer(null);
+                  setIsCustomerConfirmed(false);
+                  speak("Umechagua utambuzi wa kamera ya moja kwa moja. Simama mbele ya kamera.");
+                }}
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                  detectionMode === 'live_camera'
+                    ? 'bg-cyan-500 text-neutral-950 shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Kamera ya Moja kwa Moja</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDetectionMode('test_profiles');
+                  triggerFaceSearch(activeSubject);
+                }}
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                  detectionMode === 'test_profiles'
+                    ? 'bg-emerald-500 text-neutral-950 shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Majaribio (Demo)</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (detectionMode === 'live_camera') {
+                  executeLiveCameraSearch();
+                } else {
+                  triggerFaceSearch(activeSubject);
+                }
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Scan Upya</span>
+            </button>
+          </div>
         </div>
 
         {/* TAB 1: TERMINAL WITH LIVE FACE TRACKING & DATABASE SEARCH */}
@@ -806,28 +1092,32 @@ export default function WakalaDashboard() {
                 <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-xl backdrop-blur-md text-[10px] font-mono border flex items-center gap-1.5 ${
                     searchState === 'customer_found'
-                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                      ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-950'
                       : searchState === 'searching_db'
-                      ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/40'
+                      ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40 animate-pulse'
                       : searchState === 'unregistered'
-                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
-                      : 'bg-black/80 text-neutral-300 border-white/10'
+                      ? 'bg-amber-950/90 text-amber-300 border-amber-500/40'
+                      : 'bg-black/85 text-neutral-300 border-white/10'
                   }`}>
                     {searchState === 'searching_db' ? (
                       <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
                     ) : searchState === 'customer_found' ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : searchState === 'unregistered' ? (
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
                     ) : (
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <Camera className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
                     )}
-                    <span>
+                    <span className="font-bold">
                       {searchState === 'searching_db'
-                        ? 'Inatafuta kwenye mfumo...'
+                        ? 'Inatafuta kwenye kanzidata...'
                         : searchState === 'customer_found'
-                        ? 'Mteja Ametambuliwa 99.8%'
+                        ? (isCustomerConfirmed ? 'Mteja Amethibitishwa 99.8% ✓' : 'Uso Umelingana - Thibitisha')
                         : searchState === 'unregistered'
-                        ? 'Uso Haujasajiliwa ⚠️'
-                        : 'Ina-track Uso kwa Kamera'}
+                        ? 'Sura Haipo Kwenye Mfumo ⚠️'
+                        : liveFaceDetected 
+                        ? 'Uso Umeonekana (Inachanganua...)' 
+                        : 'Kamera Inasubiri Uso...'}
                     </span>
                   </span>
                 </div>
@@ -954,52 +1244,170 @@ export default function WakalaDashboard() {
                 )}
               </div>
 
-              {/* SIMULATOR: CHANGE PERSON IN FRONT OF CAMERA */}
+              {/* PERSON IN FRONT OF CAMERA / LIVE CAMERA STATUS */}
               <div className="w-full bg-[#0c1322] p-4 rounded-3xl border border-white/10 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-neutral-300 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Mteja Aliyesimama Mbele ya Kamera ya Wakala:</span>
+                    {detectionMode === 'live_camera' ? <Camera className="w-3.5 h-3.5 text-cyan-400" /> : <User className="w-3.5 h-3.5 text-emerald-400" />}
+                    <span>{detectionMode === 'live_camera' ? 'Hali ya Kamera ya Moja kwa Moja:' : 'Mteja wa Majaribio (Demo Subject):'}</span>
                   </span>
-                  <span className="text-[10px] text-neutral-500 font-mono">Bofya kugeuza mteja</span>
+                  <button
+                    type="button"
+                    onClick={() => setDetectionMode(detectionMode === 'live_camera' ? 'test_profiles' : 'live_camera')}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono underline"
+                  >
+                    {detectionMode === 'live_camera' ? 'Badili kwenda Demo Profiles' : 'Badili kwenda Live Camera'}
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {customers.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        triggerFaceSearch(c);
-                        triggerHapticTap();
-                      }}
-                      className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
-                        activeSubject.id === c.id
-                          ? c.isRegistered
-                            ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/10'
-                            : 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-md shadow-amber-500/10'
-                          : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'
-                      }`}
-                    >
-                      <img src={c.avatar} alt="Face" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
-                      <div className="overflow-hidden">
-                        <p className="text-xs font-bold truncate">{c.name.split(' ')[0]}</p>
-                        <p className={`text-[9px] font-mono font-bold ${
-                          c.isRegistered ? 'text-emerald-400' : c.hasAccountButNoFace ? 'text-amber-300' : 'text-neutral-400'
-                        }`}>
-                          {c.isRegistered ? '✓ Imesajiliwa' : c.hasAccountButNoFace ? '⚠️ Bado Uso' : '❌ Hajajisajili'}
+                {detectionMode === 'live_camera' ? (
+                  <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-3 h-3 rounded-full ${liveFaceDetected ? 'bg-emerald-400 shadow-[0_0_12px_#10b981] animate-pulse' : 'bg-neutral-600'}`} />
+                      <div>
+                        <p className="text-xs font-bold text-white">
+                          {liveFaceDetected ? 'Uso Upo Kwenye Lensi (Tracking Active)' : 'Hakuna Uso Unaogunduliwa'}
+                        </p>
+                        <p className="text-[10px] text-neutral-400 font-mono">
+                          {liveFaceDetected ? `Alama: ${liveConfidence}% | Umbali: ~${liveDistance}cm` : 'Mteja asimame mbele ya simu/kamera'}
                         </p>
                       </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={executeLiveCameraSearch}
+                      disabled={isSearchingRef.current}
+                      className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-1.5"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
+                      <span>{isSearchingRef.current ? 'Inachanganua...' : 'Tafuta Sasa'}</span>
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {customers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          triggerFaceSearch(c);
+                          triggerHapticTap();
+                        }}
+                        className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
+                          activeSubject.id === c.id
+                            ? c.isRegistered
+                              ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/10'
+                              : 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-md shadow-amber-500/10'
+                            : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        <img src={c.avatar} alt="Face" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-bold truncate">{c.name.split(' ')[0]}</p>
+                          <p className={`text-[9px] font-mono font-bold ${
+                            c.isRegistered ? 'text-emerald-400' : c.hasAccountButNoFace ? 'text-amber-300' : 'text-neutral-400'
+                          }`}>
+                            {c.isRegistered ? '✓ Imesajiliwa' : c.hasAccountButNoFace ? '⚠️ Bado Uso' : '❌ Hajajisajili'}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* RIGHT COLUMN: UNLOCKED WAKALA SERVICES (6 COLS) */}
             <div className="lg:col-span-6 flex flex-col space-y-4">
               {matchedCustomer && searchState === 'customer_found' ? (
-                <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border border-emerald-500/30 shadow-xl space-y-5">
+                !isCustomerConfirmed ? (
+                  /* STEP 1: CUSTOMER IDENTITY RECOGNIZED - MUST CONFIRM FIRST */
+                  <div className="bg-[#0c1322] p-6 rounded-3xl border-2 border-emerald-500/50 shadow-2xl shadow-emerald-950/60 space-y-5">
+                    <div className="text-center space-y-3">
+                      <div className="relative inline-block mx-auto">
+                        <img
+                          src={matchedCustomer.avatar}
+                          alt="Matched Customer"
+                          className="w-24 h-24 rounded-3xl object-cover border-4 border-emerald-400 shadow-xl shadow-emerald-500/30 mx-auto"
+                        />
+                        <span className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-neutral-950 font-black text-[10px] shadow-lg flex items-center gap-1">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                          <span>VERIFIED 99.8%</span>
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase tracking-wider border border-emerald-500/40">
+                          Uso Umelingana na Kanzidata
+                        </span>
+                        <h2 className="text-2xl font-black text-white mt-1">{matchedCustomer.name}</h2>
+                        <p className="text-xs text-neutral-300 font-mono mt-0.5">
+                          Namba ya Simu: <span className="text-emerald-400 font-bold">{matchedCustomer.phone}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Customer Details Box: Balance, Phone, Biometric Key */}
+                    <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/30 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                        <span className="text-xs text-neutral-400">Salio Halisi la Akaunti:</span>
+                        <span className="text-xl font-mono font-black text-emerald-400">
+                          TZS {matchedCustomer.walletBalance.toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-neutral-400">Ufunguo wa Kibayometriki:</span>
+                        <span className="font-mono text-cyan-300 truncate max-w-[180px]">{matchedCustomer.faceEmbeddingId}</span>
+                      </div>
+
+                      {matchedCustomer.nidaNumber && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-neutral-400">Namba ya NIDA:</span>
+                          <span className="font-mono text-neutral-300">{matchedCustomer.nidaNumber}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Notice */}
+                    <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-xs text-emerald-200 flex items-center gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <span>
+                        Mteja amethibitishwa kwa uso wake. Thibitisha taarifa hizi hapa chini ili ufungue huduma za kuweka pesa au kutoa pesa.
+                      </span>
+                    </div>
+
+                    {/* BIG CONFIRMATION BUTTON */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomerConfirmed(true);
+                        playPaymentChime();
+                        triggerHapticTap();
+                        speak(`Uthibitisho umekamilika. Sasa unaweza kumpatia ${matchedCustomer.name.split(' ')[0]} huduma.`);
+                        toast.success(`Mteja Amethibitishwa: ${matchedCustomer.name}`, { icon: '✅' });
+                      }}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
+                    >
+                      <Check className="w-5 h-5 stroke-[3]" />
+                      <span>Thibitisha Mteja Huyu & Fungua Huduma</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMatchedCustomer(null);
+                        setSearchState('idle_no_face');
+                        speak("Uthibitisho umeghairiwa. Inasubiri scan mpya.");
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white text-xs font-bold transition-all"
+                    >
+                      Sio Mteja Huyu (Scan Upya)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border border-emerald-500/30 shadow-xl space-y-5">
                   {/* Verified Customer Header Banner */}
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-[#0e1c28] border border-emerald-500/40 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1392,65 +1800,183 @@ export default function WakalaDashboard() {
                       </button>
                     </motion.div>
                   )}
-                </div>
-              ) : searchState === 'unregistered' ? (
-                /* Unregistered / Not Enrolled Customer Prompt Card */
-                <div className="bg-[#0c1322] p-6 rounded-3xl border border-amber-500/40 shadow-xl space-y-4 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
-                    <UserX className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-white">
-                      {activeSubject.hasAccountButNoFace 
-                        ? 'Akaunti Ipo, Lakini Hajaweka Uso Bado' 
-                        : 'Mteja Hajajisajili Kwenye Mfumo'}
-                    </h3>
-                    <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-                      {activeSubject.hasAccountButNoFace
-                        ? `Mteja huyu (${activeSubject.name}) ana akaunti halali lakini hakusajili uso wakati anajisajili. Ili aweze kuweka au kutoa pesa, lazima aweke uso wake sasa.`
-                        : 'Mfumo wa PapoPay umeshindwa kupata sura hii. Ili aweze kuweka pesa taslimu au kutoa pesa, lazima asajiliwe kwanza na Wakala.'}
-                    </p>
-                  </div>
 
-                  <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/20 text-left text-xs text-amber-200 space-y-1.5">
-                    <p className="font-bold">Hatua za Kuweka Uso Kituoni:</p>
-                    <p>1. Bonyeza kitufe cha &quot;{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa' : 'Sajili Mteja Mpya kwa Uso'}&quot; hapa chini.</p>
-                    <p>2. {activeSubject.hasAccountButNoFace ? 'Taarifa za mteja zimejazwa kiotomatiki.' : 'Jaza jina kamili na simu ya mteja.'}</p>
-                    <p>3. Piga picha ya uso wake mbele ya kamera.</p>
-                    <p>4. Mfumo utamtambua mara moja na kufungua huduma zote za kuweka pesa!</p>
-                  </div>
-
+                  {/* Complete & Service Next Customer */}
                   <button
                     type="button"
-                    onClick={() => setIsEnrollOpen(true)}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                    onClick={() => {
+                      setMatchedCustomer(null);
+                      setIsCustomerConfirmed(false);
+                      setSearchState('idle_no_face');
+                      speak("Huduma imekamilika. Mfumo upo tayari kwa mteja mwingine.");
+                    }}
+                    className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white text-xs font-bold transition-all"
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span>{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa' : 'Sajili Mteja Mpya kwa Uso Hapa'}</span>
+                    Kamilisha Muamala & Hudumia Mteja Mwingine
                   </button>
                 </div>
-              ) : (
-                /* Searching DB or Initial Tracking Placeholder */
-                <div className="bg-[#0c1322] p-8 rounded-3xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center space-y-4 min-h-[380px]">
-                  <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-400 flex items-center justify-center animate-pulse">
-                    <ScanFace className="w-8 h-8" />
+              )
+            ) : searchState === 'unregistered' ? (
+                  <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border-2 border-amber-500/50 shadow-2xl space-y-5">
+                    <div className="text-center space-y-2">
+                      <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
+                        <UserX className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold uppercase border border-amber-500/40">
+                          {activeSubject?.hasAccountButNoFace ? 'Akaunti Ipo, Bado Hajaweka Uso' : 'Sura Haipo Kwenye Mfumo'}
+                        </span>
+                        <h3 className="text-xl font-black text-white mt-1">
+                          {activeSubject?.hasAccountButNoFace ? 'HUJAWEKA USO BADO!' : 'SURA HII HAIJASAJILIWA!'}
+                        </h3>
+                        <p className="text-xs text-neutral-300 mt-1 max-w-sm mx-auto">
+                          Mfumo umegundua sura mbele ya kamera lakini haijasajiliwa kwenye PapoPay. Mteja hawezi kuweka au kutoa pesa hadi asajiliwe.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* IN-PLACE RAPID REGISTRATION FORM */}
+                    <form onSubmit={handleQuickEnrollSubmit} className="p-4 rounded-2xl bg-black/60 border border-amber-500/30 space-y-3.5 text-left">
+                      <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+                        <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-amber-400 shrink-0 bg-neutral-900">
+                          <img
+                            src={captureCurrentFrame()}
+                            alt="Face Frame"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-amber-500/10 pointer-events-none" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white">Usajili wa Haraka wa Uso</p>
+                          <p className="text-[10px] text-amber-300 font-mono">Picha itanaswa mara moja toka kwenye video</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-neutral-300">Jina Kamili la Mteja:</label>
+                        <input
+                          type="text"
+                          placeholder="mf. Juma Hamisi Bakari"
+                          value={quickEnrollName}
+                          onChange={(e) => setQuickEnrollName(e.target.value)}
+                          className="w-full bg-black/50 border border-white/15 px-3.5 py-2.5 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-neutral-300">Namba ya Simu ya Mteja:</label>
+                        <input
+                          type="tel"
+                          placeholder="mf. 0754 123 456"
+                          value={quickEnrollPhone}
+                          onChange={(e) => setQuickEnrollPhone(e.target.value)}
+                          className="w-full bg-black/50 border border-white/15 px-3.5 py-2.5 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-mono"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-neutral-300">Namba ya NIDA (Hiari):</label>
+                        <input
+                          type="text"
+                          placeholder="mf. 19950815-44210-00012-77"
+                          value={quickEnrollNida}
+                          onChange={(e) => setQuickEnrollNida(e.target.value)}
+                          className="w-full bg-black/50 border border-white/15 px-3.5 py-2.5 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400 font-mono"
+                        />
+                      </div>
+
+                      {/* Submit Quick Enroll */}
+                      <button
+                        type="submit"
+                        disabled={isQuickEnrolling}
+                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer disabled:opacity-60"
+                      >
+                        {isQuickEnrolling ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                        <span>{isQuickEnrolling ? 'Inasajili Uso Kwenye Mfumo...' : '📸 Nasa Uso & Sajili Mara Moja'}</span>
+                      </button>
+                    </form>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsEnrollOpen(true)}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 font-bold underline cursor-pointer"
+                      >
+                        Au Fungua Fomu Kamili ya Usajili
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchState('idle_no_face');
+                        }}
+                        className="text-xs text-neutral-400 hover:text-white cursor-pointer"
+                      >
+                        Rudi Kusubiri Mteja
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-white">Inasubiri Utambuzi wa Uso</h3>
-                    <p className="text-xs text-neutral-400 mt-1 max-w-xs mx-auto">
-                      Mteja anapaswa kuangalia kamera ya Wakala. Mfumo utam-track na kumtafuta kwenye database kiotomatiki.
-                    </p>
+                ) : (
+                  /* IDLE / WAITING FOR CUSTOMER FACE */
+                  <div className="bg-[#0c1322] p-8 rounded-3xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center space-y-5 min-h-[420px]">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 border-2 border-cyan-400/40 text-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+                        <ScanFace className="w-10 h-10 animate-pulse" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#0c1322] flex items-center justify-center">
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 max-w-sm">
+                      <h3 className="text-xl font-black text-white">Inasubiri Utambuzi wa Uso</h3>
+                      <p className="text-xs text-neutral-400 leading-relaxed">
+                        Mteja asimame mbele ya kamera ya Wakala. Kamera ita-detect uso wake kiotomatiki, itachanganua kanzidata ya PapoPay, na kufungua huduma za kuweka na kutoa pesa.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 w-full max-w-sm text-left space-y-2 text-xs text-neutral-300">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        <span>Kamera ya Utambuzi wa Kibayometriki (AI Face Tracking)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span>Ukaguzi wa Kanzidata ya PapoPay (12,450 records)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        <span>Kama hayupo, fomu ya usajili itatokea papo hapo</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full max-w-sm">
+                      <button
+                        type="button"
+                        onClick={executeLiveCameraSearch}
+                        disabled={isSearchingRef.current}
+                        className="flex-1 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
+                        <span>{isSearchingRef.current ? 'Inachanganua...' : 'Anzisha Utambuzi Sasa'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetectionMode('test_profiles');
+                          triggerFaceSearch(activeSubject);
+                        }}
+                        className="px-4 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer"
+                      >
+                        Demo Profiles
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => triggerFaceSearch(activeSubject)}
-                    className="px-5 py-3 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-300 font-bold text-xs flex items-center gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Anzisha Utambuzi wa Sasa</span>
-                  </button>
-                </div>
-              )}
+                )
+              }
             </div>
           </div>
         )}

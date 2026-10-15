@@ -124,6 +124,8 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const isPosSearchingRef = useRef<boolean>(false);
+  const posFaceDebounceRef = useRef<number>(0);
 
   const speak = (text: string) => {
     if (!soundEnabled || typeof window === 'undefined') return;
@@ -174,12 +176,6 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
       setTxSuccess(false);
       speak("Kamera ya Wakala ipo hewani. Simama mbele ya kamera ili sura yako itambuliwe.");
 
-      // After 1.5 seconds of camera opening, trigger live system search
-      const timer = setTimeout(() => {
-        executeLiveSystemSearch(simulatedRegistrationStatus);
-      }, 1500);
-
-      return () => clearTimeout(timer);
     } else {
       stopCamera();
       setMatchedCustomer(null);
@@ -191,12 +187,14 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
 
   // LIVE SYSTEM SEARCH IMPLEMENTATION
   const executeLiveSystemSearch = (desiredStatus: 'registered' | 'unregistered') => {
+    isPosSearchingRef.current = true;
     setFaceSystemStatus('querying');
     setMatchedCustomer(null);
 
     speak("Uso umepatikana. Inatafuta kwenye mfumo wa PapoPay...");
 
     setTimeout(() => {
+      isPosSearchingRef.current = false;
       // Check if user has registered a face in localStorage
       let enrolledData: any = null;
       try {
@@ -244,11 +242,21 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
   };
 
   const handleFaceTracked = (data: FaceTrackResult) => {
+    setLiveConfidence(data.confidence);
+    setLiveLux(data.brightness);
+    setLiveDistance(data.distanceCm);
+    setLiveYaw(data.headYaw);
+
     if (data.detected) {
-      setLiveConfidence(data.confidence);
-      setLiveLux(data.brightness);
-      setLiveDistance(data.distanceCm);
-      setLiveYaw(data.headYaw);
+      if (faceSystemStatus === 'scanning' && !isPosSearchingRef.current) {
+        posFaceDebounceRef.current++;
+        if (posFaceDebounceRef.current >= 2) {
+          posFaceDebounceRef.current = 0;
+          executeLiveSystemSearch(simulatedRegistrationStatus);
+        }
+      }
+    } else {
+      posFaceDebounceRef.current = 0;
     }
   };
 

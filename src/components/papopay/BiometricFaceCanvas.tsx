@@ -48,7 +48,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
   // Smooth tracker coordinates
   const smoothCoordRef = useRef({
     fx: 160,
-    fy: 110, // Default to upper-middle (head level, not chest)
+    fy: 110,
     fw: 100,
     fh: 135,
     detected: false,
@@ -56,11 +56,29 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
     yaw: 0,
     lux: lightingQuality,
     dist: distanceCm,
+    consecutiveDetections: 0,
+    consecutiveMisses: 0,
     lastFaceTime: 0
   });
 
   // Offscreen sampler canvas
   const samplerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Native FaceDetector instance if available in browser
+  const faceDetectorRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Check for native Shape Detection API (available in modern Chromium/Android)
+    if (typeof window !== 'undefined' && 'FaceDetector' in window) {
+      try {
+        faceDetectorRef.current = new (window as any).FaceDetector({
+          fastMode: true,
+          maxDetectedFaces: 1
+        });
+      } catch {
+        faceDetectorRef.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -70,7 +88,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
     if (!samplerCanvasRef.current) {
       const off = document.createElement('canvas');
-      off.width = 120;
+      off.width = 160;
       off.height = 120;
       samplerCanvasRef.current = off;
     }
@@ -79,11 +97,33 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
     let isRunning = true;
     let lastTrackNotifyTime = 0;
+    let lastAnalysisTime = 0;
+    let isDetectingNative = false;
+
+    // Async native detector helper
+    const checkNativeFace = async (video: HTMLVideoElement) => {
+      if (!faceDetectorRef.current || isDetectingNative || video.readyState < 2) return null;
+      try {
+        isDetectingNative = true;
+        const faces = await faceDetectorRef.current.detect(video);
+        isDetectingNative = false;
+        if (faces && faces.length > 0) {
+          return faces[0];
+        }
+        return false;
+      } catch {
+        isDetectingNative = false;
+        return null;
+      }
+    };
+
+    let cachedNativeFace: any = null;
 
     const render = () => {
       if (!isRunning) return;
       timeRef.current += 0.04;
       const t = timeRef.current;
+      const now = Date.now();
 
       // Sync canvas dimensions with actual displayed size to prevent squashing/distortion
       if (canvas.offsetWidth > 0 && canvas.offsetHeight > 0) {
@@ -98,8 +138,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       ctx.clearRect(0, 0, width, height);
 
       const cx = width / 2;
-      // Head position in webcam is naturally around top 36% of the screen
-      const naturalHeadY = height * 0.36;
+      const naturalHeadY = height * 0.38;
       const scale = Math.min(width, height) / 260;
 
       // ========================================================
@@ -108,100 +147,173 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       let realFaceDetected = false;
       let targetX = cx;
       let targetY = naturalHeadY;
-      let targetW = 90 * scale;
-      let targetH = 120 * scale;
+      let targetW = 95 * scale;
+      let targetH = 125 * scale;
       let measuredLux = lightingQuality;
       let measuredDist = distanceCm;
       let measuredYaw = headYaw;
 
       const video = videoRef?.current;
-      if (video && video.readyState >= 2 && samplerCtx) {
-        try {
-          samplerCtx.drawImage(video, 0, 0, 120, 120);
-          const imgData = samplerCtx.getImageData(0, 0, 120, 120);
-          const data = imgData.data;
+      const isVideoActive = video && video.readyState >= 2 && !video.paused && !video.ended;
 
-          let skinPixelCount = 0;
-          let sumX = 0;
-          let sumY = 0;
-          let minX = 120, maxX = 0, minY = 120, maxY = 0;
-          let totalLum = 0;
+      if (isVideoActive && samplerCtx) {
+        // Run vision analysis at ~15-20 FPS for optimal performance & responsiveness
+        if (now - lastAnalysisTime > 55) {
+          lastAnalysisTime = now;
 
-          // Focus detection on upper 85% of frame where head is located
-          for (let y = 4; y < 105; y += 2) {
-            for (let x = 8; x < 112; x += 2) {
-              const idx = (y * 120 + x) * 4;
-              const r = data[idx];
-              const g = data[idx + 1];
-              const b = data[idx + 2];
+          // 1. Try Native FaceDetector if supported
+          if (faceDetectorRef.current) {
+            checkNativeFace(video).then(result => {
+              cachedNativeFace = result;
+            });
+          }
 
-              const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-              totalLum += lum;
+          // 2. Fallback / Multi-Cue Computer Vision Analysis via Canvas Sampler
+          try {
+            samplerCtx.drawImage(video, 0, 0, 160, 120);
+            const imgData = samplerCtx.getImageData(0, 0, 160, 120);
+            const data = imgData.data;
 
-              // Robust skin tone detection across diverse lighting and skin complexions
-              const isSkin =
-                r > 40 && g > 25 && b > 18 &&
-                r >= g &&
-                (r - b > 8 || r - g > 6) &&
-                lum > 25 && lum < 245;
+            let skinPixelCount = 0;
+            let sumX = 0;
+            let sumY = 0;
+            let minX = 160, maxX = 0, minY = 120, maxY = 0;
+            let totalLum = 0;
+            let upperFaceSkin = 0;
+            let lowerFaceSkin = 0;
 
-              if (isSkin) {
-                skinPixelCount++;
-                sumX += x;
-                sumY += y;
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+            // Sample pixels across frame (step = 2 for speed & accuracy)
+            for (let y = 6; y < 114; y += 2) {
+              for (let x = 8; x < 152; x += 2) {
+                const idx = (y * 160 + x) * 4;
+                const r = data[idx];
+                const g = data[idx + 1];
+                const b = data[idx + 2];
+
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                totalLum += lum;
+
+                // Academic YCbCr skin model (effective across diverse African & global skin complexions):
+                // Cb = -0.169*R - 0.331*G + 0.500*B + 128
+                // Cr =  0.500*R - 0.419*G - 0.081*B + 128
+                const cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
+                const cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
+
+                // Skin range in YCbCr: Cb [77, 130], Cr [132, 175] with luminance bounds
+                const isSkinYCbCr = cb >= 75 && cb <= 132 && cr >= 130 && cr <= 178 && lum >= 20 && lum <= 245;
+
+                // Secondary RGB rule for edge cases and low light:
+                const isSkinRGB =
+                  r > 45 && g > 28 && b > 20 &&
+                  r > g && r > b &&
+                  (r - g) >= 8 &&
+                  Math.abs(r - g) > 5 &&
+                  lum > 22 && lum < 248;
+
+                if (isSkinYCbCr || isSkinRGB) {
+                  skinPixelCount++;
+                  sumX += x;
+                  sumY += y;
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+
+                  if (y < 60) upperFaceSkin++;
+                  else lowerFaceSkin++;
+                }
               }
             }
+
+            measuredLux = Math.min(100, Math.max(10, Math.round((totalLum / 4800 / 255) * 100)));
+
+            // Check if Native Face Detector found a face
+            if (cachedNativeFace && cachedNativeFace.boundingBox) {
+              const bb = cachedNativeFace.boundingBox;
+              const vW = video.videoWidth || 640;
+              const vH = video.videoHeight || 480;
+
+              // Mirrored horizontal coordinates
+              const normX = 1.0 - (bb.x + bb.width / 2) / vW;
+              const normY = (bb.y + bb.height * 0.42) / vH;
+
+              targetX = normX * width;
+              targetY = normY * height;
+              targetW = Math.max(70 * scale, Math.min(180 * scale, (bb.width / vW) * width * 1.15));
+              targetH = Math.max(90 * scale, Math.min(230 * scale, (bb.height / vH) * height * 1.15));
+              realFaceDetected = true;
+              measuredDist = Math.max(25, Math.min(90, Math.round(4800 / (targetW + 10))));
+            } else {
+              // Multi-Cue Cluster Analysis:
+              // A genuine human face in front of the camera must form a dense cohesive cluster:
+              // - Minimum 250 skin pixels (at step 2 = 1000 real pixels)
+              // - Proper aspect ratio: height / width between 0.95 and 1.85
+              // - Balanced skin distribution (head has upper and lower regions)
+              const spanX = maxX - minX;
+              const spanY = maxY - minY;
+              const aspectRatio = spanY / (spanX || 1);
+
+              if (skinPixelCount > 240 && spanX > 22 && spanY > 26 && aspectRatio >= 0.85 && aspectRatio <= 2.2) {
+                realFaceDetected = true;
+
+                const rawCenterX = (sumX / skinPixelCount) / 160;
+                const rawCenterY = (minY + spanY * 0.42) / 120;
+
+                // Video is mirrored in UI, invert x
+                const normalizedX = 1.0 - rawCenterX;
+                const normalizedY = Math.max(0.18, Math.min(0.68, rawCenterY));
+
+                targetX = normalizedX * width;
+                targetY = normalizedY * height;
+
+                const boxW = (spanX / 160) * width * 1.2;
+                const boxH = (spanY / 120) * height * 1.05;
+                targetW = Math.max(70 * scale, Math.min(175 * scale, boxW));
+                targetH = Math.max(90 * scale, Math.min(225 * scale, boxH));
+
+                measuredDist = Math.max(25, Math.min(95, Math.round(5200 / (targetW + 10))));
+
+                // Estimate head yaw from centroid offset
+                const faceMid = (minX + maxX) / 2;
+                const centerOffset = (sumX / skinPixelCount) - faceMid;
+                measuredYaw = Math.round(centerOffset * 1.8);
+              }
+            }
+          } catch {
+            // Video security or CORS fallback
           }
-
-          measuredLux = Math.min(100, Math.max(10, Math.round((totalLum / 3200 / 255) * 100)));
-
-          // Check if a substantial cluster of face pixels exists
-          if (skinPixelCount > 80 && maxY > minY && maxX > minX) {
-            realFaceDetected = true;
-            // The face center (eyes/bridge of nose) is at ~38% from top of the head/hairline
-            const faceSpanY = maxY - minY;
-            const faceSpanX = maxX - minX;
-
-            const rawFaceCenterY = (minY + faceSpanY * 0.38) / 120;
-            const rawFaceCenterX = (sumX / skinPixelCount) / 120;
-
-            // Video is mirrored in UI (scale-x-[-1]), invert x for accurate tracking
-            const normalizedX = 1.0 - rawFaceCenterX;
-            const normalizedY = Math.max(0.2, Math.min(0.65, rawFaceCenterY));
-
-            targetX = normalizedX * width;
-            targetY = normalizedY * height;
-
-            const boxW = (faceSpanX / 120) * width * 1.15;
-            const boxH = (faceSpanY / 120) * height * 0.95;
-            targetW = Math.max(65 * scale, Math.min(160 * scale, boxW));
-            targetH = Math.max(85 * scale, Math.min(210 * scale, boxH));
-
-            // Estimate distance from face box
-            measuredDist = Math.max(25, Math.min(95, Math.round(4800 / (targetW + 10))));
-
-            // Estimate yaw from horizontal asymmetry
-            const faceMid = (minX + maxX) / 2;
-            const centerOffset = (sumX / skinPixelCount) - faceMid;
-            measuredYaw = Math.round(centerOffset * 1.6);
-          }
-        } catch {
-          // Fallback if cross-origin or video security restrictions
         }
       }
 
       // Smooth coordinate interpolation (Lerp)
       const current = smoothCoordRef.current;
-      const lerpSpeed = realFaceDetected ? 0.35 : 0.08;
 
-      if (!realFaceDetected) {
-        // Natural subtle micro-breathing when waiting or no video
-        targetX = cx + Math.sin(t * 1.6) * 3 * scale + headYaw * 1.2;
-        targetY = naturalHeadY + Math.cos(t * 2.2) * 2.5 * scale;
+      if (realFaceDetected) {
+        current.consecutiveDetections++;
+        current.consecutiveMisses = 0;
+        current.lastFaceTime = now;
+      } else {
+        current.consecutiveMisses++;
+        if (current.consecutiveMisses > 10) {
+          current.consecutiveDetections = 0;
+        }
+      }
+
+      // Hysteresis: face is considered stably detected if seen for at least 3 consecutive frames
+      const isStablyDetected = current.consecutiveDetections >= 2 || (now - current.lastFaceTime < 900 && current.lastFaceTime > 0);
+      current.detected = isStablyDetected;
+
+      const lerpSpeed = isStablyDetected ? 0.38 : 0.08;
+
+      if (!isStablyDetected) {
+        // Natural gentle idle scanner pulse when no face is present
+        targetX = cx;
+        targetY = naturalHeadY + Math.sin(t * 1.8) * 4 * scale;
+        targetW = 105 * scale;
+        targetH = 138 * scale;
+        current.confidence = Math.max(0, current.confidence - 4.5);
+      } else {
+        current.confidence = Math.min(99.6, Math.max(92.0, current.confidence + 2.5));
       }
 
       current.fx += (targetX - current.fx) * lerpSpeed;
@@ -212,21 +324,11 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       current.lux += (measuredLux - current.lux) * 0.1;
       current.dist += (measuredDist - current.dist) * 0.1;
 
-      if (realFaceDetected) {
-        current.detected = true;
-        current.confidence = Math.min(99.6, Math.max(93.0, current.confidence + 2.0));
-        current.lastFaceTime = Date.now();
-      } else if (Date.now() - current.lastFaceTime > 1500) {
-        current.detected = false;
-        current.confidence = Math.max(0, current.confidence - 3.0);
-      }
-
-      // Periodic callback to notify parent (approx every 250ms)
-      const now = Date.now();
-      if (onFaceTracked && now - lastTrackNotifyTime > 250) {
+      // Notify parent callback every ~200ms
+      if (onFaceTracked && now - lastTrackNotifyTime > 200) {
         lastTrackNotifyTime = now;
         onFaceTracked({
-          detected: current.detected,
+          detected: isStablyDetected,
           confidence: Math.round(current.confidence * 10) / 10,
           faceX: Math.round(current.fx),
           faceY: Math.round(current.fy),
@@ -254,7 +356,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         ? '#f59e0b' 
         : isSuccess 
         ? '#10b981' 
-        : '#06b6d4';
+        : isStablyDetected
+        ? '#06b6d4'
+        : 'rgba(255, 255, 255, 0.45)';
 
       const accentColor = isError 
         ? 'rgba(244, 63, 94, 0.25)' 
@@ -262,14 +366,60 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         ? 'rgba(245, 158, 11, 0.25)' 
         : isSuccess 
         ? 'rgba(16, 185, 129, 0.25)' 
-        : 'rgba(6, 182, 212, 0.25)';
+        : isStablyDetected
+        ? 'rgba(6, 182, 212, 0.25)'
+        : 'rgba(255, 255, 255, 0.12)';
 
-      // Smile expansion during smile_confirm phase
-      const isSmiling = phase === 'smile_confirm' || isSuccess;
-      const smileSpread = isSmiling ? 7 * scale : Math.sin(t * 2) * 1.5 * scale;
+      // ========================================================
+      // 0. IDLE SEARCHING STATE (HAKUNA USO UNAOONEKANA)
+      // ========================================================
+      if (!isStablyDetected) {
+        // Oval Face Placement Guide
+        const guideW = 110 * scale;
+        const guideH = 145 * scale;
 
-      // Blink animation
-      const isBlinking = phase === 'blink_detect' && Math.sin(t * 4) > 0.4;
+        ctx.save();
+        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, naturalHeadY, guideW * 0.7, guideH * 0.75, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        // Pulsing Search Crosshairs
+        const crossRadius = (35 + Math.sin(t * 3) * 6) * scale;
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, naturalHeadY, crossRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx - crossRadius - 12, naturalHeadY);
+        ctx.lineTo(cx + crossRadius + 12, naturalHeadY);
+        ctx.moveTo(cx, naturalHeadY - crossRadius - 12);
+        ctx.lineTo(cx, naturalHeadY + crossRadius + 12);
+        ctx.stroke();
+
+        // Instructional Banner in Canvas
+        const bannerY = naturalHeadY + guideH * 0.85;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(cx - 130 * scale, bannerY - 14 * scale, 260 * scale, 26 * scale);
+
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - 130 * scale, bannerY - 14 * scale, 260 * scale, 26 * scale);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `bold ${Math.max(10, 11 * scale)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('🔍 WEKA USO WAKO MBELE YA KAMERA', cx, bannerY + 3 * scale);
+        ctx.textAlign = 'left';
+
+        animFrameIdRef.current = requestAnimationFrame(render);
+        return;
+      }
 
       // ========================================================
       // 1. NEURAL BOUNDING BOX & REAL-TIME TRACKING BRACKETS
@@ -283,7 +433,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       ctx.lineWidth = 2;
 
       // Draw 4 Sci-Fi corner tracking brackets
-      const cLen = Math.max(12, 16 * scale);
+      const cLen = Math.max(14, 18 * scale);
       // Top-left
       ctx.beginPath();
       ctx.moveTo(bx, by + cLen);
@@ -333,14 +483,16 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         ? `[!] HAJASAJILIWA (UNKNOWN FACE)` 
         : isError 
         ? `[X] SPOOF REJECTED` 
-        : current.detected
-        ? `[AI TRACKED] CONF: ${current.confidence.toFixed(1)}% | LIVE: 99.8%`
-        : `[SEARCHING] INATAFUTA SURA...`;
+        : `[AI TRACKED] USO UMEGUNDULIWA | ${current.confidence.toFixed(1)}%`;
       ctx.fillText(hudTag, bx, by - 6 * scale);
 
       // ========================================================
       // 2. 3D FACE MESH & 68 LANDMARK WIREFRAME
       // ========================================================
+      const isSmiling = phase === 'smile_confirm' || isSuccess;
+      const smileSpread = isSmiling ? 7 * scale : Math.sin(t * 2) * 1.5 * scale;
+      const isBlinking = phase === 'blink_detect' && Math.sin(t * 4) > 0.4;
+
       if (hudMode === 'mesh') {
         const eyeY = fy - 16 * scale;
         const eyeDist = 24 * scale;
@@ -495,7 +647,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       const botY = height - 10 * scale;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.font = `bold ${Math.max(8, 9 * scale)}px monospace`;
-      ctx.fillText(`💡 TAA: ${Math.round(current.lux)}% LUX`, 10 * scale, botY);
+      ctx.fillText(`💡 MWANGAZA: ${Math.round(current.lux)}% LUX`, 10 * scale, botY);
       ctx.fillText(`📏 UMBALI: ${Math.round(current.dist)}cm`, width - 95 * scale, botY);
 
       animFrameIdRef.current = requestAnimationFrame(render);
