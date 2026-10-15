@@ -149,8 +149,24 @@ export default function PapoPayHome() {
   const [isVisionCheckoutOpen, setIsVisionCheckoutOpen] = useState(false);
   const [isWakalaModalOpen, setIsWakalaModalOpen] = useState(false);
   const [isFaceIdActive, setIsFaceIdActive] = useState(true);
-  const [isFaceRegistered, setIsFaceRegistered] = useState(true);
+  const [isFaceRegistered, setIsFaceRegistered] = useState(() => {
+    if (profile?.hasFaceEnrolled) return true;
+    try {
+      const stored = localStorage.getItem('papopay_registered_face');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Boolean(parsed.isEnrolled);
+      }
+    } catch {}
+    return false;
+  });
   const [isFaceRegisterModalOpen, setIsFaceRegisterModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (profile?.hasFaceEnrolled) {
+      setIsFaceRegistered(true);
+    }
+  }, [profile?.hasFaceEnrolled]);
   const [faceDailyLimit, setFaceDailyLimit] = useState(500000);
   const [facePayTarget, setFacePayTarget] = useState<{ amount: number; recipient: string; service: string }>({
     amount: 25500,

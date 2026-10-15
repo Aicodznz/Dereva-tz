@@ -56,7 +56,8 @@ import {
   Printer,
   Compass,
   Plus,
-  GraduationCap
+  GraduationCap,
+  ScanFace
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -64,6 +65,7 @@ import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import MyOrders from './MyOrders';
 import Chat from './Chat';
+import { FaceRegistrationModal } from './papopay/FaceRegistrationModal';
 import { storageService } from '../services/storageService';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -85,6 +87,21 @@ export default function Profile() {
   const [claimingCoins, setClaimingCoins] = useState(false);
   const [activeModal, setActiveModal] = useState<ActiveModal>({ type: null });
   const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
+
+  // Biometric Face ID Status & Enrollment (kama alishaweka au kama hajaweka)
+  const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+  const [localFaceEnrolled, setLocalFaceEnrolled] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('papopay_registered_face');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Boolean(parsed.isEnrolled);
+      }
+    } catch {}
+    return false;
+  });
+
+  const hasFaceEnrolled = Boolean(profile?.hasFaceEnrolled) || localFaceEnrolled;
 
   // Status breakdown for orders
   const [orderStats, setOrderStats] = useState({
@@ -1067,6 +1084,57 @@ export default function Profile() {
           </div>
         )}
 
+        {/* 8.5 PAPOPAY BIOMETRIC FACE STATUS (KAMA ALISHA WEKA / KAMA HAJAWEKA AMBIWE HAJAWEKA AWEKE) */}
+        <div className={`p-4 rounded-2xl sm:rounded-3xl border transition-all shadow-sm ${
+          hasFaceEnrolled 
+            ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-600/10 border-emerald-500/30 dark:border-emerald-500/40' 
+            : 'bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-600/15 border-amber-500/40 dark:border-amber-500/50'
+        }`}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                hasFaceEnrolled 
+                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-600 dark:text-emerald-400' 
+                  : 'bg-amber-500/20 border-amber-400 text-amber-600 dark:text-amber-400 animate-pulse'
+              }`}>
+                <ScanFace className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs sm:text-sm font-black text-neutral-900 dark:text-white">
+                    {hasFaceEnrolled 
+                      ? '✓ Uso Wako Umesajiliwa (Face ID Active)' 
+                      : '⚠️ Hujaweka Uso Wako Bado!'}
+                  </h4>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                    hasFaceEnrolled
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {hasFaceEnrolled ? 'Imewezeshwa' : 'Haijawekwa'}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-0.5">
+                  {hasFaceEnrolled
+                    ? 'Uso wako uko tayari kutambuliwa na Wakala, kuweka pesa taslimu, na kulipa bila simu wala kadi.'
+                    : 'Hujaweka alama ya uso wako kwenye mfumo. Huwezi kuweka pesa kwa Wakala wala kulipa kwa kutabasamu bila kusajili uso wako.'}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setIsFaceModalOpen(true)}
+              className={`w-full sm:w-auto h-9 text-xs font-black rounded-xl shadow-sm px-4 shrink-0 cursor-pointer ${
+                hasFaceEnrolled
+                  ? 'bg-neutral-800 hover:bg-neutral-900 text-white dark:bg-neutral-700 dark:hover:bg-neutral-600'
+                  : 'bg-orange-600 hover:bg-orange-700 text-white'
+              }`}
+            >
+              {hasFaceEnrolled ? 'Sasisha / Badili Uso' : 'Weka Uso Wako Sasa'}
+            </Button>
+          </div>
+        </div>
+
         {/* 9. ACCOUNT SETTINGS & PREFERENCES LIST */}
         <Card className="border-none shadow-sm rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 overflow-hidden">
           <CardContent className="p-4 space-y-1">
@@ -2036,6 +2104,37 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* PapoPay Biometric Face Registration Modal */}
+      <FaceRegistrationModal
+        isOpen={isFaceModalOpen}
+        onClose={() => setIsFaceModalOpen(false)}
+        initialName={profile?.displayName || profile?.fullName || user?.displayName || 'Mteja'}
+        initialPhone={profile?.phoneNumber || profile?.phone || ''}
+        onSuccess={async (data) => {
+          try {
+            await updateProfileData({
+              hasFaceEnrolled: true,
+              facePhotoUrl: data.photoUrl || '',
+              faceEmbeddingId: data.embeddingId,
+              faceRegisteredAt: new Date().toISOString()
+            });
+            setLocalFaceEnrolled(true);
+            localStorage.setItem('papopay_registered_face', JSON.stringify({
+              isEnrolled: true,
+              name: data.name,
+              phone: data.phone,
+              embeddingId: data.embeddingId,
+              photoUrl: data.photoUrl,
+              dailyLimit: 500000,
+              enrolledAt: new Date().toISOString()
+            }));
+            toast.success("Hongera! Uso wako umesajiliwa kikamilifu kwenye akaunti yako.", { icon: '🎉' });
+          } catch (err) {
+            console.error('Failed to update face profile:', err);
+          }
+        }}
+      />
 
     </div>
   );

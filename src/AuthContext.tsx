@@ -273,10 +273,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       };
       
-      const dbFields = ['phoneNumber', 'phone', 'gender', 'city', 'address', 'approvalStatus', 'status', 'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 'tinNumber', 'hotelDescription', 'location', 'nidaNumber', 'licenseNumber'];
+      const dbFields = [
+        'phoneNumber', 'phone', 'gender', 'city', 'address', 'approvalStatus', 'status', 
+        'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 
+        'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 
+        'tinNumber', 'hotelDescription', 'location', 'nidaNumber', 'licenseNumber',
+        'hasFaceEnrolled', 'facePhotoUrl', 'faceEmbeddingId', 'faceRegisteredAt', 'faceDailyLimit'
+      ];
       if (extraData) {
         Object.keys(extraData).forEach(key => {
-          if (dbFields.includes(key) || key === 'gender') {
+          if (dbFields.includes(key) || key === 'gender' || key === 'hasFaceEnrolled') {
             newProfile[key] = extraData[key];
           }
         });

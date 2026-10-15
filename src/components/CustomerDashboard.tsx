@@ -9,13 +9,15 @@ import { Skeleton } from './ui/Skeleton';
 import { 
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, Star, 
   Search, Bell, MapPin, ChevronRight, ChevronLeft, Megaphone, ShoppingBag, Tag, Plus, ShoppingBasket,
-  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home, Printer, Ticket, Wallet
+  FileText, Smartphone, Box, Dog, Bus, Sparkles, Wrench, Key, Camera, Home, Printer, Ticket, Wallet,
+  ScanFace
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../AuthContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
+import { FaceRegistrationModal } from './papopay/FaceRegistrationModal';
 
 import { useLanguage } from '../LanguageContext';
 import { useCart } from '../CartContext';
@@ -69,6 +71,21 @@ export default function CustomerDashboard() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // Biometric Face Registration state
+  const [isFaceRegisterOpen, setIsFaceRegisterOpen] = useState(false);
+  const [hasDismissedFaceBanner, setHasDismissedFaceBanner] = useState(false);
+  const [localFaceEnrolled, setLocalFaceEnrolled] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('papopay_registered_face');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Boolean(parsed.isEnrolled);
+      }
+    } catch {}
+    return false;
+  });
+  const hasFaceEnrolled = Boolean(profile?.hasFaceEnrolled) || localFaceEnrolled;
 
   const seedDemoStoresAndProducts = async () => {
     setIsSeeding(true);
@@ -921,6 +938,53 @@ export default function CustomerDashboard() {
           >
             <Plus className="w-5 h-5 rotate-45" />
           </button>
+        </motion.div>
+      )}
+
+      {/* Biometric Face ID Notice (Kama hajaweka ambiwe hajaweka aweke) */}
+      {user && !hasFaceEnrolled && !hasDismissedFaceBanner && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-1 sm:mx-2 mb-3 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-600/15 border border-amber-500/40 dark:border-amber-500/50 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-400 flex items-center justify-center shrink-0">
+              <ScanFace className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-black text-amber-950 dark:text-amber-200">
+                  ⚠️ Hujaweka Uso Wako Bado (PapoPay Face ID)
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 uppercase">
+                  Bado Haujasajili
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-neutral-600 dark:text-neutral-300 mt-0.5 leading-snug">
+                Hujaweka alama ya uso wako kwenye mfumo. Weka sasa ili uweze kuweka/kutoa pesa kwa Wakala na kulipa madukani bila simu wala kadi.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsFaceRegisterOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md shadow-orange-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <ScanFace className="w-3.5 h-3.5" />
+              <span>Weka Uso Wako Sasa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHasDismissedFaceBanner(true)}
+              className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs cursor-pointer"
+              title="Funga"
+            >
+              ✕
+            </button>
+          </div>
         </motion.div>
       )}
 
@@ -1798,6 +1862,29 @@ export default function CustomerDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* PapoPay Biometric Face Registration Modal */}
+      <FaceRegistrationModal
+        isOpen={isFaceRegisterOpen}
+        onClose={() => setIsFaceRegisterOpen(false)}
+        initialName={profile?.displayName || profile?.fullName || user?.displayName || 'Mteja'}
+        initialPhone={profile?.phoneNumber || profile?.phone || ''}
+        onSuccess={(data) => {
+          setLocalFaceEnrolled(true);
+          try {
+            localStorage.setItem('papopay_registered_face', JSON.stringify({
+              isEnrolled: true,
+              name: data.name,
+              phone: data.phone,
+              embeddingId: data.embeddingId,
+              photoUrl: data.photoUrl,
+              dailyLimit: 500000,
+              enrolledAt: new Date().toISOString()
+            }));
+          } catch {}
+          toast.success("Hongera! Uso wako umesajiliwa kikamilifu.", { icon: '🎉' });
+        }}
+      />
     </div>
   );
 }

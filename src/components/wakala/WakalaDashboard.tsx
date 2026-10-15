@@ -24,6 +24,7 @@ export interface SimulatedCustomer {
   faceEmbeddingId: string;
   avatar: string;
   isRegistered: boolean;
+  hasAccountButNoFace?: boolean;
   nidaNumber?: string;
 }
 
@@ -57,6 +58,17 @@ const DEFAULT_WAKALA_CLIENTS: SimulatedCustomer[] = [
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
     isRegistered: true,
     nidaNumber: '19961103-31890-00003-91'
+  },
+  {
+    id: 'cust_no_face',
+    name: 'Amina Hamisi (Akaunti Ipo, Bado Uso)',
+    phone: '0714 888 333',
+    walletBalance: 250000,
+    faceEmbeddingId: 'NOT_ENROLLED',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+    isRegistered: false,
+    hasAccountButNoFace: true,
+    nidaNumber: '19950312-51203-00004-55'
   },
   {
     id: 'cust_unregistered',
@@ -104,14 +116,16 @@ export default function WakalaDashboard() {
       const customFace = localStorage.getItem('papopay_registered_face');
       if (customFace) {
         const parsed = JSON.parse(customFace);
+        const isEnrolled = Boolean(parsed.isEnrolled);
         const enrolledCust: SimulatedCustomer = {
-          id: 'cust_enrolled_' + parsed.phone,
-          name: parsed.name,
-          phone: parsed.phone,
+          id: 'cust_enrolled_' + (parsed.phone || 'custom'),
+          name: parsed.name || 'Mteja Aliyetengeneza Akaunti',
+          phone: parsed.phone || '0754 000 000',
           walletBalance: 500000,
-          faceEmbeddingId: parsed.embeddingId || 'EMB-CUSTOM-REGISTERED',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          isRegistered: true,
+          faceEmbeddingId: isEnrolled ? (parsed.embeddingId || 'EMB-CUSTOM-REGISTERED') : 'NOT_ENROLLED',
+          avatar: parsed.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          isRegistered: isEnrolled,
+          hasAccountButNoFace: !isEnrolled,
           nidaNumber: '20010815-44210-00012-77'
         };
         return [enrolledCust, ...DEFAULT_WAKALA_CLIENTS];
@@ -284,13 +298,23 @@ export default function WakalaDashboard() {
       setSearchProgress(100);
 
       if (subject.isRegistered) {
-        // MATCHED CUSTOMER FOUND IN SYSTEM!
+        // MATCHED CUSTOMER FOUND IN SYSTEM! (kama alisha weka kipindi anajisajili sawa)
         setMatchedCustomer(subject);
         setSearchState('customer_found');
         playPaymentChime();
         triggerHapticTap();
         speak(`Mteja ${subject.name.split(' ')[0]} ametambuliwa kikamilifu. Sasa unaweza kuweka pesa au kufanya huduma nyengine.`);
         toast.success(`Mteja Ametambuliwa: ${subject.name}`, { icon: '✅' });
+      } else if (subject.hasAccountButNoFace) {
+        // AKAUNTI IPO LAKINI HAJAWEKA USO (kama hajaweka ambiwe hajaweka aweke)
+        setSearchState('unregistered');
+        setMatchedCustomer(null);
+        triggerHapticTap();
+        speak(`Mteja ${subject.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa ili kuwezesha miamala.`);
+        toast.warning(`Akaunti Ipo, Bado Uso: ${subject.name}`, { 
+          description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa ili kuweka pesa.",
+          icon: '⚠️' 
+        });
       } else {
         // UNREGISTERED FACE!
         setSearchState('unregistered');
@@ -863,7 +887,7 @@ export default function WakalaDashboard() {
                   </motion.div>
                 )}
 
-                {/* UNREGISTERED ALERT OVERLAY */}
+                {/* UNREGISTERED / NOT ENROLLED ALERT OVERLAY */}
                 {searchState === 'unregistered' && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.94 }}
@@ -874,22 +898,24 @@ export default function WakalaDashboard() {
                       <UserX className="w-8 h-8 stroke-[2.5]" />
                     </div>
                     <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-black border border-amber-500/40 uppercase mb-1">
-                      Mteja Hajapatikana Kwenye Database ⚠️
+                      {activeSubject.hasAccountButNoFace ? 'Akaunti Ipo, Bado Hajaweka Uso ⚠️' : 'Mteja Hajapatikana Kwenye Database ⚠️'}
                     </span>
                     <h3 className="text-xl font-black text-white">
-                      USO HAUJASAJILIWA!
+                      {activeSubject.hasAccountButNoFace ? 'HUJAWEKA USO BADO!' : 'USO HAUJASAJILIWA!'}
                     </h3>
                     <p className="text-amber-200 text-xs font-medium mt-1 max-w-xs">
-                      Sura hii haipo kwenye mfumo wa PapoPay. Mteja hawezi kuweka pesa hadi asajiliwe.
+                      {activeSubject.hasAccountButNoFace
+                        ? `Mteja huyu (${activeSubject.name}) ana akaunti halali lakini hakusajili uso wake wakati anajisajili. Weka uso wake sasa ili kufanya miamala.`
+                        : 'Sura hii haipo kwenye mfumo wa PapoPay. Mteja hawezi kuweka pesa hadi asajiliwe.'}
                     </p>
 
                     <button
                       type="button"
                       onClick={() => setIsEnrollOpen(true)}
-                      className="mt-4 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 active:scale-95 transition-all"
+                      className="mt-4 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
                     >
                       <UserPlus className="w-4 h-4" />
-                      <span>Sajili Uso wa Mteja Hapa (Enroll Now)</span>
+                      <span>{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa (Enroll Face)' : 'Sajili Mteja Mpya kwa Uso Hapa'}</span>
                     </button>
                   </motion.div>
                 )}
@@ -958,8 +984,10 @@ export default function WakalaDashboard() {
                       <img src={c.avatar} alt="Face" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
                       <div className="overflow-hidden">
                         <p className="text-xs font-bold truncate">{c.name.split(' ')[0]}</p>
-                        <p className={`text-[9px] font-mono font-bold ${c.isRegistered ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {c.isRegistered ? '✓ Imesajiliwa' : '⚠️ Hajajisajili'}
+                        <p className={`text-[9px] font-mono font-bold ${
+                          c.isRegistered ? 'text-emerald-400' : c.hasAccountButNoFace ? 'text-amber-300' : 'text-neutral-400'
+                        }`}>
+                          {c.isRegistered ? '✓ Imesajiliwa' : c.hasAccountButNoFace ? '⚠️ Bado Uso' : '❌ Hajajisajili'}
                         </p>
                       </div>
                     </button>
@@ -1366,22 +1394,28 @@ export default function WakalaDashboard() {
                   )}
                 </div>
               ) : searchState === 'unregistered' ? (
-                /* Unregistered Customer Prompt Card */
+                /* Unregistered / Not Enrolled Customer Prompt Card */
                 <div className="bg-[#0c1322] p-6 rounded-3xl border border-amber-500/40 shadow-xl space-y-4 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
                     <UserX className="w-8 h-8" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-white">Mteja Hajajisajili Kwenye Mfumo</h3>
+                    <h3 className="text-lg font-black text-white">
+                      {activeSubject.hasAccountButNoFace 
+                        ? 'Akaunti Ipo, Lakini Hajaweka Uso Bado' 
+                        : 'Mteja Hajajisajili Kwenye Mfumo'}
+                    </h3>
                     <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-                      Mfumo wa PapoPay umeshindwa kupata sura hii. Ili aweze kuweka pesa taslimu au kutoa pesa, lazima asajiliwe kwanza na Wakala.
+                      {activeSubject.hasAccountButNoFace
+                        ? `Mteja huyu (${activeSubject.name}) ana akaunti halali lakini hakusajili uso wakati anajisajili. Ili aweze kuweka au kutoa pesa, lazima aweke uso wake sasa.`
+                        : 'Mfumo wa PapoPay umeshindwa kupata sura hii. Ili aweze kuweka pesa taslimu au kutoa pesa, lazima asajiliwe kwanza na Wakala.'}
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/20 text-left text-xs text-amber-200 space-y-1.5">
-                    <p className="font-bold">Hatua za Kusajili Mteja Kituoni:</p>
-                    <p>1. Bonyeza kitufe cha &quot;Sajili Mteja Mpya kwa Uso&quot; hapa chini.</p>
-                    <p>2. Jaza jina kamili na namba ya simu ya mteja.</p>
+                    <p className="font-bold">Hatua za Kuweka Uso Kituoni:</p>
+                    <p>1. Bonyeza kitufe cha &quot;{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa' : 'Sajili Mteja Mpya kwa Uso'}&quot; hapa chini.</p>
+                    <p>2. {activeSubject.hasAccountButNoFace ? 'Taarifa za mteja zimejazwa kiotomatiki.' : 'Jaza jina kamili na simu ya mteja.'}</p>
                     <p>3. Piga picha ya uso wake mbele ya kamera.</p>
                     <p>4. Mfumo utamtambua mara moja na kufungua huduma zote za kuweka pesa!</p>
                   </div>
@@ -1389,10 +1423,10 @@ export default function WakalaDashboard() {
                   <button
                     type="button"
                     onClick={() => setIsEnrollOpen(true)}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>Sajili Mteja Mpya kwa Uso Hapa</span>
+                    <span>{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa' : 'Sajili Mteja Mpya kwa Uso Hapa'}</span>
                   </button>
                 </div>
               ) : (
@@ -1595,8 +1629,8 @@ export default function WakalaDashboard() {
         isOpen={isEnrollOpen}
         onClose={() => setIsEnrollOpen(false)}
         onSuccess={handleEnrollSuccess}
-        initialName="Mteja Mpya"
-        initialPhone="0755 123 456"
+        initialName={activeSubject.hasAccountButNoFace ? activeSubject.name : "Mteja Mpya"}
+        initialPhone={activeSubject.hasAccountButNoFace ? activeSubject.phone : "0755 123 456"}
       />
     </div>
   );

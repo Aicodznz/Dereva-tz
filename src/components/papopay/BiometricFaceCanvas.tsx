@@ -48,9 +48,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
   // Smooth tracker coordinates
   const smoothCoordRef = useRef({
     fx: 160,
-    fy: 160,
-    fw: 110,
-    fh: 145,
+    fy: 110, // Default to upper-middle (head level, not chest)
+    fw: 100,
+    fh: 135,
     detected: false,
     confidence: 0,
     yaw: 0,
@@ -85,22 +85,31 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       timeRef.current += 0.04;
       const t = timeRef.current;
 
+      // Sync canvas dimensions with actual displayed size to prevent squashing/distortion
+      if (canvas.offsetWidth > 0 && canvas.offsetHeight > 0) {
+        if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+          canvas.width = canvas.offsetWidth;
+          canvas.height = canvas.offsetHeight;
+        }
+      }
+
       const width = canvas.width || 320;
-      const height = canvas.height || 320;
+      const height = canvas.height || 260;
       ctx.clearRect(0, 0, width, height);
 
       const cx = width / 2;
-      const cy = height / 2;
-      const scale = width / 280;
+      // Head position in webcam is naturally around top 36% of the screen
+      const naturalHeadY = height * 0.36;
+      const scale = Math.min(width, height) / 260;
 
       // ========================================================
-      // REAL-TIME VIDEO FRAME ANALYSIS & FACE TRACKING
+      // REAL-TIME VIDEO FRAME ANALYSIS & ACCURATE FACE TRACKING
       // ========================================================
       let realFaceDetected = false;
       let targetX = cx;
-      let targetY = cy;
-      let targetW = 95 * scale;
-      let targetH = 130 * scale;
+      let targetY = naturalHeadY;
+      let targetW = 90 * scale;
+      let targetH = 120 * scale;
       let measuredLux = lightingQuality;
       let measuredDist = distanceCm;
       let measuredYaw = headYaw;
@@ -118,9 +127,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
           let minX = 120, maxX = 0, minY = 120, maxY = 0;
           let totalLum = 0;
 
-          // Sample pixels for skin tone & luminance
-          for (let y = 0; y < 120; y += 2) {
-            for (let x = 0; x < 120; x += 2) {
+          // Focus detection on upper 85% of frame where head is located
+          for (let y = 4; y < 105; y += 2) {
+            for (let x = 8; x < 112; x += 2) {
               const idx = (y * 120 + x) * 4;
               const r = data[idx];
               const g = data[idx + 1];
@@ -129,13 +138,12 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
               const lum = 0.299 * r + 0.587 * g + 0.114 * b;
               totalLum += lum;
 
-              // Swahili / East African / Universal skin chromaticity detection
-              // In mirrored video, x is flipped
+              // Robust skin tone detection across diverse lighting and skin complexions
               const isSkin =
-                r > 45 && g > 25 && b > 18 &&
+                r > 40 && g > 25 && b > 18 &&
                 r >= g &&
-                (r - b > 10 || r - g > 8) &&
-                lum > 30 && lum < 240;
+                (r - b > 8 || r - g > 6) &&
+                lum > 25 && lum < 245;
 
               if (isSkin) {
                 skinPixelCount++;
@@ -149,34 +157,37 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
             }
           }
 
-          measuredLux = Math.min(100, Math.max(10, Math.round((totalLum / 3600 / 255) * 100)));
+          measuredLux = Math.min(100, Math.max(10, Math.round((totalLum / 3200 / 255) * 100)));
 
           // Check if a substantial cluster of face pixels exists
-          if (skinPixelCount > 180) {
+          if (skinPixelCount > 80 && maxY > minY && maxX > minX) {
             realFaceDetected = true;
-            // Video is mirrored in UI (scale-x-[-1]), invert x for accurate tracking
-            const rawFaceCenterX = (sumX / skinPixelCount) / 120;
-            const rawFaceCenterY = (sumY / skinPixelCount) / 120;
+            // The face center (eyes/bridge of nose) is at ~38% from top of the head/hairline
+            const faceSpanY = maxY - minY;
+            const faceSpanX = maxX - minX;
 
-            // Invert x because video preview is mirrored
+            const rawFaceCenterY = (minY + faceSpanY * 0.38) / 120;
+            const rawFaceCenterX = (sumX / skinPixelCount) / 120;
+
+            // Video is mirrored in UI (scale-x-[-1]), invert x for accurate tracking
             const normalizedX = 1.0 - rawFaceCenterX;
-            const normalizedY = rawFaceCenterY;
+            const normalizedY = Math.max(0.2, Math.min(0.65, rawFaceCenterY));
 
             targetX = normalizedX * width;
             targetY = normalizedY * height;
 
-            const boxW = ((maxX - minX) / 120) * width * 1.25;
-            const boxH = ((maxY - minY) / 120) * height * 1.35;
-            targetW = Math.max(70 * scale, Math.min(180 * scale, boxW));
-            targetH = Math.max(90 * scale, Math.min(230 * scale, boxH));
+            const boxW = (faceSpanX / 120) * width * 1.15;
+            const boxH = (faceSpanY / 120) * height * 0.95;
+            targetW = Math.max(65 * scale, Math.min(160 * scale, boxW));
+            targetH = Math.max(85 * scale, Math.min(210 * scale, boxH));
 
-            // Estimate distance from face width in pixels
-            measuredDist = Math.max(25, Math.min(95, Math.round(5500 / (targetW + 10))));
+            // Estimate distance from face box
+            measuredDist = Math.max(25, Math.min(95, Math.round(4800 / (targetW + 10))));
 
             // Estimate yaw from horizontal asymmetry
             const faceMid = (minX + maxX) / 2;
             const centerOffset = (sumX / skinPixelCount) - faceMid;
-            measuredYaw = Math.round(centerOffset * 1.8);
+            measuredYaw = Math.round(centerOffset * 1.6);
           }
         } catch {
           // Fallback if cross-origin or video security restrictions
@@ -189,8 +200,8 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
       if (!realFaceDetected) {
         // Natural subtle micro-breathing when waiting or no video
-        targetX = cx + Math.sin(t * 1.6) * 4 * scale + headYaw * 1.2;
-        targetY = cy + Math.cos(t * 2.2) * 3 * scale;
+        targetX = cx + Math.sin(t * 1.6) * 3 * scale + headYaw * 1.2;
+        targetY = naturalHeadY + Math.cos(t * 2.2) * 2.5 * scale;
       }
 
       current.fx += (targetX - current.fx) * lerpSpeed;
@@ -203,16 +214,16 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
       if (realFaceDetected) {
         current.detected = true;
-        current.confidence = Math.min(99.6, Math.max(92.0, current.confidence + 1.5));
+        current.confidence = Math.min(99.6, Math.max(93.0, current.confidence + 2.0));
         current.lastFaceTime = Date.now();
-      } else if (Date.now() - current.lastFaceTime > 1200) {
+      } else if (Date.now() - current.lastFaceTime > 1500) {
         current.detected = false;
-        current.confidence = Math.max(0, current.confidence - 2.5);
+        current.confidence = Math.max(0, current.confidence - 3.0);
       }
 
-      // Periodic callback to notify parent (approx every 300ms)
+      // Periodic callback to notify parent (approx every 250ms)
       const now = Date.now();
-      if (onFaceTracked && now - lastTrackNotifyTime > 300) {
+      if (onFaceTracked && now - lastTrackNotifyTime > 250) {
         lastTrackNotifyTime = now;
         onFaceTracked({
           detected: current.detected,
@@ -263,8 +274,8 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       // ========================================================
       // 1. NEURAL BOUNDING BOX & REAL-TIME TRACKING BRACKETS
       // ========================================================
-      const boxW = faceW * 1.35;
-      const boxH = faceH * 1.3;
+      const boxW = faceW * 1.3;
+      const boxH = faceH * 1.25;
       const bx = fx - boxW / 2;
       const by = fy - boxH / 2;
 
@@ -272,7 +283,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       ctx.lineWidth = 2;
 
       // Draw 4 Sci-Fi corner tracking brackets
-      const cLen = Math.max(12, 18 * scale);
+      const cLen = Math.max(12, 16 * scale);
       // Top-left
       ctx.beginPath();
       ctx.moveTo(bx, by + cLen);
@@ -324,30 +335,30 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         ? `[X] SPOOF REJECTED` 
         : current.detected
         ? `[AI TRACKED] CONF: ${current.confidence.toFixed(1)}% | LIVE: 99.8%`
-        : `[SEARCHING] INATAFUTA USO...`;
+        : `[SEARCHING] INATAFUTA SURA...`;
       ctx.fillText(hudTag, bx, by - 6 * scale);
 
       // ========================================================
       // 2. 3D FACE MESH & 68 LANDMARK WIREFRAME
       // ========================================================
       if (hudMode === 'mesh') {
-        const eyeY = fy - 18 * scale;
-        const eyeDist = 26 * scale;
+        const eyeY = fy - 16 * scale;
+        const eyeDist = 24 * scale;
         const leftEyeX = fx - eyeDist;
         const rightEyeX = fx + eyeDist;
-        const eyeHeight = isBlinking ? 1 : 8 * scale;
+        const eyeHeight = isBlinking ? 1 : 7 * scale;
 
         const noseTipX = fx;
-        const noseTipY = fy + 12 * scale;
-        const mouthY = fy + 38 * scale;
-        const mouthW = (22 + smileSpread) * scale;
+        const noseTipY = fy + 10 * scale;
+        const mouthY = fy + 34 * scale;
+        const mouthW = (20 + smileSpread) * scale;
 
         // Jawline points (13 landmarks)
         const jawPoints: [number, number][] = [];
         for (let i = 0; i <= 12; i++) {
           const angle = Math.PI * 0.15 + (Math.PI * 0.7 * (i / 12));
-          const jx = fx + Math.cos(angle) * (faceW * 0.58);
-          const jy = fy + Math.sin(angle) * (faceH * 0.58) + 6 * scale;
+          const jx = fx + Math.cos(angle) * (faceW * 0.55);
+          const jy = fy + Math.sin(angle) * (faceH * 0.55) + 4 * scale;
           jawPoints.push([jx, jy]);
         }
 
@@ -363,72 +374,70 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
         // Forehead dome contour
         ctx.beginPath();
-        const foreheadY = fy - faceH * 0.5;
+        const foreheadY = fy - faceH * 0.48;
         ctx.moveTo(jawPoints[0][0], jawPoints[0][1]);
         ctx.quadraticCurveTo(fx, foreheadY, jawPoints[12][0], jawPoints[12][1]);
         ctx.stroke();
 
         // Eyebrows
         ctx.beginPath();
-        // Left eyebrow
-        ctx.moveTo(leftEyeX - 16 * scale, eyeY - 14 * scale);
-        ctx.quadraticCurveTo(leftEyeX, eyeY - 19 * scale, leftEyeX + 14 * scale, eyeY - 13 * scale);
-        // Right eyebrow
-        ctx.moveTo(rightEyeX - 14 * scale, eyeY - 13 * scale);
-        ctx.quadraticCurveTo(rightEyeX, eyeY - 19 * scale, rightEyeX + 16 * scale, eyeY - 14 * scale);
+        ctx.moveTo(leftEyeX - 14 * scale, eyeY - 12 * scale);
+        ctx.quadraticCurveTo(leftEyeX, eyeY - 17 * scale, leftEyeX + 12 * scale, eyeY - 11 * scale);
+        ctx.moveTo(rightEyeX - 12 * scale, eyeY - 11 * scale);
+        ctx.quadraticCurveTo(rightEyeX, eyeY - 17 * scale, rightEyeX + 14 * scale, eyeY - 12 * scale);
         ctx.stroke();
 
         // Eyes outlines
         ctx.beginPath();
-        ctx.ellipse(leftEyeX, eyeY, 11 * scale, eyeHeight, 0, 0, Math.PI * 2);
+        ctx.ellipse(leftEyeX, eyeY, 10 * scale, eyeHeight, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.ellipse(rightEyeX, eyeY, 11 * scale, eyeHeight, 0, 0, Math.PI * 2);
+        ctx.ellipse(rightEyeX, eyeY, 10 * scale, eyeHeight, 0, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Iris reticle tracking
+        // Iris tracking
         if (!isBlinking) {
           ctx.fillStyle = primaryColor;
           ctx.beginPath();
-          ctx.arc(leftEyeX, eyeY, 3.5 * scale, 0, Math.PI * 2);
+          ctx.arc(leftEyeX, eyeY, 3 * scale, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.beginPath();
-          ctx.arc(rightEyeX, eyeY, 3.5 * scale, 0, Math.PI * 2);
+          ctx.arc(rightEyeX, eyeY, 3 * scale, 0, Math.PI * 2);
           ctx.fill();
         }
 
         // Nose Bridge & Base
         ctx.beginPath();
-        ctx.moveTo(fx, eyeY - 10 * scale);
+        ctx.moveTo(fx, eyeY - 8 * scale);
         ctx.lineTo(noseTipX, noseTipY);
-        ctx.lineTo(noseTipX - 8 * scale, noseTipY + 4 * scale);
-        ctx.lineTo(noseTipX + 8 * scale, noseTipY + 4 * scale);
+        ctx.lineTo(noseTipX - 7 * scale, noseTipY + 3 * scale);
+        ctx.lineTo(noseTipX + 7 * scale, noseTipY + 3 * scale);
         ctx.lineTo(noseTipX, noseTipY);
         ctx.stroke();
 
         // Mouth / Lips
         ctx.beginPath();
         ctx.moveTo(fx - mouthW, mouthY);
-        ctx.quadraticCurveTo(fx, mouthY - (isSmiling ? 8 : 4) * scale, fx + mouthW, mouthY);
-        ctx.quadraticCurveTo(fx, mouthY + (isSmiling ? 10 : 6) * scale, fx - mouthW, mouthY);
+        ctx.quadraticCurveTo(fx, mouthY - (isSmiling ? 7 : 3) * scale, fx + mouthW, mouthY);
+        ctx.quadraticCurveTo(fx, mouthY + (isSmiling ? 9 : 5) * scale, fx - mouthW, mouthY);
         ctx.stroke();
 
         // 3D Delaunay Triangular Mesh Facets
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 0.8;
         const meshTriangles: [number, number, number, number][] = [
-          [fx, foreheadY + 12 * scale, leftEyeX, eyeY - 14 * scale],
-          [fx, foreheadY + 12 * scale, rightEyeX, eyeY - 14 * scale],
-          [leftEyeX, eyeY - 14 * scale, fx, eyeY - 10 * scale],
-          [rightEyeX, eyeY - 14 * scale, fx, eyeY - 10 * scale],
-          [leftEyeX - 12 * scale, eyeY, jawPoints[2][0], jawPoints[2][1]],
-          [rightEyeX + 12 * scale, eyeY, jawPoints[10][0], jawPoints[10][1]],
-          [jawPoints[3][0], jawPoints[3][1], noseTipX - 8 * scale, noseTipY + 4 * scale],
-          [jawPoints[9][0], jawPoints[9][1], noseTipX + 8 * scale, noseTipY + 4 * scale],
-          [noseTipX, noseTipY + 4 * scale, fx - mouthW, mouthY],
-          [noseTipX, noseTipY + 4 * scale, fx + mouthW, mouthY],
+          [fx, foreheadY + 10 * scale, leftEyeX, eyeY - 12 * scale],
+          [fx, foreheadY + 10 * scale, rightEyeX, eyeY - 12 * scale],
+          [leftEyeX, eyeY - 12 * scale, fx, eyeY - 8 * scale],
+          [rightEyeX, eyeY - 12 * scale, fx, eyeY - 8 * scale],
+          [leftEyeX - 10 * scale, eyeY, jawPoints[2][0], jawPoints[2][1]],
+          [rightEyeX + 10 * scale, eyeY, jawPoints[10][0], jawPoints[10][1]],
+          [jawPoints[3][0], jawPoints[3][1], noseTipX - 7 * scale, noseTipY + 3 * scale],
+          [jawPoints[9][0], jawPoints[9][1], noseTipX + 7 * scale, noseTipY + 3 * scale],
+          [noseTipX, noseTipY + 3 * scale, fx - mouthW, mouthY],
+          [noseTipX, noseTipY + 3 * scale, fx + mouthW, mouthY],
           [fx - mouthW, mouthY, jawPoints[6][0], jawPoints[6][1]],
           [fx + mouthW, mouthY, jawPoints[6][0], jawPoints[6][1]]
         ];
@@ -440,22 +449,18 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         });
         ctx.stroke();
 
-        // 468 Landmark Pulsing Dots at Key Nodes
+        // Landmark Nodes
         const nodes: [number, number][] = [
           [leftEyeX, eyeY], [rightEyeX, eyeY],
-          [noseTipX, noseTipY], [fx, foreheadY + 16 * scale],
+          [noseTipX, noseTipY], [fx, foreheadY + 14 * scale],
           [fx - mouthW, mouthY], [fx + mouthW, mouthY],
-          [jawPoints[6][0], jawPoints[6][1]],
-          [leftEyeX - 14 * scale, eyeY - 16 * scale],
-          [rightEyeX + 14 * scale, eyeY - 16 * scale],
-          [jawPoints[2][0], jawPoints[2][1]],
-          [jawPoints[10][0], jawPoints[10][1]]
+          [jawPoints[6][0], jawPoints[6][1]]
         ];
 
         ctx.fillStyle = primaryColor;
         nodes.forEach(([nx, ny]) => {
           ctx.beginPath();
-          ctx.arc(nx, ny, 2.2 * scale, 0, Math.PI * 2);
+          ctx.arc(nx, ny, 2 * scale, 0, Math.PI * 2);
           ctx.fill();
         });
       }
@@ -485,32 +490,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       }
 
       // ========================================================
-      // 4. SCI-FI CIRCULAR RADAR & ATTITUDE CROSSHAIR
+      // 4. TELEMETRY DISPLAY (BOTTOM & TOP)
       // ========================================================
-      const hudX = 28 * scale;
-      const hudY = 32 * scale;
-      const hudR = 14 * scale;
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(hudX, hudY, hudR, 0, Math.PI * 2);
-      ctx.stroke();
-
-      const yawAngle = (current.yaw * Math.PI) / 180;
-      ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(hudX - Math.cos(yawAngle) * hudR * 0.8, hudY - Math.sin(yawAngle) * hudR * 0.8);
-      ctx.lineTo(hudX + Math.cos(yawAngle) * hudR * 0.8, hudY + Math.sin(yawAngle) * hudR * 0.8);
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.font = `bold ${Math.max(8, 8 * scale)}px monospace`;
-      ctx.fillText(`YAW: ${current.yaw > 0 ? '+' : ''}${Math.round(current.yaw)}°`, hudX - 12 * scale, hudY + hudR + 10 * scale);
-
-      // Distance & Lighting Telemetry (Bottom HUD)
-      const botY = height - 12 * scale;
+      const botY = height - 10 * scale;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.font = `bold ${Math.max(8, 9 * scale)}px monospace`;
       ctx.fillText(`💡 TAA: ${Math.round(current.lux)}% LUX`, 10 * scale, botY);
@@ -532,8 +514,6 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
   return (
     <canvas
       ref={canvasRef}
-      width={320}
-      height={320}
       className={`absolute inset-0 w-full h-full pointer-events-none z-10 ${className}`}
     />
   );

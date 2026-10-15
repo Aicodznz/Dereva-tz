@@ -65,6 +65,12 @@ export interface UserProfile {
     expiresAt: string | null;
     status: 'active' | 'inactive';
   };
+  // Biometric Face Fields
+  hasFaceEnrolled?: boolean;
+  facePhotoUrl?: string;
+  faceEmbeddingId?: string;
+  faceRegisteredAt?: string;
+  faceDailyLimit?: number;
   saccoGroup?: {
     groupId: string;
     groupName: string;
