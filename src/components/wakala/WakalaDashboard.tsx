@@ -366,6 +366,26 @@ export default function WakalaDashboard() {
     } catch {}
   }, [floatBalance, commissionEarned]);
 
+  // Hands-free Automatic Recognition Watchdog:
+  // If the live camera is actively streaming and system is idle_no_face for > 2.2s,
+  // automatically run executeLiveCameraSearch() so the customer is detected without clicking!
+  useEffect(() => {
+    if (detectionMode !== 'live_camera') return;
+    if (searchState !== 'idle_no_face') return;
+    if (isSearchingRef.current) return;
+
+    const autoDetectTimer = setTimeout(() => {
+      const vid = videoRef.current;
+      if (vid && vid.readyState >= 2 && !vid.paused && vid.videoWidth > 0) {
+        if (searchState === 'idle_no_face' && !isSearchingRef.current) {
+          executeLiveCameraSearch();
+        }
+      }
+    }, 2200);
+
+    return () => clearTimeout(autoDetectTimer);
+  }, [searchState, detectionMode]);
+
   // LIVE FACE TRACKER CALLBACK from BiometricFaceCanvas
   const handleFaceTracked = (data: FaceTrackResult) => {
     setLiveConfidence(data.confidence);
@@ -382,17 +402,18 @@ export default function WakalaDashboard() {
         faceAbsentTimeoutRef.current = null;
       }
 
-      // Auto-trigger face search if system is idle and face is detected
+      // Auto-trigger face search immediately if system is idle and face is detected
       if (searchState === 'idle_no_face' && !isSearchingRef.current) {
         faceDetectedDebounceRef.current++;
-        if (faceDetectedDebounceRef.current >= 4) {
+        // Fast instant recognition: triggers in ~350ms of face being visible
+        if (faceDetectedDebounceRef.current >= 2) {
           faceDetectedDebounceRef.current = 0;
           executeLiveCameraSearch();
         }
       }
     } else {
       setLiveFaceDetected(false);
-      faceDetectedDebounceRef.current = 0;
+      faceDetectedDebounceRef.current = Math.max(0, faceDetectedDebounceRef.current - 1);
 
       // If customer has walked away before confirmation, return to idle after 4 seconds
       if ((searchState === 'customer_found' || searchState === 'unregistered') && !isCustomerConfirmed && !faceAbsentTimeoutRef.current) {

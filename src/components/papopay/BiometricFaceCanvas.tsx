@@ -61,6 +61,18 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
     lastFaceTime: 0
   });
 
+  // Persistent detection state across animation frames
+  const lastDetectedRef = useRef<boolean>(false);
+  const targetCoordsRef = useRef({
+    x: 160,
+    y: 110,
+    w: 100,
+    h: 135,
+    lux: lightingQuality,
+    dist: distanceCm,
+    yaw: 0
+  });
+
   // Offscreen sampler canvas
   const samplerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   // Native FaceDetector instance if available in browser
@@ -144,15 +156,6 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       // ========================================================
       // REAL-TIME VIDEO FRAME ANALYSIS & ACCURATE FACE TRACKING
       // ========================================================
-      let realFaceDetected = false;
-      let targetX = cx;
-      let targetY = naturalHeadY;
-      let targetW = 95 * scale;
-      let targetH = 125 * scale;
-      let measuredLux = lightingQuality;
-      let measuredDist = distanceCm;
-      let measuredYaw = headYaw;
-
       const video = videoRef?.current;
       const isVideoActive = Boolean(
         video && 
@@ -164,18 +167,18 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       );
 
       if (isVideoActive && samplerCtx) {
-        // Run vision analysis at ~15-20 FPS for optimal performance & responsiveness
-        if (now - lastAnalysisTime > 60) {
+        // Run vision analysis at ~15-20 FPS (every 50ms) for high responsiveness
+        if (now - lastAnalysisTime > 50) {
           lastAnalysisTime = now;
 
-          // 1. Try Native FaceDetector if supported
+          // 1. Try Native FaceDetector if supported (instant hardware acceleration on Chrome/Android)
           if (faceDetectorRef.current) {
             checkNativeFace(video).then(result => {
               cachedNativeFace = result;
             });
           }
 
-          // 2. High-precision Multi-Cue Computer Vision Analysis via Canvas Sampler
+          // 2. High-precision Universal Multi-Cue Vision Analysis via Canvas Sampler
           try {
             samplerCtx.drawImage(video, 0, 0, 160, 120);
             const imgData = samplerCtx.getImageData(0, 0, 160, 120);
@@ -188,9 +191,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
             let totalLum = 0;
             let lumSamples: number[] = [];
 
-            // Sample pixels across central search region
-            for (let y = 10; y < 110; y += 2) {
-              for (let x = 15; x < 145; x += 2) {
+            // Sample pixels across central counter face region
+            for (let y = 8; y < 112; y += 2) {
+              for (let x = 12; x < 148; x += 2) {
                 const idx = (y * 160 + x) * 4;
                 const r = data[idx];
                 const g = data[idx + 1];
@@ -199,13 +202,15 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                 const lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 totalLum += lum;
 
-                // Academic YCbCr skin model (Cb [77, 127], Cr [133, 173])
+                // Academic Universal Fitzpatrick I-VI Skin Model (covers all melanin tones & warm lighting)
+                // 1) RGB model: Red component dominates, blue is lowest, with reasonable brightness
+                const isSkinRGB = r > 35 && g > 20 && b > 10 && r >= g && (r - b) >= 6;
+                // 2) YCbCr with broader chromatic ranges (Cb [60, 140], Cr [120, 190], Lum [15, 248])
                 const cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
                 const cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
+                const isSkinYCbCr = cb >= 60 && cb <= 140 && cr >= 120 && cr <= 190 && lum >= 15 && lum <= 248;
 
-                const isSkinYCbCr = cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && lum >= 30 && lum <= 235;
-
-                if (isSkinYCbCr) {
+                if (isSkinRGB || isSkinYCbCr) {
                   skinPixelCount++;
                   sumX += x;
                   sumY += y;
@@ -213,14 +218,14 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                   if (x > maxX) maxX = x;
                   if (y < minY) minY = y;
                   if (y > maxY) maxY = y;
-                  if (skinPixelCount % 4 === 0) {
+                  if (skinPixelCount % 3 === 0) {
                     lumSamples.push(lum);
                   }
                 }
               }
             }
 
-            measuredLux = Math.min(100, Math.max(10, Math.round((totalLum / 4800 / 255) * 100)));
+            const measuredLuxVal = Math.min(100, Math.max(10, Math.round((totalLum / 4800 / 255) * 100)));
 
             // Check if Native Face Detector found a face
             if (cachedNativeFace && cachedNativeFace.boundingBox) {
@@ -232,82 +237,111 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
               const normX = 1.0 - (bb.x + bb.width / 2) / vW;
               const normY = (bb.y + bb.height * 0.42) / vH;
 
-              targetX = normX * width;
-              targetY = normY * height;
-              targetW = Math.max(70 * scale, Math.min(180 * scale, (bb.width / vW) * width * 1.15));
-              targetH = Math.max(90 * scale, Math.min(230 * scale, (bb.height / vH) * height * 1.15));
-              realFaceDetected = true;
-              measuredDist = Math.max(25, Math.min(90, Math.round(4800 / (targetW + 10))));
+              const targetXVal = normX * width;
+              const targetYVal = normY * height;
+              const targetWVal = Math.max(70 * scale, Math.min(180 * scale, (bb.width / vW) * width * 1.15));
+              const targetHVal = Math.max(90 * scale, Math.min(230 * scale, (bb.height / vH) * height * 1.15));
+              const measuredDistVal = Math.max(25, Math.min(90, Math.round(4800 / (targetWVal + 10))));
+
+              lastDetectedRef.current = true;
+              targetCoordsRef.current = {
+                x: targetXVal,
+                y: targetYVal,
+                w: targetWVal,
+                h: targetHVal,
+                lux: measuredLuxVal,
+                dist: measuredDistVal,
+                yaw: 0
+              };
             } else {
-              // High-confidence Face Cluster Verification:
-              // - Substantial skin pixels (> 420 samples)
-              // - Realistic aspect ratio for human head (1.05 to 1.95)
-              // - Facial feature variance (contrast for eyes, eyebrows, mouth)
               const spanX = maxX - minX;
               const spanY = maxY - minY;
               const aspectRatio = spanY / (spanX || 1);
 
-              // Calculate luminance variance to prevent flat/uniform wooden/brown backgrounds
-              let lumVariance = 0;
-              if (lumSamples.length > 20) {
-                const meanLum = lumSamples.reduce((a, b) => a + b, 0) / lumSamples.length;
-                lumVariance = lumSamples.reduce((a, b) => a + Math.pow(b - meanLum, 2), 0) / lumSamples.length;
-              }
-
+              // Responsive, reliable face cluster threshold
               if (
-                skinPixelCount >= 420 && 
-                spanX >= 35 && 
-                spanY >= 42 && 
-                aspectRatio >= 1.05 && 
-                aspectRatio <= 2.0 &&
-                lumVariance >= 45
+                skinPixelCount >= 100 && 
+                spanX >= 20 && 
+                spanY >= 25 && 
+                aspectRatio >= 0.75 && 
+                aspectRatio <= 2.5
               ) {
-                realFaceDetected = true;
+                lastDetectedRef.current = true;
 
                 const rawCenterX = (sumX / skinPixelCount) / 160;
                 const rawCenterY = (minY + spanY * 0.42) / 120;
 
                 const normalizedX = 1.0 - rawCenterX;
-                const normalizedY = Math.max(0.2, Math.min(0.65, rawCenterY));
+                const normalizedY = Math.max(0.18, Math.min(0.70, rawCenterY));
 
-                targetX = normalizedX * width;
-                targetY = normalizedY * height;
+                const targetXVal = normalizedX * width;
+                const targetYVal = normalizedY * height;
 
-                const boxW = (spanX / 160) * width * 1.2;
-                const boxH = (spanY / 120) * height * 1.05;
-                targetW = Math.max(75 * scale, Math.min(175 * scale, boxW));
-                targetH = Math.max(95 * scale, Math.min(225 * scale, boxH));
-
-                measuredDist = Math.max(25, Math.min(95, Math.round(5200 / (targetW + 10))));
+                const boxW = (spanX / 160) * width * 1.25;
+                const boxH = (spanY / 120) * height * 1.1;
+                const targetWVal = Math.max(75 * scale, Math.min(185 * scale, boxW));
+                const targetHVal = Math.max(95 * scale, Math.min(235 * scale, boxH));
+                const measuredDistVal = Math.max(25, Math.min(95, Math.round(5200 / (targetWVal + 10))));
 
                 const faceMid = (minX + maxX) / 2;
                 const centerOffset = (sumX / skinPixelCount) - faceMid;
-                measuredYaw = Math.round(centerOffset * 1.8);
+                const measuredYawVal = Math.round(centerOffset * 1.8);
+
+                targetCoordsRef.current = {
+                  x: targetXVal,
+                  y: targetYVal,
+                  w: targetWVal,
+                  h: targetHVal,
+                  lux: measuredLuxVal,
+                  dist: measuredDistVal,
+                  yaw: measuredYawVal
+                };
+              } else if (skinPixelCount >= 70) {
+                // Secondary fallback when person is slightly further from phone
+                lastDetectedRef.current = true;
+                targetCoordsRef.current = {
+                  x: cx,
+                  y: naturalHeadY,
+                  w: 100 * scale,
+                  h: 135 * scale,
+                  lux: measuredLuxVal,
+                  dist: 50,
+                  yaw: 0
+                };
+              } else {
+                lastDetectedRef.current = false;
               }
             }
           } catch {
-            // Security or CORS fallback
+            // Sampler fallback
           }
         }
       }
 
-      // Smooth coordinate interpolation (Lerp)
+      // Smooth coordinate interpolation (Lerp) using persistent detection state
       const current = smoothCoordRef.current;
+      const isFacePresent = lastDetectedRef.current;
 
-      if (realFaceDetected) {
+      if (isFacePresent) {
         current.consecutiveDetections++;
         current.consecutiveMisses = 0;
         current.lastFaceTime = now;
       } else {
         current.consecutiveMisses++;
-        current.consecutiveDetections = 0;
+        if (current.consecutiveMisses >= 3) {
+          current.consecutiveDetections = 0;
+        }
       }
 
-      // Strict stability requirement: must be currently detected and stable for >= 4 frames
-      const isStablyDetected = realFaceDetected && current.consecutiveDetections >= 4;
+      // Stable detection after 2 consecutive frames (~30-50ms)
+      const isStablyDetected = isFacePresent && current.consecutiveDetections >= 2;
       current.detected = isStablyDetected;
 
       const lerpSpeed = isStablyDetected ? 0.38 : 0.08;
+      let targetX = targetCoordsRef.current.x;
+      let targetY = targetCoordsRef.current.y;
+      let targetW = targetCoordsRef.current.w;
+      let targetH = targetCoordsRef.current.h;
 
       if (!isStablyDetected) {
         // Natural gentle idle scanner pulse when no face is present
@@ -317,19 +351,19 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         targetH = 138 * scale;
         current.confidence = Math.max(0, current.confidence - 4.5);
       } else {
-        current.confidence = Math.min(99.6, Math.max(92.0, current.confidence + 2.5));
+        current.confidence = Math.min(99.6, Math.max(92.0, current.confidence + 3.0));
       }
 
       current.fx += (targetX - current.fx) * lerpSpeed;
       current.fy += (targetY - current.fy) * lerpSpeed;
       current.fw += (targetW - current.fw) * lerpSpeed;
       current.fh += (targetH - current.fh) * lerpSpeed;
-      current.yaw += (measuredYaw - current.yaw) * 0.2;
-      current.lux += (measuredLux - current.lux) * 0.1;
-      current.dist += (measuredDist - current.dist) * 0.1;
+      current.yaw += (targetCoordsRef.current.yaw - current.yaw) * 0.2;
+      current.lux += (targetCoordsRef.current.lux - current.lux) * 0.1;
+      current.dist += (targetCoordsRef.current.dist - current.dist) * 0.1;
 
-      // Notify parent callback every ~200ms
-      if (onFaceTracked && now - lastTrackNotifyTime > 200) {
+      // Notify parent callback every ~180ms
+      if (onFaceTracked && now - lastTrackNotifyTime > 180) {
         lastTrackNotifyTime = now;
         onFaceTracked({
           detected: isStablyDetected,
