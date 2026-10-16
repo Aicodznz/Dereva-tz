@@ -200,6 +200,15 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
       try {
         const stored = localStorage.getItem('papopay_registered_face');
         if (stored) enrolledData = JSON.parse(stored);
+        if (!enrolledData || !enrolledData.isEnrolled) {
+          const storedList = localStorage.getItem('papopay_registered_faces');
+          if (storedList) {
+            const arr = JSON.parse(storedList);
+            if (Array.isArray(arr) && arr.length > 0 && arr[0].isEnrolled) {
+              enrolledData = arr[0];
+            }
+          }
+        }
       } catch {}
 
       if (enrolledData && enrolledData.isEnrolled === false && desiredStatus !== 'registered') {
@@ -432,25 +441,25 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="relative w-full max-w-5xl bg-[#090e1a] border border-cyan-500/30 rounded-[36px] overflow-hidden shadow-2xl shadow-cyan-950/80 flex flex-col max-h-[92vh] text-white"
+        className="relative w-full max-w-5xl bg-[#090e1a] border border-cyan-500/30 rounded-3xl sm:rounded-[36px] overflow-hidden shadow-2xl shadow-cyan-950/80 flex flex-col max-h-[95vh] sm:max-h-[92vh] text-white"
       >
         {/* TOP MODAL HEADER */}
-        <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/10 bg-[#0c1424]">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 border border-cyan-400 text-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Store className="w-6 h-6" />
+        <div className="p-3 sm:p-5 flex items-center justify-between border-b border-white/10 bg-[#0c1424]">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-cyan-500/20 border border-cyan-400 text-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
+              <Store className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
-                  PapoPay Wakala &amp; Merchant POS
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-sm sm:text-lg font-black tracking-tight text-white truncate">
+                  PapoPay Wakala POS
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/30">
+                <span className="px-1.5 sm:px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[9px] sm:text-[10px] font-mono font-bold border border-cyan-500/30 shrink-0">
                   {wakalaId}
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 font-medium truncate max-w-xs sm:max-w-md">
-                {businessName} &bull; Huduma za Kuweka/Kutoa Pesa &amp; Malipo ya Uso
+              <p className="text-[10px] sm:text-xs text-neutral-400 font-medium truncate max-w-[180px] sm:max-w-md">
+                {businessName} &bull; Malipo ya Uso
               </p>
             </div>
           </div>
@@ -549,25 +558,25 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
         </div>
 
         {/* MAIN GRID: 2 COLUMNS (CAMERA & CONTROLS) */}
-        <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-y-auto">
+        <div className="p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 overflow-y-auto">
           {/* LEFT COLUMN: LIVE BIOMETRIC CAMERA & REAL-TIME FACE RECOGNITION (7 COLS) */}
-          <div className="lg:col-span-7 flex flex-col items-center space-y-4">
+          <div className="lg:col-span-7 flex flex-col items-center space-y-3 sm:space-y-4">
             {/* OPERATION TABS (DEPOSIT / WITHDRAW / POS BILL) */}
-            <div className="w-full grid grid-cols-3 gap-2 bg-neutral-900/80 p-1.5 rounded-2xl border border-white/5">
+            <div className="w-full grid grid-cols-3 gap-1 sm:gap-2 bg-neutral-900/80 p-1 sm:p-1.5 rounded-2xl border border-white/5">
               <button
                 type="button"
                 onClick={() => {
                   setOperation('face_deposit');
                   triggerHapticTap();
                 }}
-                className={`py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                   operation === 'face_deposit'
                     ? 'bg-emerald-500 text-neutral-950 shadow-lg font-black'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <ArrowDownLeft className="w-4 h-4" />
-                <span>Weka Pesa (Face Cash-In)</span>
+                <ArrowDownLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="truncate">Weka (Cash-In)</span>
               </button>
 
               <button
@@ -576,14 +585,14 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                   setOperation('face_withdraw');
                   triggerHapticTap();
                 }}
-                className={`py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                   operation === 'face_withdraw'
                     ? 'bg-amber-500 text-neutral-950 shadow-lg font-black'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <ArrowUpRight className="w-4 h-4" />
-                <span>Toa Pesa (Cash-Out)</span>
+                <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="truncate">Toa (Cash-Out)</span>
               </button>
 
               <button
@@ -592,14 +601,14 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                   setOperation('merchant_checkout');
                   triggerHapticTap();
                 }}
-                className={`py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                className={`py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all ${
                   operation === 'merchant_checkout'
                     ? 'bg-cyan-500 text-neutral-950 shadow-lg font-black'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <ScanFace className="w-4 h-4" />
-                <span>Lipa Bili / POS</span>
+                <ScanFace className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="truncate">Lipa Bili / POS</span>
               </button>
             </div>
 

@@ -8,7 +8,7 @@ import {
   Check, Clock, Coins, Plus, Trash2, ArrowRight, User, 
   LogOut, Wallet, Building2, Sliders, MapPin, Phone,
   Zap, Droplets, Tv, Send, FileText, ChevronRight, Camera,
-  AlertTriangle
+  AlertTriangle, SwitchCamera, ChevronDown, ChevronUp, Users, CreditCard
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -32,7 +32,7 @@ export interface SimulatedCustomer {
 const DEFAULT_WAKALA_CLIENTS: SimulatedCustomer[] = [
   {
     id: 'cust_baraka',
-    name: 'Baraka Juma Mrema',
+    name: 'Baraka Juma Mrema (Demo)',
     phone: '0754 892 100',
     walletBalance: 3450000,
     faceEmbeddingId: 'EMB-TZ-DAR-9821-VERIFIED',
@@ -96,7 +96,7 @@ export default function WakalaDashboard() {
     return {
       wakalaId: 'TZ-WAKALA-0842-DAR',
       businessName: 'Wakala wa PapoPay - Dar Express',
-      agentName: 'Baraka Juma Mrema',
+      agentName: 'Amani Tarimo (Wakala)',
       phone: '0754 892 100',
       location: 'Dar es Salaam, Posta / Kariakoo',
       wakalaFloatBalance: 8500000,
@@ -113,30 +113,79 @@ export default function WakalaDashboard() {
 
   // Customer DB with localStorage registration support
   const [customers, setCustomers] = useState<SimulatedCustomer[]>(() => {
+    const list: SimulatedCustomer[] = [];
+    const seenPhones = new Set<string>();
+
+    // 1. Load from registered faces array
     try {
-      const customFace = localStorage.getItem('papopay_registered_face');
-      if (customFace) {
-        const parsed = JSON.parse(customFace);
-        const isEnrolled = Boolean(parsed.isEnrolled);
-        const enrolledCust: SimulatedCustomer = {
-          id: 'cust_enrolled_' + (parsed.phone || 'custom'),
-          name: parsed.name || 'Mteja Aliyetengeneza Akaunti',
-          phone: parsed.phone || '0754 000 000',
-          walletBalance: 500000,
-          faceEmbeddingId: isEnrolled ? (parsed.embeddingId || 'EMB-CUSTOM-REGISTERED') : 'NOT_ENROLLED',
-          avatar: parsed.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          isRegistered: isEnrolled,
-          hasAccountButNoFace: !isEnrolled,
-          nidaNumber: '20010815-44210-00012-77'
-        };
-        return [enrolledCust, ...DEFAULT_WAKALA_CLIENTS];
+      const facesList = localStorage.getItem('papopay_registered_faces');
+      if (facesList) {
+        const parsedArr = JSON.parse(facesList);
+        if (Array.isArray(parsedArr)) {
+          parsedArr.forEach((p, idx) => {
+            const isEnrolled = Boolean(p.isEnrolled);
+            const phone = p.phone || `0754 000 00${idx}`;
+            if (!seenPhones.has(phone)) {
+              seenPhones.add(phone);
+              list.push({
+                id: 'cust_enrolled_' + phone.replace(/\s+/g, ''),
+                name: p.name || 'Mteja Aliyesajiliwa',
+                phone: phone,
+                walletBalance: p.walletBalance || 500000,
+                faceEmbeddingId: isEnrolled ? (p.embeddingId || `EMB-REG-${idx}`) : 'NOT_ENROLLED',
+                avatar: p.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                isRegistered: isEnrolled,
+                hasAccountButNoFace: !isEnrolled,
+                nidaNumber: p.nidaNumber || '20010815-44210-00012-77'
+              });
+            }
+          });
+        }
       }
     } catch {}
-    return DEFAULT_WAKALA_CLIENTS;
+
+    // 2. Load single registered face if not already added
+    try {
+      const single = localStorage.getItem('papopay_registered_face');
+      if (single) {
+        const p = JSON.parse(single);
+        const phone = p.phone || '0754 000 000';
+        if (!seenPhones.has(phone)) {
+          seenPhones.add(phone);
+          const isEnrolled = Boolean(p.isEnrolled);
+          list.push({
+            id: 'cust_enrolled_' + phone.replace(/\s+/g, ''),
+            name: p.name || 'Mteja Aliyesajiliwa',
+            phone: phone,
+            walletBalance: 500000,
+            faceEmbeddingId: isEnrolled ? (p.embeddingId || 'EMB-CUSTOM-REGISTERED') : 'NOT_ENROLLED',
+            avatar: p.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            isRegistered: isEnrolled,
+            hasAccountButNoFace: !isEnrolled,
+            nidaNumber: '20010815-44210-00012-77'
+          });
+        }
+      }
+    } catch {}
+
+    // 3. Append default system clients
+    DEFAULT_WAKALA_CLIENTS.forEach(c => {
+      if (!seenPhones.has(c.phone)) {
+        seenPhones.add(c.phone);
+        list.push(c);
+      }
+    });
+
+    return list.length > 0 ? list : DEFAULT_WAKALA_CLIENTS;
   });
 
-  // Simulated target for demo mode
-  const [activeSubject, setActiveSubject] = useState<SimulatedCustomer>(DEFAULT_WAKALA_CLIENTS[0]);
+  // Simulated target customer currently at counter in front of camera (Mteja Husika) - starts NULL so no false customer is pre-assumed!
+  const [activeSubject, setActiveSubject] = useState<SimulatedCustomer | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Search & filter state for identifying relevant customer
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'registered' | 'unregistered'>('all');
 
   // Mode: 'live_camera' (real camera tracking) or 'test_profiles' (testing preset customers)
   const [detectionMode, setDetectionMode] = useState<'live_camera' | 'test_profiles'>('live_camera');
@@ -213,6 +262,11 @@ export default function WakalaDashboard() {
     }
   ]);
 
+  // Mobile Phone View Tabs ('camera' | 'pos' | 'customers' | 'ledger')
+  const [mobileTab, setMobileTab] = useState<'camera' | 'pos' | 'customers' | 'ledger'>('camera');
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
+  const [isMetricsCollapsed, setIsMetricsCollapsed] = useState<boolean>(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -229,13 +283,15 @@ export default function WakalaDashboard() {
     } catch {}
   };
 
-  const startCamera = async () => {
+  const startCamera = async (facingModeParam?: 'user' | 'environment') => {
     try {
+      setCameraError(null);
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(t => t.stop());
       }
+      const mode = facingModeParam || cameraFacing;
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
+        video: { facingMode: mode, width: { ideal: 640 }, height: { ideal: 640 } },
         audio: false
       });
       mediaStreamRef.current = stream;
@@ -243,9 +299,18 @@ export default function WakalaDashboard() {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Camera fallback active in Wakala", err);
+      setCameraError("Kamera haipatikani au imezuiwa kwenye kivinjari. Unaweza kuchagua mteja hapa chini kuthibitisha.");
     }
+  };
+
+  const toggleCameraFacing = async () => {
+    const nextMode = cameraFacing === 'user' ? 'environment' : 'user';
+    setCameraFacing(nextMode);
+    await startCamera(nextMode);
+    triggerHapticTap();
+    toast.info(`Kamera imebadilishwa: ${nextMode === 'environment' ? 'Kamera ya Nyuma (Kaunta)' : 'Kamera ya Mbele (Selfie)'}`, { icon: '📷' });
   };
 
   const stopCamera = () => {
@@ -317,10 +382,10 @@ export default function WakalaDashboard() {
         faceAbsentTimeoutRef.current = null;
       }
 
-      // If camera was idling without a face, begin auto system lookup after face stabilizes
+      // Auto-trigger face search if system is idle and face is detected
       if (searchState === 'idle_no_face' && !isSearchingRef.current) {
         faceDetectedDebounceRef.current++;
-        if (faceDetectedDebounceRef.current >= 2) {
+        if (faceDetectedDebounceRef.current >= 4) {
           faceDetectedDebounceRef.current = 0;
           executeLiveCameraSearch();
         }
@@ -343,7 +408,27 @@ export default function WakalaDashboard() {
     }
   };
 
-  // EXECUTE LIVE CAMERA SEARCH (Checks real registered faces in system)
+  // SELECT SPECIFIC CUSTOMER AT COUNTER (Mteja Husika)
+  const handleSelectCustomerSubject = (customer: SimulatedCustomer) => {
+    setActiveSubject(customer);
+    setMatchedCustomer(null);
+    setIsCustomerConfirmed(false);
+    triggerHapticTap();
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileTab('pos');
+    }
+
+    speak(`Umechagua mteja husika: ${customer.name.split(' ')[0]}. Inachanganua uso wake kuthibitisha...`);
+    toast.info(`Mteja Husika Aliyelengwa: ${customer.name}`, {
+      description: `Simu: ${customer.phone} | Salio: TZS ${customer.walletBalance.toLocaleString()}`,
+      icon: '🎯'
+    });
+
+    // Run verification directly for this specific targeted customer
+    triggerFaceSearch(customer);
+  };
+
+  // EXECUTE LIVE CAMERA SEARCH (Matches and identifies the genuine relevant customer in front of camera)
   const executeLiveCameraSearch = () => {
     isSearchingRef.current = true;
     setSearchState('searching_db');
@@ -351,7 +436,62 @@ export default function WakalaDashboard() {
     setIsCustomerConfirmed(false);
     setSearchProgress(20);
 
-    speak("Uso umepatikana! Inatafuta mteja kwenye mfumo wa PapoPay...");
+    const snapshot = captureCurrentFrame();
+
+    // 1. If Wakala has explicitly targeted a specific customer at counter, use that
+    let targetCustomer: SimulatedCustomer | null = activeSubject;
+
+    // 2. If no subject explicitly selected, in live_camera mode look for genuine registered faces in localStorage
+    if (!targetCustomer && detectionMode === 'live_camera') {
+      try {
+        const stored = localStorage.getItem('papopay_registered_face');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.isEnrolled && parsed.name) {
+            targetCustomer = customers.find(c => c.phone === parsed.phone) || {
+              id: 'cust_enrolled_' + (parsed.phone || 'custom').replace(/\s+/g, ''),
+              name: parsed.name,
+              phone: parsed.phone || '0754 000 000',
+              walletBalance: parsed.walletBalance || 500000,
+              faceEmbeddingId: parsed.embeddingId || 'EMB-CUSTOM-REGISTERED',
+              avatar: parsed.photoUrl || snapshot,
+              isRegistered: true,
+              nidaNumber: parsed.nidaNumber || '20010815-44210-00012-77'
+            };
+          }
+        }
+      } catch {}
+
+      if (!targetCustomer) {
+        try {
+          const storedList = localStorage.getItem('papopay_registered_faces');
+          if (storedList) {
+            const arr = JSON.parse(storedList);
+            if (Array.isArray(arr) && arr.length > 0) {
+              const enrolled = arr.find((f: any) => f.isEnrolled && f.name);
+              if (enrolled) {
+                targetCustomer = customers.find(c => c.phone === enrolled.phone) || {
+                  id: 'cust_enrolled_' + (enrolled.phone || '0').replace(/\s+/g, ''),
+                  name: enrolled.name,
+                  phone: enrolled.phone || '0754 000 000',
+                  walletBalance: enrolled.walletBalance || 500000,
+                  faceEmbeddingId: enrolled.embeddingId || 'EMB-CUSTOM-REGISTERED',
+                  avatar: enrolled.photoUrl || snapshot,
+                  isRegistered: true,
+                  nidaNumber: enrolled.nidaNumber || '20010815-44210-00012-77'
+                };
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    if (targetCustomer) {
+      speak(`Uso umepatikana! Inatafuta na kuthibitisha mteja ${targetCustomer.name.split(' ')[0]} kwenye mfumo wa PapoPay...`);
+    } else {
+      speak("Uso umepatikana mbele ya kamera. Inachanganua kanzidata ya PapoPay...");
+    }
 
     const pInterval = setInterval(() => {
       setSearchProgress(prev => {
@@ -368,66 +508,47 @@ export default function WakalaDashboard() {
       setSearchProgress(100);
       isSearchingRef.current = false;
 
-      // 1. Check registered face in localStorage
-      let enrolledData: any = null;
-      try {
-        const stored = localStorage.getItem('papopay_registered_face');
-        if (stored) enrolledData = JSON.parse(stored);
-      } catch {}
-
-      if (enrolledData && enrolledData.isEnrolled) {
-        // MATCHED REGISTERED CUSTOMER FOUND!
-        const snapshot = captureCurrentFrame();
+      if (targetCustomer && targetCustomer.isRegistered) {
+        // MATCHED REGISTERED CUSTOMER (MTEJA HUSIKA AMETAMBULIWA!)
         const verified: SimulatedCustomer = {
-          id: 'cust_live_' + (enrolledData.phone || 'enrolled'),
-          name: enrolledData.name || 'Mteja Aliyesajiliwa',
-          phone: enrolledData.phone || '0754 000 000',
-          walletBalance: 500000,
-          faceEmbeddingId: enrolledData.embeddingId || 'EMB-LIVE-VERIFIED-TZ',
-          avatar: enrolledData.photoUrl || snapshot,
-          isRegistered: true,
-          nidaNumber: '19900214-41200-00018-92'
+          ...targetCustomer,
+          avatar: targetCustomer.avatar?.startsWith('data:') ? targetCustomer.avatar : (snapshot || targetCustomer.avatar)
         };
 
         setMatchedCustomer(verified);
         setActiveSubject(verified);
         setSearchState('customer_found');
         setIsCustomerConfirmed(false); // MUST BE CONFIRMED BY WAKALA FIRST!
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+          setMobileTab('pos');
+        }
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja ${verified.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${verified.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya kuendelea.`);
-        toast.success(`Mteja Ametambuliwa: ${verified.name}`, { icon: '✅' });
-      } else if (enrolledData && enrolledData.isEnrolled === false) {
-        // CASE: ACCOUNT EXISTS BUT USER DID NOT ENROLL FACE YET
-        const partialCust: SimulatedCustomer = {
-          id: 'cust_no_face',
-          name: enrolledData.name || 'Mteja Mwenye Akaunti',
-          phone: enrolledData.phone || '0714 888 333',
-          walletBalance: 250000,
-          faceEmbeddingId: 'NOT_ENROLLED',
-          avatar: captureCurrentFrame(),
-          isRegistered: false,
-          hasAccountButNoFace: true,
-          nidaNumber: '19950312-51203-00004-55'
-        };
-        setActiveSubject(partialCust);
+        speak(`Mteja husika ${verified.name.split(' ')[0]} ametambuliwa kikamilifu kwa uso wake. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
+        toast.success(`🎯 Mteja Husika Ametambuliwa: ${verified.name}`, { 
+          description: `Simu: ${verified.phone} | Salio: TZS ${verified.walletBalance.toLocaleString()}`,
+          icon: '✅' 
+        });
+      } else if (targetCustomer && targetCustomer.hasAccountButNoFace) {
+        // CASE: ACCOUNT EXISTS BUT USER HAS NOT ENROLLED FACE YET
+        setActiveSubject(targetCustomer);
         setMatchedCustomer(null);
         setIsCustomerConfirmed(false);
         setSearchState('unregistered');
-        setQuickEnrollName(partialCust.name);
-        setQuickEnrollPhone(partialCust.phone);
+        setQuickEnrollName(targetCustomer.name);
+        setQuickEnrollPhone(targetCustomer.phone);
+        setQuickEnrollNida(targetCustomer.nidaNumber || '');
         triggerHapticTap();
-        speak(`Mteja ${partialCust.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa ili kuwezesha miamala.`);
-        toast.warning(`Akaunti Ipo, Bado Hajaweka Uso: ${partialCust.name}`, { 
+        speak(`Mteja ${targetCustomer.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa ili kuwezesha miamala.`);
+        toast.warning(`Akaunti Ipo, Bado Hajaweka Uso: ${targetCustomer.name}`, { 
           description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa.",
           icon: '⚠️' 
         });
       } else {
-        // CASE: COMPLETELY UNREGISTERED FACE!
-        const snapshot = captureCurrentFrame();
+        // CASE: UNREGISTERED FACE! DO NOT GUESS OR DEFAULT TO BARAKA!
         const unregSubject: SimulatedCustomer = {
           id: 'cust_unreg_' + Date.now(),
-          name: 'Mteja Mpya',
+          name: 'Mteja Mpya (Hajasajiliwa)',
           phone: '',
           walletBalance: 0,
           faceEmbeddingId: 'UNREGISTERED_NULL',
@@ -440,11 +561,15 @@ export default function WakalaDashboard() {
         setSearchState('unregistered');
         setQuickEnrollName('');
         setQuickEnrollPhone('');
+        setQuickEnrollNida('');
         triggerHapticTap();
-        speak("Samahani, sura hii haipo kwenye mfumo wa PapoPay. Tafadhali jaza fomu na usajili uso wa mteja sasa.");
-        toast.error("Sura Haipo Kwenye Mfumo! Jaza fomu ya usajili hapa.", { icon: '⚠️' });
+        speak("Samahani, sura hii haijatambuliwa kwenye mfumo wa PapoPay. Tafadhali jaza jina na namba ya simu kusajili uso wa mteja sasa.");
+        toast.error("Sura Haijatambuliwa Kwenye Mfumo!", { 
+          description: "Mteja huyu hajasajiliwa bado. Jaza fomu ya usajili wa haraka hapa pembeni.",
+          icon: '⚠️' 
+        });
       }
-    }, 1300);
+    }, 1200);
   };
 
   // IN-PLACE QUICK REGISTRATION HANDLER
@@ -514,8 +639,10 @@ export default function WakalaDashboard() {
   };
 
   // MANUAL / DEMO SUBJECT SEARCH (Used in Test Profiles mode)
-  const triggerFaceSearch = (subject: SimulatedCustomer) => {
-    setActiveSubject(subject);
+  const triggerFaceSearch = (subject?: SimulatedCustomer | null) => {
+    const target = subject || customers.find(c => c.isRegistered) || customers[0];
+    if (!target) return;
+    setActiveSubject(target);
     setSearchState('searching_db');
     setMatchedCustomer(null);
     setIsCustomerConfirmed(false);
@@ -537,22 +664,25 @@ export default function WakalaDashboard() {
       clearInterval(pInterval);
       setSearchProgress(100);
 
-      if (subject.isRegistered) {
-        setMatchedCustomer(subject);
+      if (target.isRegistered) {
+        setMatchedCustomer(target);
         setSearchState('customer_found');
         setIsCustomerConfirmed(false);
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+          setMobileTab('pos');
+        }
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja ${subject.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${subject.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
-        toast.success(`Mteja Ametambuliwa: ${subject.name}`, { icon: '✅' });
-      } else if (subject.hasAccountButNoFace) {
+        speak(`Mteja ${target.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${target.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
+        toast.success(`Mteja Ametambuliwa: ${target.name}`, { icon: '✅' });
+      } else if (target.hasAccountButNoFace) {
         setSearchState('unregistered');
         setMatchedCustomer(null);
-        setQuickEnrollName(subject.name);
-        setQuickEnrollPhone(subject.phone);
+        setQuickEnrollName(target.name);
+        setQuickEnrollPhone(target.phone);
         triggerHapticTap();
-        speak(`Mteja ${subject.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Weka uso wake sasa.`);
-        toast.warning(`Akaunti Ipo, Bado Uso: ${subject.name}`, { 
+        speak(`Mteja ${target.name.split(' ')[0]} ana akaunti lakini hajasajili uso bado! Weka uso wake sasa.`);
+        toast.warning(`Akaunti Ipo, Bado Uso: ${target.name}`, { 
           description: "Mteja hakusajili uso wakati anajisajili. Weka uso wake sasa.",
           icon: '⚠️' 
         });
@@ -812,48 +942,60 @@ export default function WakalaDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-[#070b14] text-white flex flex-col font-sans w-full max-w-full overflow-x-hidden pb-24 lg:pb-8">
       {/* TOP WAKALA PORTAL HEADER */}
-      <header className="border-b border-white/10 bg-[#0c1222] sticky top-0 z-40 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Store className="w-6 h-6" />
+      <header className="border-b border-white/10 bg-[#0c1222] sticky top-0 z-40 backdrop-blur-md w-full">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3.5 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+              <Store className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
-                  PapoPay Wakala Portal
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-xs sm:text-lg font-black tracking-tight text-white truncate">
+                  PapoPay Wakala
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold border border-emerald-500/30">
+                <span className="px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-full bg-emerald-500/20 text-emerald-300 text-[8px] sm:text-[10px] font-mono font-bold border border-emerald-500/30 shrink-0">
                   {wakalaProfile.wakalaId}
                 </span>
-                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 text-[10px] font-bold">
+                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 text-[10px] font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Kituo Kipo Hewani
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 flex items-center gap-2 mt-0.5">
-                <span>{wakalaProfile.businessName}</span>
-                <span>&bull;</span>
-                <span className="flex items-center gap-1 text-neutral-500"><MapPin className="w-3 h-3" /> {wakalaProfile.location}</span>
+              <p className="text-[10px] sm:text-xs text-neutral-400 flex items-center gap-1.5 sm:gap-2 mt-0.5 truncate">
+                <span className="truncate max-w-[120px] sm:max-w-xs">{wakalaProfile.businessName}</span>
+                <span className="hidden sm:inline">&bull;</span>
+                <span className="hidden sm:flex items-center gap-1 text-neutral-500 truncate"><MapPin className="w-3 h-3 shrink-0" /> {wakalaProfile.location}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Quick Float Pill on Mobile */}
+            <button
+              type="button"
+              onClick={() => { setIsFloatModalOpen(true); triggerHapticTap(); }}
+              className="flex sm:hidden items-center gap-1 px-2 py-1 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-mono font-bold active:scale-95 transition-all"
+              title="Ongeza Float"
+            >
+              <Wallet className="w-3 h-3" />
+              <span>{Math.round(floatBalance/1000000 * 10)/10}M</span>
+              <Plus className="w-2.5 h-2.5 text-cyan-400" />
+            </button>
+
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center transition-colors shrink-0"
               title={soundEnabled ? 'Zima sauti' : 'Washa sauti'}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             <Link
               to="/papopay"
-              className="hidden sm:flex px-3.5 py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-neutral-300 items-center gap-1.5 transition-colors"
+              className="hidden md:flex px-3.5 py-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-neutral-300 items-center gap-1.5 transition-colors"
             >
               <User className="w-3.5 h-3.5" />
               <span>Akaunti ya Mteja</span>
@@ -866,10 +1008,10 @@ export default function WakalaDashboard() {
                 toast.info("Umetoka kwenye Portal ya Wakala.");
                 navigate('/wakala/login');
               }}
-              className="p-2.5 sm:px-3.5 sm:py-2 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold text-xs flex items-center gap-1.5 transition-colors"
+              className="p-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-bold text-xs flex items-center gap-1.5 transition-colors shrink-0"
               title="Ondoka kwenye kituo"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span className="hidden sm:inline">Toka Kituoni</span>
             </button>
           </div>
@@ -877,93 +1019,198 @@ export default function WakalaDashboard() {
       </header>
 
       {/* METRICS & FLOAT BAR */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-5 w-full">
+        {/* Mobile Mini Financial Strip */}
+        <div className="sm:hidden mb-2.5 p-2 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+              <Wallet className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-[8px] uppercase font-bold text-neutral-400">Float ya Wakala</p>
+              <p className="text-xs font-mono font-bold text-cyan-300">TZS {floatBalance.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-white/10" />
+
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <Coins className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <p className="text-[8px] uppercase font-bold text-neutral-400">Kamisheni Leo</p>
+              <p className="text-xs font-mono font-bold text-emerald-400">+TZS {commissionEarned.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsMetricsCollapsed(!isMetricsCollapsed)}
+            className="p-1.5 rounded-lg bg-white/5 text-neutral-400 hover:text-white"
+            title={isMetricsCollapsed ? "Panua maelezo" : "Fupisha"}
+          >
+            {isMetricsCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* Full Metrics Cards (Always visible on Desktop, collapsible on phone) */}
+        <div className={`grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 ${isMetricsCollapsed ? 'hidden sm:grid' : 'grid'}`}>
           {/* Card 1: Float Balance */}
-          <div className="p-5 rounded-3xl bg-gradient-to-br from-[#0c1628] to-[#091120] border border-cyan-500/30 shadow-lg relative overflow-hidden flex flex-col justify-between">
+          <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#0c1628] to-[#091120] border border-cyan-500/30 shadow-lg relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-neutral-400">Salio la Float ya Wakala</span>
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                <Wallet className="w-5 h-5" />
+              <span className="text-[9px] sm:text-xs uppercase font-bold text-neutral-400 truncate">Float ya Wakala</span>
+              <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                <Wallet className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               </div>
             </div>
-            <div className="my-2">
-              <div className="text-2xl sm:text-3xl font-black font-mono text-cyan-300">
+            <div className="my-1 sm:my-2">
+              <div className="text-sm sm:text-2xl lg:text-3xl font-black font-mono text-cyan-300 truncate">
                 TZS {floatBalance.toLocaleString()}
               </div>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Inatumika kwa Kuweka (Cash-In)</p>
+              <p className="text-[9px] sm:text-[11px] text-neutral-400 mt-0.5 truncate">Kwa Kuweka (Cash-In)</p>
             </div>
             <button
               type="button"
               onClick={() => setIsFloatModalOpen(true)}
-              className="mt-2 py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              className="mt-1 sm:mt-2 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 font-bold text-[9px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Ongeza Float (Bank / M-Pesa)</span>
+              <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span className="truncate">Ongeza Float</span>
             </button>
           </div>
 
           {/* Card 2: Commission Earned */}
-          <div className="p-5 rounded-3xl bg-gradient-to-br from-[#0a1b18] to-[#081512] border border-emerald-500/30 shadow-lg relative overflow-hidden flex flex-col justify-between">
+          <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#0a1b18] to-[#081512] border border-emerald-500/30 shadow-lg relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-neutral-400">Kamisheni Uliyopata</span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <Coins className="w-5 h-5" />
+              <span className="text-[9px] sm:text-xs uppercase font-bold text-neutral-400 truncate">Kamisheni Yako</span>
+              <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Coins className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               </div>
             </div>
-            <div className="my-2">
-              <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
+            <div className="my-1 sm:my-2">
+              <div className="text-sm sm:text-2xl lg:text-3xl font-black font-mono text-emerald-400 truncate">
                 +TZS {commissionEarned.toLocaleString()}
               </div>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Faida yako ya leo (1.2% - 3%)</p>
+              <p className="text-[9px] sm:text-[11px] text-neutral-400 mt-0.5 truncate">Faida ya leo</p>
             </div>
             <button
               type="button"
               onClick={handleWithdrawCommission}
-              className="mt-2 py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              className="mt-1 sm:mt-2 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 font-bold text-[9px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-colors cursor-pointer"
             >
-              <ArrowDownLeft className="w-3.5 h-3.5" />
-              <span>Toa Kamisheni kwenda Simuni</span>
+              <ArrowDownLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span className="truncate">Toa Kamisheni</span>
             </button>
           </div>
 
           {/* Card 3: Cash-In Completed */}
-          <div className="p-5 rounded-3xl bg-[#0e1424] border border-white/10 shadow-lg flex flex-col justify-between">
+          <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-[#0e1424] border border-white/10 shadow-lg flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-neutral-400">Kuweka Pesa (Cash-In)</span>
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
-                <ArrowDownLeft className="w-5 h-5" />
+              <span className="text-[9px] sm:text-xs uppercase font-bold text-neutral-400 truncate">Kuweka (Cash-In)</span>
+              <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
+                <ArrowDownLeft className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               </div>
             </div>
-            <div className="my-2">
-              <div className="text-2xl font-black font-mono text-white">
+            <div className="my-1 sm:my-2">
+              <div className="text-sm sm:text-2xl font-black font-mono text-white truncate">
                 {transactions.filter(t => t.type.includes('Kuweka')).length} Miamala
               </div>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Hakuna namba ya siri inayohitajika</p>
+              <p className="text-[9px] sm:text-[11px] text-neutral-400 mt-0.5 truncate">Bila password</p>
             </div>
-            <span className="text-[11px] text-emerald-400 font-mono font-bold">Face Recognition Active</span>
+            <span className="text-[9px] sm:text-[11px] text-emerald-400 font-mono font-bold truncate">Face Active</span>
           </div>
 
           {/* Card 4: Cash-Out Completed */}
-          <div className="p-5 rounded-3xl bg-[#0e1424] border border-white/10 shadow-lg flex flex-col justify-between">
+          <div className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-[#0e1424] border border-white/10 shadow-lg flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-neutral-400">Kutoa Pesa (Cash-Out)</span>
-              <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                <ArrowUpRight className="w-5 h-5" />
+              <span className="text-[9px] sm:text-xs uppercase font-bold text-neutral-400 truncate">Kutoa (Cash-Out)</span>
+              <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                <ArrowUpRight className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
               </div>
             </div>
-            <div className="my-2">
-              <div className="text-2xl font-black font-mono text-white">
+            <div className="my-1 sm:my-2">
+              <div className="text-sm sm:text-2xl font-black font-mono text-white truncate">
                 {transactions.filter(t => t.type.includes('Kutoa') || t.type.includes('Vocha') || t.type.includes('Bili')).length} Miamala
               </div>
-              <p className="text-[11px] text-neutral-400 mt-0.5">Bila Kadi wala Simu Mkononi</p>
+              <p className="text-[9px] sm:text-[11px] text-neutral-400 mt-0.5 truncate">Bila kadi wala simu</p>
             </div>
-            <span className="text-[11px] text-amber-400 font-mono font-bold">Smile-to-Withdraw Active</span>
+            <span className="text-[9px] sm:text-[11px] text-amber-400 font-mono font-bold truncate">Smile-to-Withdraw</span>
           </div>
         </div>
 
-        {/* TOP TAB CONTROLS (TERMINAL vs LEDGER) */}
-        <div className="mt-6 flex items-center justify-between border-b border-white/10 pb-4">
+        {/* MOBILE SEGMENTED VIEW CONTROLLER (< lg) */}
+        <div className="lg:hidden w-full mt-3 sticky top-[48px] z-30 bg-[#0c1222]/95 backdrop-blur-md p-1 rounded-2xl border border-white/10 shadow-xl">
+          <div className="grid grid-cols-4 gap-1">
+            <button
+              type="button"
+              onClick={() => { setMobileTab('camera'); setPortalMode('terminal'); triggerHapticTap(); }}
+              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                portalMode === 'terminal' && mobileTab === 'camera'
+                  ? 'bg-cyan-500 text-neutral-950 shadow-md font-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="relative">
+                <Camera className="w-4 h-4" />
+                {liveFaceDetected && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                )}
+              </div>
+              <span className="truncate">1. Kamera</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setMobileTab('pos'); setPortalMode('terminal'); triggerHapticTap(); }}
+              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all relative cursor-pointer ${
+                portalMode === 'terminal' && mobileTab === 'pos'
+                  ? 'bg-emerald-500 text-neutral-950 shadow-md font-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="relative">
+                <Wallet className="w-4 h-4" />
+                {matchedCustomer && (
+                  <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-amber-400 text-neutral-950 text-[7px] font-mono font-black animate-pulse">
+                    MTEJA!
+                  </span>
+                )}
+              </div>
+              <span className="truncate">2. POS Kaunta</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setMobileTab('customers'); setPortalMode('terminal'); triggerHapticTap(); }}
+              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                portalMode === 'terminal' && mobileTab === 'customers'
+                  ? 'bg-purple-500 text-white shadow-md font-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="truncate">3. Wateja</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setPortalMode('ledger'); setMobileTab('ledger'); triggerHapticTap(); }}
+              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                portalMode === 'ledger' || mobileTab === 'ledger'
+                  ? 'bg-amber-500 text-neutral-950 shadow-md font-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Receipt className="w-4 h-4" />
+              <span className="truncate">4. Miamala ({transactions.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {/* DESKTOP TAB CONTROLS (TERMINAL vs LEDGER) - Visible on lg screens */}
+        <div className="hidden lg:flex mt-6 flex-row items-center justify-between gap-3 border-b border-white/10 pb-4 w-full">
+          {/* Main Mode Tabs: Terminal vs Ledger */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -971,14 +1218,14 @@ export default function WakalaDashboard() {
                 setPortalMode('terminal');
                 triggerHapticTap();
               }}
-              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all ${
+              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 portalMode === 'terminal'
                   ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/30'
                   : 'bg-white/5 text-neutral-400 hover:text-white'
               }`}
             >
-              <ScanFace className="w-4 h-4" />
-              <span>1. Kituo cha Utambuzi wa Uso (Terminal)</span>
+              <ScanFace className="w-4 h-4 shrink-0" />
+              <span>1. Terminal (Uso)</span>
             </button>
 
             <button
@@ -987,19 +1234,19 @@ export default function WakalaDashboard() {
                 setPortalMode('ledger');
                 triggerHapticTap();
               }}
-              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all ${
+              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 portalMode === 'ledger'
                   ? 'bg-cyan-500 text-neutral-950 shadow-lg shadow-cyan-500/30'
                   : 'bg-white/5 text-neutral-400 hover:text-white'
               }`}
             >
-              <Receipt className="w-4 h-4" />
-              <span>2. Kumbukumbu ya Miamala ({transactions.length})</span>
+              <Receipt className="w-4 h-4 shrink-0" />
+              <span>2. Miamala ({transactions.length})</span>
             </button>
           </div>
 
           {/* Detection Mode Controls & Quick Rescan */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <div className="flex items-center bg-black/40 p-1 rounded-2xl border border-white/10 text-xs">
               <button
                 type="button"
@@ -1010,14 +1257,14 @@ export default function WakalaDashboard() {
                   setIsCustomerConfirmed(false);
                   speak("Umechagua utambuzi wa kamera ya moja kwa moja. Simama mbele ya kamera.");
                 }}
-                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer ${
                   detectionMode === 'live_camera'
                     ? 'bg-cyan-500 text-neutral-950 shadow-md'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <Camera className="w-3.5 h-3.5" />
-                <span>Kamera ya Moja kwa Moja</span>
+                <Camera className="w-3.5 h-3.5 shrink-0" />
+                <span>Live Camera</span>
               </button>
               <button
                 type="button"
@@ -1025,14 +1272,14 @@ export default function WakalaDashboard() {
                   setDetectionMode('test_profiles');
                   triggerFaceSearch(activeSubject);
                 }}
-                className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer ${
                   detectionMode === 'test_profiles'
                     ? 'bg-emerald-500 text-neutral-950 shadow-md'
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <User className="w-3.5 h-3.5" />
-                <span>Majaribio (Demo)</span>
+                <User className="w-3.5 h-3.5 shrink-0" />
+                <span>Demo</span>
               </button>
             </div>
 
@@ -1045,26 +1292,28 @@ export default function WakalaDashboard() {
                   triggerFaceSearch(activeSubject);
                 }
               }}
-              className="px-3.5 py-2 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors cursor-pointer shrink-0"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+              <RefreshCw className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <span>Scan Upya</span>
             </button>
           </div>
         </div>
 
         {/* TAB 1: TERMINAL WITH LIVE FACE TRACKING & DATABASE SEARCH */}
-        {portalMode === 'terminal' && (
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LEFT COLUMN: LIVE BIOMETRIC CAMERA & TRACKING (6 COLS) */}
-            <div className="lg:col-span-6 flex flex-col space-y-4">
+        {(portalMode === 'terminal' && mobileTab !== 'ledger') && (
+          <div className="mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+            {/* LEFT COLUMN: LIVE BIOMETRIC CAMERA & TRACKING (6 COLS ON DESKTOP, CONDITIONAL ON PHONE) */}
+            <div className={`lg:col-span-6 flex flex-col space-y-4 ${
+              mobileTab === 'camera' || mobileTab === 'customers' ? 'flex' : 'hidden lg:flex'
+            }`}>
               <div className="relative w-full aspect-video sm:aspect-[4/3] rounded-3xl overflow-hidden border-4 border-emerald-500/40 bg-black flex items-center justify-center shadow-2xl shadow-emerald-950/60">
                 <video
                   ref={videoRef}
                   playsInline
                   muted
                   autoPlay
-                  className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+                  className={`absolute inset-0 w-full h-full object-cover ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
                 />
 
                 {/* Biometric Face Mesh & Real Video Tracking HUD */}
@@ -1089,8 +1338,8 @@ export default function WakalaDashboard() {
                 />
 
                 {/* Top Corner Badge: Scanner Status */}
-                <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-xl backdrop-blur-md text-[10px] font-mono border flex items-center gap-1.5 ${
+                <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 z-20 flex items-center gap-1.5 sm:gap-2 max-w-[65%] sm:max-w-none">
+                  <span className={`px-2.5 sm:px-3 py-1 rounded-xl backdrop-blur-md text-[9px] sm:text-[10px] font-mono border flex items-center gap-1.5 truncate ${
                     searchState === 'customer_found'
                       ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-950'
                       : searchState === 'searching_db'
@@ -1100,15 +1349,15 @@ export default function WakalaDashboard() {
                       : 'bg-black/85 text-neutral-300 border-white/10'
                   }`}>
                     {searchState === 'searching_db' ? (
-                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                      <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-spin shrink-0" />
                     ) : searchState === 'customer_found' ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
                     ) : searchState === 'unregistered' ? (
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                      <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 animate-bounce shrink-0" />
                     ) : (
-                      <Camera className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                      <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-pulse shrink-0" />
                     )}
-                    <span className="font-bold">
+                    <span className="font-bold truncate">
                       {searchState === 'searching_db'
                         ? 'Inatafuta kwenye kanzidata...'
                         : searchState === 'customer_found'
@@ -1116,35 +1365,47 @@ export default function WakalaDashboard() {
                         : searchState === 'unregistered'
                         ? 'Sura Haipo Kwenye Mfumo ⚠️'
                         : liveFaceDetected 
-                        ? 'Uso Umeonekana (Inachanganua...)' 
+                        ? 'Uso Umeonekana...' 
                         : 'Kamera Inasubiri Uso...'}
                     </span>
                   </span>
                 </div>
 
-                {/* HUD Mode Switcher */}
-                <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-black/80 backdrop-blur-md p-1 rounded-xl border border-white/10 text-[10px]">
+                {/* HUD Mode Switcher & Camera Flip (Phone & Desktop) */}
+                <div className="absolute top-2.5 sm:top-3 right-2.5 sm:right-3 z-20 flex items-center gap-1 sm:gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setHudMode('mesh')}
-                    className={`px-2 py-0.5 rounded-lg ${hudMode === 'mesh' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
+                    onClick={toggleCameraFacing}
+                    className="p-1 sm:px-2 py-0.5 rounded-lg sm:rounded-xl bg-black/80 hover:bg-black text-cyan-300 border border-white/15 flex items-center gap-1 text-[9px] sm:text-[10px] font-bold shadow-lg cursor-pointer active:scale-95 transition-all"
+                    title="Geuza Kamera (Mbele / Nyuma)"
                   >
-                    3D Mesh
+                    <SwitchCamera className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">{cameraFacing === 'user' ? 'Kamera ya Mbele' : 'Kamera ya Nyuma'}</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setHudMode('neural_box')}
-                    className={`px-2 py-0.5 rounded-lg ${hudMode === 'neural_box' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
-                  >
-                    YOLO
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHudMode('liveness_depth')}
-                    className={`px-2 py-0.5 rounded-lg ${hudMode === 'liveness_depth' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
-                  >
-                    Depth
-                  </button>
+
+                  <div className="flex items-center gap-0.5 sm:gap-1 bg-black/80 backdrop-blur-md p-0.5 sm:p-1 rounded-lg sm:rounded-xl border border-white/10 text-[9px] sm:text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setHudMode('mesh')}
+                      className={`px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg ${hudMode === 'mesh' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
+                    >
+                      3D Mesh
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHudMode('neural_box')}
+                      className={`px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg ${hudMode === 'neural_box' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
+                    >
+                      YOLO
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHudMode('liveness_depth')}
+                      className={`px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg ${hudMode === 'liveness_depth' ? 'bg-emerald-500 text-neutral-950 font-bold' : 'text-neutral-400'}`}
+                    >
+                      Depth
+                    </button>
+                  </div>
                 </div>
 
                 {/* SYSTEM SEARCHING OVERLAY (INATAFUTA KWENYE SISTIM) */}
@@ -1182,19 +1443,19 @@ export default function WakalaDashboard() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.94 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="absolute inset-0 z-30 bg-amber-950/92 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center"
+                    className="absolute inset-0 z-30 bg-amber-950/92 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-6 text-center"
                   >
-                    <div className="w-16 h-16 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center mb-2 shadow-[0_0_35px_#f59e0b] animate-bounce">
-                      <UserX className="w-8 h-8 stroke-[2.5]" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center mb-2 shadow-[0_0_35px_#f59e0b] animate-bounce shrink-0">
+                      <UserX className="w-6 h-6 sm:w-8 sm:h-8 stroke-[2.5]" />
                     </div>
-                    <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-black border border-amber-500/40 uppercase mb-1">
-                      {activeSubject.hasAccountButNoFace ? 'Akaunti Ipo, Bado Hajaweka Uso ⚠️' : 'Mteja Hajapatikana Kwenye Database ⚠️'}
+                    <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-amber-500/20 text-amber-300 text-[9px] sm:text-[10px] font-mono font-black border border-amber-500/40 uppercase mb-1">
+                      {activeSubject?.hasAccountButNoFace ? 'Akaunti Ipo, Bado Hajaweka Uso ⚠️' : 'Mteja Hajapatikana Kwenye Database ⚠️'}
                     </span>
-                    <h3 className="text-xl font-black text-white">
-                      {activeSubject.hasAccountButNoFace ? 'HUJAWEKA USO BADO!' : 'USO HAUJASAJILIWA!'}
+                    <h3 className="text-base sm:text-xl font-black text-white">
+                      {activeSubject?.hasAccountButNoFace ? 'HUJAWEKA USO BADO!' : 'USO HAUJASAJILIWA!'}
                     </h3>
-                    <p className="text-amber-200 text-xs font-medium mt-1 max-w-xs">
-                      {activeSubject.hasAccountButNoFace
+                    <p className="text-amber-200 text-[11px] sm:text-xs font-medium mt-1 max-w-xs">
+                      {activeSubject?.hasAccountButNoFace
                         ? `Mteja huyu (${activeSubject.name}) ana akaunti halali lakini hakusajili uso wake wakati anajisajili. Weka uso wake sasa ili kufanya miamala.`
                         : 'Sura hii haipo kwenye mfumo wa PapoPay. Mteja hawezi kuweka pesa hadi asajiliwe.'}
                     </p>
@@ -1202,10 +1463,10 @@ export default function WakalaDashboard() {
                     <button
                       type="button"
                       onClick={() => setIsEnrollOpen(true)}
-                      className="mt-4 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+                      className="mt-3 sm:mt-4 px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
                     >
-                      <UserPlus className="w-4 h-4" />
-                      <span>{activeSubject.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa (Enroll Face)' : 'Sajili Mteja Mpya kwa Uso Hapa'}</span>
+                      <UserPlus className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{activeSubject?.hasAccountButNoFace ? 'Weka Uso wa Mteja Sasa (Enroll Face)' : 'Sajili Mteja Mpya kwa Uso Hapa'}</span>
                     </button>
                   </motion.div>
                 )}
@@ -1244,82 +1505,330 @@ export default function WakalaDashboard() {
                 )}
               </div>
 
-              {/* PERSON IN FRONT OF CAMERA / LIVE CAMERA STATUS */}
-              <div className="w-full bg-[#0c1322] p-4 rounded-3xl border border-white/10 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-neutral-300 flex items-center gap-1.5">
-                    {detectionMode === 'live_camera' ? <Camera className="w-3.5 h-3.5 text-cyan-400" /> : <User className="w-3.5 h-3.5 text-emerald-400" />}
-                    <span>{detectionMode === 'live_camera' ? 'Hali ya Kamera ya Moja kwa Moja:' : 'Mteja wa Majaribio (Demo Subject):'}</span>
-                  </span>
+              {/* MOBILE QUICK ACTION PILL WHEN CUSTOMER IS RECOGNIZED */}
+              {matchedCustomer && searchState === 'customer_found' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="lg:hidden p-3 rounded-2xl bg-gradient-to-r from-emerald-950 via-[#0e2a22] to-neutral-900 border-2 border-emerald-500/60 text-white shadow-xl flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img
+                      src={matchedCustomer.avatar}
+                      alt=""
+                      className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-400 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-black truncate">{matchedCustomer.name}</p>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-mono font-bold">VERIFIED</span>
+                      </div>
+                      <p className="text-[10px] text-emerald-300 font-mono truncate">
+                        Salio: TZS {matchedCustomer.walletBalance.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setDetectionMode(detectionMode === 'live_camera' ? 'test_profiles' : 'live_camera')}
-                    className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono underline"
+                    onClick={() => {
+                      setMobileTab('pos');
+                      triggerHapticTap();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-neutral-950 text-xs font-black shrink-0 flex items-center gap-1 shadow-md shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer"
                   >
-                    {detectionMode === 'live_camera' ? 'Badili kwenda Demo Profiles' : 'Badili kwenda Live Camera'}
+                    <span>Fungua POS</span>
+                    <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
                   </button>
+                </motion.div>
+              )}
+
+              {/* PERSON IN FRONT OF CAMERA / CUSTOMER IDENTIFICATION SECTION */}
+              <div className={`w-full bg-[#0c1322] p-3.5 sm:p-5 rounded-3xl border border-white/10 space-y-3 sm:space-y-4 ${
+                mobileTab === 'customers' ? 'block' : 'hidden lg:block'
+              }`}>
+                {/* Header: Mode & Targeted Customer */}
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      Mteja Husika Mbele ya Kaunta (Relevant Customer)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDetectionMode(detectionMode === 'live_camera' ? 'test_profiles' : 'live_camera')}
+                      className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] text-cyan-300 font-mono border border-white/10 flex items-center gap-1.5 transition-colors"
+                    >
+                      {detectionMode === 'live_camera' ? <Camera className="w-3 h-3 text-cyan-400" /> : <User className="w-3 h-3 text-emerald-400" />}
+                      <span>{detectionMode === 'live_camera' ? 'Modi ya Live Camera' : 'Modi ya Demo'}</span>
+                    </button>
+                  </div>
                 </div>
 
-                {detectionMode === 'live_camera' ? (
-                  <div className="p-3 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-3 h-3 rounded-full ${liveFaceDetected ? 'bg-emerald-400 shadow-[0_0_12px_#10b981] animate-pulse' : 'bg-neutral-600'}`} />
+                {/* CURRENT TARGET CUSTOMER CARD (MTEJA HUSIKA) */}
+                {activeSubject ? (
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    activeSubject.isRegistered
+                      ? 'bg-gradient-to-r from-emerald-950/40 to-black/60 border-emerald-500/40'
+                      : activeSubject.hasAccountButNoFace
+                      ? 'bg-gradient-to-r from-amber-950/40 to-black/60 border-amber-500/40'
+                      : 'bg-black/40 border-white/10'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        <div className="relative shrink-0">
+                          <img
+                            src={activeSubject.avatar}
+                            alt={activeSubject.name}
+                            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 ${
+                              activeSubject.isRegistered ? 'border-emerald-400' : 'border-amber-400'
+                            }`}
+                          />
+                          <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black ${
+                            activeSubject.isRegistered ? 'bg-emerald-500 text-neutral-950' : 'bg-amber-500 text-neutral-950'
+                          }`}>
+                            {activeSubject.isRegistered ? '✓' : '!'}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <p className="text-xs sm:text-sm font-black text-white truncate">{activeSubject.name}</p>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-mono font-bold uppercase shrink-0 ${
+                              activeSubject.isRegistered
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : activeSubject.hasAccountButNoFace
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-neutral-800 text-neutral-400'
+                            }`}>
+                              {activeSubject.isRegistered ? 'Mteja Aliyesajiliwa' : activeSubject.hasAccountButNoFace ? 'Bado Uso' : 'Mgeni'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-400 font-mono mt-0.5 truncate">
+                            Simu: <span className="text-white font-bold">{activeSubject.phone || 'Hakuna Namba'}</span>
+                            {activeSubject.walletBalance > 0 && (
+                              <span className="ml-1.5 text-emerald-400 font-bold">| Salio: TZS {activeSubject.walletBalance.toLocaleString()}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (detectionMode === 'live_camera') {
+                              executeLiveCameraSearch();
+                            } else {
+                              triggerFaceSearch(activeSubject);
+                            }
+                          }}
+                          disabled={isSearchingRef.current}
+                          className="flex-1 sm:flex-initial px-3.5 py-2.5 sm:py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
+                        >
+                          <ScanFace className={`w-3.5 h-3.5 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
+                          <span>{isSearchingRef.current ? 'Inatambua...' : 'Tambua Uso Sasa'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveSubject(null);
+                            setMatchedCustomer(null);
+                            setSearchState('idle_no_face');
+                          }}
+                          className="p-2 sm:p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-rose-400 transition-colors shrink-0"
+                          title="Ondoa / Badili Mteja Huyu"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {detectionMode === 'live_camera' && (
+                      <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${liveFaceDetected ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-600'}`} />
+                          <span className="text-neutral-300">
+                            {liveFaceDetected ? '📸 Uso Upo Kwenye Lensi (Tracking Active)' : 'Kamera inasubiri uso mbele ya simu/kamera'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-cyan-400 font-mono">
+                          {liveFaceDetected ? `Alama: ${liveConfidence}% | Umbali: ~${liveDistance}cm` : 'Mteja asimame mbele ya lenzi'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl border border-dashed border-cyan-500/30 bg-cyan-950/20 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/30 flex items-center justify-center shrink-0">
+                        <ScanFace className="w-5 h-5 animate-pulse" />
+                      </div>
                       <div>
-                        <p className="text-xs font-bold text-white">
-                          {liveFaceDetected ? 'Uso Upo Kwenye Lensi (Tracking Active)' : 'Hakuna Uso Unaogunduliwa'}
-                        </p>
-                        <p className="text-[10px] text-neutral-400 font-mono">
-                          {liveFaceDetected ? `Alama: ${liveConfidence}% | Umbali: ~${liveDistance}cm` : 'Mteja asimame mbele ya simu/kamera'}
+                        <p className="text-xs font-black text-white">Kamera Inasubiri Mteja Husika</p>
+                        <p className="text-[11px] text-neutral-400">
+                          {liveFaceDetected
+                            ? 'Uso umegundulika! Inachanganua kanzidata...'
+                            : 'Mteja asimame mbele ya kamera, au chagua kwenye orodha hapa chini.'}
                         </p>
                       </div>
                     </div>
 
                     <button
                       type="button"
-                      onClick={executeLiveCameraSearch}
-                      disabled={isSearchingRef.current}
-                      className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 text-xs font-bold flex items-center gap-1.5"
+                      onClick={() => setIsEnrollOpen(true)}
+                      className="px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
-                      <span>{isSearchingRef.current ? 'Inachanganua...' : 'Tafuta Sasa'}</span>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Sajili Mpya</span>
                     </button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {customers.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          triggerFaceSearch(c);
-                          triggerHapticTap();
-                        }}
-                        className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all ${
-                          activeSubject.id === c.id
-                            ? c.isRegistered
-                              ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/10'
-                              : 'bg-amber-500/20 border-amber-400 text-amber-200 shadow-md shadow-amber-500/10'
-                            : 'bg-white/5 border-white/5 text-neutral-400 hover:text-white'
-                        }`}
-                      >
-                        <img src={c.avatar} alt="Face" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
-                        <div className="overflow-hidden">
-                          <p className="text-xs font-bold truncate">{c.name.split(' ')[0]}</p>
-                          <p className={`text-[9px] font-mono font-bold ${
-                            c.isRegistered ? 'text-emerald-400' : c.hasAccountButNoFace ? 'text-amber-300' : 'text-neutral-400'
-                          }`}>
-                            {c.isRegistered ? '✓ Imesajiliwa' : c.hasAccountButNoFace ? '⚠️ Bado Uso' : '❌ Hajajisajili'}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
                 )}
+
+                {/* SEARCH & SELECT RELEVANT CUSTOMER (KUTAMBUA MTEJA HUSIKA) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-300">
+                      Chagua au Tafuta Mteja Husika Aliyepo Kaunta:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEnrollOpen(true)}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Sajili Mteja Mpya</span>
+                    </button>
+                  </div>
+
+                  {/* Search Input Bar */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Tafuta mteja kwa jina au namba ya simu (mf. Baraka, Zawadi, 0754...)"
+                      value={customerSearchQuery}
+                      onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 bg-black/60 border border-white/10 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-500 transition-colors"
+                    />
+                    {customerSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomerSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Chips */}
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                        customerFilter === 'all'
+                          ? 'bg-cyan-500 text-neutral-950 font-black'
+                          : 'bg-white/5 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      Wote ({customers.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerFilter('registered')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                        customerFilter === 'registered'
+                          ? 'bg-emerald-500 text-neutral-950 font-black'
+                          : 'bg-white/5 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      Waliosajiliwa kwa Uso ({customers.filter(c => c.isRegistered).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerFilter('unregistered')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                        customerFilter === 'unregistered'
+                          ? 'bg-amber-500 text-neutral-950 font-black'
+                          : 'bg-white/5 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      Hawana Uso ({customers.filter(c => !c.isRegistered).length})
+                    </button>
+                  </div>
+
+                  {/* Customer Cards Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                    {customers
+                      .filter(c => {
+                        const q = customerSearchQuery.toLowerCase().trim();
+                        const matches = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                        if (!matches) return false;
+                        if (customerFilter === 'registered') return c.isRegistered;
+                        if (customerFilter === 'unregistered') return !c.isRegistered;
+                        return true;
+                      })
+                      .map((c) => {
+                        const isSelected = activeSubject?.id === c.id;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => handleSelectCustomerSubject(c)}
+                            className={`p-2.5 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400'
+                                : 'bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:bg-white/10'
+                            }`}
+                          >
+                            <img
+                              src={c.avatar}
+                              alt={c.name}
+                              className={`w-9 h-9 rounded-xl object-cover shrink-0 border ${
+                                isSelected ? 'border-cyan-400' : 'border-white/10'
+                              }`}
+                            />
+                            <div className="overflow-hidden min-w-0">
+                              <p className={`text-xs font-bold truncate ${isSelected ? 'text-cyan-300' : 'text-white'}`}>
+                                {c.name.split(' ')[0]} {c.name.split(' ')[1]?.[0] || ''}.
+                              </p>
+                              <p className="text-[9px] text-neutral-400 font-mono truncate">{c.phone}</p>
+                              <p className={`text-[8px] font-mono font-bold mt-0.5 ${
+                                c.isRegistered ? 'text-emerald-400' : c.hasAccountButNoFace ? 'text-amber-400' : 'text-neutral-500'
+                              }`}>
+                                {c.isRegistered ? '✓ Verified' : c.hasAccountButNoFace ? '⚠️ Bado Uso' : '❌ Hajajisajili'}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* RIGHT COLUMN: UNLOCKED WAKALA SERVICES (6 COLS) */}
-            <div className="lg:col-span-6 flex flex-col space-y-4">
+            {/* RIGHT COLUMN: UNLOCKED WAKALA SERVICES (6 COLS ON DESKTOP, VISIBLE ON PHONE WHEN POS TAB SELECTED) */}
+            <div className={`lg:col-span-6 flex flex-col space-y-4 ${
+              mobileTab === 'pos' ? 'flex' : 'hidden lg:flex'
+            }`}>
+              {/* Mobile Back-to-Camera Bar */}
+              <div className="lg:hidden flex items-center justify-between p-2.5 rounded-2xl bg-black/40 border border-white/10 text-xs">
+                <span className="font-bold text-neutral-300 flex items-center gap-1.5">
+                  <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Kaunta ya POS & Malipo</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setMobileTab('camera'); triggerHapticTap(); }}
+                  className="px-2.5 py-1 rounded-xl bg-white/10 text-cyan-300 text-[10px] font-bold flex items-center gap-1 hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Camera className="w-3 h-3 text-cyan-400" />
+                  <span>📷 Angalia Kamera</span>
+                </button>
+              </div>
               {matchedCustomer && searchState === 'customer_found' ? (
                 !isCustomerConfirmed ? (
                   /* STEP 1: CUSTOMER IDENTITY RECOGNIZED - MUST CONFIRM FIRST */
@@ -1339,7 +1848,7 @@ export default function WakalaDashboard() {
 
                       <div>
                         <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase tracking-wider border border-emerald-500/40">
-                          Uso Umelingana na Kanzidata
+                          🎯 Mteja Husika Ametambuliwa kwa Uso
                         </span>
                         <h2 className="text-2xl font-black text-white mt-1">{matchedCustomer.name}</h2>
                         <p className="text-xs text-neutral-300 font-mono mt-0.5">
@@ -1398,119 +1907,142 @@ export default function WakalaDashboard() {
                       type="button"
                       onClick={() => {
                         setMatchedCustomer(null);
+                        setActiveSubject(null);
+                        setIsCustomerConfirmed(false);
                         setSearchState('idle_no_face');
-                        speak("Uthibitisho umeghairiwa. Inasubiri scan mpya.");
+                        speak("Uthibitisho umeghairiwa. Inasubiri mteja husika.");
+                        toast.info("Uthibitisho Umeghairiwa", { 
+                          description: "Chagua mteja husika kwenye orodha au elekeza kamera kwa mteja mwingine.",
+                          icon: '🔄' 
+                        });
                       }}
-                      className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white text-xs font-bold transition-all"
+                      className="w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      Sio Mteja Huyu (Scan Upya)
+                      <X className="w-4 h-4" />
+                      <span>❌ Sio Mteja Husika? (Scan / Chagua Mteja Mwingine)</span>
                     </button>
                   </div>
                 ) : (
                   <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border border-emerald-500/30 shadow-xl space-y-5">
                   {/* Verified Customer Header Banner */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-[#0e1c28] border border-emerald-500/40 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-950/80 to-[#0e1c28] border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <img
                         src={matchedCustomer.avatar}
                         alt="Customer Photo"
-                        className="w-12 h-12 rounded-2xl object-cover border-2 border-emerald-400 shadow-lg shadow-emerald-500/20"
+                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl object-cover border-2 border-emerald-400 shadow-lg shadow-emerald-500/20 shrink-0"
                       />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-base font-black text-white">{matchedCustomer.name}</h2>
-                          <span className="p-0.5 rounded-full bg-emerald-500 text-neutral-950" title="NIDA Verified">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <h2 className="text-sm sm:text-base font-black text-white truncate">{matchedCustomer.name}</h2>
+                          <span className="p-0.5 rounded-full bg-emerald-500 text-neutral-950 shrink-0" title="NIDA Verified">
                             <Check className="w-3 h-3 stroke-[3]" />
                           </span>
                         </div>
-                        <p className="text-xs text-neutral-300 font-mono mt-0.5">
+                        <p className="text-[11px] sm:text-xs text-neutral-300 font-mono mt-0.5 truncate">
                           Simu: <span className="text-emerald-400 font-bold">{matchedCustomer.phone}</span>
                         </p>
                         {matchedCustomer.nidaNumber && (
-                          <p className="text-[10px] text-neutral-400 font-mono">
+                          <p className="text-[9px] sm:text-[10px] text-neutral-400 font-mono truncate">
                             NIDA: {matchedCustomer.nidaNumber}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase block">Salio la Akaunti</span>
-                      <div className="text-lg sm:text-xl font-mono font-black text-emerald-300">
-                        TZS {matchedCustomer.walletBalance.toLocaleString()}
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                      <div className="text-left sm:text-right">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block">Salio la Akaunti</span>
+                        <div className="text-base sm:text-lg font-mono font-black text-emerald-300">
+                          TZS {matchedCustomer.walletBalance.toLocaleString()}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMatchedCustomer(null);
+                          setIsCustomerConfirmed(false);
+                          setSearchState('idle_no_face');
+                          triggerHapticTap();
+                          speak("Chagua mteja mwingine au simama mbele ya kamera.");
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer border border-white/10 shrink-0"
+                      >
+                        <RefreshCw className="w-3 h-3 text-cyan-400" />
+                        <span>Badili Mteja</span>
+                      </button>
                     </div>
                   </div>
 
                   {/* SERVICE SELECTION TABS */}
                   <div className="space-y-2">
-                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider block">
+                    <span className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider block">
                       Chagua Huduma ya Kumpatia Mteja Huyu:
                     </span>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-1 bg-black/40 rounded-2xl border border-white/5">
+                    <div className="grid grid-cols-5 gap-1 p-1 bg-black/40 rounded-xl sm:rounded-2xl border border-white/5">
                       <button
                         type="button"
                         onClick={() => { setActiveService('deposit'); triggerHapticTap(); }}
-                        className={`py-2 px-1 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all ${
+                        className={`py-2 px-1 rounded-lg sm:rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all cursor-pointer ${
                           activeService === 'deposit'
                             ? 'bg-emerald-500 text-neutral-950 shadow-md'
                             : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <ArrowDownLeft className="w-4 h-4" />
-                        <span className="text-[10px]">1. Kuweka</span>
+                        <ArrowDownLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] truncate">1. Kuweka</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => { setActiveService('withdraw'); triggerHapticTap(); }}
-                        className={`py-2 px-1 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all ${
+                        className={`py-2 px-1 rounded-lg sm:rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all cursor-pointer ${
                           activeService === 'withdraw'
                             ? 'bg-amber-500 text-neutral-950 shadow-md'
                             : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <ArrowUpRight className="w-4 h-4" />
-                        <span className="text-[10px]">2. Kutoa</span>
+                        <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] truncate">2. Kutoa</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => { setActiveService('airtime'); triggerHapticTap(); }}
-                        className={`py-2 px-1 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all ${
+                        className={`py-2 px-1 rounded-lg sm:rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all cursor-pointer ${
                           activeService === 'airtime'
                             ? 'bg-purple-500 text-white shadow-md'
                             : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Smartphone className="w-4 h-4" />
-                        <span className="text-[10px]">3. Vocha</span>
+                        <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] truncate">3. Vocha</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => { setActiveService('bills'); triggerHapticTap(); }}
-                        className={`py-2 px-1 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all ${
+                        className={`py-2 px-1 rounded-lg sm:rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all cursor-pointer ${
                           activeService === 'bills'
                             ? 'bg-cyan-500 text-neutral-950 shadow-md'
                             : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <Zap className="w-4 h-4" />
-                        <span className="text-[10px]">4. Bili</span>
+                        <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] truncate">4. Bili</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => { setActiveService('statement'); triggerHapticTap(); }}
-                        className={`py-2 px-1 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all ${
+                        className={`py-2 px-1 rounded-lg sm:rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-all cursor-pointer ${
                           activeService === 'statement'
                             ? 'bg-white/20 text-white shadow-md'
                             : 'text-neutral-400 hover:text-white'
                         }`}
                       >
-                        <FileText className="w-4 h-4" />
-                        <span className="text-[10px]">5. Salio</span>
+                        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span className="text-[9px] sm:text-[10px] truncate">5. Salio</span>
                       </button>
                     </div>
                   </div>
@@ -1920,44 +2452,44 @@ export default function WakalaDashboard() {
                   </div>
                 ) : (
                   /* IDLE / WAITING FOR CUSTOMER FACE */
-                  <div className="bg-[#0c1322] p-8 rounded-3xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center space-y-5 min-h-[420px]">
+                  <div className="bg-[#0c1322] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center space-y-4 sm:space-y-5 min-h-[340px] sm:min-h-[420px]">
                     <div className="relative">
-                      <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 border-2 border-cyan-400/40 text-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
-                        <ScanFace className="w-10 h-10 animate-pulse" />
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-cyan-500/10 border-2 border-cyan-400/40 text-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+                        <ScanFace className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
                       </div>
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#0c1322] flex items-center justify-center">
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 border-2 border-[#0c1322] flex items-center justify-center">
                         <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                       </div>
                     </div>
 
-                    <div className="space-y-1.5 max-w-sm">
-                      <h3 className="text-xl font-black text-white">Inasubiri Utambuzi wa Uso</h3>
-                      <p className="text-xs text-neutral-400 leading-relaxed">
+                    <div className="space-y-1 sm:space-y-1.5 max-w-sm">
+                      <h3 className="text-lg sm:text-xl font-black text-white">Inasubiri Utambuzi wa Uso</h3>
+                      <p className="text-[11px] sm:text-xs text-neutral-400 leading-relaxed">
                         Mteja asimame mbele ya kamera ya Wakala. Kamera ita-detect uso wake kiotomatiki, itachanganua kanzidata ya PapoPay, na kufungua huduma za kuweka na kutoa pesa.
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 w-full max-w-sm text-left space-y-2 text-xs text-neutral-300">
+                    <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-black/40 border border-white/5 w-full max-w-sm text-left space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-neutral-300">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
                         <span>Kamera ya Utambuzi wa Kibayometriki (AI Face Tracking)</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                         <span>Ukaguzi wa Kanzidata ya PapoPay (12,450 records)</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
                         <span>Kama hayupo, fomu ya usajili itatokea papo hapo</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full max-w-sm">
+                    <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full max-w-sm">
                       <button
                         type="button"
                         onClick={executeLiveCameraSearch}
                         disabled={isSearchingRef.current}
-                        className="flex-1 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                        className="w-full sm:flex-1 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
                       >
                         <RefreshCw className={`w-4 h-4 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
                         <span>{isSearchingRef.current ? 'Inachanganua...' : 'Anzisha Utambuzi Sasa'}</span>
@@ -1969,7 +2501,7 @@ export default function WakalaDashboard() {
                           setDetectionMode('test_profiles');
                           triggerFaceSearch(activeSubject);
                         }}
-                        className="px-4 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer"
+                        className="w-full sm:w-auto px-4 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer transition-colors"
                       >
                         Demo Profiles
                       </button>
@@ -1982,19 +2514,52 @@ export default function WakalaDashboard() {
         )}
 
         {/* TAB 2: TRANSACTION LEDGER */}
-        {portalMode === 'ledger' && (
-          <div className="mt-6 bg-[#0c1322] rounded-3xl border border-white/10 p-5 space-y-4">
-            <div className="flex items-center justify-between">
+        {(portalMode === 'ledger' || mobileTab === 'ledger') && (
+          <div className="mt-4 sm:mt-6 bg-[#0c1322] rounded-2xl sm:rounded-3xl border border-white/10 p-3.5 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/5">
               <div>
-                <h3 className="text-base font-black text-white">Kumbukumbu ya Miamala ya Wakala</h3>
-                <p className="text-xs text-neutral-400">Miamala yote ya Cash-In na Cash-Out iliyoidhinishwa kwa uso</p>
+                <h3 className="text-sm sm:text-base font-black text-white">Kumbukumbu ya Miamala ya Wakala</h3>
+                <p className="text-[11px] sm:text-xs text-neutral-400">Miamala yote ya Cash-In na Cash-Out iliyoidhinishwa kwa uso</p>
               </div>
-              <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-mono font-bold">
+              <span className="self-start sm:self-auto px-2.5 sm:px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] sm:text-xs font-mono font-bold">
                 Jumla: {transactions.length} Miamala
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile View: Cards */}
+            <div className="block sm:hidden space-y-2.5">
+              {transactions.length === 0 ? (
+                <div className="text-center py-8 text-neutral-500 text-xs font-mono">
+                  Hakuna miamala iliyofanyika bado
+                </div>
+              ) : (
+                transactions.map(tx => (
+                  <div key={tx.id} className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-xs text-cyan-300">{tx.id}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        tx.type.includes('Kuweka') ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                      }`}>
+                        {tx.type}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-white">{tx.customer}</p>
+                        <p className="text-[10px] text-neutral-400 font-mono">{tx.date} · {tx.time}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black font-mono text-white">TZS {tx.amount.toLocaleString()}</p>
+                        <p className="text-[10px] font-mono text-emerald-400">+TZS {tx.commission.toLocaleString()} faida</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop View: Full Table */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/10 text-neutral-400 font-bold uppercase text-[10px]">
@@ -2155,9 +2720,90 @@ export default function WakalaDashboard() {
         isOpen={isEnrollOpen}
         onClose={() => setIsEnrollOpen(false)}
         onSuccess={handleEnrollSuccess}
-        initialName={activeSubject.hasAccountButNoFace ? activeSubject.name : "Mteja Mpya"}
-        initialPhone={activeSubject.hasAccountButNoFace ? activeSubject.phone : "0755 123 456"}
+        initialName={activeSubject?.hasAccountButNoFace ? activeSubject.name : "Mteja Mpya"}
+        initialPhone={activeSubject?.hasAccountButNoFace ? activeSubject.phone : "0755 123 456"}
       />
+
+      {/* MOBILE BOTTOM FLOATING DOCK (STICKY PHONE NAVIGATION) */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0c1222]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl">
+        <button
+          type="button"
+          onClick={() => { setPortalMode('terminal'); setMobileTab('camera'); triggerHapticTap(); }}
+          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
+            portalMode === 'terminal' && mobileTab === 'camera'
+              ? 'text-cyan-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <Camera className="w-4 h-4" />
+            {liveFaceDetected && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            )}
+          </div>
+          <span className="text-[9px] font-medium tracking-tight">Kamera</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPortalMode('terminal'); setMobileTab('pos'); triggerHapticTap(); }}
+          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all relative cursor-pointer ${
+            portalMode === 'terminal' && mobileTab === 'pos'
+              ? 'text-emerald-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <Wallet className="w-4 h-4" />
+            {matchedCustomer && (
+              <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-amber-400 text-neutral-950 text-[7px] font-mono font-black animate-pulse">
+                ✓
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] font-medium tracking-tight">POS Kaunta</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setIsFloatModalOpen(true); triggerHapticTap(); }}
+          className="mx-1 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-neutral-950 flex flex-col items-center justify-center shadow-lg shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4 stroke-[3]" />
+          <span className="text-[8px] font-black uppercase">Float</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPortalMode('terminal'); setMobileTab('customers'); triggerHapticTap(); }}
+          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
+            portalMode === 'terminal' && mobileTab === 'customers'
+              ? 'text-purple-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="text-[9px] font-medium tracking-tight">Wateja</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPortalMode('ledger'); setMobileTab('ledger'); triggerHapticTap(); }}
+          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
+            portalMode === 'ledger' || mobileTab === 'ledger'
+              ? 'text-amber-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <Receipt className="w-4 h-4" />
+            <span className="absolute -top-1 -right-2 px-1 rounded-full bg-white/10 text-[7px] font-mono">
+              {transactions.length}
+            </span>
+          </div>
+          <span className="text-[9px] font-medium tracking-tight">Miamala</span>
+        </button>
+      </nav>
     </div>
   );
 }

@@ -154,11 +154,18 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       let measuredYaw = headYaw;
 
       const video = videoRef?.current;
-      const isVideoActive = video && video.readyState >= 2 && !video.paused && !video.ended;
+      const isVideoActive = Boolean(
+        video && 
+        video.readyState >= 2 && 
+        !video.paused && 
+        !video.ended && 
+        video.videoWidth > 0 && 
+        video.videoHeight > 0
+      );
 
       if (isVideoActive && samplerCtx) {
         // Run vision analysis at ~15-20 FPS for optimal performance & responsiveness
-        if (now - lastAnalysisTime > 55) {
+        if (now - lastAnalysisTime > 60) {
           lastAnalysisTime = now;
 
           // 1. Try Native FaceDetector if supported
@@ -168,7 +175,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
             });
           }
 
-          // 2. Fallback / Multi-Cue Computer Vision Analysis via Canvas Sampler
+          // 2. High-precision Multi-Cue Computer Vision Analysis via Canvas Sampler
           try {
             samplerCtx.drawImage(video, 0, 0, 160, 120);
             const imgData = samplerCtx.getImageData(0, 0, 160, 120);
@@ -179,12 +186,11 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
             let sumY = 0;
             let minX = 160, maxX = 0, minY = 120, maxY = 0;
             let totalLum = 0;
-            let upperFaceSkin = 0;
-            let lowerFaceSkin = 0;
+            let lumSamples: number[] = [];
 
-            // Sample pixels across frame (step = 2 for speed & accuracy)
-            for (let y = 6; y < 114; y += 2) {
-              for (let x = 8; x < 152; x += 2) {
+            // Sample pixels across central search region
+            for (let y = 10; y < 110; y += 2) {
+              for (let x = 15; x < 145; x += 2) {
                 const idx = (y * 160 + x) * 4;
                 const r = data[idx];
                 const g = data[idx + 1];
@@ -193,24 +199,13 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                 const lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 totalLum += lum;
 
-                // Academic YCbCr skin model (effective across diverse African & global skin complexions):
-                // Cb = -0.169*R - 0.331*G + 0.500*B + 128
-                // Cr =  0.500*R - 0.419*G - 0.081*B + 128
+                // Academic YCbCr skin model (Cb [77, 127], Cr [133, 173])
                 const cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
                 const cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
 
-                // Skin range in YCbCr: Cb [77, 130], Cr [132, 175] with luminance bounds
-                const isSkinYCbCr = cb >= 75 && cb <= 132 && cr >= 130 && cr <= 178 && lum >= 20 && lum <= 245;
+                const isSkinYCbCr = cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && lum >= 30 && lum <= 235;
 
-                // Secondary RGB rule for edge cases and low light:
-                const isSkinRGB =
-                  r > 45 && g > 28 && b > 20 &&
-                  r > g && r > b &&
-                  (r - g) >= 8 &&
-                  Math.abs(r - g) > 5 &&
-                  lum > 22 && lum < 248;
-
-                if (isSkinYCbCr || isSkinRGB) {
+                if (isSkinYCbCr) {
                   skinPixelCount++;
                   sumX += x;
                   sumY += y;
@@ -218,9 +213,9 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                   if (x > maxX) maxX = x;
                   if (y < minY) minY = y;
                   if (y > maxY) maxY = y;
-
-                  if (y < 60) upperFaceSkin++;
-                  else lowerFaceSkin++;
+                  if (skinPixelCount % 4 === 0) {
+                    lumSamples.push(lum);
+                  }
                 }
               }
             }
@@ -244,43 +239,54 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
               realFaceDetected = true;
               measuredDist = Math.max(25, Math.min(90, Math.round(4800 / (targetW + 10))));
             } else {
-              // Multi-Cue Cluster Analysis:
-              // A genuine human face in front of the camera must form a dense cohesive cluster:
-              // - Minimum 250 skin pixels (at step 2 = 1000 real pixels)
-              // - Proper aspect ratio: height / width between 0.95 and 1.85
-              // - Balanced skin distribution (head has upper and lower regions)
+              // High-confidence Face Cluster Verification:
+              // - Substantial skin pixels (> 420 samples)
+              // - Realistic aspect ratio for human head (1.05 to 1.95)
+              // - Facial feature variance (contrast for eyes, eyebrows, mouth)
               const spanX = maxX - minX;
               const spanY = maxY - minY;
               const aspectRatio = spanY / (spanX || 1);
 
-              if (skinPixelCount > 240 && spanX > 22 && spanY > 26 && aspectRatio >= 0.85 && aspectRatio <= 2.2) {
+              // Calculate luminance variance to prevent flat/uniform wooden/brown backgrounds
+              let lumVariance = 0;
+              if (lumSamples.length > 20) {
+                const meanLum = lumSamples.reduce((a, b) => a + b, 0) / lumSamples.length;
+                lumVariance = lumSamples.reduce((a, b) => a + Math.pow(b - meanLum, 2), 0) / lumSamples.length;
+              }
+
+              if (
+                skinPixelCount >= 420 && 
+                spanX >= 35 && 
+                spanY >= 42 && 
+                aspectRatio >= 1.05 && 
+                aspectRatio <= 2.0 &&
+                lumVariance >= 45
+              ) {
                 realFaceDetected = true;
 
                 const rawCenterX = (sumX / skinPixelCount) / 160;
                 const rawCenterY = (minY + spanY * 0.42) / 120;
 
-                // Video is mirrored in UI, invert x
                 const normalizedX = 1.0 - rawCenterX;
-                const normalizedY = Math.max(0.18, Math.min(0.68, rawCenterY));
+                const normalizedY = Math.max(0.2, Math.min(0.65, rawCenterY));
 
                 targetX = normalizedX * width;
                 targetY = normalizedY * height;
 
                 const boxW = (spanX / 160) * width * 1.2;
                 const boxH = (spanY / 120) * height * 1.05;
-                targetW = Math.max(70 * scale, Math.min(175 * scale, boxW));
-                targetH = Math.max(90 * scale, Math.min(225 * scale, boxH));
+                targetW = Math.max(75 * scale, Math.min(175 * scale, boxW));
+                targetH = Math.max(95 * scale, Math.min(225 * scale, boxH));
 
                 measuredDist = Math.max(25, Math.min(95, Math.round(5200 / (targetW + 10))));
 
-                // Estimate head yaw from centroid offset
                 const faceMid = (minX + maxX) / 2;
                 const centerOffset = (sumX / skinPixelCount) - faceMid;
                 measuredYaw = Math.round(centerOffset * 1.8);
               }
             }
           } catch {
-            // Video security or CORS fallback
+            // Security or CORS fallback
           }
         }
       }
@@ -294,13 +300,11 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         current.lastFaceTime = now;
       } else {
         current.consecutiveMisses++;
-        if (current.consecutiveMisses > 10) {
-          current.consecutiveDetections = 0;
-        }
+        current.consecutiveDetections = 0;
       }
 
-      // Hysteresis: face is considered stably detected if seen for at least 3 consecutive frames
-      const isStablyDetected = current.consecutiveDetections >= 2 || (now - current.lastFaceTime < 900 && current.lastFaceTime > 0);
+      // Strict stability requirement: must be currently detected and stable for >= 4 frames
+      const isStablyDetected = realFaceDetected && current.consecutiveDetections >= 4;
       current.detected = isStablyDetected;
 
       const lerpSpeed = isStablyDetected ? 0.38 : 0.08;
