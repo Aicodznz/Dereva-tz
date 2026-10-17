@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papo-hapo-v2';
+const CACHE_NAME = 'papo-hapo-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -34,8 +34,16 @@ self.addEventListener('activate', (e) => {
 // Fetch Event
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  // Avoid caching foreign API calls or non-GET requests
-  if (e.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  // Avoid caching foreign API calls, dev source code, or non-GET requests
+  if (
+    e.request.method !== 'GET' || 
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('node_modules') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts')
+  ) {
     return;
   }
   

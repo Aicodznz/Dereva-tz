@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
@@ -18,7 +18,7 @@ export interface DriverMarker {
   phone?: string;
 }
 
-export function useNearbyDrivers(userPos?: [number, number]) {
+export function useNearbyDrivers(userPos?: [number, number], enabled: boolean = true) {
   const [firestoreDrivers, setFirestoreDrivers] = useState<DriverMarker[]>([]);
 
   // Default coordinate: Dar es Salaam center
@@ -26,6 +26,10 @@ export function useNearbyDrivers(userPos?: [number, number]) {
   const centerLng = userPos?.[1] || 39.2083;
 
   useEffect(() => {
+    if (!enabled) {
+      setFirestoreDrivers([]);
+      return;
+    }
     let unsub = () => {};
     try {
       const q = query(
@@ -96,7 +100,7 @@ export function useNearbyDrivers(userPos?: [number, number]) {
     }
 
     return () => unsub();
-  }, [centerLat, centerLng]);
+  }, [centerLat, centerLng, enabled]);
 
   return useMemo(() => ({ drivers: firestoreDrivers }), [firestoreDrivers]);
 }

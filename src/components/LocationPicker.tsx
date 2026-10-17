@@ -10,10 +10,9 @@ import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import ARMapView from './map/ARMapView';
 import { useBusinessConfig } from '../BusinessConfigContext';
-import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -452,7 +451,66 @@ export default function LocationPicker({
   const [activeRoute, setActiveRoute] = useState<any>(null);
 
   // Nearby drivers & vehicles states
-  const { drivers: realDrivers } = useNearbyDrivers();
+  const [realDrivers, setRealDrivers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isOpen || !showVendors) {
+      setRealDrivers([]);
+      return;
+    }
+    let unsub = () => {};
+    try {
+      const q = query(
+        collection(db, 'drivers'),
+        where('isOnline', '==', true),
+        where('receiving', '==', true)
+      );
+      unsub = onSnapshot(q, (snap) => {
+        const now = Date.now();
+        const activeThreshold = now - (5 * 60 * 1000);
+        const list = snap.docs
+          .map(d => {
+            const data = d.data();
+            const getSafeTime = (val: any): number => {
+              if (!val) return 0;
+              if (typeof val.toDate === 'function') return val.toDate().getTime();
+              if (val.seconds) return val.seconds * 1000;
+              const p = new Date(val).getTime();
+              return isNaN(p) ? 0 : p;
+            };
+            const lastActive = getSafeTime(data.lastActive) || getSafeTime(data.updatedAt);
+            return { id: d.id, ...data, lastActiveTime: lastActive } as any;
+          })
+          .filter((d: any) => {
+            if (!d.location || typeof d.location.lat !== 'number' || typeof d.location.lng !== 'number') return false;
+            if (isNaN(d.location.lat) || isNaN(d.location.lng)) return false;
+            if (d.lastActiveTime && d.lastActiveTime < activeThreshold) return false;
+            return true;
+          })
+          .map((d: any) => ({
+            id: d.id,
+            lat: d.location.lat,
+            lng: d.location.lng,
+            vehicleType: d.vehicleType || d.driverType || d.driverRegVehicle || 'mini',
+            name: d.name || 'Dereva',
+            heading: d.location.heading || d.bearing || 0,
+            photoURL: d.photoURL || d.photo || d.avatar,
+            rating: typeof d.rating === 'number' ? d.rating : 4.9,
+            totalTrips: typeof d.totalTrips === 'number' ? d.totalTrips : 120,
+            etaMinutes: 3,
+            vehiclePlate: d.vehiclePlate || d.vehicle?.plate || 'T 240 ABC',
+            vehicleModel: d.vehicleModel || d.vehicle?.model || 'Gari',
+            phone: d.phone || d.phoneNumber || ''
+          }));
+        setRealDrivers(list);
+      }, () => {
+        setRealDrivers([]);
+      });
+    } catch {
+      setRealDrivers([]);
+    }
+    return () => unsub();
+  }, [isOpen, showVendors]);
   const [simulatedDrivers, setSimulatedDrivers] = useState<any[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
 

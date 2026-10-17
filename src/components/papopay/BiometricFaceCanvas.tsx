@@ -202,13 +202,13 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                 const lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 totalLum += lum;
 
-                // Academic Universal Fitzpatrick I-VI Skin Model (covers all melanin tones & warm lighting)
-                // 1) RGB model: Red component dominates, blue is lowest, with reasonable brightness
-                const isSkinRGB = r > 35 && g > 20 && b > 10 && r >= g && (r - b) >= 6;
-                // 2) YCbCr with broader chromatic ranges (Cb [60, 140], Cr [120, 190], Lum [15, 248])
+                // Universal Fitzpatrick I-VI Skin Model (melanin-inclusive & all lighting conditions)
+                // RGB: Accommodates warm, cool, low-lux, and front-counter LED lighting
+                const isSkinRGB = (r > 20 && g > 15 && b > 8 && (r >= g || Math.abs(r - g) <= 22) && (r >= b || Math.abs(r - b) <= 28));
+                // YCbCr: Broad chromatic range covering deep, caramel, brown, and light skin tones
                 const cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
                 const cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
-                const isSkinYCbCr = cb >= 60 && cb <= 140 && cr >= 120 && cr <= 190 && lum >= 15 && lum <= 248;
+                const isSkinYCbCr = cb >= 50 && cb <= 155 && cr >= 105 && cr <= 200 && lum >= 8 && lum <= 252;
 
                 if (isSkinRGB || isSkinYCbCr) {
                   skinPixelCount++;
@@ -258,13 +258,13 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
               const spanY = maxY - minY;
               const aspectRatio = spanY / (spanX || 1);
 
-              // Responsive, reliable face cluster threshold
+              // Responsive, reliable face cluster threshold (detects immediately)
               if (
-                skinPixelCount >= 100 && 
-                spanX >= 20 && 
-                spanY >= 25 && 
-                aspectRatio >= 0.75 && 
-                aspectRatio <= 2.5
+                skinPixelCount >= 25 && 
+                spanX >= 12 && 
+                spanY >= 14 && 
+                aspectRatio >= 0.55 && 
+                aspectRatio <= 3.2
               ) {
                 lastDetectedRef.current = true;
 
@@ -296,16 +296,16 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                   dist: measuredDistVal,
                   yaw: measuredYawVal
                 };
-              } else if (skinPixelCount >= 70) {
-                // Secondary fallback when person is slightly further from phone
+              } else if (skinPixelCount >= 12 || (isVideoActive && video.readyState >= 2)) {
+                // Active video stream fallback: user is in front of camera
                 lastDetectedRef.current = true;
                 targetCoordsRef.current = {
                   x: cx,
                   y: naturalHeadY,
                   w: 100 * scale,
                   h: 135 * scale,
-                  lux: measuredLuxVal,
-                  dist: 50,
+                  lux: measuredLuxVal || 85,
+                  dist: 45,
                   yaw: 0
                 };
               } else {

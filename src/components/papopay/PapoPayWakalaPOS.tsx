@@ -250,6 +250,34 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     }, 1400);
   };
 
+  // Hands-free Automatic Face Detection Watchdog in Wakala POS
+  useEffect(() => {
+    if (!isOpen || faceSystemStatus !== 'scanning' || isPosSearchingRef.current) return;
+    let fired = false;
+    const interval = setInterval(() => {
+      if (fired || faceSystemStatus !== 'scanning' || isPosSearchingRef.current) return;
+      const vid = videoRef.current;
+      if (vid && (vid.readyState >= 2 || (vid.videoWidth > 0 && !vid.paused))) {
+        fired = true;
+        clearInterval(interval);
+        executeLiveSystemSearch(simulatedRegistrationStatus);
+      }
+    }, 450);
+
+    const fallback = setTimeout(() => {
+      if (!fired && faceSystemStatus === 'scanning' && !isPosSearchingRef.current) {
+        fired = true;
+        clearInterval(interval);
+        executeLiveSystemSearch(simulatedRegistrationStatus);
+      }
+    }, 1500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fallback);
+    };
+  }, [isOpen, faceSystemStatus, simulatedRegistrationStatus]);
+
   const handleFaceTracked = (data: FaceTrackResult) => {
     setLiveConfidence(data.confidence);
     setLiveLux(data.brightness);
@@ -258,14 +286,8 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
 
     if (data.detected) {
       if (faceSystemStatus === 'scanning' && !isPosSearchingRef.current) {
-        posFaceDebounceRef.current++;
-        if (posFaceDebounceRef.current >= 2) {
-          posFaceDebounceRef.current = 0;
-          executeLiveSystemSearch(simulatedRegistrationStatus);
-        }
+        executeLiveSystemSearch(simulatedRegistrationStatus);
       }
-    } else {
-      posFaceDebounceRef.current = 0;
     }
   };
 

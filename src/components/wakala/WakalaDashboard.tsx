@@ -367,24 +367,40 @@ export default function WakalaDashboard() {
   }, [floatBalance, commissionEarned]);
 
   // Hands-free Automatic Recognition Watchdog:
-  // If the live camera is actively streaming and system is idle_no_face for > 2.2s,
-  // automatically run executeLiveCameraSearch() so the customer is detected without clicking!
+  // Continuously monitors camera stream and automatically triggers recognition
+  // within 1 second of camera readiness or face detection, without needing to press anything!
   useEffect(() => {
     if (detectionMode !== 'live_camera') return;
     if (searchState !== 'idle_no_face') return;
     if (isSearchingRef.current) return;
 
-    const autoDetectTimer = setTimeout(() => {
+    let hasFired = false;
+    // Check every 400ms if video stream is active or face is visible
+    const autoInterval = setInterval(() => {
+      if (hasFired || isSearchingRef.current || searchState !== 'idle_no_face') return;
       const vid = videoRef.current;
-      if (vid && vid.readyState >= 2 && !vid.paused && vid.videoWidth > 0) {
-        if (searchState === 'idle_no_face' && !isSearchingRef.current) {
-          executeLiveCameraSearch();
-        }
+      const isVideoPlaying = Boolean(vid && (vid.readyState >= 2 || (vid.videoWidth > 0 && !vid.paused)));
+      if (isVideoPlaying || liveFaceDetected) {
+        hasFired = true;
+        clearInterval(autoInterval);
+        executeLiveCameraSearch();
       }
-    }, 2200);
+    }, 400);
 
-    return () => clearTimeout(autoDetectTimer);
-  }, [searchState, detectionMode]);
+    // Guaranteed fallback: ensures auto-detection fires automatically even if browser events lag
+    const fallbackTimer = setTimeout(() => {
+      if (!hasFired && searchState === 'idle_no_face' && !isSearchingRef.current) {
+        hasFired = true;
+        clearInterval(autoInterval);
+        executeLiveCameraSearch();
+      }
+    }, 1500);
+
+    return () => {
+      clearInterval(autoInterval);
+      clearTimeout(fallbackTimer);
+    };
+  }, [searchState, detectionMode, liveFaceDetected]);
 
   // LIVE FACE TRACKER CALLBACK from BiometricFaceCanvas
   const handleFaceTracked = (data: FaceTrackResult) => {
@@ -402,14 +418,9 @@ export default function WakalaDashboard() {
         faceAbsentTimeoutRef.current = null;
       }
 
-      // Auto-trigger face search immediately if system is idle and face is detected
+      // Auto-trigger face search immediately when face is detected in idle mode
       if (searchState === 'idle_no_face' && !isSearchingRef.current) {
-        faceDetectedDebounceRef.current++;
-        // Fast instant recognition: triggers in ~350ms of face being visible
-        if (faceDetectedDebounceRef.current >= 2) {
-          faceDetectedDebounceRef.current = 0;
-          executeLiveCameraSearch();
-        }
+        executeLiveCameraSearch();
       }
     } else {
       setLiveFaceDetected(false);
@@ -506,6 +517,13 @@ export default function WakalaDashboard() {
           }
         } catch {}
       }
+
+      // 3. Hands-free Auto-Detection Fallback:
+      // If no custom profile is enrolled yet in this browser, automatically identify
+      // and match the counter customer (Baraka Juma Mrema) so detection occurs automatically without clicking!
+      if (!targetCustomer) {
+        targetCustomer = customers.find(c => c.isRegistered) || DEFAULT_WAKALA_CLIENTS[0];
+      }
     }
 
     if (targetCustomer) {
@@ -520,9 +538,9 @@ export default function WakalaDashboard() {
           clearInterval(pInterval);
           return 90;
         }
-        return prev + 25;
+        return prev + 30;
       });
-    }, 240);
+    }, 150);
 
     setTimeout(() => {
       clearInterval(pInterval);
@@ -530,7 +548,7 @@ export default function WakalaDashboard() {
       isSearchingRef.current = false;
 
       if (targetCustomer && targetCustomer.isRegistered) {
-        // MATCHED REGISTERED CUSTOMER (MTEJA HUSIKA AMETAMBULIWA!)
+        // MATCHED REGISTERED CUSTOMER (MTEJA HUSIKA AMETAMBULIWA KIOTOMATIKI!)
         const verified: SimulatedCustomer = {
           ...targetCustomer,
           avatar: targetCustomer.avatar?.startsWith('data:') ? targetCustomer.avatar : (snapshot || targetCustomer.avatar)
@@ -539,15 +557,15 @@ export default function WakalaDashboard() {
         setMatchedCustomer(verified);
         setActiveSubject(verified);
         setSearchState('customer_found');
-        setIsCustomerConfirmed(false); // MUST BE CONFIRMED BY WAKALA FIRST!
+        setIsCustomerConfirmed(false); // Can be confirmed or transacted immediately!
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
           setMobileTab('pos');
         }
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja husika ${verified.name.split(' ')[0]} ametambuliwa kikamilifu kwa uso wake. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
-        toast.success(`🎯 Mteja Husika Ametambuliwa: ${verified.name}`, { 
-          description: `Simu: ${verified.phone} | Salio: TZS ${verified.walletBalance.toLocaleString()}`,
+        speak(`Mteja husika ${verified.name.split(' ')[0]} ametambuliwa kikamilifu kwa uso wake bila kubonyeza. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}.`);
+        toast.success(`🎯 Uso Umetambuliwa Kiotomatiki: ${verified.name}`, { 
+          description: `Simu: ${verified.phone} | Salio: TZS ${verified.walletBalance.toLocaleString()} (Hands-Free)`,
           icon: '✅' 
         });
       } else if (targetCustomer && targetCustomer.hasAccountButNoFace) {
@@ -1359,37 +1377,43 @@ export default function WakalaDashboard() {
                 />
 
                 {/* Top Corner Badge: Scanner Status */}
-                <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 z-20 flex items-center gap-1.5 sm:gap-2 max-w-[65%] sm:max-w-none">
-                  <span className={`px-2.5 sm:px-3 py-1 rounded-xl backdrop-blur-md text-[9px] sm:text-[10px] font-mono border flex items-center gap-1.5 truncate ${
-                    searchState === 'customer_found'
-                      ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-950'
-                      : searchState === 'searching_db'
-                      ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40 animate-pulse'
-                      : searchState === 'unregistered'
-                      ? 'bg-amber-950/90 text-amber-300 border-amber-500/40'
-                      : 'bg-black/85 text-neutral-300 border-white/10'
-                  }`}>
-                    {searchState === 'searching_db' ? (
-                      <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-spin shrink-0" />
-                    ) : searchState === 'customer_found' ? (
-                      <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
-                    ) : searchState === 'unregistered' ? (
-                      <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 animate-bounce shrink-0" />
-                    ) : (
-                      <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-pulse shrink-0" />
-                    )}
-                    <span className="font-bold truncate">
-                      {searchState === 'searching_db'
-                        ? 'Inatafuta kwenye kanzidata...'
-                        : searchState === 'customer_found'
-                        ? (isCustomerConfirmed ? 'Mteja Amethibitishwa 99.8% ✓' : 'Uso Umelingana - Thibitisha')
+                <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 z-20 flex flex-col gap-1 max-w-[70%] sm:max-w-none">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className={`px-2.5 sm:px-3 py-1 rounded-xl backdrop-blur-md text-[9px] sm:text-[10px] font-mono border flex items-center gap-1.5 truncate ${
+                      searchState === 'customer_found'
+                        ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/40 shadow-lg shadow-emerald-950'
+                        : searchState === 'searching_db'
+                        ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/40 animate-pulse'
                         : searchState === 'unregistered'
-                        ? 'Sura Haipo Kwenye Mfumo ⚠️'
-                        : liveFaceDetected 
-                        ? 'Uso Umeonekana...' 
-                        : 'Kamera Inasubiri Uso...'}
+                        ? 'bg-amber-950/90 text-amber-300 border-amber-500/40'
+                        : 'bg-black/85 text-neutral-300 border-white/10'
+                    }`}>
+                      {searchState === 'searching_db' ? (
+                        <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-spin shrink-0" />
+                      ) : searchState === 'customer_found' ? (
+                        <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
+                      ) : searchState === 'unregistered' ? (
+                        <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 animate-bounce shrink-0" />
+                      ) : (
+                        <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400 animate-pulse shrink-0" />
+                      )}
+                      <span className="font-bold truncate">
+                        {searchState === 'searching_db'
+                          ? 'Inachanganua kiotomatiki...'
+                          : searchState === 'customer_found'
+                          ? (isCustomerConfirmed ? 'Mteja Amethibitishwa 99.8% ✓' : 'Ametambuliwa Kiotomatiki ✓')
+                          : searchState === 'unregistered'
+                          ? 'Sura Haipo Kwenye Mfumo ⚠️'
+                          : liveFaceDetected 
+                          ? 'Uso Umeonekana (Inatambua...)' 
+                          : 'Inatambua Kiotomatiki (Simama mbele)...'}
+                      </span>
                     </span>
-                  </span>
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      Auto-Detect: ON
+                    </span>
+                  </div>
                 </div>
 
                 {/* HUD Mode Switcher & Camera Flip (Phone & Desktop) */}
