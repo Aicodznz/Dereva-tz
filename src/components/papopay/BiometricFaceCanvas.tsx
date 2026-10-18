@@ -202,15 +202,21 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                 const lum = 0.299 * r + 0.587 * g + 0.114 * b;
                 totalLum += lum;
 
-                // Universal Fitzpatrick I-VI Skin Model (melanin-inclusive & all lighting conditions)
-                // RGB: Accommodates warm, cool, low-lux, and front-counter LED lighting
-                const isSkinRGB = (r > 20 && g > 15 && b > 8 && (r >= g || Math.abs(r - g) <= 22) && (r >= b || Math.abs(r - b) <= 28));
-                // YCbCr: Broad chromatic range covering deep, caramel, brown, and light skin tones
+                // Universal Fitzpatrick I-VI Chromatic Skin Model
+                // Accurately discriminates true skin from white ceilings, lights, wooden tables, and neutral walls
+                const maxVal = Math.max(r, g, b);
+                const minVal = Math.min(r, g, b);
+                const colorDelta = maxVal - minVal;
+
+                // 1. Must NOT be monochrome / grey wall / ceiling lamp / neutral glare / dark shadow
+                const notMonochrome = colorDelta >= 16 && (r - b >= 14) && (r >= g) && (lum >= 25 && lum <= 230);
+
+                // 2. YCbCr Chromatic Boundaries for human skin (all melanin levels)
                 const cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128;
                 const cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128;
-                const isSkinYCbCr = cb >= 50 && cb <= 155 && cr >= 105 && cr <= 200 && lum >= 8 && lum <= 252;
+                const isSkinColor = notMonochrome && (cb >= 76 && cb <= 132) && (cr >= 135 && cr <= 178);
 
-                if (isSkinRGB || isSkinYCbCr) {
+                if (isSkinColor) {
                   skinPixelCount++;
                   sumX += x;
                   sumY += y;
@@ -218,7 +224,7 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                   if (x > maxX) maxX = x;
                   if (y < minY) minY = y;
                   if (y > maxY) maxY = y;
-                  if (skinPixelCount % 3 === 0) {
+                  if (skinPixelCount % 2 === 0) {
                     lumSamples.push(lum);
                   }
                 }
@@ -227,49 +233,75 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
 
             const measuredLuxVal = Math.min(100, Math.max(10, Math.round((totalLum / 4800 / 255) * 100)));
 
-            // Check if Native Face Detector found a face
-            if (cachedNativeFace && cachedNativeFace.boundingBox) {
-              const bb = cachedNativeFace.boundingBox;
-              const vW = video.videoWidth || 640;
-              const vH = video.videoHeight || 480;
+            // 1. If Native Face Detector is active in browser
+            if (cachedNativeFace !== null) {
+              if (cachedNativeFace && cachedNativeFace.boundingBox) {
+                const bb = cachedNativeFace.boundingBox;
+                const vW = video.videoWidth || 640;
+                const vH = video.videoHeight || 480;
 
-              // Mirrored horizontal coordinates
-              const normX = 1.0 - (bb.x + bb.width / 2) / vW;
-              const normY = (bb.y + bb.height * 0.42) / vH;
+                // Mirrored horizontal coordinates
+                const normX = 1.0 - (bb.x + bb.width / 2) / vW;
+                const normY = (bb.y + bb.height * 0.42) / vH;
 
-              const targetXVal = normX * width;
-              const targetYVal = normY * height;
-              const targetWVal = Math.max(70 * scale, Math.min(180 * scale, (bb.width / vW) * width * 1.15));
-              const targetHVal = Math.max(90 * scale, Math.min(230 * scale, (bb.height / vH) * height * 1.15));
-              const measuredDistVal = Math.max(25, Math.min(90, Math.round(4800 / (targetWVal + 10))));
+                const targetXVal = normX * width;
+                const targetYVal = normY * height;
+                const targetWVal = Math.max(70 * scale, Math.min(180 * scale, (bb.width / vW) * width * 1.15));
+                const targetHVal = Math.max(90 * scale, Math.min(230 * scale, (bb.height / vH) * height * 1.15));
+                const measuredDistVal = Math.max(25, Math.min(90, Math.round(4800 / (targetWVal + 10))));
 
-              lastDetectedRef.current = true;
-              targetCoordsRef.current = {
-                x: targetXVal,
-                y: targetYVal,
-                w: targetWVal,
-                h: targetHVal,
-                lux: measuredLuxVal,
-                dist: measuredDistVal,
-                yaw: 0
-              };
+                lastDetectedRef.current = true;
+                targetCoordsRef.current = {
+                  x: targetXVal,
+                  y: targetYVal,
+                  w: targetWVal,
+                  h: targetHVal,
+                  lux: measuredLuxVal,
+                  dist: measuredDistVal,
+                  yaw: 0
+                };
+              } else {
+                // Native FaceDetector explicitly found NO face in frame!
+                lastDetectedRef.current = false;
+              }
             } else {
+              // 2. High-Precision Sampler Fallback when native FaceDetector is unavailable
               const spanX = maxX - minX;
               const spanY = maxY - minY;
               const aspectRatio = spanY / (spanX || 1);
 
-              // Responsive, reliable face cluster threshold (detects immediately)
-              if (
-                skinPixelCount >= 25 && 
-                spanX >= 12 && 
-                spanY >= 14 && 
-                aspectRatio >= 0.55 && 
-                aspectRatio <= 3.2
-              ) {
-                lastDetectedRef.current = true;
+              // Calculate luminance variance across skin pixels to reject flat walls and wood surfaces
+              let lumStdDev = 0;
+              if (lumSamples.length >= 25) {
+                const mean = lumSamples.reduce((acc, val) => acc + val, 0) / lumSamples.length;
+                const sqSum = lumSamples.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0);
+                lumStdDev = Math.sqrt(sqSum / lumSamples.length);
+              }
 
-                const rawCenterX = (sumX / skinPixelCount) / 160;
-                const rawCenterY = (minY + spanY * 0.42) / 120;
+              const rawCenterX = skinPixelCount > 0 ? (sumX / skinPixelCount) / 160 : 0.5;
+              const rawCenterY = skinPixelCount > 0 ? (minY + spanY * 0.42) / 120 : 0.5;
+
+              // Genuine human face in front of the counter camera:
+              // - Substantial skin pixel mass (>= 220 pixels at counter distance)
+              // - Realistic upright head dimensions (width >= 28, height >= 38)
+              // - Oval ratio (taller than wide: 1.05 to 2.2)
+              // - Natural facial contrast texture (stdDev >= 8.0, rejects uniform walls/desks)
+              // - Centered in viewfinder
+              const isRealFaceCluster = 
+                skinPixelCount >= 220 && 
+                spanX >= 28 && 
+                spanY >= 38 && 
+                aspectRatio >= 1.02 && 
+                aspectRatio <= 2.25 &&
+                minY <= 65 &&
+                rawCenterX >= 0.20 &&
+                rawCenterX <= 0.80 &&
+                rawCenterY >= 0.18 &&
+                rawCenterY <= 0.75 &&
+                lumStdDev >= 8.0;
+
+              if (isRealFaceCluster) {
+                lastDetectedRef.current = true;
 
                 const normalizedX = 1.0 - rawCenterX;
                 const normalizedY = Math.max(0.18, Math.min(0.70, rawCenterY));
@@ -296,24 +328,13 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
                   dist: measuredDistVal,
                   yaw: measuredYawVal
                 };
-              } else if (skinPixelCount >= 12 || (isVideoActive && video.readyState >= 2)) {
-                // Active video stream fallback: user is in front of camera
-                lastDetectedRef.current = true;
-                targetCoordsRef.current = {
-                  x: cx,
-                  y: naturalHeadY,
-                  w: 100 * scale,
-                  h: 135 * scale,
-                  lux: measuredLuxVal || 85,
-                  dist: 45,
-                  yaw: 0
-                };
               } else {
+                // NO FACE IN FRAME: Do not detect empty rooms, walls, ceilings, desks or lights as faces!
                 lastDetectedRef.current = false;
               }
             }
           } catch {
-            // Sampler fallback
+            lastDetectedRef.current = false;
           }
         }
       }
@@ -328,13 +349,13 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         current.lastFaceTime = now;
       } else {
         current.consecutiveMisses++;
-        if (current.consecutiveMisses >= 3) {
+        if (current.consecutiveMisses >= 2) {
           current.consecutiveDetections = 0;
         }
       }
 
-      // Stable detection after 2 consecutive frames (~30-50ms)
-      const isStablyDetected = isFacePresent && current.consecutiveDetections >= 2;
+      // Stable detection requires at least 5 consecutive frames (~250-350ms of real steady face)
+      const isStablyDetected = isFacePresent && current.consecutiveDetections >= 5;
       current.detected = isStablyDetected;
 
       const lerpSpeed = isStablyDetected ? 0.38 : 0.08;
@@ -344,12 +365,12 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       let targetH = targetCoordsRef.current.h;
 
       if (!isStablyDetected) {
-        // Natural gentle idle scanner pulse when no face is present
+        // Natural gentle idle scanner pulse when NO face is present
         targetX = cx;
         targetY = naturalHeadY + Math.sin(t * 1.8) * 4 * scale;
         targetW = 105 * scale;
         targetH = 138 * scale;
-        current.confidence = Math.max(0, current.confidence - 4.5);
+        current.confidence = 0; // Strictly 0% when no person is present!
       } else {
         current.confidence = Math.min(99.6, Math.max(92.0, current.confidence + 3.0));
       }

@@ -346,7 +346,7 @@ export default function WakalaDashboard() {
 
   useEffect(() => {
     startCamera();
-    speak(`Karibu kwenye Kituo cha Wakala cha PapoPay, ${wakalaProfile.businessName}. Mfumo unatafuta uso wa mteja.`);
+    speak(`Karibu kwenye Kituo cha Wakala cha PapoPay. Mfumo uko tayari kusubiri mteja.`);
     // In live camera mode, wait for an actual face to be detected!
     setSearchState('idle_no_face');
     setMatchedCustomer(null);
@@ -366,43 +366,10 @@ export default function WakalaDashboard() {
     } catch {}
   }, [floatBalance, commissionEarned]);
 
-  // Hands-free Automatic Recognition Watchdog:
-  // Continuously monitors camera stream and automatically triggers recognition
-  // within 1 second of camera readiness or face detection, without needing to press anything!
-  useEffect(() => {
-    if (detectionMode !== 'live_camera') return;
-    if (searchState !== 'idle_no_face') return;
-    if (isSearchingRef.current) return;
+  // LIVE FACE TRACKER CALLBACK from BiometricFaceCanvas:
+  // ONLY triggers recognition when an actual human face is verified in front of the camera!
+  const facePresenceCountRef = useRef<number>(0);
 
-    let hasFired = false;
-    // Check every 400ms if video stream is active or face is visible
-    const autoInterval = setInterval(() => {
-      if (hasFired || isSearchingRef.current || searchState !== 'idle_no_face') return;
-      const vid = videoRef.current;
-      const isVideoPlaying = Boolean(vid && (vid.readyState >= 2 || (vid.videoWidth > 0 && !vid.paused)));
-      if (isVideoPlaying || liveFaceDetected) {
-        hasFired = true;
-        clearInterval(autoInterval);
-        executeLiveCameraSearch();
-      }
-    }, 400);
-
-    // Guaranteed fallback: ensures auto-detection fires automatically even if browser events lag
-    const fallbackTimer = setTimeout(() => {
-      if (!hasFired && searchState === 'idle_no_face' && !isSearchingRef.current) {
-        hasFired = true;
-        clearInterval(autoInterval);
-        executeLiveCameraSearch();
-      }
-    }, 1500);
-
-    return () => {
-      clearInterval(autoInterval);
-      clearTimeout(fallbackTimer);
-    };
-  }, [searchState, detectionMode, liveFaceDetected]);
-
-  // LIVE FACE TRACKER CALLBACK from BiometricFaceCanvas
   const handleFaceTracked = (data: FaceTrackResult) => {
     setLiveConfidence(data.confidence);
     setLiveLux(data.brightness);
@@ -411,31 +378,36 @@ export default function WakalaDashboard() {
 
     if (detectionMode !== 'live_camera') return;
 
-    if (data.detected) {
+    if (data.detected && data.confidence >= 88) {
       setLiveFaceDetected(true);
       if (faceAbsentTimeoutRef.current) {
         clearTimeout(faceAbsentTimeoutRef.current);
         faceAbsentTimeoutRef.current = null;
       }
 
-      // Auto-trigger face search immediately when face is detected in idle mode
+      // Require 4 consecutive callbacks of confirmed human face presence (~720ms) before initiating search
       if (searchState === 'idle_no_face' && !isSearchingRef.current) {
-        executeLiveCameraSearch();
+        facePresenceCountRef.current++;
+        if (facePresenceCountRef.current >= 4) {
+          facePresenceCountRef.current = 0;
+          executeLiveCameraSearch();
+        }
       }
     } else {
       setLiveFaceDetected(false);
-      faceDetectedDebounceRef.current = Math.max(0, faceDetectedDebounceRef.current - 1);
+      facePresenceCountRef.current = 0;
 
-      // If customer has walked away before confirmation, return to idle after 4 seconds
+      // When person steps away from the camera, return to idle standby after 3.5 seconds
       if ((searchState === 'customer_found' || searchState === 'unregistered') && !isCustomerConfirmed && !faceAbsentTimeoutRef.current) {
         faceAbsentTimeoutRef.current = setTimeout(() => {
           if (!isCustomerConfirmed) {
             setSearchState('idle_no_face');
             setMatchedCustomer(null);
+            setActiveSubject(null);
             speak("Mteja ameondoka mbele ya kamera. Mfumo unarudi kusubiri mteja mpya.");
           }
           faceAbsentTimeoutRef.current = null;
-        }, 4000);
+        }, 3500);
       }
     }
   };
@@ -517,19 +489,12 @@ export default function WakalaDashboard() {
           }
         } catch {}
       }
-
-      // 3. Hands-free Auto-Detection Fallback:
-      // If no custom profile is enrolled yet in this browser, automatically identify
-      // and match the counter customer (Baraka Juma Mrema) so detection occurs automatically without clicking!
-      if (!targetCustomer) {
-        targetCustomer = customers.find(c => c.isRegistered) || DEFAULT_WAKALA_CLIENTS[0];
-      }
     }
 
     if (targetCustomer) {
       speak(`Uso umepatikana! Inatafuta na kuthibitisha mteja ${targetCustomer.name.split(' ')[0]} kwenye mfumo wa PapoPay...`);
     } else {
-      speak("Uso umepatikana mbele ya kamera. Inachanganua kanzidata ya PapoPay...");
+      speak("Uso umetambuliwa mbele ya kamera. Inachanganua mfumo wa PapoPay...");
     }
 
     const pInterval = setInterval(() => {
@@ -1399,20 +1364,31 @@ export default function WakalaDashboard() {
                       )}
                       <span className="font-bold truncate">
                         {searchState === 'searching_db'
-                          ? 'Inachanganua kiotomatiki...'
+                          ? 'Inachanganua uso...'
                           : searchState === 'customer_found'
                           ? (isCustomerConfirmed ? 'Mteja Amethibitishwa 99.8% ✓' : 'Ametambuliwa Kiotomatiki ✓')
                           : searchState === 'unregistered'
                           ? 'Sura Haipo Kwenye Mfumo ⚠️'
                           : liveFaceDetected 
-                          ? 'Uso Umeonekana (Inatambua...)' 
-                          : 'Inatambua Kiotomatiki (Simama mbele)...'}
+                          ? 'Uso Umeonekana (Inachanganua...)' 
+                          : 'Standby: Inasubiri Mteja (Hakuna Mtu)...'}
                       </span>
                     </span>
                     <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                      Auto-Detect: ON
+                      <span className={`w-1.5 h-1.5 rounded-full ${liveFaceDetected ? 'bg-emerald-400 animate-ping' : 'bg-neutral-500'}`}></span>
+                      {liveFaceDetected ? 'Uso Upo' : 'Hakuna Mtu'}
                     </span>
+                    {searchState === 'idle_no_face' && (
+                      <button
+                        type="button"
+                        onClick={() => executeLiveCameraSearch()}
+                        className="px-2.5 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-[9px] sm:text-[10px] font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                        title="Bonyeza hapa kuchanganua uso wa mteja"
+                      >
+                        <ScanFace className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Skani Sasa</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
