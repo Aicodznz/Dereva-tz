@@ -430,51 +430,72 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
         : 'rgba(255, 255, 255, 0.12)';
 
       // ========================================================
-      // 0. IDLE SEARCHING STATE (HAKUNA USO UNAOONEKANA)
+      // 0. IDLE SEARCHING STATE (APPLE FACE-ID MINIMALIST RETICLE)
       // ========================================================
       if (!isStablyDetected) {
-        // Oval Face Placement Guide
-        const guideW = 110 * scale;
-        const guideH = 145 * scale;
+        const reticleW = 135 * scale;
+        const reticleH = 170 * scale;
+        const rx = cx - reticleW / 2;
+        const ry = naturalHeadY - reticleH / 2 + Math.sin(t * 1.5) * 3 * scale;
+        const cornerR = 22 * scale;
+        const bracketLen = 22 * scale;
 
         ctx.save();
-        ctx.setLineDash([8, 8]);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(cx, naturalHeadY, guideW * 0.7, guideH * 0.75, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-
-        // Pulsing Search Crosshairs
-        const crossRadius = (35 + Math.sin(t * 3) * 6) * scale;
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, naturalHeadY, crossRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(cx - crossRadius - 12, naturalHeadY);
-        ctx.lineTo(cx + crossRadius + 12, naturalHeadY);
-        ctx.moveTo(cx, naturalHeadY - crossRadius - 12);
-        ctx.lineTo(cx, naturalHeadY + crossRadius + 12);
-        ctx.stroke();
-
-        // Instructional Banner in Canvas
-        const bannerY = naturalHeadY + guideH * 0.85;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(cx - 130 * scale, bannerY - 14 * scale, 260 * scale, 26 * scale);
-
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+        // Whispering hairline oval guide
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(cx - 130 * scale, bannerY - 14 * scale, 260 * scale, 26 * scale);
+        ctx.beginPath();
+        ctx.ellipse(cx, naturalHeadY, reticleW * 0.48, reticleH * 0.48, 0, 0, Math.PI * 2);
+        ctx.stroke();
 
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = `bold ${Math.max(10, 11 * scale)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText('🔍 WEKA USO WAKO MBELE YA KAMERA', cx, bannerY + 3 * scale);
-        ctx.textAlign = 'left';
+        // 4 Softly Breathing Rounded Corner Brackets
+        const pulse = 0.55 + 0.35 * Math.sin(t * 2);
+        ctx.strokeStyle = `rgba(6, 182, 212, ${pulse * 0.8})`;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Top-left
+        ctx.beginPath();
+        ctx.moveTo(rx, ry + bracketLen);
+        ctx.arcTo(rx, ry, rx + bracketLen, ry, cornerR);
+        ctx.stroke();
+
+        // Top-right
+        ctx.beginPath();
+        ctx.moveTo(rx + reticleW - bracketLen, ry);
+        ctx.arcTo(rx + reticleW, ry, rx + reticleW, ry + bracketLen, cornerR);
+        ctx.stroke();
+
+        // Bottom-left
+        ctx.beginPath();
+        ctx.moveTo(rx, ry + reticleH - bracketLen);
+        ctx.arcTo(rx, ry + reticleH, rx + bracketLen, ry + reticleH, cornerR);
+        ctx.stroke();
+
+        // Bottom-right
+        ctx.beginPath();
+        ctx.moveTo(rx + reticleW - bracketLen, ry + reticleH);
+        ctx.arcTo(rx + reticleW, ry + reticleH, rx + reticleW, ry + reticleH - bracketLen, cornerR);
+        ctx.stroke();
+
+        // Smooth subtle vertical laser sweep
+        const scanY = ry + ((Math.sin(t * 2.2) + 1) / 2) * reticleH;
+        const scanGrad = ctx.createLinearGradient(rx, scanY, rx + reticleW, scanY);
+        scanGrad.addColorStop(0, 'transparent');
+        scanGrad.addColorStop(0.2, 'rgba(6, 182, 212, 0.08)');
+        scanGrad.addColorStop(0.5, 'rgba(6, 182, 212, 0.5)');
+        scanGrad.addColorStop(0.8, 'rgba(6, 182, 212, 0.08)');
+        scanGrad.addColorStop(1, 'transparent');
+
+        ctx.strokeStyle = scanGrad;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(rx + 8, scanY);
+        ctx.lineTo(rx + reticleW - 8, scanY);
+        ctx.stroke();
+
+        ctx.restore();
 
         animFrameIdRef.current = requestAnimationFrame(render);
         return;
@@ -483,67 +504,87 @@ export const BiometricFaceCanvas: React.FC<BiometricFaceCanvasProps> = ({
       // ========================================================
       // 1. NEURAL BOUNDING BOX & REAL-TIME TRACKING BRACKETS
       // ========================================================
-      const boxW = faceW * 1.3;
-      const boxH = faceH * 1.25;
+      const boxW = faceW * 1.25;
+      const boxH = faceH * 1.22;
       const bx = fx - boxW / 2;
       const by = fy - boxH / 2;
+      const cornerR = 16 * scale;
+      const cLen = Math.max(16, 20 * scale);
 
+      ctx.save();
       ctx.strokeStyle = primaryColor;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
-      // Draw 4 Sci-Fi corner tracking brackets
-      const cLen = Math.max(14, 18 * scale);
       // Top-left
       ctx.beginPath();
       ctx.moveTo(bx, by + cLen);
-      ctx.lineTo(bx, by);
-      ctx.lineTo(bx + cLen, by);
+      ctx.arcTo(bx, by, bx + cLen, by, cornerR);
       ctx.stroke();
 
       // Top-right
       ctx.beginPath();
       ctx.moveTo(bx + boxW - cLen, by);
-      ctx.lineTo(bx + boxW, by);
-      ctx.lineTo(bx + boxW, by + cLen);
+      ctx.arcTo(bx + boxW, by, bx + boxW, by + cLen, cornerR);
       ctx.stroke();
 
       // Bottom-left
       ctx.beginPath();
       ctx.moveTo(bx, by + boxH - cLen);
-      ctx.lineTo(bx, by + boxH);
-      ctx.lineTo(bx + cLen, by + boxH);
+      ctx.arcTo(bx, by + boxH, bx + cLen, by + boxH, cornerR);
       ctx.stroke();
 
       // Bottom-right
       ctx.beginPath();
       ctx.moveTo(bx + boxW - cLen, by + boxH);
-      ctx.lineTo(bx + boxW, by + boxH);
-      ctx.lineTo(bx + boxW, by + boxH - cLen);
+      ctx.arcTo(bx + boxW, by + boxH, bx + boxW, by + boxH - cLen, cornerR);
       ctx.stroke();
 
       // Laser Biometric Sweep Line across bounding box
       const scanY = by + ((Math.sin(t * 3) + 1) / 2) * boxH;
       const scanGrad = ctx.createLinearGradient(bx, scanY, bx + boxW, scanY);
       scanGrad.addColorStop(0, 'transparent');
+      scanGrad.addColorStop(0.3, accentColor);
       scanGrad.addColorStop(0.5, primaryColor);
+      scanGrad.addColorStop(0.7, accentColor);
       scanGrad.addColorStop(1, 'transparent');
 
       ctx.strokeStyle = scanGrad;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(bx + 4, scanY);
-      ctx.lineTo(bx + boxW - 4, scanY);
+      ctx.moveTo(bx + 8, scanY);
+      ctx.lineTo(bx + boxW - 8, scanY);
       ctx.stroke();
 
-      // Label above bounding box
-      ctx.fillStyle = primaryColor;
-      ctx.font = `bold ${Math.max(9, 10 * scale)}px monospace`;
-      const hudTag = isWarn 
-        ? `[!] HAJASAJILIWA (UNKNOWN FACE)` 
+      // Clean minimalist floating pill tag above face
+      const tagText = isWarn 
+        ? '⚠️ Sura Haipo Kwenye Mfumo' 
         : isError 
-        ? `[X] SPOOF REJECTED` 
-        : `[AI TRACKED] USO UMEGUNDULIWA | ${current.confidence.toFixed(1)}%`;
-      ctx.fillText(hudTag, bx, by - 6 * scale);
+        ? '❌ Spoof Rejected' 
+        : `✓ AI Face Verified · ${current.confidence.toFixed(0)}%`;
+
+      ctx.font = `bold ${Math.max(9, 10 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      const textMetrics = ctx.measureText(tagText);
+      const tagPadX = 8 * scale;
+      const tagH = 18 * scale;
+      const tagW = textMetrics.width + tagPadX * 2;
+      const tagX = bx + (boxW - tagW) / 2;
+      const tagY = by - tagH - 6 * scale;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.beginPath();
+      ctx.roundRect(tagX, tagY, tagW, tagH, 6 * scale);
+      ctx.fill();
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = primaryColor;
+      ctx.textAlign = 'center';
+      ctx.fillText(tagText, tagX + tagW / 2, tagY + tagH * 0.72);
+      ctx.textAlign = 'left';
+      ctx.restore();
 
       // ========================================================
       // 2. 3D FACE MESH & 68 LANDMARK WIREFRAME
