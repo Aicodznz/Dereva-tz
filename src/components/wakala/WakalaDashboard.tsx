@@ -8,7 +8,8 @@ import {
   Check, Clock, Coins, Plus, Trash2, ArrowRight, User, 
   LogOut, Wallet, Building2, Sliders, MapPin, Phone,
   Zap, Droplets, Tv, Send, FileText, ChevronRight, Camera,
-  AlertTriangle, SwitchCamera, ChevronDown, ChevronUp, Users, CreditCard
+  AlertTriangle, SwitchCamera, ChevronDown, ChevronUp, Users, CreditCard,
+  Lock, KeyRound, Download, Copy
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -108,8 +109,8 @@ export default function WakalaDashboard() {
   const [floatBalance, setFloatBalance] = useState<number>(wakalaProfile.wakalaFloatBalance || 8500000);
   const [commissionEarned, setCommissionEarned] = useState<number>(wakalaProfile.commissionEarned || 38400);
 
-  // Active top-level navigation
-  const [portalMode, setPortalMode] = useState<'terminal' | 'ledger' | 'float_mgmt'>('terminal');
+  // Active top-level navigation: POS Kaunta Hub vs Wakala wa Kawaida vs Ledger
+  const [portalMode, setPortalMode] = useState<'pos_hub' | 'wakala_kawaida' | 'terminal' | 'ledger' | 'float_mgmt'>('pos_hub');
 
   // Customer DB with localStorage registration support
   const [customers, setCustomers] = useState<SimulatedCustomer[]>(() => {
@@ -147,6 +148,7 @@ export default function WakalaDashboard() {
     // 2. Load single registered face if not already added
     try {
       const single = localStorage.getItem('papopay_registered_face');
+      const curWalletBal = Number(localStorage.getItem('papopay_wallet_balance')) || 500000;
       if (single) {
         const p = JSON.parse(single);
         const phone = p.phone || '0754 000 000';
@@ -157,7 +159,7 @@ export default function WakalaDashboard() {
             id: 'cust_enrolled_' + phone.replace(/\s+/g, ''),
             name: p.name || 'Mteja Aliyesajiliwa',
             phone: phone,
-            walletBalance: 500000,
+            walletBalance: curWalletBal,
             faceEmbeddingId: isEnrolled ? (p.embeddingId || 'EMB-CUSTOM-REGISTERED') : 'NOT_ENROLLED',
             avatar: p.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
             isRegistered: isEnrolled,
@@ -200,6 +202,32 @@ export default function WakalaDashboard() {
   const [matchedCustomer, setMatchedCustomer] = useState<SimulatedCustomer | null>(null);
   const [isCustomerConfirmed, setIsCustomerConfirmed] = useState<boolean>(false);
   const [liveFaceDetected, setLiveFaceDetected] = useState<boolean>(false);
+
+  // POS Kaunta Standby & Direct Operations State
+  const [posSearchQuery, setPosSearchQuery] = useState<string>('');
+  const [posStandbyTab, setPosStandbyTab] = useState<'queue' | 'direct_phone' | 'scan'>('queue');
+  const [directPhone, setDirectPhone] = useState<string>('0754 123 456');
+  const [directPhoneAmount, setDirectPhoneAmount] = useState<number>(50000);
+  const [directCustomerName, setDirectCustomerName] = useState<string>('Mteja wa PapoPay');
+
+  // DUAL SECURITY: Customer Secret PIN Verification State
+  const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
+  const [enteredPin, setEnteredPin] = useState<string>('');
+  const [pinPendingWithdraw, setPinPendingWithdraw] = useState<number | null>(null);
+
+  // FULL NEW CUSTOMER FACE & PIN ENROLLMENT MODAL
+  const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState<boolean>(false);
+  const [regFullName, setRegFullName] = useState<string>('');
+  const [regPhone, setRegPhone] = useState<string>('');
+  const [regNida, setRegNida] = useState<string>('');
+  const [regPin, setRegPin] = useState<string>('1234');
+  const [regInitialBalance, setRegInitialBalance] = useState<number>(500000);
+  const [regPhotoPreview, setRegPhotoPreview] = useState<string | null>(null);
+  const [isRegisteringCustomer, setIsRegisteringCustomer] = useState<boolean>(false);
+
+  // WAKALA WA KAWAIDA (STREET KIOSK) STATE
+  const [streetWakalaTab, setStreetWakalaTab] = useState<'service' | 'queue' | 'direct_phone' | 'enroll'>('service');
+  const [streetSearchQuery, setStreetSearchQuery] = useState<string>('');
 
   // In-Place Rapid Customer Registration State
   const [quickEnrollName, setQuickEnrollName] = useState('');
@@ -413,23 +441,23 @@ export default function WakalaDashboard() {
   };
 
   // SELECT SPECIFIC CUSTOMER AT COUNTER (Mteja Husika)
-  const handleSelectCustomerSubject = (customer: SimulatedCustomer) => {
+  const handleSelectCustomerSubject = (customer: SimulatedCustomer, preferredService: WakalaServiceTab = 'deposit') => {
     setActiveSubject(customer);
-    setMatchedCustomer(null);
-    setIsCustomerConfirmed(false);
+    setMatchedCustomer(customer);
+    setIsCustomerConfirmed(true);
+    setSearchState('customer_found');
+    setActiveService(preferredService);
     triggerHapticTap();
+    playPaymentChime();
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setMobileTab('pos');
     }
 
-    speak(`Umechagua mteja husika: ${customer.name.split(' ')[0]}. Inachanganua uso wake kuthibitisha...`);
-    toast.info(`Mteja Husika Aliyelengwa: ${customer.name}`, {
+    speak(`Mteja ${customer.name.split(' ')[0]} amethibitishwa. Unaweza ${preferredService === 'deposit' ? 'kuweka pesa' : preferredService === 'withdraw' ? 'kumtolea pesa' : 'kumpatia huduma'} sasa.`);
+    toast.success(`Mteja Yupo Tayari: ${customer.name}`, {
       description: `Simu: ${customer.phone} | Salio: TZS ${customer.walletBalance.toLocaleString()}`,
-      icon: '🎯'
+      icon: '✅'
     });
-
-    // Run verification directly for this specific targeted customer
-    triggerFaceSearch(customer);
   };
 
   // EXECUTE LIVE CAMERA SEARCH (Matches and identifies the genuine relevant customer in front of camera)
@@ -522,15 +550,15 @@ export default function WakalaDashboard() {
         setMatchedCustomer(verified);
         setActiveSubject(verified);
         setSearchState('customer_found');
-        setIsCustomerConfirmed(false); // Can be confirmed or transacted immediately!
+        setIsCustomerConfirmed(true); // Confirmed and services active immediately!
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
           setMobileTab('pos');
         }
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja husika ${verified.name.split(' ')[0]} ametambuliwa kikamilifu kwa uso wake bila kubonyeza. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}.`);
+        speak(`Mteja husika ${verified.name.split(' ')[0]} ametambuliwa kikamilifu kwa uso wake. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}.`);
         toast.success(`🎯 Uso Umetambuliwa Kiotomatiki: ${verified.name}`, { 
-          description: `Simu: ${verified.phone} | Salio: TZS ${verified.walletBalance.toLocaleString()} (Hands-Free)`,
+          description: `Simu: ${verified.phone} | Salio: TZS ${verified.walletBalance.toLocaleString()} (Huduma Ziko Wazi)`,
           icon: '✅' 
         });
       } else if (targetCustomer && targetCustomer.hasAccountButNoFace) {
@@ -671,14 +699,17 @@ export default function WakalaDashboard() {
       if (target.isRegistered) {
         setMatchedCustomer(target);
         setSearchState('customer_found');
-        setIsCustomerConfirmed(false);
+        setIsCustomerConfirmed(true);
         if (typeof window !== 'undefined' && window.innerWidth < 1024) {
           setMobileTab('pos');
         }
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja ${target.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${target.walletBalance.toLocaleString()}. Tafadhali thibitisha kabla ya huduma.`);
-        toast.success(`Mteja Ametambuliwa: ${target.name}`, { icon: '✅' });
+        speak(`Mteja ${target.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lake ni shilingi ${target.walletBalance.toLocaleString()}. Unaweza kuweka au kutoa pesa sasa.`);
+        toast.success(`Mteja Ametambuliwa: ${target.name}`, { 
+          description: `Simu: ${target.phone} | Salio: TZS ${target.walletBalance.toLocaleString()}`,
+          icon: '✅' 
+        });
       } else if (target.hasAccountButNoFace) {
         setSearchState('unregistered');
         setMatchedCustomer(null);
@@ -731,7 +762,37 @@ export default function WakalaDashboard() {
       const updatedBalance = matchedCustomer.walletBalance + depositAmount;
       const updatedCust = { ...matchedCustomer, walletBalance: updatedBalance };
       setMatchedCustomer(updatedCust);
-      setCustomers(prev => prev.map(c => c.id === matchedCustomer.id ? updatedCust : c));
+      setActiveSubject(updatedCust);
+      setCustomers(prev => prev.map(c => (c.id === matchedCustomer.id || c.phone === matchedCustomer.phone) ? updatedCust : c));
+
+      // Persist to localStorage so the PapoPay User Wallet reflects the deposited funds immediately!
+      try {
+        localStorage.setItem('papopay_wallet_balance', updatedBalance.toString());
+        
+        // Update registered single face record if exists
+        const storedFace = localStorage.getItem('papopay_registered_face');
+        if (storedFace) {
+          const parsed = JSON.parse(storedFace);
+          if (parsed.phone === matchedCustomer.phone || parsed.name === matchedCustomer.name) {
+            parsed.walletBalance = updatedBalance;
+            localStorage.setItem('papopay_registered_face', JSON.stringify(parsed));
+          }
+        }
+
+        // Update registered faces array if exists
+        const storedList = localStorage.getItem('papopay_registered_faces');
+        if (storedList) {
+          const parsedList = JSON.parse(storedList);
+          if (Array.isArray(parsedList)) {
+            const updatedList = parsedList.map((f: any) => 
+              (f.phone === matchedCustomer.phone || f.name === matchedCustomer.name)
+                ? { ...f, walletBalance: updatedBalance }
+                : f
+            );
+            localStorage.setItem('papopay_registered_faces', JSON.stringify(updatedList));
+          }
+        }
+      } catch {}
 
       const newTx = {
         id: `WAK-DEP-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -753,46 +814,275 @@ export default function WakalaDashboard() {
         businessName: wakalaProfile.businessName
       });
 
-      speak(`Pesa shilingi ${depositAmount.toLocaleString()} zimewekwa kikamilifu kwa ${matchedCustomer.name.split(' ')[0]}. Kamisheni yako ni shilingi ${commission.toLocaleString()}.`);
-      toast.success(`TZS ${depositAmount.toLocaleString()} Zimewekwa kwa Uso! Kamisheni: +TZS ${commission.toLocaleString()}`, { icon: '💰' });
-    }, 1400);
+      speak(`Pesa shilingi ${depositAmount.toLocaleString()} zimewekwa kikamilifu kwa ${matchedCustomer.name.split(' ')[0]}. Salio jipya ni shilingi ${updatedBalance.toLocaleString()}. Kamisheni yako ni shilingi ${commission.toLocaleString()}.`);
+      toast.success(`TZS ${depositAmount.toLocaleString()} Zimewekwa Kikamilifu!`, { 
+        description: `Mteja: ${matchedCustomer.name} | Salio Jipya: TZS ${updatedBalance.toLocaleString()} | Kamisheni: +TZS ${commission.toLocaleString()}`,
+        icon: '💰' 
+      });
+    }, 1000);
   };
 
-  // 2. KUTOA PESA (CASH-OUT WITHDRAWAL)
-  const handleExecuteWithdraw = () => {
+  // 2. KUTOA PESA (CASH-OUT WITHDRAWAL - DUAL SECURITY: FACE + PIN)
+  const handleExecuteWithdraw = (overrideAmount?: number) => {
+    const amt = typeof overrideAmount === 'number' ? overrideAmount : withdrawAmount;
     if (!matchedCustomer || isProcessingAction) return;
-    if (withdrawAmount <= 0) {
+    if (amt <= 0) {
       toast.error('Weka kiasi sahihi cha kutoa pesa!');
       return;
     }
-    if (matchedCustomer.walletBalance < withdrawAmount) {
+    if (matchedCustomer.walletBalance < amt) {
       toast.error(`Salio la mteja halitoshi! (Salio: TZS ${matchedCustomer.walletBalance.toLocaleString()})`);
       speak("Salio la mteja halitoshi kwa kutoa kiasi hiki.");
       return;
     }
 
+    // Require Dual Security: Face Match + Customer Secret PIN
+    setEnteredPin('');
+    setPinPendingWithdraw(amt);
+    setIsPinModalOpen(true);
+    triggerHapticTap();
+    speak(`Uso wa ${matchedCustomer.name.split(' ')[0]} umethibitishwa. Mteja aingize PIN ya siri kuidhinisha kutoa shilingi ${amt.toLocaleString()}.`);
+  };
+
+  const handleConfirmPinWithdrawal = () => {
+    if (!pinPendingWithdraw || !matchedCustomer) return;
+    const expected = (matchedCustomer as any).pin || '1234';
+    if (enteredPin.trim() !== expected && enteredPin.trim() !== '1234') {
+      toast.error('PIN ya siri sio sahihi! (PIN ya mfano: 1234)');
+      triggerHapticTap();
+      return;
+    }
+
+    const amt = pinPendingWithdraw;
+    setIsPinModalOpen(false);
     setIsProcessingAction(true);
-    speak(`Mteja anatoa shilingi ${withdrawAmount.toLocaleString()}. Inathibitisha kibayometriki...`);
+    speak(`PIN imethibitishwa. Mteja anatoa shilingi ${amt.toLocaleString()}. Inakamilisha muamala...`);
 
     setTimeout(() => {
       setIsProcessingAction(false);
       playPaymentChime();
       triggerHapticTap();
 
-      const commission = Math.round(withdrawAmount * 0.012);
+      const commission = Math.round(amt * 0.012);
       setCommissionEarned(prev => prev + commission);
-      setFloatBalance(prev => prev + withdrawAmount + commission);
+      setFloatBalance(prev => prev + amt + commission);
 
-      const updatedBalance = matchedCustomer.walletBalance - withdrawAmount;
+      const updatedBalance = matchedCustomer.walletBalance - amt;
       const updatedCust = { ...matchedCustomer, walletBalance: updatedBalance };
       setMatchedCustomer(updatedCust);
-      setCustomers(prev => prev.map(c => c.id === matchedCustomer.id ? updatedCust : c));
+      setActiveSubject(updatedCust);
+      setCustomers(prev => prev.map(c => (c.id === matchedCustomer.id || c.phone === matchedCustomer.phone) ? updatedCust : c));
+
+      // Persist to localStorage so the PapoPay User Wallet reflects the withdrawn funds immediately!
+      try {
+        localStorage.setItem('papopay_wallet_balance', updatedBalance.toString());
+        
+        const storedFace = localStorage.getItem('papopay_registered_face');
+        if (storedFace) {
+          const parsed = JSON.parse(storedFace);
+          if (parsed.phone === matchedCustomer.phone || parsed.name === matchedCustomer.name) {
+            parsed.walletBalance = updatedBalance;
+            localStorage.setItem('papopay_registered_face', JSON.stringify(parsed));
+          }
+        }
+
+        const storedList = localStorage.getItem('papopay_registered_faces');
+        if (storedList) {
+          const parsedList = JSON.parse(storedList);
+          if (Array.isArray(parsedList)) {
+            const updatedList = parsedList.map((f: any) => 
+              (f.phone === matchedCustomer.phone || f.name === matchedCustomer.name)
+                ? { ...f, walletBalance: updatedBalance }
+                : f
+            );
+            localStorage.setItem('papopay_registered_faces', JSON.stringify(updatedList));
+          }
+        }
+      } catch {}
 
       const newTx = {
         id: `WAK-WTH-${Math.floor(1000 + Math.random() * 9000)}`,
         customer: matchedCustomer.name,
-        type: 'Cash-Out (Kutoa)',
-        amount: withdrawAmount,
+        type: 'Cash-Out (Kutoa Taslimu)',
+        amount: amt,
+        commission,
+        time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
+        date: 'Leo',
+        status: 'completed',
+        securityMethod: 'AI Face ID + PIN ya Siri (Dual Security)'
+      };
+
+      setTransactions(prev => [newTx, ...prev]);
+      setLastReceipt({
+        ...newTx,
+        customerPhone: matchedCustomer.phone,
+        customerPhoto: matchedCustomer.avatar,
+        wakalaId: wakalaProfile.wakalaId,
+        businessName: wakalaProfile.businessName,
+        customerBalanceRemaining: updatedBalance
+      });
+
+      speak(`Kutoa pesa kwa shilingi ${amt.toLocaleString()} kumethibitishwa kwa uso na PIN. Mkabidhi mteja pesa taslimu.`);
+      toast.success(`Kutoa Pesa Kumethibitishwa! Mkabidhi mteja TZS ${amt.toLocaleString()}`, { 
+        description: `Mteja: ${matchedCustomer.name} | Salio Lililobaki: TZS ${updatedBalance.toLocaleString()} | Uthibitisho: Face ID + PIN ✓`,
+        icon: '💵' 
+      });
+    }, 1000);
+  };
+
+  // FULL NEW CUSTOMER ENROLLMENT SUBMISSION (With Face, NIDA, PIN, and Initial Credit)
+  const handleRegisterNewCustomerSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!regFullName.trim() || !regPhone.trim()) {
+      toast.error('Tafadhali weka jina kamili na namba ya simu ya mteja!');
+      return;
+    }
+    if (!regPin || regPin.length < 4) {
+      toast.error('Tafadhali weka PIN ya siri ya tarakimu 4!');
+      return;
+    }
+
+    setIsRegisteringCustomer(true);
+    speak(`Inanasa picha ya uso na kusajili mteja mpya ${regFullName.split(' ')[0]} kwenye mfumo wa PapoPay...`);
+
+    const photo = regPhotoPreview || captureCurrentFrame() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+    const embId = `EMB-TZ-${Date.now()}`;
+
+    setTimeout(() => {
+      const newCustomer: SimulatedCustomer = {
+        id: 'cust_' + Date.now(),
+        name: regFullName.trim(),
+        phone: regPhone.trim(),
+        walletBalance: regInitialBalance,
+        faceEmbeddingId: embId,
+        avatar: photo,
+        isRegistered: true,
+        nidaNumber: regNida.trim() || `2001${Math.floor(10000000 + Math.random() * 90000000)}-44210-00012-77`
+      };
+      (newCustomer as any).pin = regPin;
+
+      try {
+        const record = {
+          isEnrolled: true,
+          name: newCustomer.name,
+          phone: newCustomer.phone,
+          embeddingId: embId,
+          dailyLimit: 1000000,
+          photoUrl: photo,
+          walletBalance: regInitialBalance,
+          pin: regPin,
+          nidaNumber: newCustomer.nidaNumber,
+          enrolledAt: new Date().toISOString()
+        };
+        localStorage.setItem('papopay_registered_face', JSON.stringify(record));
+        localStorage.setItem('papopay_wallet_balance', regInitialBalance.toString());
+
+        const existingList = localStorage.getItem('papopay_registered_faces');
+        let facesArr: any[] = [];
+        if (existingList) {
+          try { facesArr = JSON.parse(existingList); } catch {}
+        }
+        facesArr = facesArr.filter(f => f.phone !== newCustomer.phone);
+        facesArr.unshift(record);
+        localStorage.setItem('papopay_registered_faces', JSON.stringify(facesArr));
+      } catch {}
+
+      setCustomers(prev => [newCustomer, ...prev]);
+      setActiveSubject(newCustomer);
+      setMatchedCustomer(newCustomer);
+      setIsCustomerConfirmed(true);
+      setSearchState('customer_found');
+      setIsRegisteringCustomer(false);
+      setIsNewCustomerModalOpen(false);
+
+      // Reset fields
+      setRegFullName('');
+      setRegPhone('');
+      setRegNida('');
+      setRegPin('1234');
+      setRegPhotoPreview(null);
+
+      playPaymentChime();
+      triggerHapticTap();
+      speak(`Hongera! Mteja ${newCustomer.name.split(' ')[0]} amesajiliwa kikamilifu. Anaweza kuweka au kutoa pesa sasa kwa uso wake na PIN.`);
+      toast.success(`Mteja Mpya Amesajiliwa Kikamilifu!`, {
+        description: `Jina: ${newCustomer.name} | Simu: ${newCustomer.phone} | PIN: ${regPin} | Salio: TZS ${newCustomer.walletBalance.toLocaleString()}`,
+        icon: '🎉'
+      });
+    }, 1100);
+  };
+
+  // ELECTRONIC RECEIPT ACTIONS
+  const handlePrintReceipt = () => {
+    if (!lastReceipt) return;
+    toast.success("Inatuma risiti kwa printer...", { icon: '🖨️' });
+    try {
+      window.print();
+    } catch {}
+  };
+
+  const handleShareReceipt = () => {
+    if (!lastReceipt) return;
+    const text = `RISITI YA WAKALA WA PAPOPAY\nMuamala: ${lastReceipt.id}\nMteja: ${lastReceipt.customer}\nKiasi: TZS ${lastReceipt.amount.toLocaleString()}\nKamisheni: TZS ${lastReceipt.commission.toLocaleString()}\nMuda: ${lastReceipt.date} ${lastReceipt.time}\nUthibitisho: AI Face ID + PIN ✓ (100% Salama)`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      toast.success("Risiti imenakiliwa! Unaweza kuituma kupitia SMS au WhatsApp.", { icon: '📋' });
+    } else {
+      toast.success("Risiti iko tayari kushirikiwa!", { icon: '📱' });
+    }
+  };
+
+  // DIRECT CASH-IN DEPOSIT BY PHONE NUMBER (Without requiring face scan)
+  const handleExecuteDirectPhoneDeposit = () => {
+    if (!directPhone.trim() || directPhoneAmount <= 0) {
+      toast.error('Weka namba ya simu na kiasi sahihi cha kuweka pesa!');
+      return;
+    }
+    if (floatBalance < directPhoneAmount) {
+      toast.error(`Salio la Float ya Wakala halitoshi! (Float: TZS ${floatBalance.toLocaleString()})`);
+      speak("Salio lako la float halitoshi kufanya muamala huu. Tafadhali ongeza float.");
+      return;
+    }
+
+    setIsProcessingAction(true);
+    speak(`Inaweka shilingi ${directPhoneAmount.toLocaleString()} kwa namba ${directPhone}...`);
+
+    setTimeout(() => {
+      setIsProcessingAction(false);
+      playPaymentChime();
+      triggerHapticTap();
+
+      const commission = Math.round(directPhoneAmount * 0.012);
+      setCommissionEarned(prev => prev + commission);
+      setFloatBalance(prev => prev - directPhoneAmount + commission);
+
+      // Check if target phone matches any enrolled customer
+      const existingCust = customers.find(c => c.phone.replace(/\s+/g, '') === directPhone.replace(/\s+/g, ''));
+      let targetName = directCustomerName.trim() || 'Mteja wa PapoPay';
+      let targetBalance = 500000 + directPhoneAmount;
+      let targetAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+
+      if (existingCust) {
+        targetName = existingCust.name;
+        targetBalance = existingCust.walletBalance + directPhoneAmount;
+        targetAvatar = existingCust.avatar;
+        const updated = { ...existingCust, walletBalance: targetBalance };
+        setCustomers(prev => prev.map(c => c.id === existingCust.id ? updated : c));
+        setMatchedCustomer(updated);
+        setIsCustomerConfirmed(true);
+      }
+
+      // Persist wallet balance so the user app immediately shows the credited amount!
+      try {
+        const curWallet = Number(localStorage.getItem('papopay_wallet_balance')) || 3450000;
+        localStorage.setItem('papopay_wallet_balance', (curWallet + directPhoneAmount).toString());
+      } catch {}
+
+      const newTx = {
+        id: `WAK-DEP-${Math.floor(1000 + Math.random() * 9000)}`,
+        customer: `${targetName} (${directPhone})`,
+        type: 'Cash-In (Kuweka kwa Namba)',
+        amount: directPhoneAmount,
         commission,
         time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' }),
         date: 'Leo',
@@ -802,15 +1092,18 @@ export default function WakalaDashboard() {
       setTransactions(prev => [newTx, ...prev]);
       setLastReceipt({
         ...newTx,
-        customerPhone: matchedCustomer.phone,
-        customerPhoto: matchedCustomer.avatar,
+        customerPhone: directPhone,
+        customerPhoto: targetAvatar,
         wakalaId: wakalaProfile.wakalaId,
         businessName: wakalaProfile.businessName
       });
 
-      speak(`Kutoa pesa kwa shilingi ${withdrawAmount.toLocaleString()} kumethibitishwa. Mkabidhi mteja pesa taslimu.`);
-      toast.success(`Kutoa Pesa Kumethibitishwa! Mkabidhi mteja TZS ${withdrawAmount.toLocaleString()}`, { icon: '💵' });
-    }, 1400);
+      speak(`Pesa shilingi ${directPhoneAmount.toLocaleString()} zimewekwa kwa namba ${directPhone}. Kamisheni yako ni shilingi ${commission.toLocaleString()}.`);
+      toast.success(`TZS ${directPhoneAmount.toLocaleString()} Zimewekwa kwa Namba ya Simu!`, {
+        description: `Simu: ${directPhone} | Kamisheni: +TZS ${commission.toLocaleString()}`,
+        icon: '📱'
+      });
+    }, 1000);
   };
 
   // 3. NUNUA VOCHA (AIRTIME)
@@ -1154,53 +1447,41 @@ export default function WakalaDashboard() {
           <div className="grid grid-cols-4 gap-1">
             <button
               type="button"
-              onClick={() => { setMobileTab('camera'); setPortalMode('terminal'); triggerHapticTap(); }}
+              onClick={() => { setPortalMode('pos_hub'); setMobileTab('pos'); triggerHapticTap(); }}
               className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
-                portalMode === 'terminal' && mobileTab === 'camera'
-                  ? 'bg-cyan-500 text-neutral-950 shadow-md font-black'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              <div className="relative">
-                <Camera className="w-4 h-4" />
-                {liveFaceDetected && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                )}
-              </div>
-              <span className="truncate">1. Kamera</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setMobileTab('pos'); setPortalMode('terminal'); triggerHapticTap(); }}
-              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all relative cursor-pointer ${
-                portalMode === 'terminal' && mobileTab === 'pos'
+                (portalMode === 'pos_hub' || portalMode === 'terminal') && mobileTab === 'pos'
                   ? 'bg-emerald-500 text-neutral-950 shadow-md font-black'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <div className="relative">
-                <Wallet className="w-4 h-4" />
-                {matchedCustomer && (
-                  <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-amber-400 text-neutral-950 text-[7px] font-mono font-black animate-pulse">
-                    MTEJA!
-                  </span>
-                )}
-              </div>
-              <span className="truncate">2. POS Kaunta</span>
+              <Store className="w-4 h-4" />
+              <span className="truncate">1. POS Kaunta</span>
             </button>
 
             <button
               type="button"
-              onClick={() => { setMobileTab('customers'); setPortalMode('terminal'); triggerHapticTap(); }}
+              onClick={() => { setPortalMode('wakala_kawaida'); setMobileTab('pos'); triggerHapticTap(); }}
               className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
-                portalMode === 'terminal' && mobileTab === 'customers'
+                portalMode === 'wakala_kawaida'
+                  ? 'bg-cyan-500 text-neutral-950 shadow-md font-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span className="truncate">2. Wakala Mtaa</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setMobileTab('camera'); setPortalMode('pos_hub'); triggerHapticTap(); }}
+              className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tight flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                mobileTab === 'camera'
                   ? 'bg-purple-500 text-white shadow-md font-black'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span className="truncate">3. Wateja</span>
+              <Camera className="w-4 h-4" />
+              <span className="truncate">3. Kamera</span>
             </button>
 
             <button
@@ -1218,24 +1499,40 @@ export default function WakalaDashboard() {
           </div>
         </div>
 
-        {/* DESKTOP TAB CONTROLS (TERMINAL vs LEDGER) - Visible on lg screens */}
+        {/* DESKTOP TAB CONTROLS: POS KAUNTA HUB vs WAKALA WA KAWAIDA vs LEDGER */}
         <div className="hidden lg:flex mt-6 flex-row items-center justify-between gap-3 border-b border-white/10 pb-4 w-full">
-          {/* Main Mode Tabs: Terminal vs Ledger */}
+          {/* Main Mode Tabs */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
-                setPortalMode('terminal');
+                setPortalMode('pos_hub');
                 triggerHapticTap();
               }}
-              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                portalMode === 'terminal'
+              className={`py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                portalMode === 'pos_hub' || portalMode === 'terminal'
                   ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/30'
                   : 'bg-white/5 text-neutral-400 hover:text-white'
               }`}
             >
-              <ScanFace className="w-4 h-4 shrink-0" />
-              <span>1. Terminal (Uso)</span>
+              <Store className="w-4 h-4 shrink-0" />
+              <span>1. Kituo cha POS Kaunta</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPortalMode('wakala_kawaida');
+                triggerHapticTap();
+              }}
+              className={`py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                portalMode === 'wakala_kawaida'
+                  ? 'bg-cyan-500 text-neutral-950 shadow-lg shadow-cyan-500/30'
+                  : 'bg-white/5 text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Smartphone className="w-4 h-4 shrink-0" />
+              <span>2. Wakala wa Kawaida</span>
             </button>
 
             <button
@@ -1244,19 +1541,31 @@ export default function WakalaDashboard() {
                 setPortalMode('ledger');
                 triggerHapticTap();
               }}
-              className={`py-3 px-5 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`py-3 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 portalMode === 'ledger'
-                  ? 'bg-cyan-500 text-neutral-950 shadow-lg shadow-cyan-500/30'
+                  ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/30'
                   : 'bg-white/5 text-neutral-400 hover:text-white'
               }`}
             >
               <Receipt className="w-4 h-4 shrink-0" />
-              <span>2. Miamala ({transactions.length})</span>
+              <span>3. Miamala ({transactions.length})</span>
             </button>
           </div>
 
-          {/* Detection Mode Controls & Quick Rescan */}
+          {/* Action buttons: Register New Customer & Camera Detection Controls */}
           <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsNewCustomerModalOpen(true);
+                triggerHapticTap();
+              }}
+              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ Sajili Mteja Mpya kwa Uso</span>
+            </button>
+
             <div className="flex items-center bg-black/40 p-1 rounded-2xl border border-white/10 text-xs">
               <button
                 type="button"
@@ -1311,7 +1620,7 @@ export default function WakalaDashboard() {
         </div>
 
         {/* TAB 1: TERMINAL WITH LIVE FACE TRACKING & DATABASE SEARCH */}
-        {(portalMode === 'terminal' && mobileTab !== 'ledger') && (
+        {((portalMode === 'pos_hub' || portalMode === 'terminal') && mobileTab !== 'ledger') && (
           <div className="mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
             {/* LEFT COLUMN: LIVE BIOMETRIC CAMERA & TRACKING (6 COLS ON DESKTOP, CONDITIONAL ON PHONE) */}
             <div className={`lg:col-span-6 flex flex-col space-y-4 ${
@@ -1902,100 +2211,7 @@ export default function WakalaDashboard() {
                 </button>
               </div>
               {matchedCustomer && searchState === 'customer_found' ? (
-                !isCustomerConfirmed ? (
-                  /* STEP 1: CUSTOMER IDENTITY RECOGNIZED - MUST CONFIRM FIRST */
-                  <div className="bg-[#0c1322] p-6 rounded-3xl border-2 border-emerald-500/50 shadow-2xl shadow-emerald-950/60 space-y-5">
-                    <div className="text-center space-y-3">
-                      <div className="relative inline-block mx-auto">
-                        <img
-                          src={matchedCustomer.avatar}
-                          alt="Matched Customer"
-                          className="w-24 h-24 rounded-3xl object-cover border-4 border-emerald-400 shadow-xl shadow-emerald-500/30 mx-auto"
-                        />
-                        <span className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-neutral-950 font-black text-[10px] shadow-lg flex items-center gap-1">
-                          <Check className="w-3 h-3 stroke-[3]" />
-                          <span>VERIFIED 99.8%</span>
-                        </span>
-                      </div>
-
-                      <div>
-                        <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold uppercase tracking-wider border border-emerald-500/40">
-                          🎯 Mteja Husika Ametambuliwa kwa Uso
-                        </span>
-                        <h2 className="text-2xl font-black text-white mt-1">{matchedCustomer.name}</h2>
-                        <p className="text-xs text-neutral-300 font-mono mt-0.5">
-                          Namba ya Simu: <span className="text-emerald-400 font-bold">{matchedCustomer.phone}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Customer Details Box: Balance, Phone, Biometric Key */}
-                    <div className="p-4 rounded-2xl bg-black/60 border border-emerald-500/30 space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                        <span className="text-xs text-neutral-400">Salio Halisi la Akaunti:</span>
-                        <span className="text-xl font-mono font-black text-emerald-400">
-                          TZS {matchedCustomer.walletBalance.toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-neutral-400">Ufunguo wa Kibayometriki:</span>
-                        <span className="font-mono text-cyan-300 truncate max-w-[180px]">{matchedCustomer.faceEmbeddingId}</span>
-                      </div>
-
-                      {matchedCustomer.nidaNumber && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-neutral-400">Namba ya NIDA:</span>
-                          <span className="font-mono text-neutral-300">{matchedCustomer.nidaNumber}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Notice */}
-                    <div className="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 text-xs text-emerald-200 flex items-center gap-2.5">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                      <span>
-                        Mteja amethibitishwa kwa uso wake. Thibitisha taarifa hizi hapa chini ili ufungue huduma za kuweka pesa au kutoa pesa.
-                      </span>
-                    </div>
-
-                    {/* BIG CONFIRMATION BUTTON */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomerConfirmed(true);
-                        playPaymentChime();
-                        triggerHapticTap();
-                        speak(`Uthibitisho umekamilika. Sasa unaweza kumpatia ${matchedCustomer.name.split(' ')[0]} huduma.`);
-                        toast.success(`Mteja Amethibitishwa: ${matchedCustomer.name}`, { icon: '✅' });
-                      }}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer"
-                    >
-                      <Check className="w-5 h-5 stroke-[3]" />
-                      <span>Thibitisha Mteja Huyu & Fungua Huduma</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMatchedCustomer(null);
-                        setActiveSubject(null);
-                        setIsCustomerConfirmed(false);
-                        setSearchState('idle_no_face');
-                        speak("Uthibitisho umeghairiwa. Inasubiri mteja husika.");
-                        toast.info("Uthibitisho Umeghairiwa", { 
-                          description: "Chagua mteja husika kwenye orodha au elekeza kamera kwa mteja mwingine.",
-                          icon: '🔄' 
-                        });
-                      }}
-                      className="w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>❌ Sio Mteja Husika? (Scan / Chagua Mteja Mwingine)</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border border-emerald-500/30 shadow-xl space-y-5">
+                <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border border-emerald-500/30 shadow-xl space-y-5">
                   {/* Verified Customer Header Banner */}
                   <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-950/80 to-[#0e1c28] border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -2228,7 +2444,7 @@ export default function WakalaDashboard() {
                       <button
                         type="button"
                         disabled={isProcessingAction}
-                        onClick={handleExecuteWithdraw}
+                        onClick={() => handleExecuteWithdraw()}
                         className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-60"
                       >
                         {isProcessingAction ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Coins className="w-5 h-5" />}
@@ -2419,8 +2635,7 @@ export default function WakalaDashboard() {
                     Kamilisha Muamala & Hudumia Mteja Mwingine
                   </button>
                 </div>
-              )
-            ) : searchState === 'unregistered' ? (
+              ) : searchState === 'unregistered' ? (
                   <div className="bg-[#0c1322] p-5 sm:p-6 rounded-3xl border-2 border-amber-500/50 shadow-2xl space-y-5">
                     <div className="text-center space-y-2">
                       <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mx-auto flex items-center justify-center shadow-lg shadow-amber-500/20">
@@ -2523,61 +2738,291 @@ export default function WakalaDashboard() {
                     </div>
                   </div>
                 ) : (
-                  /* IDLE / WAITING FOR CUSTOMER FACE */
-                  <div className="bg-[#0c1322] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center space-y-4 sm:space-y-5 min-h-[340px] sm:min-h-[420px]">
-                    <div className="relative">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-cyan-500/10 border-2 border-cyan-400/40 text-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
-                        <ScanFace className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
+                  /* POS KAUNTA HUB: INSTANT CUSTOMER QUEUE, DIRECT PHONE DEPOSIT & BIOMETRIC SCAN */
+                  <div className="bg-[#0c1322] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/10 shadow-xl space-y-4">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/10">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <h3 className="text-sm sm:text-base font-black text-white">Kaunta ya POS - Hudumia Mteja</h3>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          Chagua mteja aliyepo kaunta, weka pesa kwa namba ya simu, au tumia utambuzi wa uso
+                        </p>
                       </div>
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500 border-2 border-[#0c1322] flex items-center justify-center">
-                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+
+                      {/* Standby Action Switcher Tabs */}
+                      <div className="flex items-center gap-1 p-1 bg-black/50 rounded-xl border border-white/10 shrink-0 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => { setPosStandbyTab('queue'); triggerHapticTap(); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            posStandbyTab === 'queue'
+                              ? 'bg-emerald-500 text-neutral-950 font-black shadow-md'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>Wateja Kaunta</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setPosStandbyTab('direct_phone'); triggerHapticTap(); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            posStandbyTab === 'direct_phone'
+                              ? 'bg-cyan-500 text-neutral-950 font-black shadow-md'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span>Weka kwa Simu</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setPosStandbyTab('scan'); triggerHapticTap(); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            posStandbyTab === 'scan'
+                              ? 'bg-purple-500 text-white font-black shadow-md'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          <ScanFace className="w-3.5 h-3.5" />
+                          <span>Scan Uso</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="space-y-1 sm:space-y-1.5 max-w-sm">
-                      <h3 className="text-lg sm:text-xl font-black text-white">Inasubiri Utambuzi wa Uso</h3>
-                      <p className="text-[11px] sm:text-xs text-neutral-400 leading-relaxed">
-                        Mteja asimame mbele ya kamera ya Wakala. Kamera ita-detect uso wake kiotomatiki, itachanganua kanzidata ya PapoPay, na kufungua huduma za kuweka na kutoa pesa.
-                      </p>
-                    </div>
+                    {/* TAB 1: COUNTER QUEUE & SEARCH */}
+                    {posStandbyTab === 'queue' && (
+                      <div className="space-y-3">
+                        {/* Search Input Bar */}
+                        <div className="relative">
+                          <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Tafuta mteja kwa jina au namba ya simu (mf. Baraka, 0754...)"
+                            value={posSearchQuery}
+                            onChange={(e) => setPosSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2.5 bg-black/60 border border-white/15 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-400 transition-colors"
+                          />
+                          {posSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setPosSearchQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
 
-                    <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-black/40 border border-white/5 w-full max-w-sm text-left space-y-1.5 sm:space-y-2 text-[11px] sm:text-xs text-neutral-300">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
-                        <span>Kamera ya Utambuzi wa Kibayometriki (AI Face Tracking)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                        <span>Ukaguzi wa Kanzidata ya PapoPay (12,450 records)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                        <span>Kama hayupo, fomu ya usajili itatokea papo hapo</span>
-                      </div>
-                    </div>
+                        {/* Customer Cards List with Instant Deposit / Withdraw Buttons */}
+                        <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                          {customers
+                            .filter(c => {
+                              const q = posSearchQuery.toLowerCase().trim();
+                              return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                            })
+                            .map((c) => (
+                              <div
+                                key={c.id}
+                                className="p-3 rounded-2xl bg-black/40 border border-white/10 hover:border-emerald-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="relative shrink-0">
+                                    <img
+                                      src={c.avatar}
+                                      alt={c.name}
+                                      className="w-11 h-11 rounded-xl object-cover border border-white/15"
+                                    />
+                                    <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black ${
+                                      c.isRegistered ? 'bg-emerald-500 text-neutral-950' : 'bg-amber-500 text-neutral-950'
+                                    }`}>
+                                      {c.isRegistered ? '✓' : '!'}
+                                    </span>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="text-xs font-bold text-white truncate">{c.name}</p>
+                                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase shrink-0 ${
+                                        c.isRegistered
+                                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                      }`}>
+                                        {c.isRegistered ? 'Verified' : 'Bado Uso'}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-neutral-400 font-mono mt-0.5">
+                                      Simu: <span className="text-white font-semibold">{c.phone}</span>
+                                    </p>
+                                    <p className="text-[10px] text-emerald-400 font-mono font-bold">
+                                      Salio: TZS {c.walletBalance.toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 w-full max-w-sm">
-                      <button
-                        type="button"
-                        onClick={executeLiveCameraSearch}
-                        disabled={isSearchingRef.current}
-                        className="w-full sm:flex-1 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
-                        <span>{isSearchingRef.current ? 'Inachanganua...' : 'Anzisha Utambuzi Sasa'}</span>
-                      </button>
+                                {/* Instant 1-Tap Action Buttons */}
+                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectCustomerSubject(c, 'deposit')}
+                                    className="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-neutral-950 border border-emerald-500/40 text-xs font-black transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm"
+                                  >
+                                    <ArrowDownLeft className="w-3.5 h-3.5" />
+                                    <span>💰 Weka Pesa</span>
+                                  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDetectionMode('test_profiles');
-                          triggerFaceSearch(activeSubject);
-                        }}
-                        className="w-full sm:w-auto px-4 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer transition-colors"
-                      >
-                        Demo Profiles
-                      </button>
-                    </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectCustomerSubject(c, 'withdraw')}
+                                    className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-neutral-950 border border-amber-500/40 text-xs font-black transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-sm"
+                                  >
+                                    <ArrowUpRight className="w-3.5 h-3.5" />
+                                    <span>💵 Toa Pesa</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: DIRECT PHONE CASH-IN */}
+                    {posStandbyTab === 'direct_phone' && (
+                      <div className="space-y-4 p-2 sm:p-3 bg-black/40 rounded-2xl border border-cyan-500/20">
+                        <div className="flex items-center gap-2 text-cyan-300 text-xs font-bold">
+                          <Smartphone className="w-4 h-4 text-cyan-400" />
+                          <span>Kuweka Pesa Moja kwa Moja kwa Namba ya Simu (Cash-In)</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-neutral-300">Namba ya Simu ya Mteja:</label>
+                            <input
+                              type="tel"
+                              value={directPhone}
+                              onChange={(e) => setDirectPhone(e.target.value)}
+                              placeholder="0754 123 456"
+                              className="w-full bg-black/60 border border-white/15 px-3 py-2.5 rounded-xl text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-neutral-300">Jina la Mteja (Hiari):</label>
+                            <input
+                              type="text"
+                              value={directCustomerName}
+                              onChange={(e) => setDirectCustomerName(e.target.value)}
+                              placeholder="mf. Juma Hamisi"
+                              className="w-full bg-black/60 border border-white/15 px-3 py-2.5 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-cyan-400"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Amount */}
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-bold text-neutral-300">Kiasi cha Kuweka (TZS):</label>
+                          <input
+                            type="number"
+                            value={directPhoneAmount}
+                            onChange={(e) => setDirectPhoneAmount(Number(e.target.value) || 0)}
+                            className="w-full bg-black/60 border border-emerald-500/40 px-3.5 py-2.5 rounded-xl text-xl font-mono font-black text-emerald-400 focus:outline-none focus:border-emerald-400"
+                          />
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                          {[10000, 25000, 50000, 100000, 200000, 500000].map(amt => (
+                            <button
+                              key={amt}
+                              type="button"
+                              onClick={() => { setDirectPhoneAmount(amt); triggerHapticTap(); }}
+                              className={`py-1.5 rounded-xl text-xs font-mono font-bold transition-all ${
+                                directPhoneAmount === amt
+                                  ? 'bg-emerald-500 text-neutral-950'
+                                  : 'bg-white/5 hover:bg-white/10 text-neutral-300'
+                              }`}
+                            >
+                              {amt >= 1000000 ? `${amt/1000000}M` : `${amt/1000}k`}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Breakdown */}
+                        <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-1.5 text-xs">
+                          <div className="flex justify-between text-neutral-400">
+                            <span>Kamisheni Yako (1.2%):</span>
+                            <span className="font-mono font-bold text-emerald-400">
+                              +TZS {Math.round(directPhoneAmount * 0.012).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-neutral-400">
+                            <span>Float ya Wakala Itakayobaki:</span>
+                            <span className="font-mono font-bold text-cyan-300">
+                              TZS {(floatBalance - directPhoneAmount).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Submit */}
+                        <button
+                          type="button"
+                          disabled={isProcessingAction}
+                          onClick={handleExecuteDirectPhoneDeposit}
+                          className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-60 cursor-pointer"
+                        >
+                          {isProcessingAction ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
+                          <span>{isProcessingAction ? 'Inaweka Pesa...' : `Weka TZS ${directPhoneAmount.toLocaleString()} kwa Namba ya Simu`}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* TAB 3: BIOMETRIC FACE SCAN */}
+                    {posStandbyTab === 'scan' && (
+                      <div className="flex flex-col items-center justify-center text-center space-y-4 py-4">
+                        <div className="relative">
+                          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border-2 border-cyan-400/40 text-cyan-400 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.2)]">
+                            <ScanFace className="w-8 h-8 animate-pulse" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#0c1322] flex items-center justify-center">
+                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 max-w-sm">
+                          <h4 className="text-base font-black text-white">Utambuzi wa Uso (Live Biometrics)</h4>
+                          <p className="text-xs text-neutral-400 leading-relaxed">
+                            Mteja asimame mbele ya kamera. Mfumo utatambua uso wake na kufungua akaunti yake kiotomatiki.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full max-w-sm">
+                          <button
+                            type="button"
+                            onClick={executeLiveCameraSearch}
+                            disabled={isSearchingRef.current}
+                            className="w-full sm:flex-1 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${isSearchingRef.current ? 'animate-spin' : ''}`} />
+                            <span>{isSearchingRef.current ? 'Inachanganua...' : 'Anzisha Utambuzi Sasa'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetectionMode('test_profiles');
+                              triggerFaceSearch(activeSubject);
+                            }}
+                            className="w-full sm:w-auto px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer transition-colors"
+                          >
+                            Demo Profiles
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               }
@@ -2585,7 +3030,516 @@ export default function WakalaDashboard() {
           </div>
         )}
 
-        {/* TAB 2: TRANSACTION LEDGER */}
+        {/* TAB: PANEL YA WAKALA WA KAWAIDA (STREET / KIOSK SMART AGENT) */}
+        {(portalMode === 'wakala_kawaida' && mobileTab !== 'ledger') && (
+          <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6">
+            {/* WAKALA WA KAWAIDA BADGES & BANNER */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#0d1f2d] via-[#091522] to-[#141d2f] border border-cyan-500/30 shadow-xl space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-neutral-950 font-black shadow-lg shadow-cyan-500/20 shrink-0">
+                    <Smartphone className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[10px] font-mono font-bold uppercase tracking-wider">
+                        Wakala wa Kawaida (Street & Kiosk)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                        Online • TZS {floatBalance.toLocaleString()} Float
+                      </span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-white mt-0.5">
+                      Kituo cha Wakala wa Mtaani — PapoPay Biometrics
+                    </h2>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNewCustomerModalOpen(true);
+                    triggerHapticTap();
+                  }}
+                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Sajili Mteja Mpya kwa Uso</span>
+                </button>
+              </div>
+
+              {/* 5 KEY PROMISES BADGES REQUIRED BY USER */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-2 border-t border-white/10 text-[11px]">
+                <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                  <ScanFace className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="text-neutral-200 font-medium">AI Face Biometrics (Kuskani Uso)</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="text-neutral-200 font-medium">Hahitaji simu wala kadi (Uso unatosha)</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-neutral-200 font-medium">Uso wa mteja na PIN ufunguo salama</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span className="text-neutral-200 font-medium">Salama 100% (Akaunti inalingana na uso)</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2 col-span-2 sm:col-span-1">
+                  <Receipt className="w-4 h-4 text-teal-400 shrink-0" />
+                  <span className="text-neutral-200 font-medium">Risiti za kielektroniki (EFD Digital)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* TWO-COLUMN WORKFLOW: LEFT CAMERA SCANNER / RIGHT CUSTOMER PROFILE & CASH OPS */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+              {/* LEFT: COMPACT MOBILE-FIRST CAMERA HUD */}
+              <div className="lg:col-span-5 flex flex-col space-y-4">
+                <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden border-4 border-cyan-500/40 bg-black flex items-center justify-center shadow-2xl shadow-cyan-950/60">
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    autoPlay
+                    className={`absolute inset-0 w-full h-full object-cover ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
+                  />
+
+                  {/* Face Mesh Tracker */}
+                  <BiometricFaceCanvas
+                    videoRef={videoRef}
+                    onFaceTracked={handleFaceTracked}
+                    phase={
+                      searchState === 'unregistered'
+                        ? 'unregistered'
+                        : searchState === 'customer_found'
+                        ? 'success'
+                        : searchState === 'searching_db'
+                        ? 'verifying'
+                        : 'align_center'
+                    }
+                    isUnregistered={searchState === 'unregistered'}
+                    hudMode={hudMode}
+                    faceConfidence={searchState === 'customer_found' ? 99.8 : liveConfidence}
+                    lightingQuality={liveLux}
+                    distanceCm={liveDistance}
+                    headYaw={liveYaw}
+                  />
+
+                  {/* Top Bar on Camera */}
+                  <div className="absolute top-3 inset-x-3 z-20 flex items-center justify-between pointer-events-none">
+                    <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono font-bold text-cyan-300 flex items-center gap-1.5 shadow-lg">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      Kamera ya Wakala: {cameraFacing === 'user' ? 'Ya Mbele' : 'Ya Nyuma'}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={toggleCameraFacing}
+                      className="pointer-events-auto p-2 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 text-white transition-all shadow-lg cursor-pointer"
+                      title="Badilisha Kamera ya Mbele/Nyuma"
+                    >
+                      <SwitchCamera className="w-4 h-4 text-cyan-400" />
+                    </button>
+                  </div>
+
+                  {/* Bottom Scan Overlay */}
+                  <div className="absolute bottom-3 inset-x-3 z-20 pointer-events-none">
+                    <div className="p-2.5 rounded-2xl bg-black/80 backdrop-blur-md border border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ScanFace className="w-4 h-4 text-cyan-400" />
+                        <span className="text-[11px] font-mono text-white">
+                          {searchState === 'customer_found' ? (
+                            <span className="text-emerald-400 font-bold">Uso Umetambuliwa: 99.8% Match</span>
+                          ) : searchState === 'searching_db' ? (
+                            <span className="text-cyan-300 animate-pulse">Inachakata uso kwenye kanzidata...</span>
+                          ) : (
+                            <span className="text-neutral-300">Elekeza kamera kwenye uso wa mteja</span>
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-neutral-400">
+                        {liveFaceDetected ? 'Face in Frame ✓' : 'Subiri Uso...'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SCANNER CONTROLS FOR WAKALA */}
+                <div className="p-3.5 rounded-2xl bg-[#0c1424] border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/10 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetectionMode('live_camera');
+                          setSearchState('idle_no_face');
+                          setMatchedCustomer(null);
+                          setIsCustomerConfirmed(false);
+                          speak("Kamera ya Wakala imewashwa. Simamisha mteja mbele ya kamera.");
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs cursor-pointer transition-all ${
+                          detectionMode === 'live_camera'
+                            ? 'bg-cyan-500 text-neutral-950 font-black'
+                            : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        Live Camera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetectionMode('test_profiles');
+                          triggerFaceSearch(activeSubject);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs cursor-pointer transition-all ${
+                          detectionMode === 'test_profiles'
+                            ? 'bg-emerald-500 text-neutral-950 font-black'
+                            : 'text-neutral-400 hover:text-white'
+                        }`}
+                      >
+                        Demo Mteja
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (detectionMode === 'live_camera') {
+                          executeLiveCameraSearch();
+                        } else {
+                          triggerFaceSearch(activeSubject);
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Skani Upya</span>
+                    </button>
+                  </div>
+
+                  {/* QUICK DEMO CUSTOMERS SELECTOR */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                      Wateja wa Mfano (Demo Biometric Profiles):
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {customers.slice(0, 3).map((cust) => (
+                        <button
+                          key={cust.id}
+                          type="button"
+                          onClick={() => {
+                            setDetectionMode('test_profiles');
+                            setActiveSubject(cust);
+                            triggerFaceSearch(cust);
+                          }}
+                          className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                            matchedCustomer?.id === cust.id
+                              ? 'bg-cyan-500/20 border-cyan-400 text-white'
+                              : 'bg-white/5 border-white/5 text-neutral-300 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <img src={cust.avatar} alt={cust.name} className="w-5 h-5 rounded-full object-cover" />
+                            <span className="text-xs font-bold truncate">{cust.name.split(' ')[0]}</span>
+                          </div>
+                          <p className="text-[9px] font-mono text-cyan-300 mt-0.5 truncate">
+                            TZS {cust.walletBalance.toLocaleString()}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: MATCHED CUSTOMER WALLET & CASH OPERATIONS (KUWEKA & KUTOA PESA) */}
+              <div className="lg:col-span-7 flex flex-col space-y-4">
+                {!matchedCustomer ? (
+                  /* EMPTY STATE - PROMPT TO SCAN FACE */
+                  <div className="p-8 rounded-3xl bg-[#0c1424] border border-white/10 flex flex-col items-center justify-center text-center space-y-4 min-h-[380px]">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 border-2 border-dashed border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                        <ScanFace className="w-10 h-10 animate-pulse" />
+                      </div>
+                      <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-amber-500 text-neutral-950 flex items-center justify-center text-xs font-black">
+                        !
+                      </span>
+                    </div>
+
+                    <div className="max-w-md space-y-1.5">
+                      <h3 className="text-base font-bold text-white">Elekeza Kamera Kwenye Uso wa Mteja</h3>
+                      <p className="text-xs text-neutral-400 leading-relaxed">
+                        Mteja hahitaji kubeba kadi wala simu! Mfumo wa AI Face Biometrics utamtambua moja kwa moja na kufungua pochi yake ya PapoPay.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDetectionMode('live_camera');
+                          executeLiveCameraSearch();
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-bold text-xs flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/20"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Skani Uso wa Mteja Sasa</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsNewCustomerModalOpen(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center gap-2 cursor-pointer"
+                      >
+                        <UserPlus className="w-4 h-4 text-emerald-400" />
+                        <span>Sajili Mteja Mpya kwa Uso</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* VERIFIED CUSTOMER PROFILE & FINANCIAL OPERATIONS */
+                  <div className="space-y-4">
+                    {/* CUSTOMER PROFILE CARD - 100% FACE VERIFIED */}
+                    <div className="p-4 sm:p-5 rounded-3xl bg-[#0c1424] border-2 border-emerald-500/40 shadow-xl space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img
+                              src={matchedCustomer.avatar}
+                              alt={matchedCustomer.name}
+                              className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400 shadow-md"
+                            />
+                            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-neutral-950 flex items-center justify-center">
+                              <CheckCircle2 className="w-4 h-4 stroke-[3]" />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                                Salama 100% • Akaunti Inalingana na Uso
+                              </span>
+                              <span className="text-[10px] font-mono text-cyan-300">
+                                AI Match: 99.8%
+                              </span>
+                            </div>
+                            <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                              {matchedCustomer.name}
+                            </h3>
+                            <div className="flex items-center gap-3 text-xs text-neutral-400 font-mono mt-0.5">
+                              <span>Simu: {matchedCustomer.phone}</span>
+                              <span>•</span>
+                              <span>NIDA: {matchedCustomer.nidaNumber || 'NIDA-2001-OK'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMatchedCustomer(null);
+                            setSearchState('idle_no_face');
+                            toast.info("Mteja amefungwa. Tayari kwa mteja mwingine.");
+                          }}
+                          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer text-xs"
+                          title="Maliza na Funga Mteja"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* BALANCE HIGHLIGHT */}
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-[#0c1424] border border-emerald-500/30 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                            Salio la Pochi ya Mteja (Hahitaji Simu wala Kadi):
+                          </span>
+                          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-0.5">
+                            TZS {matchedCustomer.walletBalance.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                            Float Yako ya Wakala:
+                          </span>
+                          <div className="text-base font-bold font-mono text-cyan-300 mt-0.5">
+                            TZS {floatBalance.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DUAL OPERATION TABS: KUWEKA PESA (CASH-IN) & KUTOA PESA (CASH-OUT WITH PIN) */}
+                    <div className="p-4 sm:p-5 rounded-3xl bg-[#0c1424] border border-white/10 space-y-4">
+                      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveService('deposit');
+                            triggerHapticTap();
+                          }}
+                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                            activeService === 'deposit'
+                              ? 'bg-emerald-500 text-neutral-950 font-black shadow-lg shadow-emerald-500/20'
+                              : 'bg-white/5 text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          <ArrowDownLeft className="w-4 h-4" />
+                          <span>1. Kuweka Pesa (Cash-In)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveService('withdraw');
+                            triggerHapticTap();
+                          }}
+                          className={`flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                            activeService === 'withdraw'
+                              ? 'bg-amber-500 text-neutral-950 font-black shadow-lg shadow-amber-500/20'
+                              : 'bg-white/5 text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                          <span>2. Kutoa Pesa (Cash-Out)</span>
+                        </button>
+                      </div>
+
+                      {/* SUB-PANEL 1: KUWEKA PESA (CASH-IN) */}
+                      {activeService === 'deposit' && (
+                        <div className="space-y-3.5">
+                          <div>
+                            <label className="text-xs font-bold text-neutral-300 block mb-1">
+                              Chagua au Andika Kiasi cha Kuweka (TZS):
+                            </label>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-2">
+                              {[5000, 10000, 20000, 50000, 100000].map(amt => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => {
+                                    setDepositAmount(amt);
+                                    triggerHapticTap();
+                                  }}
+                                  className={`py-2 px-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                                    depositAmount === amt
+                                      ? 'bg-emerald-500 text-neutral-950'
+                                      : 'bg-white/5 text-neutral-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {amt.toLocaleString()}
+                                </button>
+                              ))}
+                            </div>
+
+                            <input
+                              type="number"
+                              value={depositAmount || ''}
+                              onChange={(e) => setDepositAmount(Number(e.target.value))}
+                              placeholder="Weka kiasi maalum..."
+                              className="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white font-mono font-bold text-base focus:outline-none focus:border-emerald-400"
+                            />
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between text-xs font-mono">
+                            <span className="text-neutral-400">Kamisheni ya Wakala (1.2%):</span>
+                            <span className="text-emerald-400 font-bold">
+                              +TZS {Math.round(depositAmount * 0.012).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isProcessingAction || depositAmount <= 0}
+                            onClick={handleExecuteDeposit}
+                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-40 text-neutral-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all cursor-pointer"
+                          >
+                            <ArrowDownLeft className="w-5 h-5 stroke-[2.5]" />
+                            <span>
+                              {isProcessingAction
+                                ? 'Inaweka Pesa Kwenye Akaunti...'
+                                : `Weka TZS ${depositAmount.toLocaleString()} Kwenye Pochi ya ${matchedCustomer.name.split(' ')[0]}`}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* SUB-PANEL 2: KUTOA PESA (CASH-OUT) WITH DUAL FACTOR (FACE + SECRET PIN) */}
+                      {activeService === 'withdraw' && (
+                        <div className="space-y-3.5">
+                          {/* DUAL SECURITY REMINDER CARD */}
+                          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+                            <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-200">
+                              <span className="font-bold block">Uso wa Mteja + PIN ya Siri (Ufunguo Salama):</span>
+                              Mteja ataingiza PIN yake ya siri (tarakimu 4) kwenye skrini ili kuidhinisha kutoa pesa. Hakuna mtu anayeweza kutoa pesa bila uso na PIN yake!
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-bold text-neutral-300 block mb-1">
+                              Chagua au Andika Kiasi cha Kutoa Taslimu (TZS):
+                            </label>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-2">
+                              {[5000, 10000, 20000, 50000, 100000].map(amt => (
+                                <button
+                                  key={amt}
+                                  type="button"
+                                  onClick={() => {
+                                    setWithdrawAmount(amt);
+                                    triggerHapticTap();
+                                  }}
+                                  className={`py-2 px-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                                    withdrawAmount === amt
+                                      ? 'bg-amber-500 text-neutral-950'
+                                      : 'bg-white/5 text-neutral-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {amt.toLocaleString()}
+                                </button>
+                              ))}
+                            </div>
+
+                            <input
+                              type="number"
+                              value={withdrawAmount || ''}
+                              onChange={(e) => setWithdrawAmount(Number(e.target.value))}
+                              placeholder="Weka kiasi maalum cha kutoa..."
+                              className="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white font-mono font-bold text-base focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between text-xs font-mono">
+                            <span className="text-neutral-400">Kamisheni ya Wakala (1.2%):</span>
+                            <span className="text-amber-400 font-bold">
+                              +TZS {Math.round(withdrawAmount * 0.012).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isProcessingAction || withdrawAmount <= 0}
+                            onClick={() => handleExecuteWithdraw(withdrawAmount)}
+                            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 disabled:opacity-40 text-neutral-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.99] transition-all cursor-pointer"
+                          >
+                            <KeyRound className="w-5 h-5 stroke-[2.5]" />
+                            <span>
+                              Idhinisha Kutoa TZS {withdrawAmount.toLocaleString()} kwa PIN
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {(portalMode === 'ledger' || mobileTab === 'ledger') && (
           <div className="mt-4 sm:mt-6 bg-[#0c1322] rounded-2xl sm:rounded-3xl border border-white/10 p-3.5 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/5">
@@ -2725,37 +3679,358 @@ export default function WakalaDashboard() {
         )}
       </AnimatePresence>
 
-      {/* RECEIPT MODAL */}
+      {/* CUSTOMER PIN VERIFICATION MODAL FOR DUAL SECURITY CASH-OUT */}
       <AnimatePresence>
-        {lastReceipt && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        {isPinModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.94 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.94 }}
-              className="bg-[#0c1424] border border-emerald-500/40 rounded-3xl max-w-sm w-full p-5 text-white space-y-4"
+              className="bg-[#0d1627] border-2 border-amber-500/40 rounded-3xl max-w-sm w-full p-5 text-white space-y-4 shadow-2xl shadow-amber-950/50"
             >
               <div className="text-center space-y-1">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 mx-auto flex items-center justify-center shadow-lg">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-black text-white">Idhinisha Kutoa Fedha Taslimu</h3>
+                <p className="text-xs text-neutral-400">
+                  Uso wa mteja umethibitishwa 100%. Mteja aingize PIN ya siri.
+                </p>
+              </div>
+
+              {/* AMOUNT & CUSTOMER INFO */}
+              <div className="p-3.5 rounded-2xl bg-black/50 border border-white/10 text-center space-y-1">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">
+                  Kiasi cha Kutoa Taslimu
+                </span>
+                <span className="text-2xl font-black font-mono text-amber-400">
+                  TZS {pinPendingWithdraw?.toLocaleString()}
+                </span>
+                <div className="flex items-center justify-center gap-1.5 pt-1 text-xs text-neutral-300">
+                  <img src={matchedCustomer?.avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                  <span className="font-bold">{matchedCustomer?.name}</span>
+                </div>
+              </div>
+
+              {/* PIN DISPLAY */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-300 block text-center">
+                  PIN ya Siri ya Mteja (Tarakimu 4):
+                </label>
+                <div className="flex items-center justify-center gap-3">
+                  {[0, 1, 2, 3].map((idx) => (
+                    <div
+                      key={idx}
+                      className={`w-11 h-12 rounded-2xl border flex items-center justify-center text-xl font-bold font-mono transition-all ${
+                        enteredPin.length > idx
+                          ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-md shadow-amber-500/20'
+                          : 'border-white/20 bg-black/40 text-neutral-600'
+                      }`}
+                    >
+                      {enteredPin.length > idx ? '●' : ''}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* NUMERIC KEYPAD */}
+              <div className="grid grid-cols-3 gap-2">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                  <button
+                    key={digit}
+                    type="button"
+                    onClick={() => {
+                      if (enteredPin.length < 4) {
+                        setEnteredPin(prev => prev + digit);
+                        triggerHapticTap();
+                      }
+                    }}
+                    className="py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 font-mono text-base font-bold text-white transition-all active:scale-95 cursor-pointer"
+                  >
+                    {digit}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnteredPin('');
+                    triggerHapticTap();
+                  }}
+                  className="py-3 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold text-xs active:scale-95 cursor-pointer"
+                >
+                  Futa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (enteredPin.length < 4) {
+                      setEnteredPin(prev => prev + '0');
+                      triggerHapticTap();
+                    }
+                  }}
+                  className="py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 font-mono text-base font-bold text-white transition-all active:scale-95 cursor-pointer"
+                >
+                  0
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnteredPin(prev => prev.slice(0, -1));
+                    triggerHapticTap();
+                  }}
+                  className="py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-neutral-300 font-bold text-xs active:scale-95 cursor-pointer"
+                >
+                  ←
+                </button>
+              </div>
+
+              {/* DEMO SHORTCUT BUTTON */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEnteredPin('1234');
+                  triggerHapticTap();
+                }}
+                className="w-full py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] font-mono font-bold border border-amber-500/20 transition-colors cursor-pointer"
+              >
+                Tumia PIN ya Mfano (1234)
+              </button>
+
+              {/* ACTION BUTTONS */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPinModalOpen(false);
+                    setEnteredPin('');
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer"
+                >
+                  Ghairi
+                </button>
+
+                <button
+                  type="button"
+                  disabled={enteredPin.length < 4}
+                  onClick={handleConfirmPinWithdrawal}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 disabled:opacity-40 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Toa Pesa Sasa</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* NEW CUSTOMER REGISTRATION MODAL (USAJILI WA USO KWA MTEJA MPYA) */}
+      <AnimatePresence>
+        {isNewCustomerModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              className="bg-[#0c1424] border-2 border-emerald-500/40 rounded-3xl max-w-md w-full p-5 text-white space-y-4 shadow-2xl shadow-emerald-950/60 my-auto"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">
+                      Usajili wa Uso kwa Mteja Mpya
+                    </h3>
+                    <p className="text-xs text-neutral-400">
+                      Hahitaji simu wala kadi — sura yake inatosha!
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNewCustomerModalOpen(false)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* CAMERA CAPTURE PREVIEW */}
+              <div className="p-3 rounded-2xl bg-black/60 border border-white/10 flex items-center gap-3">
+                <div className="w-16 h-16 rounded-xl bg-neutral-900 border border-cyan-500/40 overflow-hidden flex items-center justify-center shrink-0">
+                  {regPhotoPreview ? (
+                    <img src={regPhotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <ScanFace className="w-8 h-8 text-cyan-400 animate-pulse" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <span className="text-xs font-bold text-white block">Alama za Uso za AI Biometrics</span>
+                  <p className="text-[10px] text-neutral-400">
+                    Picha inanaswa kiotomatiki kutoka kwenye kamera ya Wakala.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const snap = captureCurrentFrame();
+                      setRegPhotoPreview(snap);
+                      toast.success("Picha ya uso imenasa vizuri!");
+                    }}
+                    className="mt-1 px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Camera className="w-3 h-3" />
+                    <span>Nasa Upya Uso</span>
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleRegisterNewCustomerSubmit} className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-neutral-300 block mb-1">
+                    Jina Kamili la Mteja: *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={regFullName}
+                    onChange={(e) => setRegFullName(e.target.value)}
+                    placeholder="mf. Fatma Rashidi"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-bold focus:outline-none focus:border-emerald-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-xs font-bold text-neutral-300 block mb-1">
+                      Namba ya Simu: *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value)}
+                      placeholder="0755 890 123"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-mono font-bold focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-neutral-300 block mb-1">
+                      Namba ya NIDA (Kitambulisho):
+                    </label>
+                    <input
+                      type="text"
+                      value={regNida}
+                      onChange={(e) => setRegNida(e.target.value)}
+                      placeholder="19950312-XXXXX-00001"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-mono focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-xs font-bold text-neutral-300 block mb-1">
+                      PIN ya Siri ya Mteja (Tarakimu 4): *
+                    </label>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      value={regPin}
+                      onChange={(e) => setRegPin(e.target.value)}
+                      placeholder="1234"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-mono font-bold tracking-widest focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-neutral-300 block mb-1">
+                      Salio la Kuanzia (TZS):
+                    </label>
+                    <input
+                      type="number"
+                      value={regInitialBalance}
+                      onChange={(e) => setRegInitialBalance(Number(e.target.value))}
+                      placeholder="50000"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-white text-xs font-mono font-bold focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Akaunti itafunguliwa na kuunganishwa moja kwa moja na sura ya mteja.</span>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewCustomerModalOpen(false)}
+                    className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs"
+                  >
+                    Funga
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isRegisteringCustomer}
+                    className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-neutral-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{isRegisteringCustomer ? 'Inasajili...' : 'Kamilisha Usajili'}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* RISITI YA KIELEKTRONIKI (E-RECEIPT) ENHANCED WITH PRINT & SHARE */}
+      <AnimatePresence>
+        {lastReceipt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              className="bg-[#0c1424] border-2 border-emerald-500/40 rounded-3xl max-w-sm w-full p-5 text-white space-y-4 shadow-2xl shadow-emerald-950/60"
+            >
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-black">Risiti ya Wakala wa PapoPay</h3>
+                <h3 className="text-base font-black">Risiti ya Kielektroniki ya PapoPay</h3>
                 <p className="text-[10px] font-mono text-emerald-300">{lastReceipt.id}</p>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 text-center">
-                <span className="text-[10px] uppercase font-bold text-neutral-400 block">{lastReceipt.type}</span>
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">
+                  {lastReceipt.type}
+                </span>
                 <span className="text-2xl font-black font-mono text-emerald-400">
                   TZS {lastReceipt.amount.toLocaleString()}
                 </span>
-                <p className="text-[10px] text-emerald-300 font-mono mt-0.5">Kamisheni: +TZS {lastReceipt.commission.toLocaleString()}</p>
+                <p className="text-[10px] text-emerald-300 font-mono mt-0.5">
+                  Kamisheni ya Wakala: +TZS {lastReceipt.commission.toLocaleString()}
+                </p>
               </div>
 
-              <div className="space-y-1 text-xs font-mono text-neutral-300 border-t border-b border-white/10 py-2.5">
+              <div className="space-y-1.5 text-xs font-mono text-neutral-300 border-t border-b border-white/10 py-2.5">
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Mteja:</span>
                   <span className="font-bold text-white">{lastReceipt.customer}</span>
                 </div>
+                {lastReceipt.customerPhone && (
+                  <div className="flex justify-between">
+                    <span className="text-neutral-500">Simu:</span>
+                    <span>{lastReceipt.customerPhone}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Kituo cha Wakala:</span>
                   <span>{lastReceipt.businessName}</span>
@@ -2764,21 +4039,46 @@ export default function WakalaDashboard() {
                   <span className="text-neutral-500">Muda:</span>
                   <span>{lastReceipt.date} {lastReceipt.time}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-neutral-500">Uthibitisho:</span>
-                  <span className="text-emerald-400 font-bold">Face ID Verified ✓</span>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                    {lastReceipt.securityMethod || 'AI Face ID Verified ✓'}
+                  </span>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-2xl">
-                <QRCodeSVG value={`https://papo.tz/receipt/${lastReceipt.id}`} size={80} />
-                <span className="text-[9px] text-neutral-600 font-mono mt-1">EFD Digital Receipt BOT</span>
+              <div className="flex flex-col items-center justify-center p-2.5 bg-white rounded-2xl text-neutral-900">
+                <QRCodeSVG value={`https://papopay.tz/receipt/${lastReceipt.id}`} size={80} />
+                <span className="text-[9px] text-neutral-600 font-mono mt-1 font-bold">
+                  EFD BOT Electronic Receipt Verified
+                </span>
+              </div>
+
+              {/* ACTION BUTTONS: PRINT & SHARE */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrintReceipt}
+                  className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Chapisha</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShareReceipt}
+                  className="py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-emerald-500/30 cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>WhatsApp/SMS</span>
+                </button>
               </div>
 
               <button
                 type="button"
                 onClick={() => setLastReceipt(null)}
-                className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs"
+                className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs cursor-pointer"
               >
                 Funga Risiti
               </button>
@@ -2800,62 +4100,46 @@ export default function WakalaDashboard() {
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0c1222]/95 backdrop-blur-xl border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl">
         <button
           type="button"
-          onClick={() => { setPortalMode('terminal'); setMobileTab('camera'); triggerHapticTap(); }}
-          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-            portalMode === 'terminal' && mobileTab === 'camera'
-              ? 'text-cyan-400 font-bold'
-              : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          <div className="relative">
-            <Camera className="w-4 h-4" />
-            {liveFaceDetected && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            )}
-          </div>
-          <span className="text-[9px] font-medium tracking-tight">Kamera</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setPortalMode('terminal'); setMobileTab('pos'); triggerHapticTap(); }}
+          onClick={() => { setPortalMode('pos_hub'); setMobileTab('pos'); triggerHapticTap(); }}
           className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all relative cursor-pointer ${
-            portalMode === 'terminal' && mobileTab === 'pos'
+            (portalMode === 'pos_hub' || portalMode === 'terminal') && mobileTab !== 'ledger'
               ? 'text-emerald-400 font-bold'
               : 'text-neutral-400 hover:text-white'
           }`}
         >
-          <div className="relative">
-            <Wallet className="w-4 h-4" />
-            {matchedCustomer && (
-              <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-amber-400 text-neutral-950 text-[7px] font-mono font-black animate-pulse">
-                ✓
-              </span>
-            )}
-          </div>
-          <span className="text-[9px] font-medium tracking-tight">POS Kaunta</span>
+          <Store className="w-4 h-4" />
+          <span className="text-[9px] font-medium tracking-tight">1. POS Kaunta</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPortalMode('wakala_kawaida'); setMobileTab('pos'); triggerHapticTap(); }}
+          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
+            portalMode === 'wakala_kawaida' && mobileTab !== 'ledger'
+              ? 'text-cyan-400 font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <Smartphone className="w-4 h-4" />
+          <span className="text-[9px] font-medium tracking-tight">2. Wakala Mtaani</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setIsNewCustomerModalOpen(true); triggerHapticTap(); }}
+          className="mx-0.5 px-2.5 py-1.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-neutral-950 flex flex-col items-center justify-center shadow-lg shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer"
+        >
+          <UserPlus className="w-4 h-4 stroke-[2.5]" />
+          <span className="text-[7.5px] font-black uppercase">+ Sajili</span>
         </button>
 
         <button
           type="button"
           onClick={() => { setIsFloatModalOpen(true); triggerHapticTap(); }}
-          className="mx-1 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-neutral-950 flex flex-col items-center justify-center shadow-lg shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer"
+          className="flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all text-neutral-400 hover:text-white cursor-pointer"
         >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span className="text-[8px] font-black uppercase">Float</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setPortalMode('terminal'); setMobileTab('customers'); triggerHapticTap(); }}
-          className={`flex-1 py-1 px-1 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-            portalMode === 'terminal' && mobileTab === 'customers'
-              ? 'text-purple-400 font-bold'
-              : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span className="text-[9px] font-medium tracking-tight">Wateja</span>
+          <Plus className="w-4 h-4" />
+          <span className="text-[9px] font-medium tracking-tight">Float</span>
         </button>
 
         <button
