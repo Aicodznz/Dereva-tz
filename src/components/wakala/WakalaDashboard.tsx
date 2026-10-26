@@ -14,6 +14,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { Link, useNavigate } from 'react-router-dom';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
+import { pushNotificationService } from '../../utils/pushNotificationService';
 import { BiometricFaceCanvas, BiometricHudMode, FaceTrackResult } from '../papopay/BiometricFaceCanvas';
 import { FaceRegistrationModal } from '../papopay/FaceRegistrationModal';
 import { toast } from 'sonner';
@@ -819,6 +820,13 @@ export default function WakalaDashboard() {
         description: `Mteja: ${matchedCustomer.name} | Salio Jipya: TZS ${updatedBalance.toLocaleString()} | Kamisheni: +TZS ${commission.toLocaleString()}`,
         icon: '💰' 
       });
+
+      // Dispatch Real Native Push Notification (Rich Notification)
+      pushNotificationService.showRichNotification({
+        title: `💰 PapoPay: TZS ${depositAmount.toLocaleString()} Zimewekwa!`,
+        body: `Mteja: ${matchedCustomer.name} | Salio Jipya: TZS ${updatedBalance.toLocaleString()} | Kamisheni: +TZS ${commission.toLocaleString()}`,
+        image: matchedCustomer.avatar
+      }).catch(() => {});
     }, 1000);
   };
 
@@ -927,6 +935,12 @@ export default function WakalaDashboard() {
         description: `Mteja: ${matchedCustomer.name} | Salio Lililobaki: TZS ${updatedBalance.toLocaleString()} | Uthibitisho: Face ID + PIN ✓`,
         icon: '💵' 
       });
+
+      // Dispatch Real Native Push Notification (Lock Screen + Banner)
+      pushNotificationService.showLockScreenNotification({
+        title: `💵 PapoPay: Kutoa Pesa TZS ${amt.toLocaleString()}`,
+        body: `Imethibitishwa kwa Sura na PIN ya ${matchedCustomer.name}. Salio Lililobaki: TZS ${updatedBalance.toLocaleString()}.`
+      }).catch(() => {});
     }, 1000);
   };
 
