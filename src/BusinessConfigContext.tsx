@@ -136,7 +136,18 @@ export const BusinessConfigProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'config', 'business'), (snap) => {
       if (snap.exists()) {
-        setConfig(prev => ({ ...prev, ...snap.data() as BusinessConfig }));
+        const raw = snap.data() as BusinessConfig;
+        if (raw && raw.vehicles) {
+          // If a vehicle has the legacy tilted removebg preview URL, reset to clean native vector
+          Object.keys(raw.vehicles).forEach((k) => {
+            const v = raw.vehicles[k];
+            if (v && v.mapMarkerUrl && (v.mapMarkerUrl.includes('image-removebg-preview') || v.mapMarkerLayout === 'top_down')) {
+              v.mapMarkerUrl = '';
+              v.mapMarkerLayout = 'top_down';
+            }
+          });
+        }
+        setConfig(prev => ({ ...prev, ...raw }));
       }
       setLoading(false);
     }, (error) => {

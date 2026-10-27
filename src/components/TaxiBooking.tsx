@@ -2578,7 +2578,11 @@ export default function TaxiBooking() {
     // We only use the custom image when mapMarkerLayout is explicitly set to 'custom'
     const mapMarkerLayout = customVehicle?.mapMarkerLayout || 'top_down';
 
-    if (customVehicle?.mapMarkerUrl && (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down')) {
+    const isCustomImageActive = customVehicle?.mapMarkerUrl && 
+      !customVehicle.mapMarkerUrl.includes('image-removebg-preview') && 
+      (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down');
+
+    if (isCustomImageActive) {
       if (mapMarkerLayout === 'custom_top_down' || (mapMarkerLayout === 'custom' && type === 'bike')) {
         // Compute final orientation offset
         let finalRotation = rotation;
@@ -2595,16 +2599,10 @@ export default function TaxiBooking() {
           className: "driver-marker-icon-clean-custom-topdown driver-marker-smooth",
           html: `
             <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
-              <!-- Gentle micro pulse for premium active visibility -->
-              <div class="absolute w-10 h-10 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
-              
-              <!-- Map Marker Glowing Halo -->
-              <div class="absolute w-8 h-8 rounded-full bg-black/15 blur-[2px] pointer-events-none"></div>
-              
-              <div class="relative transition-transform duration-500 ease-out flex items-center justify-center" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px;">
+              <div class="relative transition-transform duration-500 ease-out flex items-center justify-center" style="transform: rotate(${finalRotation}deg); width: 38px; height: 38px;">
                 <img 
                   src="${customVehicle.mapMarkerUrl}" 
-                  class="w-10 h-10 object-contain drop-shadow-[0_2.5px_4px_rgba(0,0,0,0.4)]" 
+                  class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
                   referrerPolicy="no-referrer" 
                 />
               </div>
@@ -2614,74 +2612,43 @@ export default function TaxiBooking() {
           iconAnchor: [22, 22],
         });
       } else {
-        // For custom image side-profile photos ('custom_side' or legacy 'custom'), 360-deg rotation makes them go upside-down.
-        // Instead we keep them horizontal/upright and flip them horizontally based on direction of travel (East vs West)
         const isMovingEast = rotation > 0 && rotation < 180;
         const flipTransform = isMovingEast ? "scaleX(-1)" : "scaleX(1)";
 
         return L.divIcon({
           className: "driver-marker-icon-clean-custom driver-marker-smooth",
           html: `
-            <div class="relative flex items-center justify-center transition-all duration-300" style="width: 34px; height: 34px;">
-              <!-- Gentle micro pulse for premium active visibility -->
-              <div class="absolute -inset-1.5 rounded-full bg-[#7F77DD]/10 animate-ping pointer-events-none"></div>
-              
-              <!-- Sleek 3D Glowing Podium/Shadow disk at the bottom to ground the vehicle -->
-              <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/45 blur-[1px] pointer-events-none"></div>
-              
+            <div class="relative flex items-center justify-center transition-all duration-300" style="width: 36px; height: 36px;">
+              <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/25 blur-[1px] pointer-events-none"></div>
               <img 
                 src="${customVehicle.mapMarkerUrl}" 
-                class="w-8 h-8 object-contain drop-shadow-[0_2px_4.5px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out" 
+                class="w-8 h-8 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-out" 
                 style="transform: ${flipTransform};"
                 referrerPolicy="no-referrer" 
               />
             </div>
           `,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
         });
       }
     }
 
-    // Default top-down vectors remain rotatable 360 degrees
+    // Default ultra-clean top-down vector vehicle (Uber/Google Maps grade)
     return L.divIcon({
       className: "driver-marker-icon-clean-wrapper driver-marker-smooth",
       html: `
-        <div class="relative flex items-center justify-center w-[46px] h-[46px]">
-          <!-- Active sonar radar ripple radiating under the driver -->
-          <div class="absolute w-[34px] h-[34px] rounded-full bg-emerald-500/15 border border-emerald-500/20 animate-pulse pointer-events-none"></div>
-          
-          <!-- Elegant premium pointer/glow ring (transparent background) -->
-          <div class="absolute w-[38px] h-[38px] rounded-full bg-transparent ${theme === 'dark' ? 'border-[#00E5A0]/60 shadow-[0_0_12px_rgba(0,229,160,0.35)]' : 'border-[#1E724C]/60 shadow-[0_0_12px_rgba(30,114,76,0.25)]'} border flex items-center justify-center">
-            <!-- Central rotated vehicle wrapper -->
-            <div class="transition-transform duration-300 ease-out select-none pointer-events-none flex items-center justify-center w-7 h-7" style="transform: rotate(${rotation}deg);">
-              <!-- Directional Compass Flashlight Light Beam / Field-of-View Cone (Mwangaza wa Dira ya Simu) -->
-              <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 90px; height: 80px; margin-bottom: 2px;">
-                <svg viewBox="0 0 100 80" class="w-full h-full overflow-visible">
-                  <defs>
-                    <radialGradient id="tbCompassBeamGrad_${theme === 'dark' ? 'dark' : 'light'}" cx="50%" cy="100%" r="100%">
-                      <stop offset="0%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0.75"/>
-                      <stop offset="45%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="${theme === 'dark' ? '#00FF88' : '#3B82F6'}" stop-opacity="0"/>
-                    </radialGradient>
-                  </defs>
-                  <path d="M 50 80 L 12 0 A 85 85 0 0 1 88 0 Z" fill="url(#tbCompassBeamGrad_${theme === 'dark' ? 'dark' : 'light'})" />
-                </svg>
-              </div>
-
-              <!-- Heading notch/pointer at front of vehicle -->
-              <div class="absolute top-[-2px] w-2 h-2 rotate-45 ${theme === 'dark' ? 'bg-[#00FF88]' : 'bg-[#3B82F6]'} rounded-[1px] shadow-[0_0_8px_rgba(0,255,136,0.9)] z-10"></div>
-              
-              <!-- Premium vehicle SVG -->
-              <div class="w-7 h-7 flex items-center justify-center relative z-10">
-                ${getDriverSvg(type, theme === "dark")}
-              </div>
+        <div class="relative flex items-center justify-center w-[54px] h-[54px] pointer-events-none">
+          <div class="relative transition-transform duration-300 ease-out select-none pointer-events-none flex items-center justify-center" style="transform: rotate(${rotation}deg); width: 34px; height: 54px;">
+            <!-- Premium vehicle SVG -->
+            <div class="w-full h-full flex items-center justify-center relative z-10 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.18)]">
+              ${getDriverSvg(type, theme === "dark")}
             </div>
           </div>
         </div>
       `,
-      iconSize: [46, 46],
-      iconAnchor: [23, 23],
+      iconSize: [54, 54],
+      iconAnchor: [27, 27],
     });
   };
 

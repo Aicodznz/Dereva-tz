@@ -129,7 +129,11 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
     }
 
     // Custom side image or top-down image
-    if (customVehicle?.mapMarkerUrl && (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down')) {
+    const isCustomImageActive = customVehicle?.mapMarkerUrl && 
+      !customVehicle.mapMarkerUrl.includes('image-removebg-preview') && 
+      (mapMarkerLayout === 'custom' || mapMarkerLayout === 'custom_side' || mapMarkerLayout === 'custom_top_down');
+
+    if (isCustomImageActive) {
       if (mapMarkerLayout === 'custom_top_down' || (mapMarkerLayout === 'custom' && vehicleType === 'bike')) {
         let finalRotation = currentRotation;
         const orientation = customVehicle.mapMarkerOrientation || 'left';
@@ -143,12 +147,11 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
             <div class="relative flex items-center justify-center pointer-events-none" style="width: 50px; height: 50px;">
               ${isAssignedDriver ? `
                 <div class="absolute w-12 h-12 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>
-                <div class="absolute w-10 h-10 rounded-full bg-black/25 blur-[2px] pointer-events-none"></div>
               ` : ''}
-              <div id="driver-rot-${driverId}" class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${finalRotation}deg); width: 44px; height: 44px; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);">
+              <div id="driver-rot-${driverId}" class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);">
                 <img 
                   src="${customVehicle.mapMarkerUrl}" 
-                  class="w-11 h-11 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)]" 
+                  class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
                   referrerPolicy="no-referrer" 
                 />
               </div>
@@ -167,12 +170,12 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
           html: `
             <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
               ${isAssignedDriver ? `<div class="absolute -inset-2 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>` : ''}
-              <div class="absolute bottom-1 w-8 h-2 rounded-full bg-black/45 blur-[1.5px] pointer-events-none"></div>
+              <div class="absolute bottom-1 w-8 h-2 rounded-full bg-black/25 blur-[1px] pointer-events-none"></div>
               <img 
                 id="driver-rot-${driverId}"
                 src="${customVehicle.mapMarkerUrl}" 
-                class="w-9 h-9 object-contain drop-shadow-[0_3px_6px_rgba(0,0,0,0.4)]" 
-                style="transform: ${flipTransform}; transition: transform 0.3s ease-out;"
+                class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
+                style="transform: ${flipTransform}; transition: transform 0.3s ease-out;" 
                 referrerPolicy="no-referrer" 
               />
             </div>
@@ -183,48 +186,34 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
       }
     }
 
-    // Default ultra-smooth top-down vector vehicle with headlights
+    // Default ultra-smooth top-down vector vehicle (Uber/Google Maps grade)
     return L.divIcon({
       className: "smooth-driver-marker-wrapper",
       html: `
-        <div class="relative flex items-center justify-center w-[54px] h-[54px] pointer-events-none">
-          <!-- Active Sonar Radar Wave -->
+        <div class="relative flex items-center justify-center w-[60px] h-[60px] pointer-events-none">
+          <!-- Active Sonar Radar Wave for Assigned Driver -->
           ${isAssignedDriver ? `
-            <div class="absolute w-[42px] h-[42px] rounded-full ${isDark ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-emerald-600/15 border border-emerald-600/30'} animate-ping pointer-events-none"></div>
+            <div class="absolute w-[46px] h-[46px] rounded-full ${isDark ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-emerald-600/15 border border-emerald-600/30'} animate-ping pointer-events-none"></div>
+            <div class="absolute w-[48px] h-[48px] rounded-full bg-transparent ${isDark ? 'border-emerald-400/60 shadow-[0_0_15px_rgba(16,185,129,0.35)]' : 'border-emerald-600/50 shadow-[0_0_12px_rgba(5,150,105,0.25)]'} border flex items-center justify-center pointer-events-none"></div>
           ` : ''}
-          
-          <!-- Outer Ring / Podium Glow -->
-          <div class="absolute w-[44px] h-[44px] rounded-full bg-transparent ${isDark ? 'border-emerald-400/60 shadow-[0_0_15px_rgba(16,185,129,0.35)]' : 'border-emerald-600/50 shadow-[0_0_12px_rgba(5,150,105,0.25)]'} border flex items-center justify-center">
-            <!-- Rotated Vehicle Chassis Container -->
-            <div id="driver-rot-${driverId}" class="select-none pointer-events-none flex items-center justify-center w-8 h-8" style="transform: rotate(${currentRotation}deg); transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);">
-              
-              <!-- Forward Headlight / Navigation Directional Beam (Mwangaza wa Mwelekeo) -->
-              <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 100px; height: 90px; margin-bottom: 2px;">
-                <svg viewBox="0 0 100 80" class="w-full h-full overflow-visible">
-                  <defs>
-                    <radialGradient id="beamGrad_${driverId}" cx="50%" cy="100%" r="100%">
-                      <stop offset="0%" stop-color="${isDark ? '#10B981' : '#059669'}" stop-opacity="0.8"/>
-                      <stop offset="45%" stop-color="${isDark ? '#10B981' : '#059669'}" stop-opacity="0.35"/>
-                      <stop offset="100%" stop-color="${isDark ? '#10B981' : '#059669'}" stop-opacity="0"/>
-                    </radialGradient>
-                  </defs>
-                  <path d="M 50 80 L 10 0 A 90 90 0 0 1 90 0 Z" fill="url(#beamGrad_${driverId})" />
-                </svg>
-              </div>
 
-              <!-- Directional Notch / Arrow Pointer -->
-              <div class="absolute top-[-3px] w-2.5 h-2.5 rotate-45 ${isDark ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]' : 'bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.7)]'} rounded-[1px] z-10"></div>
-              
-              <!-- SVG Top-Down Vehicle Body -->
-              <div class="w-8 h-8 flex items-center justify-center relative z-10">
-                ${getDriverSvg(vehicleType, isDark)}
-              </div>
+          <!-- Rotated Vehicle Chassis Container -->
+          <div id="driver-rot-${driverId}" class="select-none pointer-events-none flex items-center justify-center relative" style="transform: rotate(${currentRotation}deg); width: 36px; height: 60px; transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);">
+            
+            ${isAssignedDriver ? `
+              <!-- Directional Notch / Arrow Pointer for Assigned Driver -->
+              <div class="absolute -top-1 w-2.5 h-2.5 rotate-45 ${isDark ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]' : 'bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.7)]'} rounded-[1px] z-10 pointer-events-none"></div>
+            ` : ''}
+            
+            <!-- SVG Top-Down Vehicle Body -->
+            <div class="w-full h-full flex items-center justify-center relative z-10 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.18)]">
+              ${getDriverSvg(vehicleType, isDark)}
             </div>
           </div>
         </div>
       `,
-      iconSize: [54, 54],
-      iconAnchor: [27, 27]
+      iconSize: [60, 60],
+      iconAnchor: [30, 30]
     });
   };
 

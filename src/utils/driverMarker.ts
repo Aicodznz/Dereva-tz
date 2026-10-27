@@ -181,82 +181,112 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
         <rect x="42" y="90" width="16" height="3" rx="0.5" fill="#F3F4F6" />
       </svg>
     `;
-  } else {
     return `
-      <svg viewBox="0 0 100 120" class="w-10 h-12 overflow-visible" style="display: block; margin: auto;">
+      <svg viewBox="0 0 50 96" class="w-8 h-15 overflow-visible" style="display: block; margin: auto;">
         <defs>
-          <linearGradient id="carGlow" x1="50%" y1="100%" x2="50%" y2="0%">
-            <stop offset="0%" stop-color="#FFE259" stop-opacity="0.25"/>
-            <stop offset="100%" stop-color="#FFE259" stop-opacity="0"/>
+          <!-- Forward Headlight Illuminating Beam with soft gradient -->
+          <linearGradient id="carHeadlightBeam" x1="50%" y1="100%" x2="50%" y2="0%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.32"/>
+            <stop offset="35%" stop-color="#38BDF8" stop-opacity="0.14"/>
+            <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
           </linearGradient>
-          <linearGradient id="carBody" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FFFFFF"/>
-            <stop offset="50%" stop-color="#F1F5F9"/>
+
+          <!-- Ultra-Sleek Metallic Pearl White Body -->
+          <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#E2E8F0"/>
+            <stop offset="14%" stop-color="#FFFFFF"/>
+            <stop offset="50%" stop-color="#F8FAFC"/>
+            <stop offset="86%" stop-color="#FFFFFF"/>
             <stop offset="100%" stop-color="#CBD5E1"/>
           </linearGradient>
-          <linearGradient id="windshieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#1E293B"/>
-            <stop offset="100%" stop-color="#0F172A"/>
+
+          <!-- Tinted Glass Canopy (Windshields & Sunroof) -->
+          <linearGradient id="carGlassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0F172A"/>
+            <stop offset="40%" stop-color="#1E293B"/>
+            <stop offset="70%" stop-color="#1E293B"/>
+            <stop offset="100%" stop-color="#0B132B"/>
           </linearGradient>
-          <linearGradient id="glassReflection" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.7"/>
-            <stop offset="30%" stop-color="#38BDF8" stop-opacity="0.2"/>
-            <stop offset="70%" stop-color="#FFFFFF" stop-opacity="0.6"/>
-            <stop offset="100%" stop-color="#0284C7" stop-opacity="0.8"/>
+
+          <!-- Glass Specular Reflection Streak -->
+          <linearGradient id="glassStreak" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.65"/>
+            <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0.4"/>
+            <stop offset="60%" stop-color="#38BDF8" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+          </linearGradient>
+
+          <!-- Tire Gradient -->
+          <linearGradient id="tireGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#18181B"/>
+            <stop offset="50%" stop-color="#27272A"/>
+            <stop offset="100%" stop-color="#09090B"/>
           </linearGradient>
         </defs>
 
-        <!-- Dual Headlights Beam -->
-        <path d="M26,16 L-10,-40 L35,-40 Z" fill="url(#carGlow)" pointer-events="none" />
-        <path d="M74,16 L65,-40 L110,-40 Z" fill="url(#carGlow)" pointer-events="none" />
+        <!-- Forward Road Illumination Beams (Crisp directional light cone) -->
+        <path d="M14,16 L-8,-35 L24,-35 Z" fill="url(#carHeadlightBeam)" pointer-events="none" />
+        <path d="M36,16 L26,-35 L58,-35 Z" fill="url(#carHeadlightBeam)" pointer-events="none" />
 
-        <!-- Smooth 3D Drop Shadow -->
-        <ellipse cx="50" cy="65" rx="32" ry="48" fill="rgba(0,0,0,0.35)" filter="blur(2.5px)" />
+        <!-- Clean Ground Shadow (Ambient contact shadow, no muddy blur) -->
+        <ellipse cx="25" cy="50" rx="19" ry="40" fill="rgba(0,0,0,0.24)" />
 
-        <!-- Four Wheels (Tires) extending slightly -->
-        <rect x="15" y="24" width="8" height="18" rx="4" fill="#111827" />
-        <rect x="77" y="24" width="8" height="18" rx="4" fill="#111827" />
-        <rect x="15" y="78" width="8" height="18" rx="4" fill="#111827" />
-        <rect x="77" y="78" width="8" height="18" rx="4" fill="#111827" />
+        <!-- 4 Realistic Tires with Subtle Inset -->
+        <rect x="3.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad)" />
+        <rect x="40.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad)" />
+        <rect x="3.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad)" />
+        <rect x="40.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad)" />
 
-        <!-- Main Car Shell (Glossy white body with panel curves) -->
-        <rect x="22" y="14" width="56" height="92" rx="28" fill="url(#carBody)" stroke="#E2E8F0" stroke-width="1.5" />
+        <!-- Main Aerodynamic Chassis Body -->
+        <path d="M12,18 C12,10 38,10 38,18 L41,48 C42,66 39,84 37,86 C35,88 15,88 13,86 C11,84 8,66 9,48 Z" 
+              fill="url(#carBodyGrad)" 
+              stroke="#94A3B8" 
+              stroke-width="0.8" 
+              stroke-linejoin="round" />
 
-        <!-- Panel outline lines (Hood & Trunk) -->
-        <!-- Hood Panel lines -->
-        <path d="M30,32 C30,22 70,22 70,32" fill="none" stroke="#CBD5E1" stroke-width="1.2" />
-        <path d="M36,14 L38,30 M64,14 L62,30" fill="none" stroke="#CBD5E1" stroke-width="1" />
-        
-        <!-- Trunk Panel lines -->
-        <path d="M28,84 C28,94 72,94 72,84" fill="none" stroke="#CBD5E1" stroke-width="1.2" />
-        <path d="M34,92 L36,104 M66,92 L64,104" fill="none" stroke="#CBD5E1" stroke-width="1" />
+        <!-- Hood Crease Lines -->
+        <path d="M16,14 L18,29 C18,31 32,31 32,29 L34,14" fill="none" stroke="#CBD5E1" stroke-width="0.9" />
+        <path d="M21,11 L21,26 M29,11 L29,26" fill="none" stroke="#E2E8F0" stroke-width="0.6" />
 
-        <!-- Side Mirrors -->
-        <path d="M14,38 C14,35 22,36 22,38 Z" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
-        <rect x="14" y="38" width="8" height="10" rx="2" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1" />
-        <path d="M86,38 C86,35 78,36 78,38 Z" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1" />
-        <rect x="78" y="38" width="8" height="10" rx="2" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1" />
+        <!-- Front Xenon / LED Headlights -->
+        <path d="M11,15 Q15,13 18,17 L17,20 Q13,18 10,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.5" />
+        <path d="M39,15 Q35,13 32,17 L33,20 Q37,18 40,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.5" />
+        <!-- Inner projector bulb dots -->
+        <circle cx="14" cy="16.5" r="1.3" fill="#FFFFFF" />
+        <circle cx="36" cy="16.5" r="1.3" fill="#FFFFFF" />
 
-        <!-- Headlights at Front Bumper -->
-        <rect x="26" y="13" width="8" height="4" rx="2" fill="#FFFBEB" stroke="#FBBF24" stroke-width="1" />
-        <rect x="66" y="13" width="8" height="4" rx="2" fill="#FFFBEB" stroke="#FBBF24" stroke-width="1" />
+        <!-- Aerodynamic Side Mirrors -->
+        <path d="M8,30 C5,30 4,34 7,36 L10,34 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.6" />
+        <path d="M42,30 C45,30 46,34 43,36 L40,34 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.6" />
+        <circle cx="7" cy="33" r="1" fill="#38BDF8" opacity="0.6" />
+        <circle cx="43" cy="33" r="1" fill="#38BDF8" opacity="0.6" />
 
-        <!-- Panoramic Roof & Windscreens (Full Glass Capsule) -->
-        <path d="M28,34 Q50,30 72,34 L68,82 Q50,85 32,82 Z" fill="url(#windshieldGrad)" stroke="#1E293B" stroke-width="2" />
-        
-        <!-- Sleek light blue reflection on glass -->
-        <path d="M28,34 Q50,30 72,34 L68,82 Q50,85 32,82 Z" fill="url(#glassReflection)" opacity="0.45" />
+        <!-- Front Windshield Glass -->
+        <path d="M13.5,31 C15,26 35,26 36.5,31 L35,42 C35,43 15,43 15,42 Z" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <path d="M15,31 Q25,28 35,31" fill="none" stroke="#FFFFFF" stroke-width="0.8" stroke-opacity="0.7" />
 
-        <!-- Cross beams / roof structure separators -->
-        <!-- Front Windshield arc -->
-        <path d="M29,42 Q50,39 71,42" fill="none" stroke="#0F172A" stroke-width="1.5" />
-        <!-- Rear Window arc -->
-        <path d="M31,74 Q50,71 69,74" fill="none" stroke="#0F172A" stroke-width="1.5" />
+        <!-- Panoramic Sunroof Glass -->
+        <rect x="15" y="44" width="20" height="18" rx="2" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <line x1="15" y1="52" x2="35" y2="52" stroke="#0F172A" stroke-width="1.2" />
 
-        <!-- Bumper details (Rear red reflectors and license plate) -->
-        <rect x="28" y="102" width="10" height="3" rx="1" fill="#EF4444" />
-        <rect x="62" y="102" width="10" height="3" rx="1" fill="#EF4444" />
-        <rect x="42" y="103" width="16" height="2" rx="0.5" fill="#F8FAFC" />
+        <!-- Rear Windshield Glass -->
+        <path d="M15,64 L35,64 L36.5,74 C35,76 15,76 13.5,74 Z" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <path d="M15.5,73 Q25,75 34.5,73" fill="none" stroke="#FFFFFF" stroke-width="0.7" stroke-opacity="0.4" />
+
+        <!-- Continuous Specular Sky Reflection Streak across glass -->
+        <path d="M16,30 L22,30 L32,73 L28,73 Z" fill="url(#glassStreak)" pointer-events="none" />
+
+        <!-- Trunk Lines -->
+        <path d="M15,77 C15,83 35,83 35,77" fill="none" stroke="#CBD5E1" stroke-width="0.8" />
+
+        <!-- Rear Red LED Taillights -->
+        <path d="M11,83 Q14,84 16,84 L16,86 Q12,86 10.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5" />
+        <path d="M39,83 Q36,84 34,84 L34,86 Q38,86 39.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5" />
+        <!-- Center brake light strip -->
+        <rect x="22" y="86.5" width="6" height="1.2" rx="0.5" fill="#EF4444" />
+
+        <!-- Clean License Plate -->
+        <rect x="20" y="86" width="10" height="2" rx="0.5" fill="#FFFFFF" stroke="#64748B" stroke-width="0.3" />
       </svg>
     `;
   }
