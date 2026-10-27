@@ -54,6 +54,7 @@ import { CallOptionsModal } from '../tegex/CallOptionsModal';
 import { IncomingCallBanner } from '../tegex/IncomingCallBanner';
 import { CallType, webrtcService } from '../../utils/webrtcService';
 import { callNotificationService } from '../../utils/callNotificationService';
+import { pushNotificationService } from '../../utils/pushNotificationService';
 import { 
   listenDriverActiveStandRoute, 
   updateStandDriverLocation, 
@@ -1337,11 +1338,21 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
         setIncomingRequest(topRequest);
         if (topRequest?.id && lastAlertedRequestId.current !== topRequest.id) {
           lastAlertedRequestId.current = topRequest.id;
-          DriverVoice.incomingRide(
-            (topRequest.pickup as any)?.name || topRequest.pickup?.address || 'Eneo la Karibu',
-            (topRequest.destination as any)?.name || topRequest.destination?.address || 'Kituo cha Mwisho',
-            topRequest.fare || 0
-          );
+          const pName = (topRequest.pickup as any)?.name || topRequest.pickup?.address || 'Eneo la Karibu';
+          const dName = (topRequest.destination as any)?.name || topRequest.destination?.address || 'Kituo cha Mwisho';
+          const fareAmount = topRequest.fare || 0;
+
+          DriverVoice.incomingRide(pName, dName, fareAmount);
+
+          // ⚡ Action Notification on driver device: [✅ KUBALI] / [❌ KATAA]
+          pushNotificationService.showActionNotification({
+            title: `⚡ PapoRide: Ombi Jipya la Safari (TZS ${fareAmount.toLocaleString()})`,
+            body: `Kutoka: ${pName} ➡️ Kwenda: ${dName}. Gusa kubali safari mara moja.`,
+            actions: [
+              { action: 'accept', title: '✅ KUBALI' },
+              { action: 'decline', title: '❌ KATAA' }
+            ]
+          });
         }
       }
     } else if (!isOnline || activeRide || freshRequests.length === 0 || (incomingRequest && !currentStillValid)) {

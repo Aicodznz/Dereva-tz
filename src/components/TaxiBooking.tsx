@@ -133,6 +133,7 @@ import { CallOptionsModal } from "./tegex/CallOptionsModal";
 import { IncomingCallBanner } from "./tegex/IncomingCallBanner";
 import { CallType, webrtcService } from "../utils/webrtcService";
 import { callNotificationService } from "../utils/callNotificationService";
+import { pushNotificationService } from "../utils/pushNotificationService";
 import PapoShareStendiRiderView from "./rider/PapoShareStendiRiderView";
 import PapoShareStendiLiveTracker from "./rider/PapoShareStendiLiveTracker";
 import { PapoShareSplitFareModal } from "./rider/PapoShareSplitFareModal";
@@ -3357,6 +3358,59 @@ const getEndPin = (etaText: string) => {
       }
     }
   }, [activeRide?.status, activeRide?.id, step, rideId]);
+
+  // PapoRide Native Push Notifications for Trip Status Transitions
+  const lastNotifiedRideStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeRide || !activeRide.status) return;
+    const currentStatus = activeRide.status;
+    if (lastNotifiedRideStatusRef.current === currentStatus) return;
+    lastNotifiedRideStatusRef.current = currentStatus;
+
+    const driverName = activeRide.driverInfo?.name || "Dereva wako";
+    const carModel = activeRide.driverInfo?.vehicle?.model || (activeRide.driverInfo as any)?.vehicleModel || "Gari";
+    const plate = activeRide.driverInfo?.vehicle?.plate || (activeRide.driverInfo as any)?.plate || (activeRide.driverInfo as any)?.plateNumber || "";
+
+    if (currentStatus === "accepted" || currentStatus === "driver_arriving") {
+      pushNotificationService.showBannerNotification({
+        title: "🚖 PapoRide: Dereva Amekubali Safari!",
+        body: `${driverName} (${carModel} ${plate}) anakuja. Tafadhali jitokeze barabarani.`
+      }).catch(() => {});
+    } else if (currentStatus === "driver_arrived") {
+      // 1. Lock Screen (inaonekana simu ikiwa imefungwa)
+      pushNotificationService.showLockScreenNotification({
+        title: "🔔 PapoRide: Dereva Amewasili!",
+        body: `${driverName} yupo nje ya lango lako (${plate}). Toka nje kupanda gari sasa.`
+      }).catch(() => {});
+
+      // 2. Action Notification (ina vitufe vya Jibu / Naja Sasa / Piga Simu bila kufungua app)
+      pushNotificationService.showActionNotification({
+        title: "⚡ PapoRide: Dereva Anakusubiri",
+        body: `${driverName} yupo nje. Bofya kitufe haraka kumjibu dereva:`,
+        actions: [
+          { action: 'naja', title: '🏃 Naja Sasa' },
+          { action: 'piga', title: '📞 Piga Simu' }
+        ]
+      });
+    } else if (currentStatus === "on_trip") {
+      // Progress & Trip Live notification
+      pushNotificationService.sendNotification({
+        title: "⏳ PapoRide: Safari Yako Inaendelea",
+        body: `Uko safarini kuelekea ${activeRide.destination?.address || 'unapokwenda'}. Safari inalindwa 100%.`,
+        tag: 'paporide_live_trip',
+        silent: true
+      }).catch(() => {});
+    } else if (currentStatus === "completed") {
+      const fare = activeRide.fare || (activeRide as any).estimatedFare || 0;
+      // Rich Notification yenye picha na risiti
+      pushNotificationService.showRichNotification({
+        title: "🖼️ PapoRide: Safari Imekamilika!",
+        body: `Umelipa TZS ${Number(fare).toLocaleString()} kupitia PapoPay. Risiti ya kidijitali imehifadhiwa.`,
+        image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80"
+      }).catch(() => {});
+    }
+  }, [activeRide?.status, activeRide?.id]);
 
   const handleTimeout = () => {
     deleteRide();
