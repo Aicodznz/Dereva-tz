@@ -388,9 +388,6 @@ export function createDriverMarkerIcon(
           </div>
 
         </div>
-        
-        <!-- Small badge for online status -->
-        <span class="absolute bottom-1 right-1 w-3 h-3 rounded-full border-2 border-black ${isOnline ? 'bg-emerald-400' : 'bg-zinc-400'} shadow-[0_1px_4px_rgba(0,0,0,0.4)]"></span>
       </div>
     `,
     iconSize: [54, 54],
