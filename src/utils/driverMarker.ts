@@ -1,8 +1,8 @@
 import L from 'leaflet';
 
 export function getDriverSvg(type: string, isDark: boolean = true): string {
-  const t = (type || '').toLowerCase();
-  const isBike = t.includes('bike') || t.includes('pikipiki') || t.includes('delivery') || t.includes('motorcycle') || t.includes('boda') || t.includes('piki') || t.includes('bodaboda') || t.includes('rider') || t === '' || !t;
+  const t = (type || 'car').toLowerCase();
+  const isBike = t.includes('bike') || t.includes('pikipiki') || t.includes('delivery') || t.includes('motorcycle') || t.includes('boda') || t.includes('bodaboda');
   const isBajaj = t.includes('bajaj') || t.includes('bajaji') || t.includes('tuktuk');
 
   if (isBike) {
@@ -181,27 +181,28 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
         <rect x="42" y="90" width="16" height="3" rx="0.5" fill="#F3F4F6" />
       </svg>
     `;
+  } else {
     return `
-      <svg viewBox="0 0 50 96" class="w-8 h-15 overflow-visible" style="display: block; margin: auto;">
+      <svg viewBox="0 0 50 96" class="w-[26px] h-[50px] overflow-visible" style="display: block; margin: auto;">
         <defs>
           <!-- Forward Headlight Illuminating Beam with soft gradient -->
-          <linearGradient id="carHeadlightBeam" x1="50%" y1="100%" x2="50%" y2="0%">
-            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.32"/>
-            <stop offset="35%" stop-color="#38BDF8" stop-opacity="0.14"/>
+          <linearGradient id="carHeadlightBeam_${isDark ? 'dark' : 'light'}" x1="50%" y1="100%" x2="50%" y2="0%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="${isDark ? '0.35' : '0.22'}"/>
+            <stop offset="40%" stop-color="#38BDF8" stop-opacity="${isDark ? '0.15' : '0.08'}"/>
             <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
           </linearGradient>
 
           <!-- Ultra-Sleek Metallic Pearl White Body -->
-          <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#E2E8F0"/>
-            <stop offset="14%" stop-color="#FFFFFF"/>
-            <stop offset="50%" stop-color="#F8FAFC"/>
-            <stop offset="86%" stop-color="#FFFFFF"/>
+          <linearGradient id="carBodyGrad_${isDark ? 'dark' : 'light'}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#CBD5E1"/>
+            <stop offset="15%" stop-color="#F1F5F9"/>
+            <stop offset="50%" stop-color="#FFFFFF"/>
+            <stop offset="85%" stop-color="#F1F5F9"/>
             <stop offset="100%" stop-color="#CBD5E1"/>
           </linearGradient>
 
           <!-- Tinted Glass Canopy (Windshields & Sunroof) -->
-          <linearGradient id="carGlassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <linearGradient id="carGlassGrad_${isDark ? 'dark' : 'light'}" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#0F172A"/>
             <stop offset="40%" stop-color="#1E293B"/>
             <stop offset="70%" stop-color="#1E293B"/>
@@ -209,84 +210,84 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
           </linearGradient>
 
           <!-- Glass Specular Reflection Streak -->
-          <linearGradient id="glassStreak" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="glassStreak_${isDark ? 'dark' : 'light'}" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.65"/>
-            <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0.4"/>
-            <stop offset="60%" stop-color="#38BDF8" stop-opacity="0.12"/>
+            <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0.5"/>
+            <stop offset="60%" stop-color="#38BDF8" stop-opacity="0.15"/>
             <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
           </linearGradient>
 
           <!-- Tire Gradient -->
-          <linearGradient id="tireGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#18181B"/>
-            <stop offset="50%" stop-color="#27272A"/>
-            <stop offset="100%" stop-color="#09090B"/>
+          <linearGradient id="tireGrad_${isDark ? 'dark' : 'light'}" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#0F172A"/>
+            <stop offset="50%" stop-color="#334155"/>
+            <stop offset="100%" stop-color="#0F172A"/>
           </linearGradient>
         </defs>
 
         <!-- Forward Road Illumination Beams (Crisp directional light cone) -->
-        <path d="M14,16 L-8,-35 L24,-35 Z" fill="url(#carHeadlightBeam)" pointer-events="none" />
-        <path d="M36,16 L26,-35 L58,-35 Z" fill="url(#carHeadlightBeam)" pointer-events="none" />
+        <path d="M14,16 L-10,-32 L22,-32 Z" fill="url(#carHeadlightBeam_${isDark ? 'dark' : 'light'})" pointer-events="none" />
+        <path d="M36,16 L28,-32 L60,-32 Z" fill="url(#carHeadlightBeam_${isDark ? 'dark' : 'light'})" pointer-events="none" />
 
-        <!-- Clean Ground Shadow (Ambient contact shadow, no muddy blur) -->
-        <ellipse cx="25" cy="50" rx="19" ry="40" fill="rgba(0,0,0,0.24)" />
+        <!-- Clean Ground Shadow (Ambient contact shadow underneath chassis) -->
+        <ellipse cx="25" cy="50" rx="19" ry="38" fill="rgba(0,0,0,0.28)" />
 
         <!-- 4 Realistic Tires with Subtle Inset -->
-        <rect x="3.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad)" />
-        <rect x="40.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad)" />
-        <rect x="3.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad)" />
-        <rect x="40.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad)" />
+        <rect x="3.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad_${isDark ? 'dark' : 'light'})" />
+        <rect x="40.5" y="19" width="6" height="15" rx="3" fill="url(#tireGrad_${isDark ? 'dark' : 'light'})" />
+        <rect x="3.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad_${isDark ? 'dark' : 'light'})" />
+        <rect x="40.5" y="62" width="6" height="15" rx="3" fill="url(#tireGrad_${isDark ? 'dark' : 'light'})" />
 
         <!-- Main Aerodynamic Chassis Body -->
         <path d="M12,18 C12,10 38,10 38,18 L41,48 C42,66 39,84 37,86 C35,88 15,88 13,86 C11,84 8,66 9,48 Z" 
-              fill="url(#carBodyGrad)" 
-              stroke="#94A3B8" 
-              stroke-width="0.8" 
+              fill="url(#carBodyGrad_${isDark ? 'dark' : 'light'})" 
+              stroke="#64748B" 
+              stroke-width="1" 
               stroke-linejoin="round" />
 
         <!-- Hood Crease Lines -->
-        <path d="M16,14 L18,29 C18,31 32,31 32,29 L34,14" fill="none" stroke="#CBD5E1" stroke-width="0.9" />
-        <path d="M21,11 L21,26 M29,11 L29,26" fill="none" stroke="#E2E8F0" stroke-width="0.6" />
+        <path d="M16,14 L18,29 C18,31 32,31 32,29 L34,14" fill="none" stroke="#94A3B8" stroke-width="0.9" />
+        <path d="M21,11 L21,26 M29,11 L29,26" fill="none" stroke="#CBD5E1" stroke-width="0.6" />
 
         <!-- Front Xenon / LED Headlights -->
-        <path d="M11,15 Q15,13 18,17 L17,20 Q13,18 10,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.5" />
-        <path d="M39,15 Q35,13 32,17 L33,20 Q37,18 40,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.5" />
+        <path d="M11,15 Q15,13 18,17 L17,20 Q13,18 10,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.6" />
+        <path d="M39,15 Q35,13 32,17 L33,20 Q37,18 40,18 Z" fill="#FEF08A" stroke="#EAB308" stroke-width="0.6" />
         <!-- Inner projector bulb dots -->
         <circle cx="14" cy="16.5" r="1.3" fill="#FFFFFF" />
         <circle cx="36" cy="16.5" r="1.3" fill="#FFFFFF" />
 
         <!-- Aerodynamic Side Mirrors -->
-        <path d="M8,30 C5,30 4,34 7,36 L10,34 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.6" />
-        <path d="M42,30 C45,30 46,34 43,36 L40,34 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.6" />
-        <circle cx="7" cy="33" r="1" fill="#38BDF8" opacity="0.6" />
-        <circle cx="43" cy="33" r="1" fill="#38BDF8" opacity="0.6" />
+        <path d="M8,30 C5,30 4,34 7,36 L10,34 Z" fill="#F8FAFC" stroke="#64748B" stroke-width="0.8" />
+        <path d="M42,30 C45,30 46,34 43,36 L40,34 Z" fill="#F8FAFC" stroke="#64748B" stroke-width="0.8" />
+        <circle cx="7" cy="33" r="1" fill="#38BDF8" opacity="0.7" />
+        <circle cx="43" cy="33" r="1" fill="#38BDF8" opacity="0.7" />
 
         <!-- Front Windshield Glass -->
-        <path d="M13.5,31 C15,26 35,26 36.5,31 L35,42 C35,43 15,43 15,42 Z" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <path d="M13.5,31 C15,26 35,26 36.5,31 L35,42 C35,43 15,43 15,42 Z" fill="url(#carGlassGrad_${isDark ? 'dark' : 'light'})" stroke="#0F172A" stroke-width="0.9" />
         <path d="M15,31 Q25,28 35,31" fill="none" stroke="#FFFFFF" stroke-width="0.8" stroke-opacity="0.7" />
 
         <!-- Panoramic Sunroof Glass -->
-        <rect x="15" y="44" width="20" height="18" rx="2" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <rect x="15" y="44" width="20" height="18" rx="2" fill="url(#carGlassGrad_${isDark ? 'dark' : 'light'})" stroke="#0F172A" stroke-width="0.9" />
         <line x1="15" y1="52" x2="35" y2="52" stroke="#0F172A" stroke-width="1.2" />
 
         <!-- Rear Windshield Glass -->
-        <path d="M15,64 L35,64 L36.5,74 C35,76 15,76 13.5,74 Z" fill="url(#carGlassGrad)" stroke="#0F172A" stroke-width="0.8" />
+        <path d="M15,64 L35,64 L36.5,74 C35,76 15,76 13.5,74 Z" fill="url(#carGlassGrad_${isDark ? 'dark' : 'light'})" stroke="#0F172A" stroke-width="0.9" />
         <path d="M15.5,73 Q25,75 34.5,73" fill="none" stroke="#FFFFFF" stroke-width="0.7" stroke-opacity="0.4" />
 
         <!-- Continuous Specular Sky Reflection Streak across glass -->
-        <path d="M16,30 L22,30 L32,73 L28,73 Z" fill="url(#glassStreak)" pointer-events="none" />
+        <path d="M16,30 L22,30 L32,73 L28,73 Z" fill="url(#glassStreak_${isDark ? 'dark' : 'light'})" pointer-events="none" />
 
         <!-- Trunk Lines -->
-        <path d="M15,77 C15,83 35,83 35,77" fill="none" stroke="#CBD5E1" stroke-width="0.8" />
+        <path d="M15,77 C15,83 35,83 35,77" fill="none" stroke="#94A3B8" stroke-width="0.8" />
 
         <!-- Rear Red LED Taillights -->
-        <path d="M11,83 Q14,84 16,84 L16,86 Q12,86 10.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5" />
-        <path d="M39,83 Q36,84 34,84 L34,86 Q38,86 39.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.5" />
+        <path d="M11,83 Q14,84 16,84 L16,86 Q12,86 10.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.6" />
+        <path d="M39,83 Q36,84 34,84 L34,86 Q38,86 39.5,84 Z" fill="#EF4444" stroke="#B91C1C" stroke-width="0.6" />
         <!-- Center brake light strip -->
         <rect x="22" y="86.5" width="6" height="1.2" rx="0.5" fill="#EF4444" />
 
         <!-- Clean License Plate -->
-        <rect x="20" y="86" width="10" height="2" rx="0.5" fill="#FFFFFF" stroke="#64748B" stroke-width="0.3" />
+        <rect x="20" y="86" width="10" height="2" rx="0.5" fill="#FFFFFF" stroke="#64748B" stroke-width="0.4" />
       </svg>
     `;
   }
