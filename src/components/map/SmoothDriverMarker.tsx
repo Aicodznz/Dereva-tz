@@ -193,8 +193,8 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
         <div class="relative flex items-center justify-center w-[60px] h-[60px] pointer-events-none">
           <!-- Active Sonar Radar Wave for Assigned Driver -->
           ${isAssignedDriver ? `
-            <div class="absolute w-[46px] h-[46px] rounded-full ${isDark ? 'bg-emerald-500/15 border border-emerald-500/30' : 'bg-emerald-600/15 border border-emerald-600/30'} animate-ping pointer-events-none"></div>
-            <div class="absolute w-[48px] h-[48px] rounded-full bg-transparent ${isDark ? 'border-emerald-400/60 shadow-[0_0_15px_rgba(16,185,129,0.35)]' : 'border-emerald-600/50 shadow-[0_0_12px_rgba(5,150,105,0.25)]'} border flex items-center justify-center pointer-events-none"></div>
+            <div class="absolute w-[46px] h-[46px] rounded-full ${isDark ? 'bg-orange-500/15 border border-orange-500/30' : 'bg-orange-600/15 border border-orange-600/30'} animate-ping pointer-events-none"></div>
+            <div class="absolute w-[48px] h-[48px] rounded-full bg-transparent ${isDark ? 'border-orange-400/60 shadow-[0_0_15px_rgba(249,115,22,0.35)]' : 'border-orange-600/50 shadow-[0_0_12px_rgba(234,88,12,0.25)]'} border flex items-center justify-center pointer-events-none"></div>
           ` : ''}
 
           <!-- Rotated Vehicle Chassis Container -->
@@ -202,7 +202,7 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
             
             ${isAssignedDriver ? `
               <!-- Directional Notch / Arrow Pointer for Assigned Driver -->
-              <div class="absolute -top-1 w-2.5 h-2.5 rotate-45 ${isDark ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]' : 'bg-emerald-600 shadow-[0_0_8px_rgba(5,150,105,0.7)]'} rounded-[1px] z-10 pointer-events-none"></div>
+              <div class="absolute -top-1 w-2.5 h-2.5 rotate-45 ${isDark ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.9)]' : 'bg-orange-600 shadow-[0_0_8px_rgba(234,88,12,0.7)]'} rounded-[1px] z-10 pointer-events-none"></div>
             ` : ''}
             
             <!-- SVG Top-Down Vehicle Body -->
