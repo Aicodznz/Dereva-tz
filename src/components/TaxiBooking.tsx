@@ -682,7 +682,7 @@ export default function TaxiBooking() {
   const [mapRefitTrigger, setMapRefitTrigger] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [settingMode, setSettingMode] = useState<"pickup" | "destination" | "stop">(
-    "pickup",
+    "destination",
   );
   const [selectedRide, setSelectedRide] = useState<RideOption | null>(null);
   const [showBreakdownModal, setShowBreakdownModal] = useState(false);
@@ -4114,54 +4114,75 @@ const getEndPin = (etaText: string) => {
                       </button>
                     </div>
                   ) : (
-                    <div className={`flex-1 flex items-center h-9 sm:h-11 backdrop-blur-xl rounded-lg sm:rounded-xl shadow-md px-2 sm:px-3 gap-1.5 pointer-events-auto relative border ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}>
-                      <Search className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                    <div className={`flex-1 flex items-center h-10 sm:h-12 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-lg px-2.5 sm:px-3.5 gap-2 pointer-events-auto relative border transition-all ${
+                      theme === 'dark' 
+                        ? 'bg-[#111118]/95 border-orange-500/30 ring-1 ring-orange-500/15 text-neutral-200' 
+                        : 'bg-white/95 border-orange-400/40 ring-1 ring-orange-400/20 text-neutral-800'
+                    }`}>
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                        <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 dark:text-orange-400" />
+                      </div>
                       
-                      <input
-                        type="text"
-                        value={pickup}
-                        onChange={(e) => {
-                          setPickup(e.target.value);
-                          setIsAutoLocated(false);
-                          setSettingMode("pickup");
-                          geocodeAddress(e.target.value);
-                        }}
-                        onFocus={() => {
-                          setSettingMode("pickup");
-                        }}
-                        placeholder={t('search_pickup_placeholder')}
-                        className={`flex-1 bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans ${theme === 'dark' ? 'text-neutral-200 placeholder:text-neutral-600' : 'text-neutral-800 placeholder:text-neutral-400'}`}
-                      />
-
-                      {isAutoLocated && (
-                        <span className="shrink-0 text-[8px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase animate-pulse">
-                          Auto
+                      <div className="flex-1 flex flex-col justify-center min-w-0">
+                        <span className="text-[7.5px] sm:text-[8px] font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400 leading-none mb-0.5">
+                          UNAKWENDA WAPI?
                         </span>
+                        <input
+                          type="text"
+                          value={destination}
+                          onChange={(e) => {
+                            setDestination(e.target.value);
+                            setSettingMode("destination");
+                            geocodeAddress(e.target.value);
+                          }}
+                          onFocus={() => {
+                            setSettingMode("destination");
+                          }}
+                          placeholder="Andika hapa unapokwenda..."
+                          className={`w-full bg-transparent text-[11px] sm:text-xs font-bold border-none outline-none p-0 font-sans leading-tight ${
+                            theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-500' : 'text-neutral-900 placeholder:text-neutral-400'
+                          }`}
+                        />
+                      </div>
+
+                      {destination && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDestination("");
+                            setDestPos(null);
+                            setSettingMode("destination");
+                          }}
+                          className="w-6 h-6 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 shrink-0 active:scale-90 transition-all"
+                          title="Futa unapoenda"
+                        >
+                          <CloseX className="w-3.5 h-3.5" />
+                        </button>
                       )}
 
-                      {/* Automatic GPS locator button */}
+                      {/* Select on Map Button */}
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setIsAutoLocated(true);
-                          setAutoFollow(true);
-                          handleCurrentLocation(false);
+                          setSettingMode("destination");
+                          setIsMapFullscreen(true);
+                          toast.info("Gusa eneo lolote kwenye ramani kuchagua unakokwenda 📍", { duration: 3500 });
                         }}
-                        className={`w-6 h-6 sm:w-7 sm:h-7 rounded-md flex items-center justify-center active:scale-90 transition-all ${
-                          isAutoLocated 
-                            ? "bg-[#1D9E75]/25 text-[#00E5A0] border border-[#1D9E75]/35 hover:bg-[#1D9E75]/40"
-                            : (theme === 'dark' ? "bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800" : "bg-neutral-100 text-neutral-500 hover:text-neutral-800 border border-neutral-200/40")
-                        }`}
-                        title="Tafuta mahali ulipo kiotomatiki kwa GPS"
+                        className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/25 flex items-center gap-1 text-[9.5px] sm:text-[10px] font-black shrink-0 active:scale-95 transition-all"
+                        title="Chagua kwenye ramani"
                       >
-                        <Navigation2 className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoLocated ? "rotate-45" : ""}`} />
+                        <Map className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        <span className="hidden xs:inline">Ramani</span>
                       </button>
 
-                      {/* Autocomplete predictions for top search bar */}
-                      {settingMode === "pickup" && suggestions.length > 0 && (
-                        <div className={`absolute left-0 right-0 top-full mt-2 z-[99999] border shadow-2xl rounded-2xl overflow-hidden max-h-[250px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
-                          <div className={`px-4 py-2 border-b text-[9px] font-black uppercase tracking-wider ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
-                            Maeneo Yaliyopatikana
+                      {/* Autocomplete predictions for Destination top search bar */}
+                      {settingMode === "destination" && suggestions.length > 0 && (
+                        <div className={`absolute left-0 right-0 top-full mt-2 z-[99999] border shadow-2xl rounded-2xl overflow-hidden max-h-[280px] overflow-y-auto ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200'}`}>
+                          <div className={`px-4 py-2 border-b text-[9px] font-black uppercase tracking-wider flex items-center justify-between ${theme === 'dark' ? 'bg-[#161622] border-neutral-850 text-neutral-400' : 'bg-neutral-50 border-neutral-100 text-neutral-500'}`}>
+                            <span>Chagua Unakokwenda</span>
+                            <span className="text-[8px] text-orange-500 font-bold">PapoRide</span>
                           </div>
                           {suggestions.map((s, i) => {
                             const displayName = s.display_name || "";
@@ -4171,23 +4192,24 @@ const getEndPin = (etaText: string) => {
                             
                             return (
                               <button
-                                key={`top-suggest-${displayName}-${i}`}
+                                key={`top-dest-suggest-${displayName}-${i}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                   selectSuggestion(s);
+                                  setIsMinimized(false);
                                 }}
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                 }}
-                                className={`w-full text-left p-3.5 flex items-center gap-3 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-neutral-50 active:bg-neutral-100 border-neutral-100'}`}
+                                className={`w-full text-left p-3 flex items-center gap-3 border-b last:border-0 group transition-all ${theme === 'dark' ? 'hover:bg-neutral-800/40 border-neutral-800' : 'hover:bg-orange-50/50 active:bg-orange-50 border-neutral-100'}`}
                               >
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-neutral-800 text-indigo-400 group-hover:bg-indigo-950/40' : 'bg-neutral-100 text-indigo-600 group-hover:bg-indigo-50'} group-hover:scale-105`}>
-                                  <MapPin className="w-4 h-4" />
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${theme === 'dark' ? 'bg-orange-950/40 text-orange-400 group-hover:bg-orange-900/50' : 'bg-orange-100 text-orange-600 group-hover:bg-orange-200'} group-hover:scale-105 shrink-0`}>
+                                  <MapPin className="w-3.5 h-3.5" />
                                 </div>
                                 <div className="flex-1 overflow-hidden">
-                                  <p className={`text-xs font-bold truncate group-hover:text-indigo-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
+                                  <p className={`text-xs font-bold truncate group-hover:text-orange-500 transition-colors ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
                                     {mainName}
                                   </p>
                                   <p className={`text-[10px] truncate mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
@@ -5212,19 +5234,24 @@ const getEndPin = (etaText: string) => {
 
                   <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-[2rem] opacity-90" />
-                    <div className="space-y-4">
+                    <div className="space-y-3">
+                      {/* Destination Input (Top) */}
                       <div 
-                        className="flex items-center gap-4 bg-neutral-50/70 dark:bg-neutral-900/60 border border-neutral-100 dark:border-neutral-850 p-3.5 rounded-2xl cursor-pointer group focus-within:border-indigo-500/50 focus-within:bg-white dark:focus-within:bg-neutral-900 transition-all duration-300 shadow-inner"
+                        className={`flex items-center gap-3.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-3.5 rounded-2xl cursor-pointer group transition-all duration-300 shadow-inner ${
+                          settingMode === "destination" 
+                            ? "border-orange-500/60 bg-white dark:bg-neutral-900 ring-1 ring-orange-500/20" 
+                            : "border-neutral-100 dark:border-neutral-850"
+                        }`}
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${settingMode === "destination" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "destination" ? "bg-orange-600 text-white shadow-lg shadow-orange-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
                         >
                           <Search className="w-4 h-4" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400 mb-1">
-                            {t('where_to_go')}
+                          <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-orange-600 dark:text-orange-400 mb-1">
+                            UNAKWENDA WAPI? (HATIMA)
                           </p>
                           <input
                             type="text"
@@ -5235,21 +5262,83 @@ const getEndPin = (etaText: string) => {
                             }}
                             onFocus={() => setSettingMode("destination")}
                             className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
-                            placeholder={t('type_destination_placeholder')}
+                            placeholder="Andika hapa unapokwenda..."
                           />
                         </div>
                         <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSettingMode("destination");
                               setIsMapFullscreen(true);
-                              toast.success(`${t('select_location')} ${t('on_map')}! 📍`);
+                              toast.info("Gusa eneo lolote kwenye ramani kuchagua unakokwenda 📍");
                             }}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm group ${theme === 'dark' ? 'bg-emerald-950/50 border-emerald-900/40 text-emerald-400 hover:bg-emerald-900/80 hover:text-emerald-300' : 'bg-emerald-50/80 border-emerald-100 text-emerald-600 hover:bg-emerald-100/90 hover:text-emerald-700'}`}
-                            title={t('on_map')}
+                            className={`px-2.5 py-1.5 flex items-center gap-1 rounded-xl border active:scale-90 transition-all shadow-sm ${theme === 'dark' ? 'bg-orange-950/50 border-orange-900/40 text-orange-400 hover:bg-orange-900/80 hover:text-orange-300' : 'bg-orange-50/80 border-orange-100 text-orange-600 hover:bg-orange-100/90 hover:text-orange-700'}`}
+                            title="Chagua kwenye ramani"
                           >
-                            <Map className="w-4 h-4 group-hover:scale-105 transition-transform" />
+                            <Map className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-black">Ramani</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Pickup Input (Bottom - Automatic GPS) */}
+                      <div 
+                        className={`flex items-center gap-3.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-3.5 rounded-2xl cursor-pointer group transition-all duration-300 shadow-inner ${
+                          settingMode === "pickup" 
+                            ? "border-emerald-500/60 bg-white dark:bg-neutral-900 ring-1 ring-emerald-500/20" 
+                            : "border-neutral-100 dark:border-neutral-850"
+                        }`}
+                        onClick={() => setSettingMode("pickup")}
+                      >
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "pickup" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : (theme === 'dark' ? "bg-neutral-850 text-emerald-400" : "bg-emerald-50 text-emerald-600")}`}
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">
+                              TAFUTA ENEO LAKO (KUCHUKULIWA)
+                            </p>
+                            {isAutoLocated && (
+                              <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                GPS Auto
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={pickup}
+                            onChange={(e) => {
+                              setPickup(e.target.value);
+                              setIsAutoLocated(false);
+                              geocodeAddress(e.target.value);
+                            }}
+                            onFocus={() => setSettingMode("pickup")}
+                            className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
+                            placeholder="Inatafuta eneo ulipo kiotomatiki... 📍"
+                          />
+                        </div>
+                        <div className="relative shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsAutoLocated(true);
+                              setAutoFollow(true);
+                              handleCurrentLocation(false);
+                              toast.success("Eneo lako limetambuliwa kiotomatiki kwa GPS 📍");
+                            }}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm ${
+                              isAutoLocated 
+                                ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30" 
+                                : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 border-neutral-700" : "bg-neutral-100 text-neutral-600 border-neutral-200")
+                            }`}
+                            title="Tafuta upya eneo ulipo kwa GPS"
+                          >
+                            <Navigation2 className={`w-4 h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
                           </button>
                         </div>
                       </div>
@@ -6285,57 +6374,68 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
-                  {/* Search Destination Pill */}
+                  {/* Pickup / Eneo Lako Automatic Bar */}
                   <div 
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsMapFullscreen(false);
                       setIsMinimized(false);
-                      setSettingMode("destination");
+                      setSettingMode("pickup");
                     }}
                     className={`w-full px-3.5 py-2.5 rounded-3xl border shadow-[0_12px_40px_rgba(0,0,0,0.15)] flex items-center gap-3.5 select-none cursor-pointer active:scale-[0.98] hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)] transition-all ${
-                      shareMode === 'share'
-                        ? (theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-white/95 backdrop-blur-md border-purple-300 ring-1 ring-purple-400/20')
-                        : (theme === 'dark' ? 'bg-[#111118]/95 backdrop-blur-md border-neutral-800' : 'bg-white/95 backdrop-blur-md border-neutral-200/90')
+                      theme === 'dark' 
+                        ? 'bg-[#111118]/95 backdrop-blur-md border-emerald-500/30 ring-1 ring-emerald-500/15' 
+                        : 'bg-white/95 backdrop-blur-md border-emerald-400/30 ring-1 ring-emerald-400/20'
                     }`}
                   >
                     <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                      shareMode === 'share'
-                        ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
+                      isAutoLocated
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                         : (theme === 'dark' ? 'bg-neutral-850 text-neutral-400' : 'bg-neutral-100/90 text-neutral-500')
                     }`}>
-                      <Search className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <p className={`text-[8px] font-extrabold uppercase tracking-[0.16em] ${
-                          shareMode === 'share' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400 animate-neonPulse'
-                        }`}>
-                          {shareMode === 'share' ? (papoShareSubOption === 'stendi' ? 'PAPOSHARE STENDI' : 'PAPOSHARE SHARING') : 'UNAKWENDA WAPI?'}
+                        <p className="text-[8px] font-extrabold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                          TAFUTA ENEO LAKO (KUCHUKULIWA)
                         </p>
-                        {shareMode === 'share' && (
-                          <span className="text-[7.5px] font-black uppercase px-1.5 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full">
-                            Okoa hadi 35%
+                        {isAutoLocated && (
+                          <span className="text-[7.5px] font-black uppercase px-1.5 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            GPS Auto
                           </span>
                         )}
                       </div>
                       <p className={`text-[13px] font-black tracking-tight truncate ${
-                        destination
+                        pickup
                           ? (theme === 'dark' ? 'text-neutral-100' : 'text-neutral-800')
                           : (theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500')
                       }`}>
-                        {destination || (shareMode === 'share' && papoShareSubOption === 'stendi' ? "Tafuta au chagua kituo cha stendi" : "Andika hapa unapokwenda")}
+                        {pickup || "Inatafuta eneo ulipo kiotomatiki... 📍"}
                       </p>
                     </div>
 
-                    <div className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 ${
-                      shareMode === 'share'
-                        ? 'bg-purple-50/80 dark:bg-purple-950/40 text-purple-600'
-                        : (theme === 'dark' ? 'bg-indigo-950/40 text-indigo-400' : 'bg-indigo-50/70 text-indigo-600')
-                    }`}>
-                      <Map className="w-4 h-4 animate-pulse" />
-                    </div>
+                    {/* Quick GPS Locator Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoLocated(true);
+                        setAutoFollow(true);
+                        handleCurrentLocation(false);
+                        toast.success("Eneo lako limetambuliwa kiotomatiki kwa GPS 📍");
+                      }}
+                      className={`w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0 active:scale-90 transition-all ${
+                        isAutoLocated 
+                          ? "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 border border-emerald-500/30" 
+                          : (theme === 'dark' ? "bg-neutral-850 text-neutral-400 hover:text-neutral-200" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200")
+                      }`}
+                      title="Tafuta upya eneo ulipo kiotomatiki kwa GPS"
+                    >
+                      <Navigation2 className={`w-4 h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
+                    </button>
                   </div>
                 </div>
               )}
