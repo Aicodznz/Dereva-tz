@@ -569,7 +569,18 @@ const MapControl = ({
     const threshold = isLiveStep ? 1.0 : 5; // 1.0 meter threshold so the map smoothly tracks every corner and movement
 
     if (!lastPos || currentPos.distanceTo(lastPos) > threshold) {
-      map.panTo(position, { animate: true, duration: isLiveStep ? 0.6 : 0.8, easeLinearity: 0.25 });
+      // Forward-look navigation lead: Position vehicle slightly below screen center so upcoming route is clearly visible
+      let panCenter: [number, number] = [position[0], position[1]];
+      if (isLiveStep && targetPos && isValidCoord(targetPos)) {
+        const bear = calculateBearing(position[0], position[1], targetPos[0], targetPos[1]);
+        const rad = (bear * Math.PI) / 180;
+        const leadDistance = 0.0008; // ~90 meters forward
+        panCenter = [
+          position[0] + leadDistance * Math.cos(rad),
+          position[1] + leadDistance * Math.sin(rad)
+        ];
+      }
+      map.panTo(panCenter, { animate: true, duration: isLiveStep ? 0.6 : 0.8, easeLinearity: 0.25 });
       lastCenterRef.current = position;
     }
   }, [
@@ -3077,6 +3088,25 @@ const getEndPin = (etaText: string) => {
     setIsMinimized(false);
   };
 
+  const autoFollowTimeoutRef = useRef<any>(null);
+
+  const handleMapInteraction = () => {
+    setAutoFollow(false);
+    if (autoFollowTimeoutRef.current) clearTimeout(autoFollowTimeoutRef.current);
+    if (["arriving", "on_trip", "found", "driver_arriving", "driver_arrived"].includes(step)) {
+      autoFollowTimeoutRef.current = setTimeout(() => {
+        setAutoFollow(true);
+        setMapRefitTrigger(Date.now());
+      }, 4500);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (autoFollowTimeoutRef.current) clearTimeout(autoFollowTimeoutRef.current);
+    };
+  }, []);
+
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
     // Strictly disable selecting locations if any ride activity is happening
     if (
@@ -4508,7 +4538,7 @@ const getEndPin = (etaText: string) => {
                     />
                     <MapEvents
                       onMapClick={handleMapClick}
-                      onInteraction={() => setAutoFollow(false)}
+                      onInteraction={handleMapInteraction}
                     />
                     <MapControl
                       position={

@@ -156,21 +156,29 @@ function MapController({
     return () => observer.disconnect();
   }, [map]);
 
-  // Use map events to turn off autoFollow if user drags or zooms manually
+  // Automatically re-engage autoFollow after 4.5s of manual panning so vehicle never gets lost off-screen
+  const autoFollowTimerRef = React.useRef<any>(null);
+
+  const handleMapInteraction = () => {
+    setAutoFollow(false);
+    if (autoFollowTimerRef.current) clearTimeout(autoFollowTimerRef.current);
+    autoFollowTimerRef.current = setTimeout(() => {
+      setAutoFollow(true);
+    }, 4500);
+  };
+
   useMapEvents({
-    dragstart() {
-      setAutoFollow(false);
-    },
-    zoomstart() {
-      setAutoFollow(false);
-    },
-    drag() {
-      setAutoFollow(false);
-    },
-    zoom() {
-      setAutoFollow(false);
-    }
+    dragstart: handleMapInteraction,
+    zoomstart: handleMapInteraction,
+    drag: handleMapInteraction,
+    zoom: handleMapInteraction
   });
+
+  useEffect(() => {
+    return () => {
+      if (autoFollowTimerRef.current) clearTimeout(autoFollowTimerRef.current);
+    };
+  }, []);
 
   // Apply live dynamic whole map rotation (Waze / Google Maps Navigation Heading-Up vs North-Up)
   const accumulatedRotRef = React.useRef(0);
@@ -216,18 +224,29 @@ function MapController({
       return;
     }
     
-    // Only update view if autoFollow is enabled
+    // Smooth hands-free camera tracking: Follow vehicle without manual scrolling
     if (autoFollow) {
       const currentPos = L.latLng(position[0], position[1]);
       const lastPos = lastCenterRef.current ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1]) : null;
 
-      // Pan camera smoothly as driver moves (> 2 meters) to keep vehicle centered without lag
-      if (!lastPos || currentPos.distanceTo(lastPos) > 2) {
-        map.panTo(position, { animate: true, duration: 0.5 });
+      // Forward-look navigation lead: Position vehicle slightly below screen center so road ahead is clearly visible
+      let targetCenter: [number, number] = [position[0], position[1]];
+      if (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status)) {
+        const rad = ((rotation || 0) * Math.PI) / 180;
+        const forwardDistance = 0.0009; // ~100m forward
+        targetCenter = [
+          position[0] + forwardDistance * Math.cos(rad),
+          position[1] + forwardDistance * Math.sin(rad)
+        ];
+      }
+
+      // Pan camera smoothly as driver moves (> 1.2 meters) to keep vehicle centered without lag or manual scrolling
+      if (!lastPos || currentPos.distanceTo(lastPos) > 1.2) {
+        map.panTo(targetCenter, { animate: true, duration: 0.5, easeLinearity: 0.25 });
         lastCenterRef.current = position;
       }
     }
-  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status]);
+  }, [position?.[0], position?.[1], !!activeRide, autoFollow, activeRide?.status, rotation]);
   
   useEffect(() => {
     if (recenterTrigger > 0 && position) {
