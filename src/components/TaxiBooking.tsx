@@ -699,7 +699,7 @@ export default function TaxiBooking() {
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);
-  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true); // Default to Heading-Up (aligning with phone/travel direction)
+  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(false); // Default to North-Up so place names and icons are always upright and readable
   const [phoneHeading, setPhoneHeading] = useState<number | null>(null);
   const [compassPermissionGranted, setCompassPermissionGranted] = useState<boolean>(false);
   const hasAbsoluteSensorRef = useRef<boolean>(false);
@@ -4543,7 +4543,8 @@ const getEndPin = (etaText: string) => {
                       // In trip mode, prioritize phoneHeading if user is holding phone, otherwise activeDriverHeading.
                       // In map/home mode, use phoneHeading if available.
                       const targetHeading = phoneHeading !== null ? phoneHeading : activeDriverHeading;
-                      const shouldRotate = isHeadingUp && (isTripActive || phoneHeading !== null);
+                      // Only rotate the map if the user explicitly enabled isHeadingUp and is on an active trip
+                      const shouldRotate = isHeadingUp && isTripActive;
 
                       return (
                         <MapRotationController 
@@ -5132,7 +5133,7 @@ const getEndPin = (etaText: string) => {
                         title={isHeadingUp ? "Mwelekeo wa Simu / Safari (Heading-Up) - Gusa kubadili Kaskazini (North-Up)" : "Lenga Kaskazini (North-Up) - Gusa kufuata Mwelekeo wa Simu"}
                       >
                         <div 
-                          style={{ transform: `rotate(${isHeadingUp ? manualRotation : 0}deg)` }}
+                          style={{ transform: `rotate(${isHeadingUp ? manualRotation : (phoneHeading !== null ? -phoneHeading : 0)}deg)` }}
                           className="relative w-7 h-7 flex items-center justify-center transition-transform duration-200 ease-out pointer-events-none"
                         >
                           {/* Red needle pointing North */}

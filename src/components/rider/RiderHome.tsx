@@ -180,7 +180,10 @@ function MapController({
     const container = map.getContainer();
     if (!container) return;
 
-    if (isHeadingUp && typeof rotation === 'number' && !isNaN(rotation)) {
+    // Only apply whole map rotation when isHeadingUp is explicitly active AND driver is on active trip
+    const shouldRotate = isHeadingUp && activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status);
+
+    if (shouldRotate && typeof rotation === 'number' && !isNaN(rotation)) {
       const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
       const targetNormalized = ((rotation % 360) + 360) % 360;
       let diff = targetNormalized - currentNormalized;
@@ -199,7 +202,7 @@ function MapController({
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
     }
-  }, [map, is3DMode, isHeadingUp, autoFollow, rotation]);
+  }, [map, is3DMode, isHeadingUp, autoFollow, rotation, activeRide?.status]);
 
   useEffect(() => {
     if (!position) return;
@@ -528,7 +531,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [isHeadingUp, setIsHeadingUp] = useState(true);
+  const [isHeadingUp, setIsHeadingUp] = useState(false); // Default to North-Up so place names and icons are always upright and readable
   const [showRoadAlerts, setShowRoadAlerts] = useState(false);
   const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');

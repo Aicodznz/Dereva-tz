@@ -66,35 +66,39 @@ export default function DriverTripSheet({ ride, onArrive, onStart, onComplete, o
   };
 
   return (
-    <div className="fixed bottom-4 inset-x-0 z-[1000] px-4 pointer-events-none flex justify-center">
+    <div className="fixed bottom-3 inset-x-0 z-[1000] px-3 pointer-events-none flex justify-center">
       <motion.div 
         initial={{ y: 300 }} 
-        animate={{ y: isMinimized ? 'calc(100% - 60px)' : 0 }}
+        animate={{ y: isMinimized ? 'calc(100% - 46px)' : 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-        className="w-full max-w-[390px] pointer-events-auto rounded-[24px] border border-neutral-200/50 dark:border-neutral-800/80 p-4 space-y-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.3)] backdrop-blur-md bg-white/95 dark:bg-[#111118]/95 text-neutral-850 dark:text-white transition-all duration-300"
+        className="w-full max-w-[390px] pointer-events-auto rounded-[22px] border border-neutral-200/60 dark:border-neutral-800/80 px-3.5 pt-2 pb-3 space-y-2.5 shadow-[0_12px_36px_rgba(0,0,0,0.25)] backdrop-blur-md bg-white/95 dark:bg-[#111118]/95 text-neutral-850 dark:text-white transition-all duration-300"
       >
-        {/* Compact Drag Handle & Minimize Toggle */}
+        {/* Compact Drag Handle & Status Header Bar */}
         <div 
-           className="flex flex-col items-center justify-center cursor-pointer group py-1"
+           className="flex flex-col items-center justify-center cursor-pointer group select-none -mt-0.5"
            onClick={onToggleMinimize}
         >
-           <div className={`w-12 h-1 rounded-full transition-all duration-300 mb-1.5 ${isMinimized ? 'bg-indigo-500 animate-pulse' : 'bg-neutral-300 dark:bg-neutral-800 group-hover:bg-[#7F77DD]'}`} />
-           <p className="text-[7.5px] font-black uppercase text-neutral-400 dark:text-neutral-500 tracking-[0.25em]">
-             {isMinimized ? 'GUSA KUONA SAFARI' : 'SHUSHA KUONA RAMANI'}
-           </p>
-        </div>
+           {/* Minimal Drag Pill */}
+           <div className={`w-10 h-1 rounded-full transition-all duration-300 mb-1.5 ${isMinimized ? 'bg-indigo-500 animate-pulse' : 'bg-neutral-300 dark:bg-neutral-700 group-hover:bg-[#7F77DD]'}`} />
+           
+           {/* Combined Single-Row Status Badge & Minimize Control */}
+           <div className="w-full flex items-center justify-between px-0.5">
+             <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full italic font-black text-[9px] tracking-wider uppercase ${
+               isArriving 
+                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' 
+                 : isArrived 
+                   ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                   : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+             }`}>
+               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+               {isArriving ? '⚡ KUMFUATA MTEJA' : isArrived ? '⚡ UMEFIKA KWA MTEJA' : '⚡ SAFARI INAENDELEA'}
+             </span>
 
-        {/* Status Badge */}
-        <div className="text-center">
-          <span className={`inline-block px-2.5 py-1 rounded-full italic font-black text-[9px] tracking-widest uppercase ${
-            isArriving 
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' 
-              : isArrived 
-                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          }`}>
-            {isArriving ? '⚡ UNAKOPITA KUMFUATA MTEJA' : isArrived ? '⚡ UMEFIKA KWA MTEJA' : '⚡ SAFARI INAENDELEA'}
-          </span>
+             <div className="flex items-center gap-1 text-[8px] font-extrabold uppercase text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-750 dark:group-hover:text-neutral-200 transition-colors">
+               <span>{isMinimized ? 'GUSA KUONA SAFARI' : 'SHUSHA KUONA RAMANI'}</span>
+               {isMinimized ? <ChevronUp className="w-3 h-3 text-[#7F77DD]" /> : <ChevronDown className="w-3 h-3" />}
+             </div>
+           </div>
         </div>
 
         {isMinimized ? (
