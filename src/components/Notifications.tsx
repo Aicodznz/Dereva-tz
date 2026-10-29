@@ -939,7 +939,7 @@ export default function Notifications() {
                     </span>
                   </div>
                   <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                    <strong>Inavyoonekana:</strong> Huonyesha maendeleo ya kazi kwa muda halisi (kama kutuma pesa au kupakua faili) ikibadilika hadi 100%.
+                    <strong>Inavyoonekana:</strong> Upau wa asilimia <code>[████▒▒▒▒] dk 6 zimebaki</code> unaosasisha maendeleo ya dereva anaposogea au muda wa kufika (ETA) kwa wakati halisi.
                   </p>
                 </div>
 
@@ -949,7 +949,7 @@ export default function Notifications() {
                   className="w-full bg-teal-500 hover:bg-teal-600 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-sm disabled:opacity-50"
                 >
                   <Timer className={`w-3.5 h-3.5 mr-1.5 ${isProgressRunning ? 'animate-spin' : ''}`} />
-                  {isProgressRunning ? `Inasasisha [${progressPercent}%]...` : 'Anzisha Progress Notification'}
+                  {isProgressRunning ? `Inasasisha [${progressPercent}%]...` : 'Anzisha Live ETA & Progress [████▒▒▒▒]'}
                 </Button>
               </div>
             </div>

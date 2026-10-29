@@ -3407,6 +3407,93 @@ const getEndPin = (etaText: string) => {
     }
   }, [activeRide?.status, activeRide?.id, activeRide?.paymentStatus, activeRide?.paymentMethod]);
 
+  // Live Driver Movement & ETA Progress Bar Notification [████▒▒▒▒] dk X zimebaki
+  const lastProgressPushRef = useRef<{ time: number; text: string }>({ time: 0, text: "" });
+
+  useEffect(() => {
+    if (!activeRide) return;
+    const status = activeRide.status;
+    if (!["accepted", "driver_arriving", "on_trip"].includes(status)) return;
+
+    const now = Date.now();
+    // Throttle progress notifications to every 3.5 seconds
+    if (now - lastProgressPushRef.current.time < 3500) return;
+
+    const driverName = activeRide.driverInfo?.name || "Dereva";
+    const carModel = activeRide.driverInfo?.vehicle?.model || (activeRide.driverInfo as any)?.vehicleModel || "Chombo";
+    const plate = activeRide.driverInfo?.vehicle?.plate || (activeRide.driverInfo as any)?.plate || "";
+    const carInfo = plate ? `${carModel} - ${plate}` : carModel;
+
+    const matchedDriver = drivers?.find((d) => d.id === activeRide.driverId);
+    const driverLoc: [number, number] | null = driverLivePos
+      ? [driverLivePos.lat, driverLivePos.lng]
+      : activeRide.driverLocation
+      ? [activeRide.driverLocation.lat, activeRide.driverLocation.lng]
+      : matchedDriver
+      ? [matchedDriver.lat, matchedDriver.lng]
+      : null;
+
+    if (["accepted", "driver_arriving"].includes(status)) {
+      if (!driverLoc) return;
+      const distMeters = getDistanceLocal(driverLoc, pickupPos);
+      const distKm = distMeters / 1000;
+      const durSecs = distMeters / 6.5;
+      const etaMins = Math.max(1, Math.ceil(durSecs / 60));
+      
+      const baseDist = Math.max(1500, totalDistance || 2500);
+      const progressFraction = Math.max(0.08, Math.min(0.95, 1 - (distMeters / baseDist)));
+      const percent = Math.round(progressFraction * 100);
+
+      const signature = `approach_${etaMins}_${percent}`;
+      if (lastProgressPushRef.current.text === signature) return;
+      lastProgressPushRef.current = { time: now, text: signature };
+
+      pushNotificationService.updateTripProgressNotification({
+        stage: 'driver_approaching',
+        driverName,
+        carInfo,
+        etaMinutes: etaMins,
+        distanceKm: distKm,
+        percentCompleted: percent
+      }).catch(() => {});
+    } else if (status === "on_trip") {
+      const targetCoord = destPos;
+      if (!driverLoc || !targetCoord) return;
+      const remainingDist = getDistanceLocal(driverLoc, targetCoord);
+      const remainingKm = remainingDist / 1000;
+      const remainingDurSecs = remainingDist / 9.5;
+      const etaMins = Math.max(1, Math.ceil(remainingDurSecs / 60));
+
+      const totalTripMeters = Math.max(1000, totalDistance || (pickupPos && destPos ? getDistanceLocal(pickupPos, destPos) : 3000));
+      const progressFraction = Math.max(0.05, Math.min(0.98, 1 - (remainingDist / totalTripMeters)));
+      const percent = Math.round(progressFraction * 100);
+
+      const signature = `trip_${etaMins}_${percent}`;
+      if (lastProgressPushRef.current.text === signature) return;
+      lastProgressPushRef.current = { time: now, text: signature };
+
+      pushNotificationService.updateTripProgressNotification({
+        stage: 'on_trip',
+        driverName,
+        carInfo,
+        destinationName: destination || activeRide.destination?.address || "Hatima yako",
+        etaMinutes: etaMins,
+        distanceKm: remainingKm,
+        percentCompleted: percent
+      }).catch(() => {});
+    }
+  }, [
+    activeRide?.status,
+    activeRide?.id,
+    driverLivePos?.lat,
+    driverLivePos?.lng,
+    secondsOffset,
+    pickupPos,
+    destPos,
+    totalDistance,
+    destination
+  ]);
+
   const handleTimeout = () => {
     deleteRide();
     setStep("timeout");

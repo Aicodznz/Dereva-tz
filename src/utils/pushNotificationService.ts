@@ -425,32 +425,80 @@ class PushNotificationService {
 
   // ==========================================
   // 9. ⏳ PROGRESS NOTIFICATION
-  // Huonyesha maendeleo ya kazi (Inatuma pesa: 25% -> 60% -> 100%)
+  // Huonyesha maendeleo ya dereva kwa wakati halisi: Upau wa asilimia [████▒▒▒▒] dk 6 zimebaki
   // ==========================================
+  public generateProgressBar(percent: number, length: number = 8): string {
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    const filledCount = Math.round((clamped / 100) * length);
+    const emptyCount = length - filledCount;
+    return '█'.repeat(filledCount) + '▒'.repeat(emptyCount);
+  }
+
+  public async updateTripProgressNotification(params: {
+    stage: 'driver_approaching' | 'on_trip';
+    driverName?: string;
+    carInfo?: string;
+    destinationName?: string;
+    etaMinutes: number;
+    distanceKm?: number;
+    percentCompleted: number;
+  }): Promise<boolean> {
+    const { stage, driverName, carInfo, destinationName, etaMinutes, distanceKm, percentCompleted } = params;
+    const bar = this.generateProgressBar(percentCompleted, 8);
+    const clampedPercent = Math.max(5, Math.min(98, Math.round(percentCompleted)));
+
+    let title = "";
+    let body = "";
+
+    if (stage === 'driver_approaching') {
+      const etaText = etaMinutes <= 1 ? "dk 1 (Anakaribia)" : `dk ${etaMinutes} zimebaki`;
+      title = `⏳ Dereva Anakaribia [${bar}] ${etaText}`;
+      body = `${driverName || 'Dereva'} (${carInfo || 'Chombo'}) yupo njiani. Umbali: ${distanceKm ? `${distanceKm.toFixed(1)} km` : 'karibu'}. [${clampedPercent}%]`;
+    } else {
+      const etaText = etaMinutes <= 1 ? "dk 1 (Unakaribia)" : `dk ${etaMinutes} zimebaki`;
+      title = `⏳ Safarini [${bar}] ${etaText}`;
+      body = `Kuelekea: ${destinationName || 'Hatima'}. Maendeleo: ${clampedPercent}%. Safiri salama!`;
+    }
+
+    return this.sendNotification({
+      title,
+      body,
+      tag: 'paporide_live_trip_progress',
+      renotify: false,
+      silent: true,
+      data: { url: '/taxi', type: 'trip_progress' }
+    });
+  }
+
   public async startProgressNotificationDemo(onUpdate?: (percent: number) => void): Promise<void> {
     const steps = [
-      { percent: 15, bar: '▓░░░░░░░░░', label: 'Inathibitisha alama za uso na NIDA...' },
-      { percent: 45, bar: '▓▓▓▓░░░░░░', label: 'Inawasiliana na seva ya Benki Kuu (BOT)...' },
-      { percent: 80, bar: '▓▓▓▓▓▓▓▓░░', label: 'Inatoa fedha na kuandaa risiti ya EFD...' },
-      { percent: 100, bar: '▓▓▓▓▓▓▓▓▓▓', label: 'Muamala Umekamilika 100%! Pesa zimetumwa.' },
+      { percent: 15, bar: '█▒▒▒▒▒▒▒', mins: 8, km: 3.8, label: 'Dereva Juma (Toyota IST - T 412 DKP) yupo njiani. Umbali: 3.8 km.' },
+      { percent: 45, bar: '████▒▒▒▒', mins: 6, km: 2.5, label: 'Dereva anazidi kukaribia eneo lako. Umbali: 2.5 km.' },
+      { percent: 70, bar: '██████▒▒', mins: 3, km: 1.1, label: 'Dereva amekata kona ya mwisho kuelekea kwako. Umbali: 1.1 km.' },
+      { percent: 90, bar: '███████▒', mins: 1, km: 0.3, label: 'Dereva amekaribia kabisa! Jiandae kutoka nje.' },
+      { percent: 100, bar: '████████', mins: 0, km: 0, label: 'Dereva amewasili langoni pako! Safari iko tayari.' },
     ];
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       onUpdate?.(step.percent);
 
+      const title = step.mins > 0 
+        ? `⏳ Dereva Anakaribia [${step.bar}] dk ${step.mins} zimebaki`
+        : `🔔 Dereva Amewasili [${step.bar}] dk 0`;
+
       await this.sendNotification({
-        title: `⏳ PapoPay [${step.percent}%] ${step.bar}`,
+        title,
         body: step.label,
-        tag: 'papopay_task_progress', // Same tag dynamically updates the existing notification!
+        tag: 'paporide_live_trip_progress',
         renotify: false,
-        silent: i < steps.length - 1, // Only chime on 100% completion
+        silent: i < steps.length - 1,
         vibrate: i === steps.length - 1 ? [200, 100, 200] : [],
-        data: { url: '/wakala', progress: step.percent, type: 'progress' },
+        data: { url: '/taxi', progress: step.percent, type: 'progress' },
       });
 
       if (i < steps.length - 1) {
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, 1400));
       }
     }
   }
