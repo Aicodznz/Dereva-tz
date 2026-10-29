@@ -27,6 +27,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
 
   if (!isOpen || !ride) return null;
 
+  const isPaid = (ride as any).paymentStatus === 'paid' || (ride as any).paymentStatus === 'paid_cash';
   const fare = Number(ride.fare) || 0;
   const originalFare = Number((ride as any).originalFare) || fare;
   const discountAmount = Number((ride as any).discountAmount) || 0;
@@ -120,9 +121,10 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
       `*Muda:* ~${durationMins} dakika\n` +
       `*Dereva:* ${driverName} (${vehiclePlate})\n` +
       `*Chombo:* ${vehicleModel}\n` +
+      `*Hali ya Malipo:* ${isPaid ? '✅ IMELIPWA' : '⏳ HAIJALIPWA BADO'}\n` +
       `*Njia ya Malipo:* ${paymentMethodLabel}\n` +
       `---------------------------------\n` +
-      `*JUMLA ILIYOLIPWA:* TZS ${fare.toLocaleString()}\n` +
+      `*${isPaid ? 'JUMLA ILIYOLIPWA' : 'JUMLA YA KULIPA'}:* TZS ${fare.toLocaleString()}\n` +
       `---------------------------------\n` +
       `_Thibitisha uhalali wa risiti hii: ${verificationUrl}_`;
     
@@ -131,7 +133,7 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
   };
 
   const handleShareOrCopy = async () => {
-    const text = `Risiti ya Safari Papo Hapo TZ:\nNamba: ${receiptNo}\nKutoka: ${ride.pickup?.address}\nKwenda: ${ride.destination?.address}\nJumla: TZS ${fare.toLocaleString()}\nMalipo: ${paymentMethodLabel}`;
+    const text = `Risiti ya Safari Papo Hapo TZ:\nNamba: ${receiptNo}\nKutoka: ${ride.pickup?.address}\nKwenda: ${ride.destination?.address}\nJumla: TZS ${fare.toLocaleString()}\nHali: ${isPaid ? 'Imelipwa' : 'Haijalipwa Bado'}\nNjia: ${paymentMethodLabel}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -200,14 +202,27 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
             {/* Status & Total Amount Header */}
             <div className="bg-white p-4 rounded-2xl border border-neutral-200/90 shadow-xs flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Jumla Iliyolipwa</span>
-                <h2 className="text-2xl font-black text-emerald-600 font-mono tracking-tight">
+                <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
+                  {isPaid ? 'Jumla Iliyolipwa' : 'Jumla ya Nauli (Bado Hujalipa)'}
+                </span>
+                <h2 className={`text-2xl font-black ${isPaid ? 'text-emerald-600' : 'text-amber-600'} font-mono tracking-tight`}>
                   TZS {fare.toLocaleString()}
                 </h2>
               </div>
-              <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200 font-black text-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>IMELIPWA</span>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-black text-xs ${
+                isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {isPaid ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>IMELIPWA</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span>HAIJALIPWA BADO</span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -296,13 +311,15 @@ export const DigitalReceiptModal: React.FC<DigitalReceiptModalProps> = ({
               )}
 
               <div className="border-t border-neutral-200 pt-2 flex justify-between items-center">
-                <span className="text-xs font-black uppercase text-neutral-900">Jumla Kuu (Total Paid)</span>
-                <span className="text-base font-black font-mono text-indigo-600">TZS {fare.toLocaleString()}</span>
+                <span className="text-xs font-black uppercase text-neutral-900">{isPaid ? 'Jumla Kuu (Total Paid)' : 'Jumla ya Kulipa (Amount Due)'}</span>
+                <span className={`text-base font-black font-mono ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>TZS {fare.toLocaleString()}</span>
               </div>
 
               <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-600">
-                <span>Njia ya Malipo:</span>
-                <span className="font-bold text-neutral-900">{paymentMethodLabel}</span>
+                <span>Hali ya Malipo:</span>
+                <span className={`font-bold ${isPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {isPaid ? `✓ Imelipwa (${paymentMethodLabel})` : `⏳ Inasubiri Malipo (${paymentMethodLabel})`}
+                </span>
               </div>
             </div>
 

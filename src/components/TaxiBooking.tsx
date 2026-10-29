@@ -3370,14 +3370,42 @@ const getEndPin = (etaText: string) => {
       }).catch(() => {});
     } else if (currentStatus === "completed") {
       const fare = activeRide.fare || (activeRide as any).estimatedFare || 0;
-      // Rich Notification yenye picha na risiti
-      pushNotificationService.showRichNotification({
-        title: "🖼️ PapoRide: Safari Imekamilika!",
-        body: `Umelipa TZS ${Number(fare).toLocaleString()} kupitia PapoPay. Risiti ya kidijitali imehifadhiwa.`,
-        image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80"
+      const isPaid = activeRide.paymentStatus === "paid" || (activeRide as any).paymentStatus === "paid_cash";
+      const rawMethod = activeRide.paymentMethod || paymentMethod || "cash";
+
+      const methodLabel = (() => {
+        if (rawMethod === 'cash') return 'Pesa Taslimu (Cash)';
+        if (rawMethod === 'nfc' || rawMethod === 'nfc_tap') return 'NFC Tap';
+        if (rawMethod === 'wallet') return 'Papo Mkoba';
+        if (rawMethod === 'mpesa') return 'M-Pesa';
+        if (rawMethod === 'tigopesa') return 'Tigo Pesa';
+        if (rawMethod === 'airtel') return 'Airtel Money';
+        if (rawMethod === 'card') return 'Kadi ya Benki';
+        return 'PapoPay';
+      })();
+
+      const notifTitle = isPaid ? "✅ PapoRide: Safari na Malipo Yamekamilika" : "🏁 PapoRide: Safari Imekamilika!";
+      
+      let notifBody = "";
+      if (isPaid) {
+        notifBody = `Umelipa TZS ${Number(fare).toLocaleString()} kupitia ${methodLabel}. Risiti ya kidijitali inapatikana kwenye app.`;
+      } else {
+        if (rawMethod === 'cash') {
+          notifBody = `Safari imefika mwisho. Nauli ni TZS ${Number(fare).toLocaleString()} (Lipa Pesa Taslimu kwa dereva). Risiti inapatikana kwenye app.`;
+        } else {
+          notifBody = `Safari imefika mwisho. Nauli ni TZS ${Number(fare).toLocaleString()} - bado haijalipwa. Fungua app kuthibitisha malipo.`;
+        }
+      }
+
+      // Tuma arifa halisi bila picha feki ya gari
+      pushNotificationService.sendNotification({
+        title: notifTitle,
+        body: notifBody,
+        tag: 'paporide_trip_completed',
+        data: { url: '/taxi', type: 'receipt', rideId: activeRide.id }
       }).catch(() => {});
     }
-  }, [activeRide?.status, activeRide?.id]);
+  }, [activeRide?.status, activeRide?.id, activeRide?.paymentStatus, activeRide?.paymentMethod]);
 
   const handleTimeout = () => {
     deleteRide();
@@ -3392,15 +3420,25 @@ const getEndPin = (etaText: string) => {
   const handlePayment = async (method: string) => {
     if (!rideId || !user || !activeRide) return;
     try {
+      const isCash = method === 'cash';
       await addDoc(collection(db, "payments"), {
         rideId,
         customerId: user.uid,
         driverId: activeRide.driverId,
         amount: activeRide.fare,
         method,
-        status: "pending",
+        status: isCash ? "cash_pending_driver" : "paid",
         createdAt: serverTimestamp(),
       });
+
+      await updateDoc(doc(db, "rides", rideId), {
+        paymentStatus: isCash ? 'paid_cash' : 'paid',
+        paymentMethod: method,
+        paidAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      toast.success(isCash ? "Umechagua kulipa Pesa Taslimu kwa dereva 💵" : "Malipo yamethibitishwa kikamilifu! 🎉");
       setStep("rating");
     } catch (err) {
       console.error(err);
