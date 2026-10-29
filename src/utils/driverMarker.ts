@@ -7,7 +7,7 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
 
   if (isBike) {
     return `
-      <svg viewBox="0 0 100 120" class="w-10 h-12 overflow-visible" style="display: block; margin: auto;">
+      <svg viewBox="0 0 100 120" class="w-5 h-6 overflow-visible" style="display: block; margin: auto;">
         <defs>
           <linearGradient id="bikeGlow_${isDark ? 'dark' : 'light'}" x1="50%" y1="100%" x2="50%" y2="0%">
             <stop offset="0%" stop-color="#F97316" stop-opacity="0.35"/>
@@ -97,7 +97,7 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
     `;
   } else if (isBajaj) {
     return `
-      <svg viewBox="0 0 100 120" class="w-10 h-12 overflow-visible" style="display: block; margin: auto;">
+      <svg viewBox="0 0 100 120" class="w-[22px] h-[26px] overflow-visible" style="display: block; margin: auto;">
         <defs>
           <linearGradient id="bajajGlow_${isDark ? 'dark' : 'light'}" x1="50%" y1="100%" x2="50%" y2="0%">
             <stop offset="0%" stop-color="#F97316" stop-opacity="0.32"/>
@@ -183,7 +183,7 @@ export function getDriverSvg(type: string, isDark: boolean = true): string {
     `;
   } else {
     return `
-      <svg viewBox="0 0 50 96" class="w-[26px] h-[50px] overflow-visible" style="display: block; margin: auto;">
+      <svg viewBox="0 0 50 96" class="w-[17px] h-[32px] overflow-visible" style="display: block; margin: auto;">
         <defs>
           <!-- Forward Headlight Illuminating Beam with soft gradient -->
           <linearGradient id="carHeadlightBeam_${isDark ? 'dark' : 'light'}" x1="50%" y1="100%" x2="50%" y2="0%">
@@ -342,11 +342,11 @@ export function createDriverMarkerIcon(
   return L.divIcon({
     className: 'custom-driver-marker-wrapper driver-marker-smooth',
     html: `
-      <div class="relative flex items-center justify-center w-[54px] h-[54px]">
+      <div class="relative flex items-center justify-center w-[42px] h-[42px]">
         
         <!-- Attached Navigation Road Label Badge (Exact match to "toward Nelson Mandela Rd" in user screenshot) -->
         ${roadGuideLabel ? `
-          <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#EA580C] text-white font-bold text-[11px] px-3 py-1 rounded-full shadow-[0_4px_12px_rgba(234,88,12,0.5)] border border-white/20 whitespace-nowrap z-50 pointer-events-none">
+          <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-[#EA580C] text-white font-bold text-[10px] px-2.5 py-0.5 rounded-full shadow-[0_4px_12px_rgba(234,88,12,0.5)] border border-white/20 whitespace-nowrap z-50 pointer-events-none">
             ${roadGuideLabel}
           </div>
         ` : ''}
@@ -355,15 +355,15 @@ export function createDriverMarkerIcon(
         <div class="absolute inset-0 rounded-full border border-dashed ${isDark ? 'border-[#EA580C]/30' : 'border-[#EA580C]/35'} animate-spin [animation-duration:12s] pointer-events-none"></div>
         
         <!-- Energetic Pulse Ring -->
-        <div class="absolute w-[38px] h-[38px] rounded-full ${isDark ? 'bg-[#EA580C]/15' : 'bg-[#EA580C]/10'} ${pulseClass} pointer-events-none"></div>
+        <div class="absolute w-[30px] h-[30px] rounded-full ${isDark ? 'bg-[#EA580C]/15' : 'bg-[#EA580C]/10'} ${pulseClass} pointer-events-none"></div>
         
         <!-- Compass Outer Body -->
-        <div class="absolute w-[44px] h-[44px] rounded-full border ${ringColor} flex items-center justify-center select-none pointer-events-none">
+        <div class="absolute w-[34px] h-[34px] rounded-full border ${ringColor} flex items-center justify-center select-none pointer-events-none">
           
           <!-- COMPASS BEAM / FLASHLIGHT: Rotates with phone compass orientation -->
           <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
             <!-- Compass Heading Flashlight Light Beam / Field-of-View Cone -->
-            <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 100px; height: 90px; margin-bottom: 2px;">
+            <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 70px; height: 60px; margin-bottom: 2px;">
               <svg viewBox="0 0 100 90" class="w-full h-full overflow-visible">
                 <defs>
                   <radialGradient id="driverCompassBeamGrad_${isDark ? 'dark' : 'light'}" cx="50%" cy="100%" r="100%">
@@ -382,7 +382,7 @@ export function createDriverMarkerIcon(
 
           <!-- VEHICLE ICON: Rotates with compass heading -->
           <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
-            <div class="w-8 h-8 flex items-center justify-center relative z-10">
+            <div class="w-6 h-6 flex items-center justify-center relative z-10">
               ${vehicleSvg}
             </div>
           </div>
@@ -390,7 +390,7 @@ export function createDriverMarkerIcon(
         </div>
       </div>
     `,
-    iconSize: [54, 54],
-    iconAnchor: [27, 27]
+    iconSize: [42, 42],
+    iconAnchor: [21, 21]
   });
 }

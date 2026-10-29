@@ -2598,18 +2598,18 @@ export default function TaxiBooking() {
         return L.divIcon({
           className: "driver-marker-icon-clean-custom-topdown driver-marker-smooth",
           html: `
-            <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
-              <div class="relative transition-transform duration-500 ease-out flex items-center justify-center" style="transform: rotate(${finalRotation}deg); width: 38px; height: 38px;">
+            <div class="relative flex items-center justify-center pointer-events-none" style="width: 36px; height: 36px;">
+              <div class="relative transition-transform duration-500 ease-out flex items-center justify-center" style="transform: rotate(${finalRotation}deg); width: 28px; height: 28px;">
                 <img 
                   src="${customVehicle.mapMarkerUrl}" 
-                  class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
+                  class="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
                   referrerPolicy="no-referrer" 
                 />
               </div>
             </div>
           `,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22],
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
         });
       } else {
         const isMovingEast = rotation > 0 && rotation < 180;
@@ -2618,28 +2618,28 @@ export default function TaxiBooking() {
         return L.divIcon({
           className: "driver-marker-icon-clean-custom driver-marker-smooth",
           html: `
-            <div class="relative flex items-center justify-center transition-all duration-300" style="width: 36px; height: 36px;">
+            <div class="relative flex items-center justify-center transition-all duration-300" style="width: 32px; height: 32px;">
               <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/25 blur-[1px] pointer-events-none"></div>
               <img 
                 src="${customVehicle.mapMarkerUrl}" 
-                class="w-8 h-8 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-out" 
+                class="w-6 h-6 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] transition-transform duration-300 ease-out" 
                 style="transform: ${flipTransform};"
                 referrerPolicy="no-referrer" 
               />
             </div>
           `,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         });
       }
     }
 
-    // Default ultra-clean top-down vector vehicle (Uber/Google Maps grade)
+    // Default ultra-clean top-down vector vehicle (Uber/Google Maps grade) - Compact phone-friendly sizing
     return L.divIcon({
       className: "driver-marker-icon-clean-wrapper driver-marker-smooth",
       html: `
-        <div class="relative flex items-center justify-center w-[54px] h-[54px] pointer-events-none">
-          <div class="relative transition-transform duration-300 ease-out select-none pointer-events-none flex items-center justify-center" style="transform: rotate(${rotation}deg); width: 34px; height: 54px;">
+        <div class="relative flex items-center justify-center w-[36px] h-[36px] pointer-events-none">
+          <div class="relative transition-transform duration-300 ease-out select-none pointer-events-none flex items-center justify-center" style="transform: rotate(${rotation}deg); width: 24px; height: 36px;">
             <!-- Premium vehicle SVG -->
             <div class="w-full h-full flex items-center justify-center relative z-10 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.18)]">
               ${getDriverSvg(type, theme === "dark")}
@@ -2647,8 +2647,8 @@ export default function TaxiBooking() {
           </div>
         </div>
       `,
-      iconSize: [54, 54],
-      iconAnchor: [27, 27],
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
     });
   };
 
@@ -5265,7 +5265,22 @@ const getEndPin = (etaText: string) => {
                             placeholder="Andika hapa unapokwenda..."
                           />
                         </div>
-                        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {destination && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDestination("");
+                                setDestPos(null);
+                                setSettingMode("destination");
+                              }}
+                              className="p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-all"
+                              title="Futa eneo la hatima"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -5283,65 +5298,67 @@ const getEndPin = (etaText: string) => {
                         </div>
                       </div>
 
-                      {/* Pickup Input (Bottom - Automatic GPS) */}
-                      <div 
-                        className={`flex items-center gap-3.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-3.5 rounded-2xl cursor-pointer group transition-all duration-300 shadow-inner ${
-                          settingMode === "pickup" 
-                            ? "border-emerald-500/60 bg-white dark:bg-neutral-900 ring-1 ring-emerald-500/20" 
-                            : "border-neutral-100 dark:border-neutral-850"
-                        }`}
-                        onClick={() => setSettingMode("pickup")}
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "pickup" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : (theme === 'dark' ? "bg-neutral-850 text-emerald-400" : "bg-emerald-50 text-emerald-600")}`}
+                      {/* Pickup Input (Bottom - Automatic GPS) - Inafichwa mteja akishachagua eneo anapokwenda (UNAKWENDA WAPI) */}
+                      {!destination && (
+                        <div 
+                          className={`flex items-center gap-3.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-3.5 rounded-2xl cursor-pointer group transition-all duration-300 shadow-inner ${
+                            settingMode === "pickup" 
+                              ? "border-emerald-500/60 bg-white dark:bg-neutral-900 ring-1 ring-emerald-500/20" 
+                              : "border-neutral-100 dark:border-neutral-850"
+                          }`}
+                          onClick={() => setSettingMode("pickup")}
                         >
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">
-                              TAFUTA ENEO LAKO (KUCHUKULIWA)
-                            </p>
-                            {isAutoLocated && (
-                              <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                                GPS Auto
-                              </span>
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            value={pickup}
-                            onChange={(e) => {
-                              setPickup(e.target.value);
-                              setIsAutoLocated(false);
-                              geocodeAddress(e.target.value);
-                            }}
-                            onFocus={() => setSettingMode("pickup")}
-                            className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
-                            placeholder="Inatafuta eneo ulipo kiotomatiki... 📍"
-                          />
-                        </div>
-                        <div className="relative shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsAutoLocated(true);
-                              setAutoFollow(true);
-                              handleCurrentLocation(false);
-                              toast.success("Eneo lako limetambuliwa kiotomatiki kwa GPS 📍");
-                            }}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm ${
-                              isAutoLocated 
-                                ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30" 
-                                : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 border-neutral-700" : "bg-neutral-100 text-neutral-600 border-neutral-200")
-                            }`}
-                            title="Tafuta upya eneo ulipo kwa GPS"
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "pickup" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : (theme === 'dark' ? "bg-neutral-850 text-emerald-400" : "bg-emerald-50 text-emerald-600")}`}
                           >
-                            <Navigation2 className={`w-4 h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
-                          </button>
+                            <MapPin className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">
+                                TAFUTA ENEO LAKO (KUCHUKULIWA)
+                              </p>
+                              {isAutoLocated && (
+                                <span className="text-[7.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                  GPS Auto
+                                </span>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              value={pickup}
+                              onChange={(e) => {
+                                setPickup(e.target.value);
+                                setIsAutoLocated(false);
+                                geocodeAddress(e.target.value);
+                              }}
+                              onFocus={() => setSettingMode("pickup")}
+                              className={`w-full bg-transparent text-[13px] font-black border-none outline-none p-0 focus:ring-0 leading-tight ${theme === 'dark' ? 'text-neutral-100 placeholder:text-neutral-700' : 'text-neutral-850 placeholder:text-neutral-400'}`}
+                              placeholder="Inatafuta eneo ulipo kiotomatiki... 📍"
+                            />
+                          </div>
+                          <div className="relative shrink-0 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsAutoLocated(true);
+                                setAutoFollow(true);
+                                handleCurrentLocation(false);
+                                toast.success("Eneo lako limetambuliwa kiotomatiki kwa GPS 📍");
+                              }}
+                              className={`w-10 h-10 flex items-center justify-center rounded-xl border active:scale-90 transition-all shadow-sm ${
+                                isAutoLocated 
+                                  ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30" 
+                                  : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 border-neutral-700" : "bg-neutral-100 text-neutral-600 border-neutral-200")
+                              }`}
+                              title="Tafuta upya eneo ulipo kwa GPS"
+                            >
+                              <Navigation2 className={`w-4 h-4 ${isAutoLocated ? "rotate-45" : ""}`} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {suggestions.length > 0 && (

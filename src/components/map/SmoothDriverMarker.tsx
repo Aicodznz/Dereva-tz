@@ -144,21 +144,21 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
         return L.divIcon({
           className: "smooth-driver-marker-wrapper",
           html: `
-            <div class="relative flex items-center justify-center pointer-events-none" style="width: 50px; height: 50px;">
+            <div class="relative flex items-center justify-center pointer-events-none" style="width: 36px; height: 36px;">
               ${isAssignedDriver ? `
-                <div class="absolute w-12 h-12 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>
+                <div class="absolute w-8 h-8 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>
               ` : ''}
-              <div id="driver-rot-${driverId}" class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${finalRotation}deg); width: 40px; height: 40px; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);">
+              <div id="driver-rot-${driverId}" class="relative flex items-center justify-center pointer-events-none" style="transform: rotate(${finalRotation}deg); width: 28px; height: 28px; transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);">
                 <img 
                   src="${customVehicle.mapMarkerUrl}" 
-                  class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
+                  class="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
                   referrerPolicy="no-referrer" 
                 />
               </div>
             </div>
           `,
-          iconSize: [50, 50],
-          iconAnchor: [25, 25]
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
       } else {
         const normRot = ((currentRotation % 360) + 360) % 360;
@@ -168,41 +168,41 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
         return L.divIcon({
           className: "smooth-driver-marker-wrapper",
           html: `
-            <div class="relative flex items-center justify-center pointer-events-none" style="width: 44px; height: 44px;">
-              ${isAssignedDriver ? `<div class="absolute -inset-2 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>` : ''}
-              <div class="absolute bottom-1 w-8 h-2 rounded-full bg-black/25 blur-[1px] pointer-events-none"></div>
+            <div class="relative flex items-center justify-center pointer-events-none" style="width: 32px; height: 32px;">
+              ${isAssignedDriver ? `<div class="absolute -inset-1 rounded-full ${isDark ? 'bg-emerald-500/20' : 'bg-emerald-600/20'} animate-ping pointer-events-none"></div>` : ''}
+              <div class="absolute bottom-0.5 w-6 h-1.5 rounded-full bg-black/25 blur-[1px] pointer-events-none"></div>
               <img 
                 id="driver-rot-${driverId}"
                 src="${customVehicle.mapMarkerUrl}" 
-                class="w-9 h-9 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
+                class="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.25)]" 
                 style="transform: ${flipTransform}; transition: transform 0.3s ease-out;" 
                 referrerPolicy="no-referrer" 
               />
             </div>
           `,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22]
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
         });
       }
     }
 
-    // Default ultra-smooth top-down vector vehicle (Uber/Google Maps grade)
+    // Default ultra-smooth top-down vector vehicle (Uber/Google Maps grade) - Compact phone-friendly sizing
     return L.divIcon({
       className: "smooth-driver-marker-wrapper",
       html: `
-        <div class="relative flex items-center justify-center w-[60px] h-[60px] pointer-events-none">
+        <div class="relative flex items-center justify-center w-[36px] h-[36px] pointer-events-none">
           <!-- Active Sonar Radar Wave for Assigned Driver -->
           ${isAssignedDriver ? `
-            <div class="absolute w-[46px] h-[46px] rounded-full ${isDark ? 'bg-orange-500/15 border border-orange-500/30' : 'bg-orange-600/15 border border-orange-600/30'} animate-ping pointer-events-none"></div>
-            <div class="absolute w-[48px] h-[48px] rounded-full bg-transparent ${isDark ? 'border-orange-400/60 shadow-[0_0_15px_rgba(249,115,22,0.35)]' : 'border-orange-600/50 shadow-[0_0_12px_rgba(234,88,12,0.25)]'} border flex items-center justify-center pointer-events-none"></div>
+            <div class="absolute w-[28px] h-[28px] rounded-full ${isDark ? 'bg-orange-500/15 border border-orange-500/30' : 'bg-orange-600/15 border border-orange-600/30'} animate-ping pointer-events-none"></div>
+            <div class="absolute w-[30px] h-[30px] rounded-full bg-transparent ${isDark ? 'border-orange-400/60 shadow-[0_0_10px_rgba(249,115,22,0.35)]' : 'border-orange-600/50 shadow-[0_0_8px_rgba(234,88,12,0.25)]'} border flex items-center justify-center pointer-events-none"></div>
           ` : ''}
 
           <!-- Rotated Vehicle Chassis Container -->
-          <div id="driver-rot-${driverId}" class="select-none pointer-events-none flex items-center justify-center relative" style="transform: rotate(${currentRotation}deg); width: 36px; height: 60px; transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);">
+          <div id="driver-rot-${driverId}" class="select-none pointer-events-none flex items-center justify-center relative" style="transform: rotate(${currentRotation}deg); width: 24px; height: 36px; transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);">
             
             ${isAssignedDriver ? `
               <!-- Directional Notch / Arrow Pointer for Assigned Driver -->
-              <div class="absolute -top-1 w-2.5 h-2.5 rotate-45 ${isDark ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.9)]' : 'bg-orange-600 shadow-[0_0_8px_rgba(234,88,12,0.7)]'} rounded-[1px] z-10 pointer-events-none"></div>
+              <div class="absolute -top-1 w-2 h-2 rotate-45 ${isDark ? 'bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.9)]' : 'bg-orange-600 shadow-[0_0_6px_rgba(234,88,12,0.7)]'} rounded-[1px] z-10 pointer-events-none"></div>
             ` : ''}
             
             <!-- SVG Top-Down Vehicle Body -->
@@ -212,8 +212,8 @@ export const SmoothDriverMarker: React.FC<SmoothDriverMarkerProps> = ({
           </div>
         </div>
       `,
-      iconSize: [60, 60],
-      iconAnchor: [30, 30]
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     });
   };
 
