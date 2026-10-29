@@ -180,7 +180,7 @@ function MapController({
     const container = map.getContainer();
     if (!container) return;
 
-    if (isHeadingUp && autoFollow && typeof rotation === 'number' && !isNaN(rotation)) {
+    if (isHeadingUp && typeof rotation === 'number' && !isNaN(rotation)) {
       const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
       const targetNormalized = ((rotation % 360) + 360) % 360;
       let diff = targetNormalized - currentNormalized;
@@ -1975,11 +1975,18 @@ const getEndPin = (etaText: string) => {
 
       let compassHeading: number | null = null;
 
-      // iOS Safari webkitCompassHeading (0 = North, 90 = East, 180 = South, 270 = West)
+      // 1. iOS Safari webkitCompassHeading (0 = North, 90 = East, 180 = South, 270 = West)
       if (typeof (e as any).webkitCompassHeading === 'number' && !isNaN((e as any).webkitCompassHeading)) {
         compassHeading = (e as any).webkitCompassHeading;
       } 
-      // Standard Android / W3C device orientation
+      // 2. Android absolute deviceorientation or absolute event
+      else if ((e as any).absolute === true && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        compassHeading = (360 - e.alpha) % 360;
+      }
+      else if (e.type === 'deviceorientationabsolute' && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        compassHeading = (360 - e.alpha) % 360;
+      }
+      // 3. Fallback standard Android / W3C device orientation
       else if (e.alpha !== null && e.alpha !== undefined && !isNaN(e.alpha)) {
         compassHeading = (360 - e.alpha) % 360;
       }
@@ -3604,24 +3611,30 @@ const getEndPin = (etaText: string) => {
 
           {/* Core Right Side Actions (Clean & Compact Stack of 4) */}
           <div className="flex flex-col gap-2 items-center bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-1.5 rounded-2xl shadow-lg">
-            {/* 1. Recenter / Auto-Follow Vehicle Button */}
+            {/* 1. Recenter / Heading-Up & Auto-Follow Vehicle Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
+                const nextHeading = !isHeadingUp;
+                setIsHeadingUp(nextHeading);
                 setAutoFollow(true);
                 setRecenterTrigger(Date.now());
                 setZoomAction({ type: 'auto', id: Date.now() });
-                toast.success("Ramani imelenga usafiri wako!");
+                if (nextHeading) {
+                  toast.success("🧭 Mwelekeo wa Gari (Heading-Up) umewashwa!");
+                } else {
+                  toast.info("🧭 Ramani imelenga Kaskazini (North-Up)");
+                }
               }}
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                autoFollow 
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' 
+                isHeadingUp && autoFollow 
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40' 
                   : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
-              title="Lenga na Fuatilia Usafiri Wako (Auto-Follow)"
+              title={isHeadingUp ? "Mwelekeo wa Gari (Heading-Up) Uko Wazi - Gusa kubadili Kaskazini (North-Up)" : "Kaskazini (North-Up) - Gusa kugeukia Mwelekeo wa Gari (Heading-Up)"}
             >
-              <Navigation2 className={`w-4 h-4 rotate-45 ${autoFollow ? 'fill-white' : ''}`} />
+              <Navigation2 className={`w-4 h-4 rotate-45 ${isHeadingUp && autoFollow ? 'fill-white' : ''}`} />
             </motion.button>
 
             {/* 2. Zoom In / Zoom Out Controls */}

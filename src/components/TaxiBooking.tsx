@@ -88,6 +88,7 @@ import {
 import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "../ThemeContext";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
+import { calculateBearing } from "../utils/mapHelpers";
 import Chat from "./Chat";
 import ActiveRideChatPopup from "./ActiveRideChatPopup";
 import { db, auth, handleFirestoreError, OperationType } from "../firebase";
@@ -616,17 +617,19 @@ const MapRotationController = ({
 
       const tilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
       // Negative rotation: map rotates counter to heading so forward driving direction is always UP
-      container.style.transform = `${tilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
+      container.style.transform = `${tilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.42)`;
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      onRotate?.(accumulatedRotRef.current);
     } else {
       accumulatedRotRef.current = 0;
       const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg)' : 'none';
       container.style.transform = perspectiveTilt;
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      onRotate?.(0);
     }
-  }, [map, heading, isHeadingUp, is3DMode]);
+  }, [map, heading, isHeadingUp, is3DMode, onRotate]);
 
   return null;
 };
@@ -696,7 +699,10 @@ export default function TaxiBooking() {
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
   const [manualRotation, setManualRotation] = useState(0);
-  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(false);
+  const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true); // Default to Heading-Up (aligning with phone/travel direction)
+  const [phoneHeading, setPhoneHeading] = useState<number | null>(null);
+  const [compassPermissionGranted, setCompassPermissionGranted] = useState<boolean>(false);
+  const hasAbsoluteSensorRef = useRef<boolean>(false);
   const [is3DMode, setIs3DMode] = useState(false);
   const justSelectedRef = useRef(false);
   const vehicleScrollRef = useRef<HTMLDivElement>(null);
@@ -1721,6 +1727,63 @@ export default function TaxiBooking() {
     handleCurrentLocation(true);
   }, []);
 
+  // Real-time Phone Compass Orientation Listener
+  // When customer/user points or turns their phone in any direction, track device heading
+  useEffect(() => {
+    let lastCompassTime = 0;
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      const now = Date.now();
+      if (now - lastCompassTime < 50) return; // ~20fps for fluid response
+
+      let compassVal: number | null = null;
+
+      // 1. iOS Safari (webkitCompassHeading: 0=North, 90=East, 180=South, 270=West)
+      if (typeof (e as any).webkitCompassHeading === 'number' && !isNaN((e as any).webkitCompassHeading)) {
+        compassVal = (e as any).webkitCompassHeading;
+      }
+      // 2. Android deviceorientationabsolute or absolute: true
+      else if ((e as any).absolute === true && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        hasAbsoluteSensorRef.current = true;
+        compassVal = (360 - e.alpha) % 360;
+      }
+      else if (e.type === 'deviceorientationabsolute' && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        hasAbsoluteSensorRef.current = true;
+        compassVal = (360 - e.alpha) % 360;
+      }
+      // 3. Fallback standard deviceorientation alpha if absolute not available
+      else if (typeof e.alpha === 'number' && !isNaN(e.alpha) && !hasAbsoluteSensorRef.current) {
+        compassVal = (360 - e.alpha) % 360;
+      }
+
+      if (compassVal !== null && !isNaN(compassVal)) {
+        lastCompassTime = now;
+        const normalized = Math.round((compassVal + 360) % 360);
+        setPhoneHeading(normalized);
+      }
+    };
+
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      (DeviceOrientationEvent as any).requestPermission()
+        .then((state: string) => {
+          if (state === 'granted') {
+            setCompassPermissionGranted(true);
+            window.addEventListener('deviceorientation', handleOrientation, true);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setCompassPermissionGranted(true);
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+
+    return () => {
+      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+    };
+  }, []);
+
   // Watch customer's actual GPS location in real-time
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -1731,15 +1794,20 @@ export default function TaxiBooking() {
           if (lat && lng) {
             setUserLivePos([lat, lng]);
           }
+          if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
+            if (phoneHeading === null) {
+              setPhoneHeading(Math.round(pos.coords.heading));
+            }
+          }
         },
         (err) => {
           console.warn("[TaxiBooking] watchPosition error:", err);
         },
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 15000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, []);
+  }, [phoneHeading]);
 
   const [extraStops, setExtraStops] = useState<Array<{ id: string; address: string; lat?: number; lng?: number }>>([]);
   const effectiveStops = useMemo(() => {
@@ -2251,7 +2319,16 @@ export default function TaxiBooking() {
         const drvLat = Number(loc.lat ?? (loc as any).latitude);
         const drvLng = Number(loc.lng ?? (loc as any).lon ?? (loc as any).longitude);
         if (!isNaN(drvLat) && !isNaN(drvLng)) {
-          setDriverLivePos({ ...loc, lat: drvLat, lng: drvLng });
+          let headingVal = Number((loc as any).heading);
+          if ((isNaN(headingVal) || headingVal === 0) && lastFetchedPosRef.current) {
+            const prevLat = lastFetchedPosRef.current.lat;
+            const prevLng = lastFetchedPosRef.current.lng;
+            if (Math.abs(drvLat - prevLat) > 0.00001 || Math.abs(drvLng - prevLng) > 0.00001) {
+              headingVal = calculateBearing(prevLat, prevLng, drvLat, drvLng);
+            }
+          }
+          lastFetchedPosRef.current = { lat: drvLat, lng: drvLng };
+          setDriverLivePos({ ...loc, lat: drvLat, lng: drvLng, heading: isNaN(headingVal) ? undefined : headingVal });
         }
 
         const target =
@@ -4462,11 +4539,17 @@ const getEndPin = (etaText: string) => {
                     />
                     {(() => {
                       const activeDriverHeading = (driverLivePos as any)?.heading ?? (activeRide?.driverLocation as any)?.heading ?? 0;
+                      const isTripActive = ["arriving", "on_trip", "driver_arrived", "found", "driver_arriving"].includes(step);
+                      // In trip mode, prioritize phoneHeading if user is holding phone, otherwise activeDriverHeading.
+                      // In map/home mode, use phoneHeading if available.
+                      const targetHeading = phoneHeading !== null ? phoneHeading : activeDriverHeading;
+                      const shouldRotate = isHeadingUp && (isTripActive || phoneHeading !== null);
+
                       return (
                         <MapRotationController 
                           rotation={manualRotation} 
-                          heading={activeDriverHeading} 
-                          isHeadingUp={isHeadingUp && ["arriving", "on_trip", "driver_arrived", "found", "driver_arriving"].includes(step)} 
+                          heading={targetHeading} 
+                          isHeadingUp={shouldRotate} 
                           onRotate={setManualRotation} 
                           is3DMode={is3DMode} 
                         />
@@ -4507,16 +4590,22 @@ const getEndPin = (etaText: string) => {
                       );
                     })}
 
-                    {/* User's Current Live GPS Location (Blue Dot) */}
+                    {/* User's Current Live GPS Location (Blue Dot with Directional Field-of-View Cone) */}
                     {userLivePos && (
                       <Marker
                         position={userLivePos}
                         icon={L.divIcon({
                           className: "user-gps-marker",
                           html: `
-                            <div class="relative flex items-center justify-center w-6 h-6">
-                              <div class="absolute w-4 h-4 rounded-full bg-blue-500/30 animate-ping"></div>
-                              <div class="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow-md"></div>
+                            <div class="relative flex items-center justify-center w-16 h-16 pointer-events-none -ml-5 -mt-5">
+                              ${phoneHeading !== null ? `
+                                <!-- Directional Flashlight Vision Cone pointing where phone faces -->
+                                <div style="transform: rotate(${phoneHeading}deg); transform-origin: center center;" class="absolute inset-0 flex items-center justify-center transition-transform duration-200">
+                                  <div style="width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-top: 36px solid rgba(59, 130, 246, 0.4); filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.5)); transform: translateY(-16px);"></div>
+                                </div>
+                              ` : ''}
+                              <div class="absolute w-5 h-5 rounded-full bg-blue-500/30 animate-ping"></div>
+                              <div class="w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white shadow-lg relative z-10"></div>
                             </div>
                           `,
                           iconSize: [24, 24],
@@ -4999,39 +5088,95 @@ const getEndPin = (etaText: string) => {
                     )}
                   </AnimatePresence>
 
-                  {/* Floating GPS Reticle Locate-Me Button */}
-                  {["map", "home", "searching"].includes(step) && !isSpectator && (
-                    <motion.button
-                      key="floating-gps-reticle-btn"
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsAutoLocated(true);
-                        setAutoFollow(true);
-                        setMapRefitTrigger(Date.now());
-                        handleCurrentLocation(false);
-                        toast.success("Eneo lako limerejeshwa (GPS Recenter) 📍", { duration: 2000 });
-                      }}
-                      className={`fixed sm:absolute z-[99999] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border cursor-pointer transition-all duration-300 pointer-events-auto group ${
-                        (isMinimized || isMapFullscreen)
-                          ? (!destination ? 'bottom-[195px] sm:bottom-[205px] right-4 sm:right-6' : 'bottom-[110px] sm:bottom-[120px] right-4 sm:right-6')
-                          : (destination ? 'bottom-[440px] sm:bottom-[460px] right-4 sm:right-6' : 'bottom-[450px] sm:bottom-[470px] right-4 sm:right-6')
-                      } ${
-                        theme === 'dark' 
-                          ? 'bg-[#161622]/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/60' 
-                          : 'bg-white/95 border-neutral-200/90 text-neutral-800 hover:bg-neutral-50 shadow-neutral-900/20'
+                  {/* Floating Map Controls Stack: Compass Button & GPS Recenter Button */}
+                  {["map", "home", "searching", "found", "arriving", "on_trip", "driver_arriving", "driver_arrived"].includes(step) && !isSpectator && (
+                    <div
+                      className={`fixed sm:absolute z-[99999] flex flex-col gap-3 items-center pointer-events-auto transition-all duration-300 right-4 sm:right-6 ${
+                        ["arriving", "on_trip", "found", "driver_arriving", "driver_arrived"].includes(step)
+                          ? 'bottom-[310px] sm:bottom-[330px]'
+                          : (isMinimized || isMapFullscreen)
+                            ? (!destination ? 'bottom-[195px] sm:bottom-[205px]' : 'bottom-[110px] sm:bottom-[120px]')
+                            : (destination ? 'bottom-[440px] sm:bottom-[460px]' : 'bottom-[450px] sm:bottom-[470px]')
                       }`}
-                      title="Weka ramani mahali nilipo (GPS Locate Me)"
                     >
-                      <div className="relative flex items-center justify-center">
-                        <span className="absolute w-7 h-7 rounded-full bg-emerald-500/25 animate-ping group-active:scale-150 transition-transform pointer-events-none" />
-                        <LocateReticleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-                      </div>
-                    </motion.button>
+                      {/* 1. Dynamic Compass Needle Button (True North Indicator + Heading-Up Toggle) */}
+                      <motion.button
+                        key="floating-compass-heading-btn"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        whileHover={{ scale: 1.08 }}
+                        whileTap={{ scale: 0.92 }}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+                            (DeviceOrientationEvent as any).requestPermission().then((res: string) => {
+                              if (res === 'granted') setCompassPermissionGranted(true);
+                            }).catch(() => {});
+                          }
+                          const next = !isHeadingUp;
+                          setIsHeadingUp(next);
+                          if (next) {
+                            toast.success("🧭 Mwelekeo wa Simu (Compass / Heading-Up) Umewashwa!", { duration: 2500 });
+                          } else {
+                            toast.info("🧭 Ramani imelenga Kaskazini (North-Up)", { duration: 2000 });
+                          }
+                        }}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border cursor-pointer transition-all duration-300 group ${
+                          isHeadingUp
+                            ? 'bg-emerald-600/95 text-white border-emerald-400 shadow-emerald-950/40 ring-2 ring-emerald-400/40'
+                            : (theme === 'dark' 
+                                ? 'bg-[#161622]/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/60' 
+                                : 'bg-white/95 border-neutral-200/90 text-neutral-800 hover:bg-neutral-50 shadow-neutral-900/20')
+                        }`}
+                        title={isHeadingUp ? "Mwelekeo wa Simu / Safari (Heading-Up) - Gusa kubadili Kaskazini (North-Up)" : "Lenga Kaskazini (North-Up) - Gusa kufuata Mwelekeo wa Simu"}
+                      >
+                        <div 
+                          style={{ transform: `rotate(${isHeadingUp ? manualRotation : 0}deg)` }}
+                          className="relative w-7 h-7 flex items-center justify-center transition-transform duration-200 ease-out pointer-events-none"
+                        >
+                          {/* Red needle pointing North */}
+                          <div className="absolute top-0 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[10px] border-b-rose-500 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]" />
+                          {/* Center pivot dot */}
+                          <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 border border-white z-10" />
+                          {/* White / Gray needle pointing South */}
+                          <div className="absolute bottom-0 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[10px] border-t-neutral-300 filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]" />
+                        </div>
+                      </motion.button>
+
+                      {/* 2. Floating GPS Reticle Locate-Me / Recenter Button */}
+                      <motion.button
+                        key="floating-gps-reticle-btn"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        whileHover={{ scale: 1.08 }}
+                        whileTap={{ scale: 0.92 }}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsAutoLocated(true);
+                          setAutoFollow(true);
+                          setMapRefitTrigger(Date.now());
+                          if (["arriving", "on_trip", "found", "driver_arriving", "driver_arrived"].includes(step)) {
+                            toast.success("Ramani imelenga usafiri wako! 🚗", { duration: 2000 });
+                          } else {
+                            handleCurrentLocation(false);
+                            toast.success("Eneo lako limerejeshwa (GPS Recenter) 📍", { duration: 2000 });
+                          }
+                        }}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border cursor-pointer transition-all duration-300 group ${
+                          theme === 'dark' 
+                            ? 'bg-[#161622]/95 border-neutral-700 text-white hover:bg-neutral-800 shadow-black/60' 
+                            : 'bg-white/95 border-neutral-200/90 text-neutral-800 hover:bg-neutral-50 shadow-neutral-900/20'
+                        }`}
+                        title="Weka ramani mahali nilipo / Lenga usafiri"
+                      >
+                        <div className="relative flex items-center justify-center">
+                          <span className="absolute w-7 h-7 rounded-full bg-emerald-500/25 animate-ping group-active:scale-150 transition-transform pointer-events-none" />
+                          <LocateReticleIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                        </div>
+                      </motion.button>
+                    </div>
                   )}
                 </div>
               </motion.div>
