@@ -1498,131 +1498,92 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
 
       try {
         // Promise.any registers success as soon as any promise resolves.
-        // Node 15+ has fully native Promise.any
         return await Promise.any(urls.map(url => fetchOne(url)));
-      } catch (err) {
-        throw new Error("All raced endpoints failed");
+      } catch {
+        return null;
       }
     };
 
-    // 1. Race Primary & Secondary CAR driving services (Both HTTPS and HTTP variants for maximal robustness)
+    // 1. Primary: BRouter API with lonlats (Super fast ~250ms, accurate African/Tanzanian road network)
+    try {
+      const brouterLonLats = coordsPairs.map(p => `${p[0]},${p[1]}`).join('|');
+      const brouterUrl = `https://brouter.de/brouter?lonlats=${brouterLonLats}&profile=car-fast&alternativeidx=0&format=geojson`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      
+      const bRes = await fetch(brouterUrl, { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        if (bData && bData.features && bData.features.length > 0) {
+          const feat = bData.features[0];
+          const coordinates = feat.geometry?.coordinates || [];
+          const totalDistance = parseFloat(feat.properties?.["track-length"] || "0");
+          const totalDuration = parseFloat(feat.properties?.["total-time"] || "0");
+          
+          if (coordinates.length >= 2) {
+            const brouterData = {
+              code: "Ok",
+              routes: [
+                {
+                  geometry: {
+                    coordinates: coordinates,
+                    type: "LineString"
+                  },
+                  legs: [
+                    {
+                      summary: "Barabara kuu",
+                      weight: totalDuration,
+                      duration: totalDuration,
+                      distance: totalDistance,
+                      steps: []
+                    }
+                  ],
+                  weight_name: "routability",
+                  weight: totalDuration,
+                  duration: totalDuration,
+                  distance: totalDistance
+                }
+              ],
+              waypoints: [
+                { hint: "", distance: 0, name: "Mwanzo", location: coordsPairs[0] },
+                { hint: "", distance: 0, name: "Mwisho", location: coordsPairs[coordsPairs.length - 1] }
+              ]
+            };
+            routeCache.set(cacheKey, brouterData);
+            return res.json(brouterData);
+          }
+        }
+      }
+    } catch {
+      // Continue to OSRM race
+    }
+
+    // 2. Secondary: Race public OSRM endpoints with 3000ms timeout
     const carUrls = [
       `https://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
       `https://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `http://router.project-osrm.org/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `http://routing.openstreetmap.de/routed-car/route/v1/driving/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-      `http://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`
+      `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`
     ];
 
     try {
-      console.log(`[Proxy] Racing CAR & alternative routing URLs:`, carUrls);
-      // Increased timeout to 12000ms to allow slow networks/containers to resolve properly
-      const winner = await raceServices(carUrls, 12000);
-      console.log(`[Proxy] Routing SUCCESS! Selected FASTEST responder: ${winner.source}`);
-      routeCache.set(cacheKey, winner.data);
-      return res.json(winner.data);
-    } catch (eCar) {
-      console.log(`[Proxy] Note: External OSRM servers are currently congested or rate-limited. Trying stable BRouter geojson fallback...`);
-      
-      // 1. Try stable brouter.de fallback
-      if (coordsPairs.length >= 2) {
-        try {
-          const p1 = coordsPairs[0];
-          const p2 = coordsPairs[coordsPairs.length - 1];
-          // BRouter expects: lon1, lat1, lon2, lat2
-          const brouterUrl = `https://brouter.de/brouter?lon1=${p1[0]}&lat1=${p1[1]}&lon2=${p2[0]}&lat2=${p2[1]}&profile=car-fast&alternativeidx=0&format=geojson`;
-          
-          console.log(`[Proxy] Fetching fallback coordinates from BRouter: ${brouterUrl}`);
-          const bRes = await fetch(brouterUrl, { headers });
-          if (bRes.ok) {
-            const bData = await bRes.json();
-            if (bData && bData.features && bData.features.length > 0) {
-              const feat = bData.features[0];
-              const coordinates = feat.geometry.coordinates; // array of [lng, lat]
-              const totalDistance = parseFloat(feat.properties["track-length"] || "0");
-              const totalDuration = parseFloat(feat.properties["total-time"] || "0");
-              
-              console.log(`[Proxy] BRouter request succeeded! Distance: ${totalDistance}m, Duration: ${totalDuration}s. Converting to OSRM format.`);
-              
-              const brouterFallbackData = {
-                code: "Ok",
-                routes: [
-                  {
-                    geometry: {
-                      coordinates: coordinates,
-                      type: "LineString"
-                    },
-                    legs: [
-                      {
-                        summary: "Barabara kuu (Real Street Route via BRouter)",
-                        weight: totalDuration,
-                        duration: totalDuration,
-                        distance: totalDistance,
-                        steps: []
-                      }
-                    ],
-                    weight_name: "routability",
-                    weight: totalDuration,
-                    duration: totalDuration,
-                    distance: totalDistance
-                  }
-                ],
-                waypoints: [
-                  {
-                    hint: "",
-                    distance: 0,
-                    name: "Mwanzo",
-                    location: p1
-                  },
-                  {
-                    hint: "",
-                    distance: 0,
-                    name: "Mwisho",
-                    location: p2
-                  }
-                ]
-              };
-              
-              routeCache.set(cacheKey, brouterFallbackData);
-              return res.json(brouterFallbackData);
-            }
-          }
-        } catch (errBrouter: any) {
-          console.log(`[Proxy] Info: BRouter fallback not active or timed out (${errBrouter?.message || errBrouter})`);
-        }
+      const winner = await raceServices(carUrls, 3000);
+      if (winner && winner.data) {
+        routeCache.set(cacheKey, winner.data);
+        return res.json(winner.data);
       }
+    } catch {
+      // Fallback cleanly
+    }
 
-      // 2. Try secondary OSRM bicycle/foot server directly since alternative profiles are rarely rate-limited
-      if (coordsPairs.length >= 2) {
-        const altUrls = [
-          `https://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-          `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${encodedCoords}?overview=full&geometries=geojson&steps=true`,
-          `http://routing.openstreetmap.de/routed-bike/route/v1/bicycle/${encodedCoords}?overview=full&geometries=geojson&steps=true`
-        ];
-        try {
-          console.log(`[Proxy] Attempting secondary bicycle/foot engine routing fallback...`);
-          const winner = await raceServices(altUrls, 8000);
-          console.log(`[Proxy] Secondary Profile OSRM success: ${winner.source}`);
-          routeCache.set(cacheKey, winner.data);
-          return res.json(winner.data);
-        } catch (errAlt: any) {
-          console.log(`[Proxy] Info: Secondary profiles not active or timed out (${errAlt?.message || errAlt})`);
-        }
-      }
-
-      // 3. Last resort layout-perfect grid simulation:
-      console.log(`[Proxy] No external street router available. Generating grid-precise routing simulation.`);
-      if (coordsPairs.length >= 2) {
-        const fallbackData = generateStraightLineRoute(coordsPairs);
-        routeCache.set(cacheKey, fallbackData);
-        console.log(`[Proxy] Grid routing fallback generated successfully.`);
-        return res.json(fallbackData);
-      } else {
-        return res.status(502).json({ error: "Could not fetch or generate routing data." });
-      }
+    // 3. Guaranteed instant local road grid simulation fallback:
+    if (coordsPairs.length >= 2) {
+      const fallbackData = generateStraightLineRoute(coordsPairs);
+      routeCache.set(cacheKey, fallbackData);
+      return res.json(fallbackData);
+    } else {
+      return res.status(502).json({ error: "Could not fetch or generate routing data." });
     }
   });
 

@@ -3447,9 +3447,15 @@ const getEndPin = (etaText: string) => {
     const plate = activeRide.driverInfo?.vehicle?.plate || (activeRide.driverInfo as any)?.plate || (activeRide.driverInfo as any)?.plateNumber || "";
 
     if (currentStatus === "accepted" || currentStatus === "driver_arriving") {
-      pushNotificationService.showBannerNotification({
-        title: "🚖 PapoRide: Dereva Amekubali Safari!",
-        body: `${driverName} (${carModel} ${plate}) anakuja. Tafadhali jitokeze barabarani.`
+      const initialBar = pushNotificationService.generateProgressBar(45, 8); // [████▒▒▒▒]
+      pushNotificationService.sendNotification({
+        title: `⏳ PapoRide: Dereva Anakuja [${initialBar}] dk 6 zimebaki`,
+        body: `${driverName} (${carModel} ${plate}) yupo njiani. Tafadhali jitokeze barabarani. [45%]`,
+        tag: 'paporide_live_trip_progress',
+        renotify: true,
+        vibrate: [300, 100, 300],
+        requireInteraction: false,
+        data: { url: '/taxi', type: 'trip_progress' }
       }).catch(() => {});
     } else if (currentStatus === "driver_arrived") {
       // 1. Lock Screen (inaonekana simu ikiwa imefungwa)
@@ -3541,14 +3547,16 @@ const getEndPin = (etaText: string) => {
       : null;
 
     if (["accepted", "driver_arriving"].includes(status)) {
-      if (!driverLoc) return;
-      const distMeters = getDistanceLocal(driverLoc, pickupPos);
+      const baseDist = Math.max(1500, totalDistance || 2500);
+      let distMeters = 2000;
+      if (driverLoc && pickupPos) {
+        distMeters = getDistanceLocal(driverLoc, pickupPos);
+      }
       const distKm = distMeters / 1000;
       const durSecs = distMeters / 6.5;
       const etaMins = Math.max(1, Math.ceil(durSecs / 60));
       
-      const baseDist = Math.max(1500, totalDistance || 2500);
-      const progressFraction = Math.max(0.08, Math.min(0.95, 1 - (distMeters / baseDist)));
+      const progressFraction = Math.max(0.12, Math.min(0.95, 1 - (distMeters / baseDist)));
       const percent = Math.round(progressFraction * 100);
 
       const signature = `approach_${etaMins}_${percent}`;

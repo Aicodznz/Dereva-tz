@@ -452,19 +452,19 @@ class PushNotificationService {
 
     if (stage === 'driver_approaching') {
       const etaText = etaMinutes <= 1 ? "dk 1 (Anakaribia)" : `dk ${etaMinutes} zimebaki`;
-      title = `⏳ Dereva Anakaribia [${bar}] ${etaText}`;
-      body = `${driverName || 'Dereva'} (${carInfo || 'Chombo'}) yupo njiani. Umbali: ${distanceKm ? `${distanceKm.toFixed(1)} km` : 'karibu'}. [${clampedPercent}%]`;
+      title = `⏳ PapoRide: Dereva Anakuja [${bar}] ${etaText}`;
+      body = `${driverName || 'Dereva'} (${carInfo || 'Chombo'}) yupo njiani. Umbali: ${distanceKm ? `${distanceKm.toFixed(1)} km` : 'karibu'} • [${clampedPercent}%]`;
     } else {
       const etaText = etaMinutes <= 1 ? "dk 1 (Unakaribia)" : `dk ${etaMinutes} zimebaki`;
-      title = `⏳ Safarini [${bar}] ${etaText}`;
-      body = `Kuelekea: ${destinationName || 'Hatima'}. Maendeleo: ${clampedPercent}%. Safiri salama!`;
+      title = `⏳ PapoRide: Safarini [${bar}] ${etaText}`;
+      body = `Kuelekea: ${destinationName || 'Hatima'}. Maendeleo: [${bar}] ${clampedPercent}%.`;
     }
 
     return this.sendNotification({
       title,
       body,
       tag: 'paporide_live_trip_progress',
-      renotify: false,
+      renotify: true,
       silent: true,
       data: { url: '/taxi', type: 'trip_progress' }
     });

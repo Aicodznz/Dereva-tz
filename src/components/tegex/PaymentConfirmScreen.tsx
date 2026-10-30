@@ -91,39 +91,48 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
   return (
     <motion.div 
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className={`fixed inset-0 z-[2000] ${theme === 'dark' ? 'bg-[#0a0a0f]' : 'bg-neutral-50'} flex flex-col p-6`}
+      className={`fixed inset-0 z-[2000] ${theme === 'dark' ? 'bg-[#0a0a0f]' : 'bg-neutral-50'} flex flex-col justify-between p-3.5 sm:p-5 h-[100dvh] max-h-screen overflow-hidden select-none`}
     >
-      <div className="flex-1 flex flex-col justify-center items-center gap-8 text-center">
-        <div className={`w-24 h-24 ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'} border rounded-full flex items-center justify-center mb-2 shadow-sm`}>
-           <CheckCircle2 className="w-12 h-12" />
-        </div>
+      <div className="flex-1 flex flex-col justify-start items-center text-center overflow-y-auto no-scrollbar gap-2 sm:gap-3 py-1">
         
-        <div>
-           <h2 className={`text-3xl font-black italic tracking-tighter ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'} leading-none mb-2`}>Safari Imekamilika!</h2>
-           <p className="text-neutral-500 font-bold">Mteja amelipa kwa njia gani leo?</p>
+        {/* Compact Success Icon & Title */}
+        <div className="flex flex-col items-center">
+          <div className={`w-12 h-12 ${theme === 'dark' ? 'bg-emerald-950/30 border-emerald-800 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'} border rounded-full flex items-center justify-center mb-1 shadow-sm`}>
+             <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h2 className={`text-xl sm:text-2xl font-black italic tracking-tight ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'} leading-none`}>
+            Safari Imekamilika!
+          </h2>
+          <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 font-semibold mt-0.5">
+            Mteja amelipa kwa njia gani leo?
+          </p>
         </div>
 
-        <div className={`w-full ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'} border rounded-[40px] p-8 shadow-sm`}>
-           <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-1">KIASI CHA KULIPWA</p>
-           <h3 className="text-5xl font-black italic text-indigo-600 tracking-tighter">TZS {(ride?.fare ?? 0).toLocaleString()}</h3>
+        {/* Compact Fare Card */}
+        <div className={`w-full ${theme === 'dark' ? 'bg-[#111118] border-neutral-800' : 'bg-white border-neutral-200'} border rounded-2xl p-2.5 sm:p-3 shadow-sm`}>
+           <p className="text-[8px] sm:text-[9px] font-black uppercase text-neutral-400 tracking-wider">KIASI CHA KULIPWA</p>
+           <h3 className="text-2xl sm:text-3xl font-black italic text-indigo-600 dark:text-indigo-400 tracking-tight leading-tight mt-0.5">
+             TZS {(ride?.fare ?? 0).toLocaleString()}
+           </h3>
         </div>
 
-        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-3">
-           {/* 1. Face Payment (Smile-to-Pay) */}
+        {/* 4 Payment Methods Grid */}
+        <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
+           {/* 1. Face Payment */}
            <button 
              onClick={() => {
                setMethod('face');
                setShowFaceModal(true);
              }}
-             className={`h-28 rounded-3xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer relative overflow-hidden ${method === 'face' ? (theme === 'dark' ? 'bg-cyan-950/30 border-cyan-500 text-cyan-400 shadow-sm' : 'bg-cyan-50 border-cyan-600 text-cyan-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850 hover:border-neutral-700' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
+             className={`h-16 sm:h-20 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer relative overflow-hidden p-1.5 ${method === 'face' ? (theme === 'dark' ? 'bg-cyan-950/30 border-cyan-500 text-cyan-400 shadow-sm' : 'bg-cyan-50 border-cyan-600 text-cyan-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
            >
               <div className="relative">
-                <ScanFace className="w-7 h-7 text-cyan-400 animate-pulse" />
-                <span className="absolute -top-1 -right-2 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <ScanFace className="w-5 h-5 text-cyan-400 animate-pulse" />
+                <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
               </div>
               <div className="text-center">
-                 <p className="text-xs font-black uppercase italic">FACE PAY</p>
-                 <p className="text-[9px] font-bold">Smile-to-Pay ⚡</p>
+                 <p className="text-[10.5px] font-black uppercase italic leading-none">FACE PAY</p>
+                 <p className="text-[8px] font-bold leading-none mt-0.5">Smile-to-Pay ⚡</p>
               </div>
            </button>
 
@@ -133,60 +142,57 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
                setMethod('nfc');
                setShowNfcModal(true);
              }}
-             className={`h-28 rounded-3xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${method === 'nfc' ? (theme === 'dark' ? 'bg-teal-950/30 border-teal-500 text-teal-400 shadow-sm' : 'bg-teal-50 border-teal-600 text-teal-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850 hover:border-neutral-700' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
+             className={`h-16 sm:h-20 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer p-1.5 ${method === 'nfc' ? (theme === 'dark' ? 'bg-teal-950/30 border-teal-500 text-teal-400 shadow-sm' : 'bg-teal-50 border-teal-600 text-teal-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
            >
               <div className="relative">
-                <Radio className="w-7 h-7 text-teal-500 animate-pulse" />
-                <span className={`absolute -top-1 -right-2 w-2 h-2 rounded-full ${isHardwareSupported ? 'bg-emerald-400 animate-ping' : 'bg-teal-400'}`} />
+                <Radio className="w-5 h-5 text-teal-500 animate-pulse" />
+                <span className={`absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full ${isHardwareSupported ? 'bg-emerald-400 animate-ping' : 'bg-teal-400'}`} />
               </div>
               <div className="text-center">
-                 <p className="text-xs font-black uppercase italic">NFC TAP</p>
-                 <p className="text-[9px] font-bold">{isHardwareSupported ? 'Chip Ipo ✅' : 'Gusa Simu'}</p>
+                 <p className="text-[10.5px] font-black uppercase italic leading-none">NFC TAP</p>
+                 <p className="text-[8px] font-bold leading-none mt-0.5">{isHardwareSupported ? 'Chip Ipo ✅' : 'Gusa Simu'}</p>
               </div>
            </button>
 
            {/* 3. Cash */}
            <button 
              onClick={() => setMethod('cash')}
-             className={`h-28 rounded-3xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${method === 'cash' ? (theme === 'dark' ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850 hover:border-neutral-700' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
+             className={`h-16 sm:h-20 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all p-1.5 cursor-pointer ${method === 'cash' ? (theme === 'dark' ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400 shadow-sm' : 'bg-emerald-50 border-emerald-600 text-emerald-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
            >
-              <Banknote className="w-7 h-7" />
+              <Banknote className="w-5 h-5" />
               <div className="text-center">
-                 <p className="text-xs font-black uppercase italic">CASH</p>
-                 <p className="text-[9px] font-bold">Taslimu</p>
+                 <p className="text-[10.5px] font-black uppercase italic leading-none">CASH</p>
+                 <p className="text-[8px] font-bold leading-none mt-0.5">Taslimu</p>
               </div>
            </button>
            
            {/* 4. Online */}
            <button 
              onClick={() => setMethod('online')}
-             className={`h-28 rounded-3xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${method === 'online' ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850 hover:border-neutral-700' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
+             className={`h-16 sm:h-20 rounded-2xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all p-1.5 cursor-pointer ${method === 'online' ? (theme === 'dark' ? 'bg-indigo-950/40 border-indigo-500 text-indigo-400 shadow-sm' : 'bg-indigo-50 border-indigo-600 text-indigo-700 shadow-sm') : (theme === 'dark' ? 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:bg-neutral-850' : 'bg-white border-neutral-200 text-neutral-500 hover:bg-neutral-50')}`}
            >
-              <Phone className="w-7 h-7" />
+              <Phone className="w-5 h-5" />
               <div className="text-center">
-                 <p className="text-xs font-black uppercase italic">ONLINE</p>
-                 <p className="text-[9px] font-bold">Simu / QR</p>
+                 <p className="text-[10.5px] font-black uppercase italic leading-none">ONLINE</p>
+                 <p className="text-[8px] font-bold leading-none mt-0.5">Simu / QR</p>
               </div>
            </button>
         </div>
 
+        {/* Compact method status preview */}
         {method === 'face' && (
-           <div className={`w-full p-3.5 rounded-2xl border flex items-center justify-between text-xs gap-2 ${theme === 'dark' ? 'bg-cyan-950/20 border-cyan-800 text-cyan-300' : 'bg-cyan-50 border-cyan-200 text-cyan-800'}`}>
+           <div className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 ${theme === 'dark' ? 'bg-cyan-950/20 border-cyan-800 text-cyan-300' : 'bg-cyan-50 border-cyan-200 text-cyan-800'}`}>
               <div className="flex items-center gap-2 min-w-0 text-left">
                  <ScanFace className="w-4 h-4 text-cyan-400 animate-pulse shrink-0" />
                  <div className="min-w-0">
-                   <p className="font-black text-xs leading-tight">
-                     Face Payment (Smile-to-Pay) Tayari ⚡
-                   </p>
-                   <p className="text-[10px] opacity-80 truncate">
-                     Mteja anatazama kamera ya simu kwa sekunde 2, anatabasamu na kukamilisha malipo
-                   </p>
+                   <p className="font-black text-[11px] leading-tight">Face Pay (Smile-to-Pay) ⚡</p>
+                   <p className="text-[9px] opacity-80 truncate">Mteja anatazama kamera kuthibitisha</p>
                  </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowFaceModal(true)}
-                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-[10px] font-black uppercase shrink-0 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[9px] font-black uppercase shrink-0 transition-colors cursor-pointer"
               >
                 Fungua Sura
               </button>
@@ -194,22 +200,18 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
         )}
 
         {method === 'nfc' && (
-           <div className={`w-full p-3.5 rounded-2xl border flex items-center justify-between text-xs gap-2 ${theme === 'dark' ? 'bg-teal-950/20 border-teal-800 text-teal-300' : 'bg-teal-50 border-teal-200 text-teal-800'}`}>
+           <div className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-xs gap-2 ${theme === 'dark' ? 'bg-teal-950/20 border-teal-800 text-teal-300' : 'bg-teal-50 border-teal-200 text-teal-800'}`}>
               <div className="flex items-center gap-2 min-w-0 text-left">
                  <Radio className="w-4 h-4 text-teal-400 animate-ping shrink-0" />
                  <div className="min-w-0">
-                   <p className="font-black text-xs leading-tight">
-                     {isHardwareSupported ? 'NFC Hardware Tayari ✅' : 'Contactless SoftPOS Tayari 📡'}
-                   </p>
-                   <p className="text-[10px] opacity-80 truncate">
-                     {isHardwareSupported ? 'Mteja aguse simu au kadi yake nyuma ya simu yako' : 'Fungua terminal kupokea malipo kwa mguso'}
-                   </p>
+                   <p className="font-black text-[11px] leading-tight">{isHardwareSupported ? 'NFC Chip Tayari ✅' : 'SoftPOS Tayari 📡'}</p>
+                   <p className="text-[9px] opacity-80 truncate">Gusa kadi au simu ya mteja</p>
                  </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowNfcModal(true)}
-                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase shrink-0 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-[9px] font-black uppercase shrink-0 transition-colors cursor-pointer"
               >
                 Fungua Terminal
               </button>
@@ -217,26 +219,29 @@ export default function PaymentConfirmScreen({ ride, onPaymentConfirmed }: Payme
         )}
 
         {method === 'online' && (
-           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full grid grid-cols-2 gap-3 mt-[-20px]">
-              <div className={`border p-3 rounded-2xl flex items-center gap-2 shadow-sm ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-400' : 'bg-white border-neutral-200 text-neutral-600'}`}>
-                 <QrCode className="w-4 h-4 text-neutral-400" />
-                 <span className="text-[10px] font-black uppercase">Scan QR</span>
+           <div className="w-full grid grid-cols-2 gap-2">
+              <div className={`border p-2 rounded-xl flex items-center gap-1.5 shadow-xs ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-400' : 'bg-white border-neutral-200 text-neutral-600'}`}>
+                 <QrCode className="w-3.5 h-3.5 text-neutral-400" />
+                 <span className="text-[9px] font-black uppercase">Scan QR</span>
               </div>
-              <div className={`border p-3 rounded-2xl flex items-center gap-2 shadow-sm ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-400' : 'bg-white border-neutral-200 text-neutral-600'}`}>
-                 <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-extrabold text-white italic">M</div>
-                 <span className="text-[10px] font-black uppercase">Mongike Pay</span>
+              <div className={`border p-2 rounded-xl flex items-center gap-1.5 shadow-xs ${theme === 'dark' ? 'bg-[#111118] border-neutral-800 text-neutral-400' : 'bg-white border-neutral-200 text-neutral-600'}`}>
+                 <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center text-[7.5px] font-extrabold text-white italic">M</div>
+                 <span className="text-[9px] font-black uppercase">Mongike Pay</span>
               </div>
-           </motion.div>
+           </div>
         )}
       </div>
 
-      <button 
-        disabled={!method || isConfirming}
-        onClick={handleConfirmPay}
-        className={`h-20 rounded-3xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase italic text-xl shadow-lg shadow-indigo-600/10 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale`}
-      >
-        {isConfirming ? 'Inatuma...' : 'THIBITISHA MALIPO'}
-      </button>
+      {/* Confirm Button - always docked and visible at bottom without scrolling */}
+      <div className="pt-2 w-full shrink-0">
+        <button 
+          disabled={!method || isConfirming}
+          onClick={handleConfirmPay}
+          className="h-12 sm:h-13 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase italic text-sm sm:text-base shadow-lg shadow-indigo-600/20 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-2 cursor-pointer"
+        >
+          {isConfirming ? 'Inatuma...' : 'THIBITISHA MALIPO'}
+        </button>
+      </div>
 
       {/* Face Payment Modal */}
       <FacePaymentModal
