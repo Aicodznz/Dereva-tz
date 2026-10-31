@@ -444,7 +444,7 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
 
   return (
     <div 
-      className="fixed inset-x-0 top-0 z-[600] pointer-events-none flex flex-col items-center font-sans px-3 sm:px-4 pt-2.5 sm:pt-3.5"
+      className="fixed inset-x-0 top-0 z-[600] pointer-events-none flex flex-col items-center font-sans px-2.5 sm:px-4 pt-1.5 sm:pt-2.5"
       style={{
         transform: 'translate3d(0,0,0)',
         backfaceVisibility: 'hidden',
@@ -454,48 +454,48 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
       <div className="w-full max-w-md sm:max-w-lg pointer-events-auto">
         <AnimatePresence mode="wait">
           {!isMinimized ? (
-            /* --- EXPANDED NAVIGATION CARD (100% EXACT MATCH TO USER SCREENSHOTS) --- */
+            /* --- EXPANDED NAVIGATION CARD (COMPACT & SLIM, ZERO WASTED SPACE) --- */
             <motion.div
               key="expanded-hud"
-              initial={{ y: -30, opacity: 0, scale: 0.96 }}
+              initial={{ y: -24, opacity: 0, scale: 0.97 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: -20, opacity: 0, scale: 0.96 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 240 }}
-              className="bg-white dark:bg-neutral-900 rounded-[26px] p-3.5 sm:p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)] border border-neutral-200/90 dark:border-neutral-800"
+              exit={{ y: -16, opacity: 0, scale: 0.97 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+              className="bg-white dark:bg-neutral-900 rounded-2xl p-2 sm:p-2.5 shadow-[0_10px_25px_rgba(0,0,0,0.14)] border border-neutral-200/90 dark:border-neutral-800"
             >
               {/* TOP ROW: Icon Box, Instruction Title + Road Subtitle, Badges (Arriving, Red X) */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2.5">
                 {/* Left Accent Icon Box */}
-                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${themeAccent.iconBg}`}>
+                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${themeAccent.iconBg}`}>
                   {currentManeuver.icon === 'check' && (
-                    <Flag className="w-6 h-6 text-white fill-white" />
+                    <Flag className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white" />
                   )}
                   {currentManeuver.icon === 'right' && (
-                    <CornerUpRight className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                    <CornerUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-white stroke-[3.5]" />
                   )}
                   {currentManeuver.icon === 'left' && (
-                    <CornerUpLeft className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                    <CornerUpLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white stroke-[3.5]" />
                   )}
                   {currentManeuver.icon === 'straight' && (
-                    <ArrowUp className="w-6 h-6 sm:w-7 sm:h-7 text-white stroke-[3.5]" />
+                    <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 text-white stroke-[3.5]" />
                   )}
                 </div>
 
-                {/* Instruction & Road / Destination Subtitle - Plenty of room, no truncation */}
+                {/* Instruction & Road / Destination Subtitle */}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-[15px] sm:text-[17px] font-black text-neutral-900 dark:text-white leading-tight break-words line-clamp-1">
+                  <h2 className="text-[13px] sm:text-[14px] font-black text-neutral-900 dark:text-white leading-tight truncate">
                     {currentManeuver.mainText}
                   </h2>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 font-semibold truncate mt-0.5">
+                  <p className="text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 font-semibold truncate leading-tight mt-0.5">
                     {currentManeuver.subTitle}
                   </p>
                 </div>
 
-                {/* Right Action Badges (Arriving pill, Recenter target, Red X) */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Right Action Badges (Arriving pill, Red X) */}
+                <div className="flex items-center gap-1 shrink-0">
                   {/* Status Pill Badge (Shown when Arriving) */}
                   {themeAccent.badgeText && (
-                    <div className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm tracking-wide ${themeAccent.pillBg}`}>
+                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs tracking-wide ${themeAccent.pillBg}`}>
                       {themeAccent.badgeText}
                     </div>
                   )}
@@ -503,72 +503,72 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
                   {/* Red X Dismiss / Minimize */}
                   <button
                     onClick={() => setIsMinimized(true)}
-                    className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/40 text-neutral-400 hover:text-red-500 transition-transform active:scale-90"
+                    className="p-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-transform active:scale-90"
                     title="Punguza Mwonekano (Minimize Card)"
                   >
-                    <X className="w-4 h-4 stroke-[2.5]" />
+                    <X className="w-3.5 h-3.5 stroke-[2.5]" />
                   </button>
                 </div>
               </div>
 
-              {/* MIDDLE ROW: 4 Columns (REMAIN, ETA, TIME, KM/H) */}
-              <div className="grid grid-cols-4 items-center pt-2.5 sm:pt-3 pb-1 border-t border-neutral-100 dark:border-neutral-800/80 mt-2.5 sm:mt-3 gap-1 sm:gap-2">
+              {/* MIDDLE ROW: 4 Columns (REMAIN, ETA, TIME, KM/H) - Tight zero-waste spacing */}
+              <div className="grid grid-cols-4 items-center pt-1.5 pb-0.5 border-t border-neutral-100 dark:border-neutral-800/80 mt-1.5 gap-1">
                 {/* Column 1: REMAIN */}
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                  <span className="text-[7.5px] sm:text-[8px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase leading-none">
                     REMAIN
                   </span>
-                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                  <span className="text-[11.5px] sm:text-xs font-black text-neutral-800 dark:text-neutral-100 leading-tight truncate mt-0.5">
                     {distMeters <= 70 ? 'Arriving' : formattedDist}
                   </span>
                 </div>
 
                 {/* Column 2: ETA */}
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                  <span className="text-[7.5px] sm:text-[8px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase leading-none">
                     ETA
                   </span>
-                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                  <span className="text-[11.5px] sm:text-xs font-black text-neutral-800 dark:text-neutral-100 leading-tight truncate mt-0.5">
                     {etaClockTime}
                   </span>
                 </div>
 
                 {/* Column 3: TIME */}
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase">
+                  <span className="text-[7.5px] sm:text-[8px] font-bold text-neutral-400 dark:text-neutral-500 tracking-wider uppercase leading-none">
                     TIME
                   </span>
-                  <span className="text-sm sm:text-base font-extrabold text-neutral-800 dark:text-neutral-100 leading-tight truncate">
+                  <span className="text-[11.5px] sm:text-xs font-black text-neutral-800 dark:text-neutral-100 leading-tight truncate mt-0.5">
                     {distMeters <= 70 ? '< 1 min' : `${etaMins} min`}
                   </span>
                 </div>
 
                 {/* Column 4: KM/H Speedometer Box + Speed Limit 50 Ring */}
-                <div className="flex items-center gap-1 sm:gap-1.5 justify-end">
+                <div className="flex items-center gap-1 justify-end">
                   {/* Speed Limit Indicator (Standard Urban Road 50 km/h) */}
                   <div 
-                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 ${
+                    className={`w-5 h-5 rounded-full border-[1.5px] ${
                       speed > 50 
                         ? 'border-red-600 bg-red-100 text-red-700 animate-bounce font-black' 
                         : 'border-red-500 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200'
-                    } flex items-center justify-center font-black text-[9px] sm:text-[10px] shadow-xs shrink-0`}
+                    } flex items-center justify-center font-black text-[8px] shadow-xs shrink-0`}
                     title="Kiwango cha juu cha kasi mjini (50 km/h)"
                   >
                     50
                   </div>
 
                   {/* Dynamic Speed Box */}
-                  <div className={`rounded-2xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex flex-col items-center justify-center min-w-[50px] sm:min-w-[54px] border transition-colors ${
+                  <div className={`rounded-lg px-1.5 sm:px-2 py-0.5 flex flex-col items-center justify-center min-w-[38px] sm:min-w-[42px] border transition-colors ${
                     speed > 50 
-                      ? 'bg-red-500 text-white border-red-600 shadow-md animate-pulse' 
+                      ? 'bg-red-500 text-white border-red-600 shadow-xs animate-pulse' 
                       : 'bg-[#ecfdf5] dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60'
                   }`}>
-                    <span className={`text-[8.5px] font-black tracking-wider uppercase leading-none ${
+                    <span className={`text-[6.5px] font-black tracking-wider uppercase leading-none ${
                       speed > 50 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'
                     }`}>
                       KM/H
                     </span>
-                    <span className={`text-lg sm:text-xl font-black font-mono leading-tight mt-0.5 ${
+                    <span className={`text-[11.5px] sm:text-xs font-black font-mono leading-none mt-0.5 ${
                       speed > 50 ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'
                     }`}>
                       {speed}
@@ -578,57 +578,57 @@ export const Navigation3DHudOverlay: React.FC<Navigation3DHudOverlayProps> = ({
               </div>
 
               {/* BOTTOM ROW: Next Maneuver Preview WITH Direction Arrow + Audio & Language Controls */}
-              <div className="flex items-center justify-between pt-2.5 border-t border-neutral-100 dark:border-neutral-800/60 mt-1.5 gap-2">
+              <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800/60 mt-1 gap-1.5">
                 {/* Left: Direction Arrow + Next Turn Preview */}
-                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 inline-block shadow-sm" />
-                  <span className="text-[10px] font-black text-amber-500 dark:text-amber-400 uppercase tracking-wider shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 inline-block shadow-xs" />
+                  <span className="text-[8.5px] font-black text-amber-500 dark:text-amber-400 uppercase tracking-wider shrink-0">
                     • {useSwahili ? 'KISHA' : 'THEN'}
                   </span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {/* Direction Arrow Badge (⚑ Purple, ↱ Green, ↰ Blue, ↑ Blue) */}
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 shadow-sm ${nextTurnAccent.bg}`}>
+                  <div className="flex items-center gap-1 min-w-0">
+                    {/* Direction Arrow Badge */}
+                    <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 shadow-xs ${nextTurnAccent.bg}`}>
                       {nextTurnManeuver.icon === 'check' && (
-                        <Flag className="w-3 h-3 text-white fill-white" />
+                        <Flag className="w-2 h-2 text-white fill-white" />
                       )}
                       {nextTurnManeuver.icon === 'right' && (
-                        <CornerUpRight className="w-3 h-3 text-white stroke-[3.5]" />
+                        <CornerUpRight className="w-2 h-2 text-white stroke-[3.5]" />
                       )}
                       {nextTurnManeuver.icon === 'left' && (
-                        <CornerUpLeft className="w-3 h-3 text-white stroke-[3.5]" />
+                        <CornerUpLeft className="w-2 h-2 text-white stroke-[3.5]" />
                       )}
                       {nextTurnManeuver.icon === 'straight' && (
-                        <ArrowUp className="w-3 h-3 text-white stroke-[3.5]" />
+                        <ArrowUp className="w-2 h-2 text-white stroke-[3.5]" />
                       )}
                     </div>
-                    <span className="text-[11px] sm:text-xs font-bold text-neutral-700 dark:text-neutral-200 truncate">
+                    <span className="text-[9.5px] sm:text-[10.5px] font-bold text-neutral-700 dark:text-neutral-200 truncate">
                       {nextTurnManeuver.text}
                     </span>
                   </div>
                 </div>
 
                 {/* Right: Auxiliary Quick Tools (Voice guidance speaker, Language toggle SW/EN, Settings) */}
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={handleSpeakCurrentManeuver}
-                    className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
+                    className="p-1 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
                     title="Sikiliza Maelekezo (Voice Guidance)"
                   >
-                    <Volume2 className="w-3.5 h-3.5" />
+                    <Volume2 className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => setUseSwahili(prev => !prev)}
-                    className="px-2 py-0.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[10px] font-bold text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
+                    className="px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-[8.5px] font-bold text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
                     title="Badili Lugha (SW / EN)"
                   >
                     {useSwahili ? 'SW' : 'EN'}
                   </button>
                   <button
                     onClick={() => setShowVoiceTester(prev => !prev)}
-                    className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
+                    className="p-1 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors active:scale-95"
                     title="Mipangilio ya Sauti"
                   >
-                    <Radio className="w-3.5 h-3.5" />
+                    <Radio className="w-3 h-3" />
                   </button>
                 </div>
               </div>
