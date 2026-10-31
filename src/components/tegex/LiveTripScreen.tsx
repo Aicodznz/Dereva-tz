@@ -285,368 +285,194 @@ export const LiveTripScreen: React.FC<LiveTripScreenProps> = ({
                 setIsCollapsed(true);
               }
             }}
-            className={`absolute bottom-4 left-4 right-4 max-w-[390px] md:mx-auto rounded-[24px] border p-3 pb-4 shadow-[0_12px_40px_rgba(0,0,0,0.18)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
+            className={`absolute bottom-3 left-3 right-3 max-w-[390px] md:mx-auto rounded-2xl border p-2.5 pb-2.5 shadow-[0_12px_36px_rgba(0,0,0,0.18)] z-[60] transition-all touch-none pointer-events-auto ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white/95 border-neutral-200/80'}`}
           >
             {/* Centered Top Drag Pill */}
-            <div className="flex justify-center -mt-1 mb-2 select-none">
-              <div className={`w-10 h-1 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-700/80' : 'bg-neutral-300'}`} />
+            <div className="flex justify-center -mt-1 mb-1.5 select-none">
+              <div className={`w-8 h-1 rounded-full cursor-grab active:cursor-grabbing ${theme === 'dark' ? 'bg-neutral-700/80' : 'bg-neutral-300'}`} />
             </div>
 
-            {/* Header: Status and Collapse Button */}
-            <div className="relative flex items-center justify-between mb-2 select-none">
+            {/* Header: Status, Live ETA & Collapse Button in one single compact row */}
+            <div className="flex items-center justify-between mb-2 select-none gap-1.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <div className={`border px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${theme === 'dark' ? 'bg-emerald-950/20 text-emerald-400 border-emerald-900/60' : 'bg-emerald-50 text-emerald-700 border-emerald-500/20'}`}>
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-wider leading-none">{statusText}</span>
+                  <span className="text-[7.5px] font-black uppercase tracking-wider leading-none">{statusText}</span>
+                </div>
+
+                {/* Compact ETA & Distance Pill */}
+                <div className={`px-2 py-0.5 rounded-full border flex items-center gap-1 text-[8px] font-mono font-black ${theme === 'dark' ? 'bg-indigo-950/30 border-indigo-800/50 text-indigo-300' : 'bg-indigo-50 border-indigo-200/80 text-indigo-700'}`}>
+                  <span>ETA {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}</span>
+                  <span>•</span>
+                  <span>{distance ? `${distance.toFixed(1)} km` : (ride.distance ? `${ride.distance} km` : '0.1 km')}</span>
                 </div>
 
                 {activeViewersCount > 0 && (
                   <div 
                     title={activeViewerNames.join(", ")}
-                    className={`relative group border px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm cursor-help shrink-0 ${theme === 'dark' ? 'bg-blue-950/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-700 border-blue-400/20'}`}
+                    className={`border px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${theme === 'dark' ? 'bg-blue-950/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-700 border-blue-400/20'}`}
                   >
-                    <span className="text-[8.5px] leading-none">👁️</span>
-                    <span className="text-[8px] font-black uppercase tracking-wider leading-none">
-                      {activeViewersCount} {activeViewersCount === 1 ? 'Anatazama' : 'Wanatazama'}
-                    </span>
-                    <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block border rounded-xl px-3 py-2 text-[10px] font-medium whitespace-nowrap shadow-xl z-50 ${theme === 'dark' ? 'bg-[#161622] border-neutral-800 text-neutral-200' : 'bg-white border-neutral-200 text-neutral-800'}`}>
-                      Inatazamwa na: <span className="text-indigo-500 font-bold">{activeViewerNames.join(", ")}</span>
-                    </div>
+                    <span className="text-[7.5px] leading-none">👁️ {activeViewersCount}</span>
                   </div>
                 )}
               </div>
 
               <button 
                 onClick={() => setIsCollapsed(true)}
-                className={`text-[8.5px] font-black uppercase tracking-[0.12em] px-2.5 py-1 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'text-neutral-300 bg-neutral-900 hover:bg-neutral-800 hover:text-white border border-neutral-800' : 'text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200/60'}`}
+                className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'text-neutral-300 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800' : 'text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200/60'}`}
               >
                 Ficha Maelezo
               </button>
             </div>
 
-            {/* Combined compact Driver details & destination/ETA */}
+            {/* Compact Driver & Destination Strip */}
             {ride.driverInfo && (
-              <div className={`p-3 rounded-2xl border mb-2.5 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/80 border-neutral-800/90' : 'bg-neutral-50/90 border-neutral-200/70 shadow-xs'}`}>
-                {/* Row 1: Driver Photo, Name, Rating & ETA Badge */}
-                <div className="flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-emerald-500 relative bg-neutral-100 dark:bg-neutral-800 shrink-0 shadow-sm">
-                      <img 
-                        src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} 
-                        alt="Driver" 
-                        className="w-full h-full object-cover" 
-                      />
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-neutral-900 rounded-full shadow-md" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <h4 className={`text-xs font-black uppercase font-heading truncate leading-tight ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'}`}>
-                          {ride.driverInfo.name || 'Dereva'}
-                        </h4>
-                        <div className="flex items-center gap-0.5 text-amber-500 shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
-                          <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                          <span className="text-[8.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.9'}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={toggleFavDriver}
-                          className={`p-1 rounded-full border transition-all active:scale-90 shrink-0 ${
-                            isFavDriver
-                              ? 'bg-rose-500/15 border-rose-500/30 text-rose-500'
-                              : 'border-transparent text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10'
-                          }`}
-                          title={isFavDriver ? 'Dereva Mpendwa (Saved to Favorites)' : 'Hifadhi Dereva Huyu (Add to Favorites)'}
-                        >
-                          <Heart className={`w-3 h-3 ${isFavDriver ? 'fill-rose-500 text-rose-500' : ''}`} />
-                        </button>
+              <div className={`p-2 rounded-xl border mb-2 select-none transition-all ${theme === 'dark' ? 'bg-[#161622]/80 border-neutral-800/90' : 'bg-neutral-50/90 border-neutral-200/70'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  {/* Driver Photo */}
+                  <div className="w-8 h-8 rounded-xl overflow-hidden border border-emerald-500 relative bg-neutral-100 dark:bg-neutral-800 shrink-0 shadow-2xs">
+                    <img 
+                      src={ride.driverInfo.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.driverId}`} 
+                      alt="Driver" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+
+                  {/* Driver Name, Rating, Vehicle & Destination */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className={`text-[11px] font-black uppercase truncate leading-tight ${theme === 'dark' ? 'text-neutral-100' : 'text-neutral-900'}`}>
+                        {ride.driverInfo.name || 'Dereva'}
+                      </h4>
+                      <div className="flex items-center gap-0.5 text-amber-500 shrink-0 bg-amber-500/10 px-1 py-0.2 rounded-full border border-amber-500/20">
+                        <Star className="w-2 h-2 fill-amber-500 text-amber-500" />
+                        <span className="text-[7.5px] font-black font-mono leading-none">{ride.driverInfo.rating || '4.9'}</span>
                       </div>
-                      
-                      {/* Vehicle & Plate details */}
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className="bg-amber-400 text-neutral-950 px-1.5 py-0.5 rounded-md font-mono font-black text-[9px] border border-amber-500 shadow-2xs leading-none">
-                          TZ {ride.driverInfo.vehicle?.plate || 'T 842 DKP'}
-                        </span>
-                        <span className={`text-[9px] font-bold uppercase truncate ${theme === 'dark' ? 'text-neutral-300' : 'text-neutral-600'}`}>
-                          {ride.driverInfo.vehicle?.model || 'Toyota IST'} {ride.driverInfo.vehicle?.color ? `• ${ride.driverInfo.vehicle.color}` : ''}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Side: High-Contrast ETA Badge */}
-                  <div className={`px-3 py-1.5 rounded-2xl border flex flex-col items-center justify-center shrink-0 shadow-xs ${theme === 'dark' ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-300' : 'bg-indigo-50 border-indigo-200/80 text-indigo-700'}`}>
-                    <span className="text-[7.5px] font-black uppercase tracking-widest leading-none opacity-80 mb-0.5">ETA</span>
-                    <span className="text-sm font-black font-mono tracking-tight leading-none">
-                      {eta ? `${eta.minutes}:${eta.seconds.toString().padStart(2, '0')}` : '00:00'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Row 2: Destination Address Line with dedicated full-width strip */}
-                <div className={`mt-2.5 pt-2 border-t flex items-center gap-2 text-[10px] ${theme === 'dark' ? 'border-neutral-800/70 text-neutral-300' : 'border-neutral-200/60 text-neutral-700'}`}>
-                  <span className="text-xs shrink-0">📍</span>
-                  <div className="flex items-baseline gap-1 min-w-0 flex-1">
-                    <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 shrink-0">{targetLabel}:</span>
-                    <span className="font-bold truncate text-[9.5px] text-neutral-900 dark:text-neutral-100">
-                      {targetLocation.address}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pickup Note / Landmark if customer provided one */}
-                {(ride.pickupNote || (ride as any).pickupNotes) && (
-                  <div className="mt-1.5 pt-1.5 border-t border-neutral-200/40 dark:border-neutral-800/60 flex items-center gap-1.5 text-[9.5px]">
-                    <span className="shrink-0 text-indigo-500 font-bold">💬 Maelekezo:</span>
-                    <span className="truncate italic text-neutral-600 dark:text-neutral-300 text-[9px]">
-                      "{ride.pickupNote || (ride as any).pickupNotes}"
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PapoShare Along-the-Way Waypoint Sequence (for Pooled Rides) */}
-            {(ride.shareMode === 'share' || (ride.waypoints && ride.waypoints.length > 0)) && (
-              <div className={`p-2.5 rounded-xl border mb-2 select-none ${theme === 'dark' ? 'bg-[#161622]/80 border-purple-900/40' : 'bg-purple-50/70 border-purple-200/70'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                    <span className="text-[10px] font-black uppercase text-purple-700 dark:text-purple-300 tracking-wider">
-                      PapoShare • Vituo Vya Kushusha
-                    </span>
-                  </div>
-                  <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    Okoa TZS {ride.sharedSavings?.toLocaleString() || '1,500'}
-                  </span>
-                </div>
-
-                {/* Waypoints Sequence List */}
-                <div className="space-y-1.5">
-                  {(ride.waypoints || [
-                    { id: '1', riderName: 'Wewe (Mteja A)', type: 'pickup', note: 'Kituo Kikuu', status: 'completed' },
-                    { id: '2', riderName: 'Neema Mwajuma (B)', type: 'pickup', note: 'Njiani', status: 'pending' },
-                    { id: '3', riderName: 'Neema Mwajuma (B)', type: 'dropoff', note: 'Shusha B', status: 'pending' },
-                    { id: '4', riderName: 'Wewe (Mteja A)', type: 'dropoff', note: 'Shusha A', status: 'pending' },
-                  ]).map((wp: any, idx: number) => {
-                    const isCompleted = wp.status === 'completed';
-                    return (
-                      <div key={wp.id || idx} className="flex items-center justify-between text-[9px] font-bold">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black ${isCompleted ? 'bg-emerald-500 text-white' : 'bg-purple-500/20 text-purple-600 dark:text-purple-300'}`}>
-                            {idx + 1}
-                          </span>
-                          <span className={`truncate ${isCompleted ? 'line-through text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'}`}>
-                            {wp.type === 'pickup' ? '🟢 Chukua' : '🔴 Shusha'} {wp.riderName}
-                          </span>
-                        </div>
-                        <span className="text-[7.5px] font-black uppercase text-neutral-400 shrink-0 ml-1">
-                          {wp.note || ''}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 pt-1.5 border-t border-purple-200/50 dark:border-purple-900/40 flex items-center justify-between text-[8px] text-purple-700 dark:text-purple-300 font-semibold">
-                  <span>⏱️ Detour Budget: Max {ride.maxDetourBudgetMinutes || 3} min</span>
-                  <span className="italic">Njia Imepangwa Kuzuia Foleni</span>
-                </div>
-              </div>
-            )}
-
-            {/* Intermediate Trip Stops (Vituo vya Safari) */}
-            {ride.stops && Array.isArray(ride.stops) && ride.stops.length > 0 && (
-              <div className={`p-2.5 rounded-xl border mb-2 select-none ${theme === 'dark' ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50/70 border-amber-200/60'}`}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px]">📍</span>
-                    <span className="text-[8.5px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                      Vituo vya Safari ({ride.stops.length})
-                    </span>
-                  </div>
-                  <span className="text-[7.5px] font-bold text-amber-600/80 uppercase">Njiani</span>
-                </div>
-                <div className="space-y-1">
-                  {ride.stops.map((stop: any, idx: number) => (
-                    <div key={stop.id || idx} className="flex items-center gap-2 text-[9px] font-bold">
-                      <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-[7.5px] font-black shrink-0 shadow-sm">
-                        {idx + 1}
+                      <span className="bg-amber-400 text-neutral-950 px-1 py-0.2 rounded font-mono font-black text-[8px] border border-amber-500 leading-none">
+                        TZ {ride.driverInfo.vehicle?.plate || 'T 842 DKP'}
                       </span>
-                      <span className="truncate text-neutral-700 dark:text-neutral-200">
-                        {stop.address || `Kituo #${idx + 1}`}
+                      <span className={`text-[8px] font-bold uppercase truncate ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                        {ride.driverInfo.vehicle?.model || 'IST'}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Boda Boda "PapoSend Njiani" (Parcel Add-on Along-the-Way) */}
-            {ride.parcelAddon && (
-              <div className={`p-2.5 rounded-xl border mb-2 select-none flex items-center justify-between ${theme === 'dark' ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50 border-amber-200'}`}>
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <Package className="w-4 h-4" />
+                    {/* Destination Address */}
+                    <div className="flex items-center gap-1 mt-0.5 text-[9px] text-neutral-600 dark:text-neutral-300">
+                      <span className="text-[10px] shrink-0">📍</span>
+                      <span className="truncate font-medium">{targetLocation.address}</span>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9.5px] font-black text-amber-700 dark:text-amber-300 uppercase">
-                      PapoSend Mzigo Njiani: {ride.parcelAddon.packageType}
-                    </p>
-                    <p className="text-[8px] text-neutral-500 dark:text-neutral-400 font-semibold">
-                      Kuelekea {ride.parcelAddon.delivery?.address || 'kituo cha mbele'}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                  +TZS {ride.parcelAddon.bonusEarningsTZS?.toLocaleString() || '2,500'}
-                </span>
-              </div>
-            )}
 
-            {/* Slim, Modern Trip Progress Bar */}
-            <div className="mb-2 select-none pointer-events-auto">
-              <div className={`relative h-9 rounded-2xl border overflow-hidden p-2 flex flex-col justify-center ${theme === 'dark' ? 'bg-[#161622]/60 border-neutral-800/80 shadow-[0_4px_12px_rgba(0,0,0,0.1)]' : 'bg-neutral-50/90 border-neutral-200/70 shadow-xs'}`}>
-                {/* Slim Road Line */}
-                <div className={`w-full h-1.5 rounded-full relative overflow-visible flex items-center ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
-                  {/* Origin Point Marker */}
-                  <div className="absolute left-0 -translate-x-1/2 -top-2 text-[10px] z-10 select-none">📍</div>
-                  
-                  {/* Destination Point Marker */}
-                  <div className="absolute right-0 translate-x-1/2 -top-2 text-[10px] z-10 select-none">🏁</div>
-
-                  {/* Route highlight */}
-                  <div 
-                    className="absolute left-0 h-full bg-gradient-to-r from-amber-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-700" 
-                    style={{ width: `${progress}%` }} 
-                  />
-
-                  {/* Hand-guided animating vehicle marker icon */}
-                  <motion.div 
-                    className="absolute -top-3 h-5 w-5 z-20 flex items-center justify-center select-none"
-                    style={{ left: `calc(${progress}% - 10px)` }}
-                    animate={{ 
-                      y: [0, -1.5, 0],
-                      scale: [1, 1.06, 1]
-                    }}
-                    transition={{ 
-                      y: { repeat: Infinity, duration: 0.35, ease: "easeInOut" },
-                      scale: { repeat: Infinity, duration: 0.45, ease: "easeInOut" }
-                    }}
+                  {/* Favorite Driver Heart Button */}
+                  <button
+                    type="button"
+                    onClick={toggleFavDriver}
+                    className={`p-1 rounded-full border transition-all active:scale-90 shrink-0 ${
+                      isFavDriver
+                        ? 'bg-rose-500/15 border-rose-500/30 text-rose-500'
+                        : 'border-transparent text-neutral-400 hover:text-rose-500'
+                    }`}
+                    title={isFavDriver ? 'Dereva Mpendwa' : 'Hifadhi Dereva Huyu'}
                   >
-                    {ride.vehicleType === 'bike' ? (
-                      <span className="text-xs" style={{ transform: 'scaleX(-1)' }}>🏍️</span>
-                    ) : ride.vehicleType === 'bajaj' ? (
-                      <span className="text-xs" style={{ transform: 'scaleX(-1)' }}>🛺</span>
-                    ) : (
-                      <span className="text-xs" style={{ transform: 'scaleX(-1)' }}>🚗</span>
-                    )}
-                  </motion.div>
-                </div>
-
-                {/* Subtitle labels */}
-                <div className="flex justify-between items-center mt-1.5 font-black text-[7.5px] uppercase tracking-wider text-neutral-400">
-                  <span>{isArriving ? 'Kituo Chako' : 'Mwanzo'}</span>
-                  <span className={`font-black font-mono px-1.5 py-0.5 rounded-full border text-[7px] leading-none ${theme === 'dark' ? 'bg-emerald-950/30 border-emerald-800/50 text-emerald-400' : 'bg-emerald-50 border-emerald-500/20 text-emerald-700'}`}>
-                    {progress}% YA SAFARI
-                  </span>
-                  <span>{isArriving ? 'Kufika' : 'Mwisho'}</span>
+                    <Heart className={`w-3.5 h-3.5 ${isFavDriver ? 'fill-rose-500 text-rose-500' : ''}`} />
+                  </button>
                 </div>
               </div>
+            )}
 
-              {/* Status checkpoint steps badges - Small and clean 4-column grid */}
-              <div className="grid grid-cols-4 gap-1 px-1 mt-1.5">
-                {[
-                  { label: 'OMBA', active: true },
-                  { label: 'PATA', active: !!ride.driverId },
-                  { label: 'SAFARINI', active: ride.status === 'on_trip' },
-                  { label: 'FIKA', active: ride.status === 'completed' }
-                ].map((s) => (
-                  <div key={s.label} className="flex flex-col items-center justify-center text-center">
-                    <div className={`w-2 h-2 rounded-full border transition-all duration-500 ${s.active ? 'bg-emerald-500 border-emerald-500 shadow-xs' : (theme === 'dark' ? 'bg-neutral-800 border-neutral-700' : 'bg-neutral-200 border-neutral-300')}`} />
-                    <span className={`text-[7px] font-black uppercase tracking-wider mt-0.5 leading-none ${s.active ? (theme === 'dark' ? 'text-emerald-400 font-extrabold' : 'text-emerald-700 font-extrabold') : 'text-neutral-400'}`}>{s.label}</span>
-                  </div>
-                ))}
+            {/* Ultra-Slim Progress Line */}
+            <div className="mb-2 select-none px-0.5">
+              <div className={`w-full h-1.5 rounded-full relative overflow-visible flex items-center ${theme === 'dark' ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
+                {/* Progress Fill */}
+                <div 
+                  className="absolute left-0 h-full bg-gradient-to-r from-amber-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-700" 
+                  style={{ width: `${progress}%` }} 
+                />
+                {/* Moving Vehicle Icon */}
+                <div 
+                  className="absolute -top-2.5 h-4 w-4 z-20 flex items-center justify-center text-[10px] select-none"
+                  style={{ left: `calc(${progress}% - 8px)` }}
+                >
+                  🚗
+                </div>
+              </div>
+              <div className="flex justify-between items-center mt-1 text-[7px] font-black uppercase tracking-wider text-neutral-400">
+                <span>{isArriving ? 'Kituo Chako' : 'Mwanzo'}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">{progress}% YA SAFARI</span>
+                <span>{isArriving ? 'Kufika' : 'Mwisho'}</span>
               </div>
             </div>
 
-            {/* Unified Quick Actions & Distance Panel Footer */}
-            <div className={`grid ${onCall ? 'grid-cols-6' : 'grid-cols-5'} gap-1 mt-2 pt-2 border-t ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`}>
-              {/* Distance Left Panel */}
-              <div className={`col-span-1 rounded-xl p-1 border flex flex-col items-center justify-center text-center select-none ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80' : 'bg-neutral-50 border-neutral-200/60'}`}>
-                <Navigation2 className="w-3 h-3 text-indigo-500 mb-0.5" />
-                <span className="text-[6px] font-black text-neutral-400 uppercase tracking-wider leading-none mb-0.5">{distanceLabel}</span>
-                <span className={`text-[8.5px] font-black font-mono leading-none ${theme === 'dark' ? 'text-neutral-200' : 'text-neutral-800'}`}>
-                  {distance ? distance.toFixed(1) : (ride.distance || '0.0')} km
-                </span>
-              </div>
-
-              {/* Call Button (In-App VoIP & Phone) */}
-              {onCall && (
+            {/* Quick Actions & Cancel Button in a Single Compact Row */}
+            <div className="grid grid-cols-6 gap-1 border-t pt-1.5 border-neutral-100 dark:border-neutral-800/60">
+              {/* Call */}
+              {onCall ? (
                 <button 
                   onClick={onCall}
-                  className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400 hover:bg-emerald-950/40' : 'bg-emerald-50 border-emerald-100 hover:bg-emerald-100/80 text-emerald-600'}`}
+                  className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}
                   title="Piga simu kwa dereva"
                 >
-                  <Phone className="w-3 h-3 text-emerald-500 mb-0.5" />
-                  <span className="text-[7px] font-black uppercase tracking-widest">Call</span>
+                  <Phone className="w-2.5 h-2.5 text-emerald-500 mb-0.5" />
+                  <span className="text-[6.5px] font-black uppercase tracking-wider">Call</span>
                 </button>
-              )}
+              ) : <div />}
 
-              {/* Share Trip Button */}
-              <button 
-                onClick={() => setShowShareModal(true)}
-                className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80 hover:bg-neutral-800 text-neutral-300' : 'bg-neutral-50 border-neutral-200/60 hover:bg-neutral-100 text-neutral-800'}`}
-              >
-                <span className="text-xs mb-0.5">🔗</span>
-                <span className="text-[7px] font-black uppercase tracking-widest text-neutral-400">Share</span>
-              </button>
-
-              {/* Gawana Nauli (Split Fare) Button */}
-              <button 
-                onClick={() => setShowSplitFareModal(true)}
-                className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-purple-950/20 border-purple-900/40 text-purple-400 hover:bg-purple-950/40' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'}`}
-              >
-                <Users className="w-3 h-3 text-purple-500 mb-0.5" />
-                <span className="text-[7px] font-black uppercase tracking-widest">Gawana</span>
-              </button>
-
-              {/* Chat Button */}
+              {/* Chat */}
               {onMessage ? (
                 <button 
                   onClick={onMessage}
-                  className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-indigo-950/20 border-indigo-900/40 text-indigo-400 hover:bg-indigo-950/40' : 'bg-indigo-50 border-indigo-100 hover:bg-indigo-100/80 text-indigo-600'}`}
+                  className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-indigo-950/20 border-indigo-900/40 text-indigo-400' : 'bg-indigo-50 border-indigo-100 text-indigo-600'}`}
+                  title="Tuma ujumbe"
                 >
-                  <MessageSquare className="w-3 h-3 text-indigo-500 mb-0.5" />
-                  <span className="text-[7px] font-black uppercase tracking-widest">Chat</span>
+                  <MessageSquare className="w-2.5 h-2.5 text-indigo-500 mb-0.5" />
+                  <span className="text-[6.5px] font-black uppercase tracking-wider">Chat</span>
                 </button>
-              ) : (
-                <div className="col-span-1" />
-              )}
+              ) : <div />}
 
-              {/* SOS safety Button (hidden for spectator viewers) */}
-              {!isSpectator && (
+              {/* Share */}
+              <button 
+                onClick={() => setShowShareModal(true)}
+                className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-[#161622]/40 border-neutral-800/80 text-neutral-300' : 'bg-neutral-50 border-neutral-200/60 text-neutral-800'}`}
+                title="Shiriki safari"
+              >
+                <span className="text-[9px] leading-none mb-0.5">🔗</span>
+                <span className="text-[6.5px] font-black uppercase tracking-wider text-neutral-400">Share</span>
+              </button>
+
+              {/* Gawana (Split Fare) */}
+              <button 
+                onClick={() => setShowSplitFareModal(true)}
+                className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-purple-950/20 border-purple-900/40 text-purple-400' : 'bg-purple-50 border-purple-200 text-purple-700'}`}
+                title="Gawana nauli"
+              >
+                <Users className="w-2.5 h-2.5 text-purple-500 mb-0.5" />
+                <span className="text-[6.5px] font-black uppercase tracking-wider">Gawana</span>
+              </button>
+
+              {/* SOS safety */}
+              {!isSpectator ? (
                 <button 
                   onClick={() => toast.error("SOS Aleriti ya Dharura imetumwa kwa kituo cha usalama!")}
-                  className={`col-span-1 border rounded-xl flex flex-col items-center justify-center text-center transition-all p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400 hover:bg-red-950/40' : 'bg-red-50 border-red-100 text-red-650 hover:bg-red-100'}`}
+                  className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400' : 'bg-red-50 border-red-100 text-red-600'}`}
+                  title="Dharura / SOS"
                 >
-                  <Shield className="w-3 h-3 text-red-500 mb-0.5" />
-                  <span className="text-[7px] font-black uppercase tracking-widest">SOS</span>
+                  <Shield className="w-2.5 h-2.5 text-red-500 mb-0.5" />
+                  <span className="text-[6.5px] font-black uppercase tracking-wider">SOS</span>
                 </button>
-              )}
+              ) : <div />}
+
+              {/* Ghairi Safari */}
+              {!isSpectator && onCancel ? (
+                <button
+                  onClick={onCancel}
+                  className={`border rounded-lg flex flex-col items-center justify-center text-center p-1 active:scale-95 cursor-pointer ${theme === 'dark' ? 'bg-red-950/20 border-red-900/40 text-red-400' : 'bg-red-50 border-red-100 text-red-600'}`}
+                  title="Ghairi safari hii"
+                >
+                  <Trash2 className="w-2.5 h-2.5 text-red-500 mb-0.5" />
+                  <span className="text-[6.5px] font-black uppercase tracking-wider">Ghairi</span>
+                </button>
+              ) : <div />}
             </div>
-
-            {/* Simulate Route Deviation Button has been removed from customer view as requested */}
-
-            {/* Cancel Safari Action inside bottom details sheet */}
-            {!isSpectator && onCancel && (
-              <button
-                onClick={onCancel}
-                className={`w-full mt-2 h-8 border rounded-xl flex items-center justify-center gap-1 font-black tracking-wider text-[8px] uppercase transition-all active:scale-95 cursor-pointer pointer-events-auto ${theme === 'dark' ? 'bg-red-950/10 border-red-900/30 text-red-400 hover:bg-red-950/30' : 'bg-red-50 border-red-100 hover:bg-red-100 text-red-650'}`}
-              >
-                <Trash2 className="w-3 h-3 text-red-500" />
-                <span>GHAIRI SAFARI</span>
-              </button>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
