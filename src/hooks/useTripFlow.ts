@@ -24,14 +24,19 @@ export function useTripFlow(rideId: string | null) {
         if (['completed', 'cancelled'].includes(data.status)) {
           localStorage.removeItem('active_ride_id');
           localStorage.removeItem('active_driver_ride_id');
+          localStorage.removeItem('paporide_active_ride');
         } else {
           localStorage.setItem('active_ride_id', snap.id);
+          try {
+            localStorage.setItem('paporide_active_ride', JSON.stringify({ id: snap.id, ...data }));
+          } catch (e) {}
         }
         setError(null);
       } else {
         setRide(null);
         localStorage.removeItem('active_ride_id');
         localStorage.removeItem('active_driver_ride_id');
+        localStorage.removeItem('paporide_active_ride');
         setError('Ride not found');
       }
       setIsLoading(false);
