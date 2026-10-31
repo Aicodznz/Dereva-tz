@@ -532,9 +532,9 @@ const MapControl = ({
       ? L.latLng(lastCenterRef.current[0], lastCenterRef.current[1])
       : null;
 
-    // Transition tracking key - include loading state to re-fit when real driver position registers!
+    // Transition tracking key - only re-fit on step change or target change, NOT on every container resize!
     const isFallback = isValidCoord(targetPos) && position[0] === targetPos[0] && position[1] === targetPos[1];
-    const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}_${containerResizedCount}`;
+    const trackingKey = `${step}_${isFallback ? "fallback" : "active"}_${targetPos?.[0] || 0}_${targetPos?.[1] || 0}`;
 
     // Fit bounds only once when we first enter this booking step
     if (
@@ -566,7 +566,8 @@ const MapControl = ({
 
     // Smooth camera tracking when driver or customer is on the move
     const isLiveStep = ["arriving", "on_trip", "found", "driver_arrived", "driver_arriving"].includes(step);
-    const threshold = isLiveStep ? 1.0 : 5; // 1.0 meter threshold so the map smoothly tracks every corner and movement
+    // 12m threshold so the map does not constantly trigger panTo animations every 500ms, which blocks user pinch-zoom & scroll gestures
+    const threshold = isLiveStep ? 12.0 : 20.0;
 
     if (!lastPos || currentPos.distanceTo(lastPos) > threshold) {
       // Forward-look navigation lead: Position vehicle slightly below screen center so upcoming route is clearly visible
@@ -3091,13 +3092,14 @@ const getEndPin = (etaText: string) => {
   const autoFollowTimeoutRef = useRef<any>(null);
 
   const handleMapInteraction = () => {
+    // When the customer touches, drags, or zooms the map, release camera lock
     setAutoFollow(false);
     if (autoFollowTimeoutRef.current) clearTimeout(autoFollowTimeoutRef.current);
+    // Give user complete freedom to zoom and pan. Only resume gentle auto-follow if idle for 25s without forcing zoom reset
     if (["arriving", "on_trip", "found", "driver_arriving", "driver_arrived"].includes(step)) {
       autoFollowTimeoutRef.current = setTimeout(() => {
         setAutoFollow(true);
-        setMapRefitTrigger(Date.now());
-      }, 4500);
+      }, 25000);
     }
   };
 
@@ -4492,12 +4494,23 @@ const getEndPin = (etaText: string) => {
                     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
                     border-radius: 12px !important;
                     overflow: hidden;
+                    pointer-events: auto !important;
+                    z-index: 9999 !important;
                   }
                   .leaflet-control-zoom-in, .leaflet-control-zoom-out {
                     background-color: ${theme === 'dark' ? '#111118' : '#ffffff'} !important;
                     color: ${theme === 'dark' ? '#f0eeff' : '#0f0f18'} !important;
                     border-bottom: 1px solid ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} !important;
                     transition: all 0.2s ease !important;
+                    width: 36px !important;
+                    height: 36px !important;
+                    line-height: 36px !important;
+                    font-size: 18px !important;
+                    cursor: pointer !important;
+                    pointer-events: auto !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
                   }
                   .leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
                     background-color: #7F77DD !important;
@@ -4520,7 +4533,7 @@ const getEndPin = (etaText: string) => {
                     height: "100%",
                     width: "100%",
                   }}
-                  className="h-full w-full"
+                  className="h-full w-full touch-auto"
                 >
                   <MapContainer
                     center={pickupPos}
@@ -4534,6 +4547,7 @@ const getEndPin = (etaText: string) => {
                     doubleClickZoom={true}
                     scrollWheelZoom={true}
                     dragging={true}
+                    {...({ tap: false } as any)}
                   >
                      <TileLayer
                       key={`${theme}-${mapType}`}
@@ -6897,21 +6911,6 @@ const getEndPin = (etaText: string) => {
             </motion.div>
           )}
 
-          {/* Floating NFC Tap to Pay Trigger for Active Trips */}
-          {activeRide && ["arriving", "on_trip"].includes(step) && !isMapFullscreen && (
-            <div className="absolute top-20 right-4 z-[75] flex items-center gap-2 pointer-events-auto">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNfcPaymentModal(true)}
-                className="px-3 py-1.5 rounded-full bg-teal-600/95 hover:bg-teal-500 text-white text-[10px] font-black uppercase tracking-wider shadow-lg shadow-teal-950/40 border border-teal-400/40 backdrop-blur-md flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-                title={hasNfcSupport ? "Gusa simu ya dereva kulipa kwa NFC" : "Fungua Contactless Tap Pay"}
-              >
-                <Radio className="w-3.5 h-3.5 text-teal-200 animate-pulse" />
-                <span>NFC Tap Pay</span>
-              </motion.button>
-            </div>
-          )}
 
           {step === "completed" && activeRide && (
             <motion.div
