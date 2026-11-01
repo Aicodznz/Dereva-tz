@@ -49,206 +49,157 @@ export default function IncomingRideCard({ ride, onAccept, onDecline, onTimeout,
     : 0.5;
 
   return (
-    <div className="fixed inset-x-0 bottom-4 z-[99999] px-4 pointer-events-none flex justify-center">
+    <div className="fixed inset-x-0 bottom-2 z-[99999] px-3 pointer-events-none flex justify-center">
       <motion.div 
-        initial={{ y: 150, opacity: 0 }}
+        initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 150, opacity: 0 }}
-        transition={{ type: "spring", damping: 22, stiffness: 200 }}
-        className={`w-full max-w-[390px] pointer-events-auto rounded-[24px] border p-4 space-y-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-300 ${
+        exit={{ y: 80, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 220 }}
+        className={`w-full max-w-[380px] pointer-events-auto rounded-2xl border px-3 py-2 space-y-2 shadow-2xl backdrop-blur-md transition-all duration-200 ${
           isDark 
-            ? 'bg-[#111118]/95 border-neutral-800/80 text-white shadow-black/60' 
-            : 'bg-white/95 border-neutral-200/60 text-neutral-850 shadow-neutral-300/30'
+            ? 'bg-[#111118]/98 border-neutral-800 text-white shadow-black/80' 
+            : 'bg-white/98 border-neutral-200/90 text-neutral-850 shadow-neutral-400/40'
         }`}
       >
         {/* Header: Compact Integrated Countdown Timer & Earning Info */}
-        <div className="flex items-center justify-between border-b border-neutral-200/30 dark:border-neutral-800/60 pb-3">
-          <div className="flex items-center gap-2.5">
-            {/* Small Elegant Circular Timer */}
-            <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+        <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/40 dark:border-neutral-800/60">
+          <div className="flex items-center gap-2">
+            {/* Small Sleek Circular Timer */}
+            <div className="relative w-7 h-7 flex items-center justify-center shrink-0">
               <svg className="w-full h-full transform -rotate-90">
                 <circle 
-                  cx="24" cy="24" r="19" 
-                  stroke={isDark ? '#1a1a26' : '#f1f5f9'} 
-                  strokeWidth="4" 
+                  cx="14" cy="14" r="11" 
+                  stroke={isDark ? '#1f1f2e' : '#f1f5f9'} 
+                  strokeWidth="2.5" 
                   fill="none" 
                 />
                 <motion.circle 
-                  cx="24" cy="24" r="19" 
+                  cx="14" cy="14" r="11" 
                   stroke="#7F77DD" 
-                  strokeWidth="4" 
+                  strokeWidth="2.5" 
                   strokeLinecap="round"
                   fill="none"
-                  strokeDasharray="119.38"
-                  animate={{ strokeDashoffset: 119.38 * (1 - timeLeft / 15) }}
+                  strokeDasharray="69.11"
+                  animate={{ strokeDashoffset: 69.11 * (1 - timeLeft / 15) }}
                   transition={{ duration: 1, ease: "linear" }}
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center pt-0.5">
-                <span className={`text-[15px] font-black italic font-mono leading-none tracking-tighter ${isDark ? 'text-white' : 'text-neutral-800'}`}>
-                  {timeLeft}
-                </span>
-              </div>
+              <span className={`absolute text-[11px] font-black italic font-mono ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                {timeLeft}
+              </span>
             </div>
 
             {/* Title Details */}
-            <div className="text-left">
-              <span className={`inline-block px-1.5 py-0.5 rounded-md italic font-black text-[8px] tracking-wider uppercase ${
-                isDark ? 'bg-indigo-500/10 text-indigo-300' : 'bg-indigo-600 text-white'
+            <div className="flex items-center gap-1.5">
+              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black tracking-wide uppercase ${
+                isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-600 text-white'
               }`}>
                 ⚡ OMBI JIPYA!
               </span>
-              <p className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-wide mt-0.5 leading-tight">
-                Ombi la safari limepokelewa
-              </p>
+              <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-tight">
+                Ombi la safari
+              </span>
             </div>
           </div>
 
-          {/* Large Price Badge */}
+          {/* Fare Badge */}
           <div className="text-right">
-            <span className="text-[8px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block mb-0.5 leading-none">MAOKOTO</span>
-            <span className="text-[17px] font-black italic text-emerald-500 dark:text-emerald-400 tracking-tighter leading-none">
+            <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none">MAOKOTO</span>
+            <span className="text-[15px] font-black italic text-emerald-500 dark:text-emerald-400 tracking-tight leading-none">
               TZS {(ride?.fare ?? 0).toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* Customer Profile Picture & Name Card */}
-        <div className={`flex items-center justify-between p-2 rounded-xl border ${
-          isDark ? 'bg-[#0a0a0f]/60 border-neutral-800/60' : 'bg-neutral-50 border-neutral-200/80'
+        {/* Customer & Trip Meta Row */}
+        <div className={`flex items-center justify-between px-2 py-1.5 rounded-xl border ${
+          isDark ? 'bg-[#0a0a0f]/50 border-neutral-800/60' : 'bg-neutral-50 border-neutral-200/80'
         }`}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-indigo-500 shrink-0 shadow-md bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-full overflow-hidden border border-indigo-500 shrink-0 bg-neutral-200 dark:bg-neutral-800">
               <img 
                 src={ride.customerInfo?.photo || ride.customerInfo?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${ride.customerId || 'Mteja'}`} 
                 alt={ride.customerInfo?.name || "Mteja"} 
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="text-left">
+            <div className="min-w-0">
               <div className="flex items-center gap-1">
-                <span className="text-[8px] font-black uppercase tracking-wider text-indigo-500 bg-indigo-500/10 px-1.5 py-0.2 rounded">
-                  MTEJA
+                <span className="text-[11px] font-black italic uppercase text-neutral-850 dark:text-white truncate max-w-[110px]">
+                  {ride.customerInfo?.name || "Mteja wetu"}
                 </span>
-                <span className="text-[9.5px] font-black text-amber-500 flex items-center gap-0.5">
+                <span className="text-[9.5px] font-black text-amber-500">
                   ★ {ride.customerInfo?.rating?.toFixed(1) || '5.0'}
                 </span>
               </div>
-              <h4 className="text-xs font-black italic uppercase text-neutral-850 dark:text-white leading-tight mt-0.5 truncate max-w-[150px]">
-                {ride.customerInfo?.name || "Mteja wetu"}
-              </h4>
-            </div>
-          </div>
-          {ride.customerInfo?.phone && (
-            <span className="text-[9.5px] font-mono font-bold text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-1 rounded-md">
-              {ride.customerInfo.phone}
-            </span>
-          )}
-        </div>
-
-        {/* Compact Vertical Route Details */}
-        <div className={`relative p-3 rounded-xl border space-y-3 ${
-          isDark 
-            ? 'bg-[#0a0a0f]/40 border-neutral-850/50' 
-            : 'bg-neutral-50/40 border-neutral-150/80'
-        }`}>
-          {/* Pickup Address */}
-          <div className="flex items-center gap-2.5 relative z-10">
-            <div className="w-5 h-5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center shrink-0 border border-emerald-500/10">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            </div>
-            <div className="flex-1 overflow-hidden text-left">
-              <p className="text-[12px] font-black text-neutral-800 dark:text-neutral-100 leading-tight truncate">
-                {ride.pickup.address}
-              </p>
-              <p className="text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 mt-0.5 leading-none">
-                Kupakia • {pickupDistKm.toFixed(1)} km kutoka kwako
-              </p>
             </div>
           </div>
 
-          {/* Simple Dotted line */}
-          <div className="absolute left-[21px] top-[26px] bottom-[26px] w-0.5 border-l border-dashed border-neutral-300 dark:border-neutral-800 z-0" />
-
-          {/* Destination Address */}
-          <div className="flex items-center gap-2.5 relative z-10">
-            <div className="w-5 h-5 rounded-full bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/10">
-              <Navigation className="w-2.5 h-2.5 text-indigo-500 rotate-45" />
-            </div>
-            <div className="flex-1 overflow-hidden text-left">
-              <p className="text-[12px] font-black text-neutral-800 dark:text-neutral-100 leading-tight truncate">
-                {ride.destination.address}
-              </p>
-              <p className="text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 mt-0.5 leading-none">
-                Kushusha • {tripDistKm.toFixed(1)} km safari
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic 4-Column Metric Row */}
-        <div className={`grid grid-cols-4 gap-1 p-2 rounded-xl text-center border ${
-          isDark 
-            ? 'bg-[#0a0a0f]/30 border-neutral-850/30' 
-            : 'bg-neutral-50/20 border-neutral-150/40'
-        }`}>
-          <div>
-            <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none mb-0.5">UMBALI</span>
-            <span className="text-[11px] font-black text-neutral-800 dark:text-white leading-none">
-              {tripDistKm.toFixed(1)} km
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[9.5px] font-black text-neutral-700 dark:text-neutral-300 bg-neutral-200/70 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
+              {tripDistKm.toFixed(1)} km • ~{ride.duration || '20'} dk
             </span>
-          </div>
-          <div className="border-r border-neutral-200/30 dark:border-neutral-800/40 my-0.5" />
-          <div>
-            <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none mb-0.5">MUDA</span>
-            <span className="text-[11px] font-black text-neutral-800 dark:text-white leading-none">
-              ~{ride.duration || '22'} dk
-            </span>
-          </div>
-          <div className="border-r border-neutral-200/30 dark:border-neutral-800/40 my-0.5" />
-          <div>
-            <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none mb-0.5">MTEJA</span>
-            <span className="text-[11px] font-black text-neutral-800 dark:text-white leading-none flex items-center justify-center gap-0.5">
-              ★ {ride.customerInfo?.rating?.toFixed(1) || '5.0'}
-            </span>
-          </div>
-          <div className="border-r border-neutral-200/30 dark:border-neutral-800/40 my-0.5" />
-          <div>
-            <span className="text-[7.5px] font-black text-neutral-400 dark:text-neutral-500 uppercase tracking-widest block leading-none mb-0.5">AINA</span>
-            <span className="text-[11px] font-black text-neutral-800 dark:text-white uppercase italic leading-none">
+            <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded uppercase">
               {ride.vehicleType === 'bike' ? 'PIKIPIKI' : ride.vehicleType === 'bajaj' ? 'BAJAJI' : 'GARI'}
             </span>
           </div>
         </div>
 
-        {/* Sized-Down Action Buttons */}
-        <div className="flex gap-2.5 pt-0.5">
+        {/* Compact Vertical Route Details */}
+        <div className={`relative px-2.5 py-1.5 rounded-xl border space-y-1.5 ${
+          isDark 
+            ? 'bg-[#0a0a0f]/40 border-neutral-850/50' 
+            : 'bg-neutral-50/50 border-neutral-200/60'
+        }`}>
+          {/* Pickup Address */}
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            </div>
+            <p className="text-[11px] font-bold text-neutral-800 dark:text-neutral-100 truncate flex-1 leading-tight">
+              {ride.pickup.address}
+              <span className="text-[9px] font-normal text-neutral-400 dark:text-neutral-500 ml-1">({pickupDistKm.toFixed(1)} km)</span>
+            </p>
+          </div>
+
+          {/* Destination Address */}
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0">
+              <Navigation className="w-2 h-2 text-indigo-500 rotate-45" />
+            </div>
+            <p className="text-[11px] font-bold text-neutral-800 dark:text-neutral-100 truncate flex-1 leading-tight">
+              {ride.destination.address}
+              <span className="text-[9px] font-normal text-neutral-400 dark:text-neutral-500 ml-1">({tripDistKm.toFixed(1)} km)</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-0.5">
           <button 
+            type="button"
             onClick={onDecline}
-            className={`w-[110px] h-11 rounded-xl border hover:border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-black uppercase text-[10px] tracking-wider active:scale-95 transition-all flex flex-col items-center justify-center leading-tight shrink-0 ${
-              isDark ? 'border-red-500/20' : 'border-red-500/15'
+            className={`w-[80px] h-9 rounded-xl border hover:border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-500 font-black text-xs active:scale-95 transition-all flex items-center justify-center shrink-0 ${
+              isDark ? 'border-red-500/20' : 'border-red-500/20'
             }`}
           >
-            <span className="text-xs font-black italic">KATAA</span>
+            KATAA
           </button>
           
           <button 
+            type="button"
             onClick={onAccept}
-            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#7F77DD] to-indigo-600 hover:brightness-105 text-white font-black uppercase tracking-wider active:scale-95 transition-all flex flex-col items-center justify-center leading-tight shadow-[0_6px_16px_rgba(127,119,221,0.3)] group"
+            className="flex-1 h-9 rounded-xl bg-gradient-to-r from-[#7F77DD] to-indigo-600 hover:brightness-105 text-white font-black text-xs tracking-wide active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md group"
           >
-            <div className="flex items-center gap-1 justify-center">
-              <span className="text-xs font-black italic">KUBALI SAFARI</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </div>
+            <span>KUBALI SAFARI</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
 
         {/* Mini Safety Footer Badge */}
-        <div className="flex items-center justify-center gap-1.5 pt-2 border-t border-neutral-200/20 dark:border-neutral-850/60">
-          <Shield className="w-4 h-4 text-emerald-500 fill-emerald-500/10 shrink-0" />
-          <p className="text-[8px] font-black text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-            Usalama wako ni muhimu kwetu • Papo Hapo Super App
-          </p>
+        <div className="flex items-center justify-center gap-1 text-[8px] font-bold text-neutral-400 dark:text-neutral-500 uppercase tracking-tight">
+          <Shield className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+          <span>Usalama wako ni muhimu kwetu • Papo Hapo Super App</span>
         </div>
       </motion.div>
     </div>
