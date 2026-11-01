@@ -28,7 +28,6 @@ import DaladalaRegisterPassengerModal from './DaladalaRegisterPassengerModal';
 import DaladalaRegisterVehicleModal from './DaladalaRegisterVehicleModal';
 import DaladalaAuthModal from './DaladalaAuthModal';
 import DaladalaDailyOwnerReportModal from './DaladalaDailyOwnerReportModal';
-import DaladalaMobileNav from './DaladalaMobileNav';
 import { 
   Bus, 
   ArrowLeft, 
@@ -403,10 +402,10 @@ export default function DaladalaHome() {
   // Route Planner visibility
   const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
 
-  // Map sizing & layout modes: 'standard' (Everything visible) or 'full' (Full map view)
-  const [mapDisplayMode, setMapDisplayMode] = useState<'full' | 'standard'>('standard');
+  // Map sizing & layout modes: 'standard' (Everything visible) or 'full' (Full map view) - Default to 'full'
+  const [mapDisplayMode, setMapDisplayMode] = useState<'full' | 'standard'>('full');
   const [isFullscreenMap, setIsFullscreenMap] = useState(false);
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(true);
   // Bottom transit sheet mode: 'peek' (minimal bottom bar), 'open' (expanded drawer), or 'hidden' (100% full map only)
   const [bottomSheetState, setBottomSheetState] = useState<'peek' | 'open' | 'hidden'>('peek');
 
@@ -548,7 +547,7 @@ export default function DaladalaHome() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100/70 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col pb-20 md:pb-6">
+    <div className="min-h-screen bg-neutral-100/70 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col pb-4 md:pb-6">
       {/* Top Application Bar */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-800 shadow-sm px-4 py-2.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
@@ -582,81 +581,60 @@ export default function DaladalaHome() {
             </div>
           </div>
 
-          {/* Right Action Elements: Mode Switcher & Operator Auth Badge */}
+          {/* Right Action Elements */}
           <div className="flex items-center gap-2">
-            {/* Ecosystem Mode Switcher with Instant 1-Click Access */}
-            <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl text-xs font-bold shadow-inner overflow-x-auto max-w-full">
-              {/* Abiria (Public) */}
+            {/* If logged-in operator is viewing public map, allow them to return to their role screen */}
+            {sessionUser && sessionUser.role !== 'passenger' && ecosystemMode === 'passenger' && (
+              <button
+                type="button"
+                onClick={() => setEcosystemMode(sessionUser.role === 'owner' ? 'fleet' : sessionUser.role === 'driver' ? 'driver' : 'conductor')}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+              >
+                <span>Rudi {sessionUser.role === 'owner' ? 'Meli ya Magari' : sessionUser.role === 'driver' ? 'Cockpit ya Dereva' : 'Konda'}</span>
+              </button>
+            )}
+
+            {/* If logged-in operator is in their screen, allow viewing public map */}
+            {sessionUser && sessionUser.role !== 'passenger' && ecosystemMode !== 'passenger' && (
               <button
                 type="button"
                 onClick={() => setEcosystemMode('passenger')}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                  ecosystemMode === 'passenger'
-                    ? 'bg-blue-600 text-white shadow-sm font-black'
-                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                }`}
-                title="Hali ya Abiria (Ramani ya Live GPS & Nauli za LATRA)"
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                title="Tazama Ramani ya Abiria"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span>Abiria</span>
+                <span>Ramani ya Abiria</span>
               </button>
+            )}
 
-              {/* Dereva (Dedicated Cockpit HUD) */}
+            {/* Daily WhatsApp Summary Button - ONLY FOR MMILIKI (FLEET OWNER) */}
+            {ecosystemMode === 'fleet' && (
               <button
                 type="button"
-                onClick={() => setEcosystemMode('driver')}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                  ecosystemMode === 'driver'
-                    ? 'bg-amber-500 text-neutral-950 shadow-sm font-black'
-                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                }`}
-                title="Skrini Maalum ya Dereva (Speedometer kubwa ya LATRA, Kituo Kinachofuata & Dharura)"
+                onClick={() => setIsDailyReportOpen(true)}
+                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
+                title="Fungua au Tuma Ripoti ya Hesabu ya Leo WhatsApp ya Tajiri"
               >
-                <Gauge className={`w-3.5 h-3.5 ${ecosystemMode === 'driver' ? 'text-neutral-950' : 'text-amber-500'}`} />
-                <span>Dereva</span>
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hesabu ya Tajiri</span>
               </button>
+            )}
 
-              {/* Kondakta */}
+            {/* Quick Fullscreen / Full Map Toggle */}
+            {ecosystemMode === 'passenger' && (
               <button
                 type="button"
-                onClick={() => setEcosystemMode('conductor')}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                  ecosystemMode === 'conductor'
-                    ? 'bg-purple-600 text-white shadow-sm font-black'
-                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                onClick={() => setIsFullscreenMap(prev => !prev)}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl border font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap ${
+                  isFullscreenMap 
+                    ? 'bg-orange-600 text-white border-orange-500 shadow-orange-500/20' 
+                    : 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20 hover:bg-blue-500'
                 }`}
-                title="Hali ya Kondakta (Viti 30/30, Tiketi & Kikokotoo cha Chenji)"
+                title="Badili kuwa Fulu Map (Full Screen Map)"
               >
-                <Radio className={`w-3.5 h-3.5 ${ecosystemMode === 'conductor' ? 'text-white' : 'text-purple-500'}`} />
-                <span>Konda</span>
+                {isFullscreenMap ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                <span>{isFullscreenMap ? 'Toka Fulu' : 'Fulu Map'}</span>
               </button>
-
-              {/* Mmiliki / Stendi */}
-              <button
-                type="button"
-                onClick={() => setEcosystemMode('fleet')}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap ${
-                  ecosystemMode === 'fleet'
-                    ? 'bg-emerald-600 text-white shadow-sm font-black'
-                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-                }`}
-                title="Dasibodi ya Mmiliki wa Daladala (Meli ya Magari & Hesabu ya Siku)"
-              >
-                <Building2 className={`w-3.5 h-3.5 ${ecosystemMode === 'fleet' ? 'text-white' : 'text-emerald-500'}`} />
-                <span>Mmiliki</span>
-              </button>
-            </div>
-
-            {/* Daily WhatsApp Summary Button */}
-            <button
-              type="button"
-              onClick={() => setIsDailyReportOpen(true)}
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-              title="Fungua au Tuma Ripoti ya Hesabu ya Leo WhatsApp ya Tajiri"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Hesabu ya Tajiri</span>
-            </button>
+            )}
 
             {/* Operator Login / User Profile Capsule */}
             {sessionUser ? (
@@ -762,8 +740,8 @@ export default function DaladalaHome() {
           }}
         />
 
-        {/* Floating Bottom Transit Drawer / Sheet (Active ONLY in Fullscreen Map Mode) */}
-        {isFullscreenMap && ecosystemMode === 'passenger' && (
+        {/* Floating Bottom Transit Drawer / Sheet (Active in Full Map View and Fullscreen) */}
+        {(isFullscreenMap || mapDisplayMode === 'full') && ecosystemMode === 'passenger' && (
           <div className="absolute bottom-4 left-0 right-0 z-[450] pointer-events-none p-2 sm:p-4 pb-16 sm:pb-6 flex flex-col items-center justify-end">
             {bottomSheetState === 'hidden' ? (
               /* Floating Re-open Capsule */
@@ -1075,13 +1053,6 @@ export default function DaladalaHome() {
           onClose={() => setIsDailyReportOpen(false)}
         />
       )}
-
-      {/* Mobile Sticky Bottom Navigation Bar (Abiria, Dereva HUD, Konda, Mmiliki, Hesabu) */}
-      <DaladalaMobileNav
-        currentMode={ecosystemMode}
-        onSelectMode={(mode) => setEcosystemMode(mode)}
-        onOpenDailyReport={() => setIsDailyReportOpen(true)}
-      />
     </div>
   );
 }

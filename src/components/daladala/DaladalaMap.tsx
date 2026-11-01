@@ -675,12 +675,12 @@ export default function DaladalaMap({
               {isFullscreen ? (
                 <>
                   <Minimize2 className="w-3.5 h-3.5 text-white" />
-                  <span className="hidden sm:inline font-bold">Toka Kioo</span>
+                  <span className="font-black text-[11px]">Toka Fulu</span>
                 </>
               ) : (
                 <>
                   <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span className="hidden sm:inline font-bold">Kioo Kizima</span>
+                  <span className="font-black text-[11px]">Fulu Map</span>
                 </>
               )}
             </button>

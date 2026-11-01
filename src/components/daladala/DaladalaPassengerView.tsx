@@ -48,7 +48,6 @@ import DaladalaJourneyFilter from './DaladalaJourneyFilter';
 import DaladalaLatraFareCalculatorModal from './DaladalaLatraFareCalculatorModal';
 import DaladalaStudentFareModal from './DaladalaStudentFareModal';
 import DaladalaSeatHoldModal from './DaladalaSeatHoldModal';
-import DaladalaFeatureShowcaseBanner from './DaladalaFeatureShowcaseBanner';
 import { mockStopCrowdLevels } from '../../data/daladalaCrowdData';
 
 interface DaladalaPassengerViewProps {
@@ -400,18 +399,6 @@ export default function DaladalaPassengerView({
 
   return (
     <div className="flex flex-col h-full space-y-4">
-      {/* 🌟 Dedicated Showcase Hub for New Features (Driver HUD, WhatsApp Owner Report, Voice GPS) */}
-      <DaladalaFeatureShowcaseBanner
-        onOpenDriverMode={() => onOpenDriverMode ? onOpenDriverMode() : onOpenConductorMode?.()}
-        onOpenDailyReport={() => onOpenDailyReport ? onOpenDailyReport() : undefined}
-        onOpenConductorMode={() => onOpenConductorMode ? onOpenConductorMode() : undefined}
-        onOpenFleetMode={() => onOpenDashboard ? onOpenDashboard() : undefined}
-        onOpenSafetyModal={() => {
-          setSosTab('anti_crime');
-          setIsSosModalOpen(true);
-        }}
-        onOpenStudentFareModal={() => setIsStudentFareModalOpen(true)}
-      />
 
       {/* 14: Weather & Traffic Status Banner */}
       <div className="bg-gradient-to-r from-amber-500/10 via-blue-500/10 to-emerald-500/10 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 flex items-center justify-between text-xs">
@@ -587,152 +574,7 @@ export default function DaladalaPassengerView({
         </div>
       )}
 
-      {/* 🚏 Role-Aware Operator Access Hub for Wahusika wa Daladala */}
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-              sessionUser?.role === 'owner'
-                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                : sessionUser?.role === 'conductor' || sessionUser?.role === 'driver'
-                ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
-                : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-            }`}>
-              {sessionUser?.role === 'owner' ? (
-                <Building2 className="w-5 h-5" />
-              ) : sessionUser?.role === 'conductor' || sessionUser?.role === 'driver' ? (
-                <Radio className="w-5 h-5" />
-              ) : (
-                <Bus className="w-5 h-5" />
-              )}
-            </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                  {sessionUser ? `Mhusika: ${sessionUser.role === 'owner' ? 'Mmiliki' : sessionUser.role === 'conductor' ? 'Kondakta' : sessionUser.role === 'driver' ? 'Dereva' : 'Abiria'}` : 'Eneo la Wahusika wa Daladala'}
-                </span>
-                <span className="text-[11px] text-neutral-500 hidden sm:inline">• LATRA & UWADAR Portal</span>
-              </div>
-
-              {sessionUser ? (
-                <h3 className="text-sm font-black text-neutral-900 dark:text-white mt-0.5">
-                  {sessionUser.role === 'owner'
-                    ? `Karibu, Mmiliki ${sessionUser.fullName} • Tazama hesabu na magari yako`
-                    : sessionUser.role === 'conductor' || sessionUser.role === 'driver'
-                    ? `Karibu, ${sessionUser.fullName} (${sessionUser.assignedPlate || 'Chombo'}) • Simamia viti & tiketi`
-                    : `Karibu, ${sessionUser.fullName} • Huduma za Abiria na Safari`}
-                </h3>
-              ) : (
-                <h3 className="text-sm font-black text-neutral-900 dark:text-white mt-0.5">
-                  Wamiliki & Makondakta: Ingia au Jisajili Kuona Dasibodi na Kusajili Gari
-                </h3>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
-            {sessionUser ? (
-              <>
-                {sessionUser.role === 'owner' && onOpenRegisterVehicle && (
-                  <button
-                    type="button"
-                    onClick={onOpenRegisterVehicle}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <Bus className="w-3.5 h-3.5" />
-                    <span>Sajili Chombo</span>
-                  </button>
-                )}
-
-                {(sessionUser.role === 'owner' || sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenRegisterPassenger && (
-                  <button
-                    type="button"
-                    onClick={onOpenRegisterPassenger}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Sajili Abiria</span>
-                  </button>
-                )}
-
-                {sessionUser.role === 'owner' && onOpenDashboard && (
-                  <button
-                    type="button"
-                    onClick={onOpenDashboard}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>Dasibodi Yangu</span>
-                  </button>
-                )}
-
-                {/* Owner specific quick dual-toggle: Gari Zangu Tu vs Mabasi Yote */}
-                {sessionUser.role === 'owner' && onToggleOwnerOnly && (
-                  <div className="flex items-center p-0.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300 dark:border-amber-800 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => !filterOwnerOnly && onToggleOwnerOnly()}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition ${
-                        filterOwnerOnly
-                          ? 'bg-amber-500 text-neutral-950 shadow-sm'
-                          : 'text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40'
-                      }`}
-                    >
-                      <Crown className="w-3.5 h-3.5" />
-                      <span>Gari Zangu Tu ({ownerPlatesCount})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => filterOwnerOnly && onToggleOwnerOnly()}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${
-                        !filterOwnerOnly
-                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-sm font-black'
-                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800'
-                      }`}
-                    >
-                      <span>Mabasi Yote ({totalVehiclesCount})</span>
-                    </button>
-                  </div>
-                )}
-
-                {(sessionUser.role === 'conductor' || sessionUser.role === 'driver') && onOpenConductorMode && (
-                  <button
-                    type="button"
-                    onClick={onOpenConductorMode}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap"
-                  >
-                    <Radio className="w-3.5 h-3.5" />
-                    <span>Njia ya Konda HUD</span>
-                  </button>
-                )}
-
-                {/* Direct Logout Button */}
-                {onLogout && (
-                  <button
-                    type="button"
-                    onClick={onLogout}
-                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-800 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 whitespace-nowrap shadow-sm"
-                    title="Ondoka kwenye akaunti (Logout)"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-red-500" />
-                    <span>Toka</span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenAuthModal?.('owner')}
-                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-neutral-950 font-black text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-95 whitespace-nowrap"
-              >
-                <Lock className="w-4 h-4 text-neutral-950" />
-                <span>Ingia / Jisajili kama Mhusika</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* 15: Find My Daladala: Interactive Journey Filter (Kituo, Ruti, Kituo cha Kushukia) */}
       <DaladalaJourneyFilter
