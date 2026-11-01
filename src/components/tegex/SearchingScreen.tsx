@@ -188,37 +188,37 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
       </div>
 
       {/* Bottom Main Driver Searching Sheet */}
-      <div className="w-full flex justify-center pb-2 sm:pb-3">
+      <div className="w-full flex justify-center pb-2 px-3">
         <motion.div
-          initial={{ y: 60, opacity: 0 }}
+          initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 60, opacity: 0 }}
+          exit={{ y: 40, opacity: 0 }}
           transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-          className={`pointer-events-auto w-full max-w-[420px] rounded-[28px] border shadow-[0_16px_48px_rgba(0,0,0,0.25)] backdrop-blur-2xl transition-all overflow-hidden ${
+          className={`pointer-events-auto w-full max-w-[390px] rounded-2xl border shadow-xl backdrop-blur-2xl transition-all overflow-hidden ${
             theme === 'dark'
-              ? 'bg-[#0f0f17]/95 border-neutral-800 text-neutral-100 shadow-black/60'
-              : 'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/15'
+              ? 'bg-[#0f0f17]/98 border-neutral-800 text-neutral-100 shadow-black/60'
+              : 'bg-white/98 border-neutral-200 text-neutral-800 shadow-neutral-900/15'
           }`}
         >
           {/* Top Grab Bar / Toggle Header */}
           <div 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full pt-2.5 pb-1 flex flex-col items-center cursor-pointer group select-none"
+            className="w-full pt-1.5 pb-0.5 flex flex-col items-center cursor-pointer group select-none"
           >
-            <div className={`w-10 h-1 rounded-full transition-all ${
+            <div className={`w-8 h-1 rounded-full transition-all ${
               theme === 'dark' ? 'bg-neutral-700 group-hover:bg-neutral-600' : 'bg-neutral-300 group-hover:bg-neutral-400'
             }`} />
           </div>
 
-          <div className="p-4 sm:p-5 pt-2 space-y-3.5">
+          <div className="px-3.5 pb-3 pt-1 space-y-2">
             {/* Header: Finding your driver / Asking drivers near you */}
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base sm:text-lg font-black tracking-tight leading-snug">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm sm:text-base font-black tracking-tight leading-tight truncate">
                   {isShareMode ? 'Kutafuta Safari ya PapoShare' : 'Inatafuta Dereva Wako...'}
                 </h3>
-                <p className={`text-xs font-bold mt-0.5 ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                  Inatuma maombi kwa madereva wa <span className="font-extrabold text-indigo-500">{vehicleName}</span> walio karibu nawe
+                <p className={`text-[10px] font-medium mt-0.5 truncate ${theme === 'dark' ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                  Inatuma maombi kwa madereva wa <span className="font-bold text-indigo-500">{vehicleName}</span> walio karibu
                 </p>
               </div>
 
@@ -226,78 +226,76 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className={`w-8 h-8 rounded-xl flex items-center justify-center border shrink-0 transition-all ${
+                className={`w-6 h-6 rounded-lg flex items-center justify-center border shrink-0 transition-all ${
                   theme === 'dark' 
                     ? 'bg-neutral-800/80 border-neutral-700 text-neutral-300 hover:bg-neutral-700' 
                     : 'bg-neutral-100 border-neutral-200 text-neutral-600 hover:bg-neutral-200'
                 }`}
                 title={isCollapsed ? "Fungua maelezo kamili" : "Punguza kadi"}
               >
-                {isCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
             </div>
 
-            {/* Middle Vehicle & Fare Card (Matching reference Screenshot_20260926-080021.jpg) */}
-            <div className={`flex items-center justify-between p-3 rounded-2xl border ${
+            {/* Middle Vehicle & Fare Card */}
+            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border ${
               theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
             }`}>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center text-2xl border border-indigo-500/20 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/20 flex items-center justify-center text-lg border border-indigo-500/20 shrink-0">
                   {vehicleEmoji}
                 </div>
-                <div>
-                  <p className="text-sm font-black tracking-tight leading-tight">
+                <div className="min-w-0">
+                  <p className="text-xs font-black tracking-tight leading-tight truncate">
                     {vehicleName}
                   </p>
-                  <p className="text-[10px] text-neutral-400 font-bold flex items-center gap-1 mt-0.5">
-                    <span>💵 Pesa Taslimu (Cash)</span>
+                  <p className="text-[9.5px] text-neutral-400 font-bold flex items-center gap-1 leading-none mt-0.5">
+                    <span>💵 Pesa Taslimu</span>
                     <span>•</span>
-                    <span className="text-emerald-500 font-extrabold">Imethibitishwa</span>
+                    <span className="text-emerald-500 font-bold">Imethibitishwa</span>
                   </p>
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
+              <div className="text-right shrink-0">
+                <span className="text-[7.5px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
                   Gharama Yako
                 </span>
-                <p className="text-sm sm:text-base font-black text-indigo-500 dark:text-indigo-400 font-mono leading-tight mt-0.5">
+                <p className="text-xs sm:text-sm font-black text-indigo-500 dark:text-indigo-400 font-mono leading-tight mt-0.5">
                   TZS {fare.toLocaleString()}
                 </p>
               </div>
             </div>
 
-            {/* Overlapping Driver Profile Avatars Row (Only shown when CURRENT drivers are online) */}
+            {/* Overlapping Driver Profile Avatars Row */}
             {nearbyDrivers && nearbyDrivers.length > 0 ? (
-              <div className={`flex items-center gap-3 py-2 px-3 rounded-2xl border ${
+              <div className={`flex items-center gap-2 py-1 px-2.5 rounded-xl border ${
                 theme === 'dark' ? 'bg-[#12121a]/80 border-neutral-800/80' : 'bg-neutral-100/70 border-neutral-200/60'
               }`}>
-                <div className="flex -space-x-2.5 overflow-hidden shrink-0">
+                <div className="flex -space-x-2 overflow-hidden shrink-0">
                   {nearbyDrivers.slice(0, 3).map((drv: any, idx: number) => (
                     <img
                       key={drv.id || idx}
                       src={drv.photoURL || `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80`}
                       alt={drv.name || 'Dereva'}
-                      className="inline-block w-8 h-8 rounded-full ring-2 ring-white dark:ring-neutral-900 object-cover shadow-md"
+                      className="inline-block w-5 h-5 rounded-full ring-1 ring-white dark:ring-neutral-900 object-cover shadow-xs"
                       referrerPolicy="no-referrer"
                     />
                   ))}
                 </div>
-                <p className="text-[11.5px] font-bold leading-snug">
+                <p className="text-[10.5px] font-bold leading-tight truncate">
                   <span className="font-black text-amber-500">
                     Madereva {nearbyDrivers.length}
-                  </span> wapo hewani kwenye rada, wanasubiri kujibu ombi
+                  </span> wapo hewani kwenye rada, wanasubiri kujibu
                 </p>
               </div>
             ) : (
-              <div className={`flex items-center gap-3 py-2.5 px-3 rounded-2xl border ${
+              <div className={`flex items-center gap-2 py-1 px-2.5 rounded-xl border ${
                 theme === 'dark' ? 'bg-[#12121a]/60 border-neutral-800/60' : 'bg-neutral-100/60 border-neutral-200/50'
               }`}>
-                <div className="w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <span className="text-amber-500 text-sm animate-pulse">📡</span>
-                </div>
-                <p className="text-[11.5px] font-bold text-neutral-500 dark:text-neutral-400 leading-snug">
-                  Rada inazunguka kutafuta madereva wa karibu waliopo hewani...
+                <span className="text-amber-500 text-xs animate-pulse">📡</span>
+                <p className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 leading-tight truncate">
+                  Rada inazunguka kutafuta madereva wa karibu...
                 </p>
               </div>
             )}
@@ -309,38 +307,28 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-2.5 overflow-hidden"
+                  transition={{ duration: 0.15 }}
+                  className="space-y-1.5 overflow-hidden"
                 >
-                  <div className={`p-2.5 sm:p-3 rounded-2xl border space-y-2 ${
+                  <div className={`p-2 rounded-xl border space-y-1 ${
                     theme === 'dark' ? 'bg-[#151520] border-neutral-800' : 'bg-neutral-50/90 border-neutral-200/80'
                   }`}>
                     {/* Pickup */}
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
-                          Kuanzia (Pickup)
-                        </span>
-                        <p className="text-[11px] font-bold truncate leading-tight mt-0.5">
-                          {pickupAddress}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <p className="text-[10.5px] font-bold truncate leading-tight flex-1">
+                        <span className="text-neutral-400 font-medium mr-1">Kupakia:</span>
+                        {pickupAddress}
+                      </p>
                     </div>
 
-                    <div className="ml-1 w-0.5 h-1.5 bg-neutral-300 dark:bg-neutral-700" />
-
                     {/* Destination */}
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/20 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block leading-none">
-                          Kuelekea (Destination)
-                        </span>
-                        <p className="text-[11px] font-bold truncate leading-tight mt-0.5">
-                          {destinationAddress}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                      <p className="text-[10.5px] font-bold truncate leading-tight flex-1">
+                        <span className="text-neutral-400 font-medium mr-1">Kushusha:</span>
+                        {destinationAddress}
+                      </p>
                     </div>
                   </div>
 
@@ -350,11 +338,11 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
                       type="button"
                       onClick={handleFallbackToSolo}
                       disabled={isSwitchingToSolo}
-                      className="w-full h-9 bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      className="w-full h-8 bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg font-black uppercase text-[9.5px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
                     >
-                      <Zap className="w-3.5 h-3.5 fill-amber-500" />
+                      <Zap className="w-3 h-3 fill-amber-500" />
                       <span>Endelea na Solo Sasa (Bila Kusubiri)</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                 </motion.div>
@@ -366,9 +354,9 @@ export const SearchingScreen: React.FC<SearchingScreenProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="w-full h-10 bg-red-500/10 hover:bg-red-500/20 active:scale-98 text-red-500 dark:text-red-400 border border-red-500/30 rounded-2xl font-black uppercase text-[11px] tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                className="w-full h-8.5 bg-red-500/10 hover:bg-red-500/20 active:scale-98 text-red-500 dark:text-red-400 border border-red-500/30 rounded-xl font-black uppercase text-[10px] tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <X className="w-4 h-4 stroke-[2.5]" />
+                <X className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Ghairi Safari (Cancel Search)</span>
               </button>
             )}

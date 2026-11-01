@@ -5555,12 +5555,12 @@ const getEndPin = (etaText: string) => {
                     </span>
                   </div>
 
-                  <div className={`border rounded-[2rem] p-5 relative shadow-[0_12px_40px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_16px_48px_rgba(0,0,0,0.06)] ${theme === 'dark' ? 'bg-[#111118]/90 border-neutral-800' : 'bg-white border-neutral-100/80'}`}>
-                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-[2rem] opacity-90" />
-                    <div className="space-y-3">
+                  <div className={`border rounded-2xl p-3 sm:p-3.5 relative shadow-sm transition-all duration-300 ${theme === 'dark' ? 'bg-[#111118]/95 border-neutral-800' : 'bg-white border-neutral-200/80'}`}>
+                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#7F77DD] rounded-t-2xl opacity-90" />
+                    <div className="space-y-2">
                       {/* Destination Input (Top) */}
                       <div 
-                        className={`flex items-center gap-3.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-3.5 rounded-2xl cursor-pointer group transition-all duration-300 shadow-inner ${
+                        className={`flex items-center gap-2.5 bg-neutral-50/70 dark:bg-neutral-900/60 border p-2.5 rounded-xl cursor-pointer group transition-all duration-300 shadow-inner ${
                           settingMode === "destination" 
                             ? "border-orange-500/60 bg-white dark:bg-neutral-900 ring-1 ring-orange-500/20" 
                             : "border-neutral-100 dark:border-neutral-850"
@@ -5568,9 +5568,9 @@ const getEndPin = (etaText: string) => {
                         onClick={() => setSettingMode("destination")}
                       >
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "destination" ? "bg-orange-600 text-white shadow-lg shadow-orange-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 shrink-0 ${settingMode === "destination" ? "bg-orange-600 text-white shadow-md shadow-orange-500/20" : (theme === 'dark' ? "bg-neutral-800 text-neutral-400 group-hover:text-neutral-200" : "bg-neutral-200/60 text-neutral-500 group-hover:text-neutral-700")}`}
                         >
-                          <Search className="w-4 h-4" />
+                          <Search className="w-3.5 h-3.5" />
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <p className="text-[8.5px] font-black uppercase tracking-[0.15em] text-orange-600 dark:text-orange-400 mb-1">
@@ -5811,45 +5811,8 @@ const getEndPin = (etaText: string) => {
                     </div>
                   )}
 
-                  {/* Compact slide banner of active promotional banners */}
-                  {(() => {
-                    const isHomepageOnly = config.taxiBannerPlacement === 'homepage';
-                    const showBannerHere = isHomepageOnly ? !destination : true;
-                    if (!showBannerHere || taxiBanners.length === 0) return null;
-                    return (
-                      <div className={`w-full p-1.5 rounded-2xl border shadow-xs transition-all duration-300 overflow-hidden ${theme === 'dark' ? 'bg-neutral-900/30 border-neutral-800/80' : 'bg-neutral-50 border-neutral-100/50'}`}>
-                        <div className="flex gap-2 overflow-x-auto pb-0.5 no-scrollbar snap-x scroll-smooth">
-                          {taxiBanners.map((banner, idx) => (
-                            <div
-                              key={`taxi-banner-${banner.id || idx}`}
-                              className="min-w-full h-20 sm:h-22 rounded-xl overflow-hidden relative snap-center shadow-xs group border border-white/5 shrink-0"
-                            >
-                              <img
-                                src={banner.img}
-                                alt={banner.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 text-white">
-                                <span className="absolute top-1.5 left-2 flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/20 backdrop-blur-md rounded-full border border-emerald-500/30 text-[7.5px] font-black uppercase tracking-widest text-[#00E5A0]">
-                                  Ofa Maalum
-                                </span>
-                                <h4 className="text-[11px] sm:text-xs font-black uppercase italic tracking-tight">{banner.title}</h4>
-                                <p className="text-[8.5px] opacity-95 font-bold uppercase tracking-wider text-neutral-300">{banner.sub}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        {taxiBanners.length > 1 && (
-                          <div className="flex justify-center gap-1 mt-1.5">
-                            {taxiBanners.map((_, i) => (
-                              <div key={`dot-${i}`} className="w-1.5 h-1.5 rounded-full bg-indigo-500/30" />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {/* Promotional banners are hidden in the ride booking drawer to keep sheet compact and map visible */}
+                  {null}
 
                   {destination && (
                     <div className={`relative w-full py-0.5 transition-all duration-200 ${suggestions.length > 0 ? "pointer-events-none opacity-20 grayscale select-none" : ""}`}>
