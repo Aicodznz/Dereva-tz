@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3 } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -10,6 +10,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import LocationPicker from './LocationPicker';
+import WhatsAppAIAssistantModal from './common/WhatsAppAIAssistantModal';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
@@ -24,6 +25,7 @@ export default function Header() {
   const [targetLangName, setTargetLangName] = useState('');
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [isHeaderLocationPickerOpen, setIsHeaderLocationPickerOpen] = useState(false);
+  const [isWhatsAppAiOpen, setIsWhatsAppAiOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -277,6 +279,16 @@ export default function Header() {
             </AnimatePresence>
           </button>
 
+          {/* WhatsApp AI Assistant Launcher Button (Wajid Techtube Edition) */}
+          <button
+            onClick={() => setIsWhatsAppAiOpen(true)}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#00A884]/15 hover:bg-[#00A884]/25 border border-[#00A884]/40 text-[#00A884] dark:text-[#25D366] font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            title="Msaidizi wa WhatsApp AI - Agiza Safari, Bidhaa & Risiti"
+          >
+            <MessageCircle className="w-3.5 h-3.5 fill-[#00A884] dark:fill-[#25D366] text-transparent" />
+            <span className="hidden sm:inline">WhatsApp AI</span>
+          </button>
+
           {/* User Profile */}
           {user ? (
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -399,6 +411,12 @@ export default function Header() {
           zIndex="z-[99999]"
         />
       )}
+
+      {/* WhatsApp AI Assistant Modal */}
+      <WhatsAppAIAssistantModal
+        isOpen={isWhatsAppAiOpen}
+        onClose={() => setIsWhatsAppAiOpen(false)}
+      />
     </nav>
   );
 }

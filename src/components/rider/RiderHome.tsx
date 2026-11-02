@@ -2687,29 +2687,6 @@ const getEndPin = (etaText: string) => {
       </AnimatePresence>
 
 
-      {/* Bottom Status Bar when Active */}
-      <AnimatePresence>
-        {activeRide && !showPayment && !showRating && !isMinimized && isTripMinimized && (
-          <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="absolute bottom-4 inset-x-4 z-[9999] flex flex-col gap-3 pointer-events-none"
-          >
-            {/* Speed Indicator */}
-            <div className="flex justify-center">
-              <div className="glass-morphism rounded-full px-6 py-2 flex items-center gap-3">
-                <Gauge className="w-5 h-5 text-[#00FF88]" />
-                <div className="flex flex-col items-center">
-                  <span className="text-2xl font-black text-white italic leading-none">{speed}</span>
-                  <span className="text-[8px] font-black text-[#8B8BA0] uppercase">KM/H</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Map Layer */}
       <div className="absolute inset-0 z-0 bg-neutral-100 dark:bg-[#0a0a0f]">
         <style>{`
@@ -3479,7 +3456,7 @@ const getEndPin = (etaText: string) => {
       {!isMinimized && (
         <div className={`absolute right-3.5 z-40 flex flex-col gap-2 items-end pointer-events-auto transition-all duration-300 ${
           isOnline && activeRide && !showPayment && !showRating
-            ? 'top-[215px] sm:top-[225px]'
+            ? 'top-[180px] sm:top-[190px]'
             : 'top-20'
         }`}>
           {/* Main Map Tools Flyout Menu */}
@@ -3633,7 +3610,7 @@ const getEndPin = (etaText: string) => {
 
           {/* Core Right Side Actions (Clean & Compact Stack of 4) */}
           <div className="flex flex-col gap-2 items-center bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-1.5 rounded-2xl shadow-lg">
-            {/* 1. Recenter / Heading-Up & Auto-Follow Vehicle Button */}
+            {/* 1. GPS Recenter / Locate Me & Heading-Up (Auto-Follow Target) */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -3646,17 +3623,38 @@ const getEndPin = (etaText: string) => {
                 if (nextHeading) {
                   toast.success("🧭 Mwelekeo wa Gari (Heading-Up) umewashwa!");
                 } else {
-                  toast.info("🧭 Ramani imelenga Kaskazini (North-Up)");
+                  toast.info("🧭 Ramani imelenga eneo lako (GPS Recenter)");
                 }
               }}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                isHeadingUp && autoFollow 
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/40' 
+              className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                autoFollow 
+                  ? 'bg-emerald-500/20 text-[#00B14F] dark:text-[#00FF88] ring-2 ring-emerald-500/50 shadow-sm' 
                   : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
               }`}
-              title={isHeadingUp ? "Mwelekeo wa Gari (Heading-Up) Uko Wazi - Gusa kubadili Kaskazini (North-Up)" : "Kaskazini (North-Up) - Gusa kugeukia Mwelekeo wa Gari (Heading-Up)"}
+              title="Lenga Eneo Lako la Sasa / Mwelekeo (Locate Me)"
             >
-              <Navigation2 className={`w-4 h-4 rotate-45 ${isHeadingUp && autoFollow ? 'fill-white' : ''}`} />
+              <svg 
+                viewBox="0 0 24 24" 
+                className="w-5 h-5" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.3" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="7" />
+                <circle cx="12" cy="12" r="2.8" fill="currentColor" />
+                <line x1="12" y1="1.5" x2="12" y2="4.5" />
+                <line x1="12" y1="19.5" x2="12" y2="22.5" />
+                <line x1="1.5" y1="12" x2="4.5" y2="12" />
+                <line x1="19.5" y1="12" x2="22.5" y2="12" />
+              </svg>
+              {autoFollow && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              )}
             </motion.button>
 
             {/* 2. Zoom In / Zoom Out Controls */}
@@ -4458,72 +4456,6 @@ const getEndPin = (etaText: string) => {
       </motion.div>
       )}
 
-      {/* Modern Emerald GPS Recenter & Locate-Me Button for Driver (Both on-trip & idle/offline) */}
-      <motion.button
-        key="driver-gps-locate-floating-btn"
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => {
-          setAutoFollow(true);
-          setRecenterTrigger(Date.now());
-          setZoomAction({ type: 'auto', id: Date.now() });
-          if (activeRide) {
-            setIsHeadingUp(true);
-          }
-          toast.success("Ramani imelenga eneo lako la sasa!");
-        }}
-        className={`fixed sm:absolute z-[48] w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-[0_8px_25px_rgba(0,0,0,0.18)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] border transition-all duration-300 pointer-events-auto cursor-pointer group ${
-          activeRide
-            ? (isTripMinimized || isMinimized ? 'bottom-28 sm:bottom-32 right-3.5 sm:right-5' : 'bottom-[295px] sm:bottom-[315px] right-3.5 sm:right-5')
-            : (isOnline ? 'bottom-[155px] sm:bottom-[165px] right-3.5 sm:right-5' : 'bottom-28 sm:bottom-32 right-3.5 sm:right-5')
-        } ${
-          theme === 'dark'
-            ? 'bg-[#111118]/95 border-neutral-700/80 text-emerald-400 hover:border-emerald-500/60 shadow-black/70'
-            : 'bg-white/95 border-neutral-200/90 text-emerald-600 hover:border-emerald-500/60 shadow-neutral-400/30'
-        }`}
-        title="Lenga Eneo Lako la Sasa (Locate Me)"
-      >
-        {/* Soft Mint/Emerald Circular Halo Ring matching exact screenshot */}
-        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${
-          autoFollow 
-            ? 'bg-emerald-500/20 dark:bg-emerald-500/30 ring-2 ring-emerald-500/50' 
-            : 'bg-emerald-500/12 dark:bg-emerald-500/20 group-hover:bg-emerald-500/25'
-        }`}>
-          {/* Emerald GPS Crosshair Target Icon with Center Dot and 4 Axis Lines */}
-          <svg 
-            viewBox="0 0 24 24" 
-            className={`w-6 h-6 sm:w-7 sm:h-7 text-[#00B14F] dark:text-[#00FF88] transition-transform ${
-              autoFollow ? 'scale-105' : 'group-hover:scale-110'
-            }`} 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2.3" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          >
-            {/* Outer Target Circle */}
-            <circle cx="12" cy="12" r="7" />
-            {/* Center Filled Dot */}
-            <circle cx="12" cy="12" r="2.8" fill="currentColor" />
-            {/* 4 Extended Crosshair Lines */}
-            <line x1="12" y1="1.5" x2="12" y2="4.5" />
-            <line x1="12" y1="19.5" x2="12" y2="22.5" />
-            <line x1="1.5" y1="12" x2="4.5" y2="12" />
-            <line x1="19.5" y1="12" x2="22.5" y2="12" />
-          </svg>
-        </div>
-
-        {/* Pulsing Emerald Beacon Indicator when locked onto driver location */}
-        {autoFollow && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white dark:border-[#111118]"></span>
-          </span>
-        )}
-      </motion.button>
-
       {/* Chat Overlay */}
       <AnimatePresence>
         {isChatOpen && activeRide && (
@@ -4956,7 +4888,7 @@ const getEndPin = (etaText: string) => {
           )}
         </AnimatePresence>
 
-        {/* Real-time Responsive Popup Chat for Active Ride */}
+        {/* Real-time Responsive Popup Chat for Active Ride (Toast notifications enabled, floating button hidden so it does not block NIMEFIKA) */}
         {activeRide && activeRide.customerId && !isChatOpen && (
           <ActiveRideChatPopup
             rideId={rideId || ""}
@@ -4965,6 +4897,7 @@ const getEndPin = (etaText: string) => {
             recipientName={activeRide.customerInfo?.name || "Mteja"}
             recipientPhoto={activeRide.customerInfo?.avatar || ""}
             isDriver={true}
+            hideFloatingTrigger={true}
           />
         )}
 

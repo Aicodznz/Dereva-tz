@@ -61,7 +61,7 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 export async function generateContentWithRetry(params: any, maxRetries = 2) {
   let attempt = 0;
   let delay = 1000;
-  const modelsToTry = [params.model, "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-3.5-flash"];
+  const modelsToTry = [params.model, "gemini-3.8-flash", "gemini-3.1-flash-lite"];
   const models = Array.from(new Set(modelsToTry.filter(Boolean)));
 
   const client = getAI();
@@ -237,7 +237,7 @@ Response Schema:
 }`;
 
       const response = await generateContentWithRetry({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -314,7 +314,7 @@ Instructions:
 3. Do not assume or make up facts. Only use what is in the Knowledge Base.`;
 
     const res = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.8-flash",
       contents: prompt,
     });
     
@@ -502,7 +502,7 @@ ${intentMappings.map((m: any) => `- ID: "${m.nextNodeId}", Description/Keywords:
 Respond strictly with the matching category ID. If none fits nicely, return "default".`;
 
             const res = await generateContentWithRetry({
-              model: "gemini-3.5-flash",
+              model: "gemini-3.8-flash",
               contents: prompt,
             });
             const ans = res.text?.trim()?.replace(/["']/g, '');

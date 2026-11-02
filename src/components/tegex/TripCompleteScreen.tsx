@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2, Radio } from 'lucide-react';
+import { Check, Wallet, Smartphone, Banknote, FileText, CheckCircle2, Radio, Share2 } from 'lucide-react';
 import { Ride } from '../../types/trip.types';
 import { useTheme } from '../../ThemeContext';
 import { useAuth } from '../../AuthContext';
 import { UssdPaymentModal } from './UssdPaymentModal';
 import { DigitalReceiptModal } from './DigitalReceiptModal';
 import { NfcTapPaymentModal } from './NfcTapPaymentModal';
+import { buildRideReceiptWhatsAppUrl } from '../../utils/whatsappHelper';
 
 interface TripCompleteScreenProps {
   ride: Ride;
@@ -205,6 +206,19 @@ export const TripCompleteScreen: React.FC<TripCompleteScreenProps> = ({ ride, on
               className="w-full h-13 bg-emerald-600 text-white rounded-[50px] font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <span>{method === 'nfc' ? 'Gusisha Simu (Lipa kwa NFC)' : method === 'mpesa' ? 'Lipa kwa M-Pesa' : method === 'cash' ? 'Lipa Pesa Mkononi' : 'Lipa kwa Mkoba'}</span>
+            </button>
+
+            {/* Tuma Risiti WhatsApp */}
+            <button
+              type="button"
+              onClick={() => {
+                const url = buildRideReceiptWhatsAppUrl(ride, defaultUserPhone, false);
+                window.open(url, '_blank');
+              }}
+              className="w-full h-11 bg-[#25D366] hover:bg-[#1ebd59] text-black rounded-[50px] font-black uppercase tracking-wider text-[11px] shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Tuma Risiti WhatsApp</span>
             </button>
 
             <button

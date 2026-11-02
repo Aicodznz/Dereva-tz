@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Star, Heart, MessageSquare, FastForward } from 'lucide-react';
+import { Star, Heart, MessageSquare, FastForward, Share2 } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 import { db } from '../../firebase';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useTheme } from '../../ThemeContext';
+import { buildRideReceiptWhatsAppUrl } from '../../utils/whatsappHelper';
 
 interface RateCustomerScreenProps {
   ride: Ride;
@@ -118,6 +119,19 @@ export default function RateCustomerScreen({ ride, onDone }: RateCustomerScreenP
            </div>
         </div>
       </div>
+
+      {/* Quick WhatsApp Digital Receipt Dispatch */}
+      <button
+        type="button"
+        onClick={() => {
+          const url = buildRideReceiptWhatsAppUrl(ride, ride.customerInfo?.phone || (ride as any).customerPhone, false);
+          window.open(url, '_blank');
+        }}
+        className="w-full mb-3 py-3.5 px-4 bg-[#25D366] hover:bg-[#1ebd59] text-black font-black uppercase text-xs tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all shrink-0 cursor-pointer"
+      >
+        <Share2 className="w-4 h-4" />
+        Tuma Risiti Rasmi WhatsApp kwa Mteja
+      </button>
 
       <div className="flex gap-4 mt-auto">
         <button 

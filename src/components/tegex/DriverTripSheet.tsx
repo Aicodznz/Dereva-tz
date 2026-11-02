@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2, ArrowRight, ChevronUp, ChevronDown, Map as MapIcon, RotateCcw } from 'lucide-react';
+import { Phone, MessageSquare, MapPin, Navigation2, CheckCircle2, ArrowRight, ChevronUp, ChevronDown, Map as MapIcon, RotateCcw, Share2 } from 'lucide-react';
 import { Ride } from '../../types/ride.types';
 import { useDriverTracking } from '../../hooks/useDriverTracking';
+import { buildRideReceiptWhatsAppUrl } from '../../utils/whatsappHelper';
 
 interface DriverTripSheetProps {
   ride: Ride;
@@ -212,6 +213,17 @@ export default function DriverTripSheet({
                   title="Tuma ujumbe"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    const url = buildRideReceiptWhatsAppUrl(ride, ride.customerInfo?.phone || (ride as any).customerPhone, false);
+                    window.open(url, '_blank');
+                  }}
+                  className="w-7 h-7 rounded-lg bg-[#25D366]/15 border border-[#25D366]/30 flex items-center justify-center text-[#25D366] active:scale-90 transition-transform cursor-pointer"
+                  title="Tuma Risiti WhatsApp kwa Mteja au Dereva"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

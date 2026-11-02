@@ -11,6 +11,7 @@ interface ActiveRideChatPopupProps {
   recipientName: string;
   recipientPhoto?: string;
   isDriver?: boolean;
+  hideFloatingTrigger?: boolean;
 }
 
 interface ChatMessage {
@@ -29,6 +30,7 @@ export default function ActiveRideChatPopup({
   recipientName,
   recipientPhoto,
   isDriver = false,
+  hideFloatingTrigger = false,
 }: ActiveRideChatPopupProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -163,7 +165,9 @@ export default function ActiveRideChatPopup({
   if (!chatId) return null;
 
   return (
-    <div className="absolute bottom-24 sm:bottom-6 right-4 z-[100000] flex flex-col items-end pointer-events-auto">
+    <div className={`absolute z-[100000] flex flex-col items-end pointer-events-auto ${
+      hideFloatingTrigger ? 'top-[190px] right-3.5' : 'bottom-24 sm:bottom-6 right-4'
+    }`}>
       {/* 1. Speech Bubble Overlay/Toast (Screenshot style) */}
       <AnimatePresence>
         {showToast && latestMessage && !isExpanded && (
@@ -338,24 +342,26 @@ export default function ActiveRideChatPopup({
       </AnimatePresence>
 
       {/* 3. Floating Circle Action Badge Button (The trigger) */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`relative w-12 h-12 bg-gradient-to-tr from-[#1070ff] to-[#4fa1ff] rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all duration-300 z-[310] ${
-          isExpanded ? 'rotate-90' : ''
-        }`}
-      >
-        {isExpanded ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5 stroke-[2.5]" />}
+      {!hideFloatingTrigger && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`relative w-12 h-12 bg-gradient-to-tr from-[#1070ff] to-[#4fa1ff] rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all duration-300 z-[310] ${
+            isExpanded ? 'rotate-90' : ''
+          }`}
+        >
+          {isExpanded ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5 stroke-[2.5]" />}
 
-        {/* Floating pulse notification highlight on unread count */}
-        {unreadCount > 0 && !isExpanded && (
-          <>
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ef4444] text-[10px] font-black text-white flex items-center justify-center rounded-full animate-bounce shadow-md">
-              {unreadCount}
-            </span>
-            <div className="absolute -inset-0 rounded-full border-2 border-[#ef4444] animate-ping opacity-60"></div>
-          </>
-        )}
-      </button>
+          {/* Floating pulse notification highlight on unread count */}
+          {unreadCount > 0 && !isExpanded && (
+            <>
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#ef4444] text-[10px] font-black text-white flex items-center justify-center rounded-full animate-bounce shadow-md">
+                {unreadCount}
+              </span>
+              <div className="absolute -inset-0 rounded-full border-2 border-[#ef4444] animate-ping opacity-60"></div>
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

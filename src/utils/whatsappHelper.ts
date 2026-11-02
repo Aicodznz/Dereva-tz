@@ -141,3 +141,102 @@ ${topText || '  (Bado hakuna data ya kutosha)'}
   return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
 }
 
+/**
+ * Builds an official WhatsApp Digital Ride Receipt for passengers or drivers
+ */
+export function buildRideReceiptWhatsAppUrl(
+  ride: any,
+  targetPhone?: string,
+  isDriverCopy: boolean = false
+): string {
+  const phone = formatPhoneForWhatsApp(targetPhone || (isDriverCopy ? ride.driverPhone : (ride.customerPhone || ride.customerInfo?.phone)));
+  const rideId = ride.id ? String(ride.id).slice(-6).toUpperCase() : 'SAF-' + Date.now().toString().slice(-4);
+  const dateFormatted = new Date().toLocaleDateString('sw-TZ', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const pickupName = ride.pickup?.name || ride.pickupAddress || 'Mahali pa Kuanzia';
+  const destName = ride.destination?.name || ride.destAddress || ride.destinationAddress || 'Mahali pa Kufika';
+  const driverName = ride.driverName || ride.driverInfo?.name || 'Dereva wa Papo Hapo';
+  const vehiclePlate = ride.vehiclePlate || ride.driverInfo?.vehiclePlate || ride.driverInfo?.plateNumber || 'TZ-REG';
+  const vehicleType = ride.vehicleType || ride.rideType || 'Gari (Taxi)';
+  const customerName = ride.customerName || ride.customerInfo?.name || 'Mteja';
+  const fare = (ride.fare || ride.totalFare || ride.amount || 0).toLocaleString();
+  const paymentMethod = ride.paymentMethod === 'wallet' ? 'Pochi ya Kidigitali' : (ride.paymentMethod === 'mobile_money' ? 'Lipa Namba / M-Pesa' : 'Pesa Taslimu (Cash)');
+
+  const message = `🧾 *RISITI YA SAFARI - PAPO HAPO TANZANIA*
+━━━━━━━━━━━━━━━━━━━━
+🆔 *Namba ya Safari:* #${rideId}
+📅 *Tarehe:* ${dateFormatted}
+${isDriverCopy ? `👤 *Nakala ya:* DEREVA (${driverName})` : `👤 *Mteja:* ${customerName}`}
+━━━━━━━━━━━━━━━━━━━━
+📍 *Kuanzia:* ${pickupName}
+🏁 *Kuelekea:* ${destName}
+${ride.distance ? `📏 *Umbali:* ${typeof ride.distance === 'number' ? ride.distance.toFixed(1) : ride.distance} km\n` : ''}🚗 *Chombo:* ${vehicleType} (${vehiclePlate})
+👨‍✈️ *Dereva:* ${driverName}
+━━━━━━━━━━━━━━━━━━━━
+💵 *JUMLA YA NAULI:* *TZS ${fare}*
+💳 *Njia ya Malipo:* ${paymentMethod}
+✅ *Hali:* IMETHIBITISHWA & KUKAMILIKA
+━━━━━━━━━━━━━━━━━━━━
+✨ *Asante kwa kusafiri nasi salama!*
+🌐 Pakua stakabadhi au weka nafasi tena: ${window.location.origin}`;
+
+  const encoded = encodeURIComponent(message);
+  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+}
+
+/**
+ * Builds a WhatsApp URL for requesting a ride via the WhatsApp AI Assistant
+ */
+export function buildRideRequestWhatsAppUrl(
+  assistantPhone: string = '255712345678',
+  params: {
+    pickup?: string;
+    destination?: string;
+    vehicleType?: string;
+  } = {}
+): string {
+  const phone = formatPhoneForWhatsApp(assistantPhone);
+  const p = params.pickup || 'Mahali nilipo';
+  const d = params.destination || 'Mjini Posta';
+  const v = params.vehicleType || 'Gari';
+
+  const message = `Habari Papo Hapo AI Assistant! 🚗
+Nahitaji usafiri wa *${v}*:
+📍 *Kuanzia (Pickup):* ${p}
+🏁 *Kuelekea (Destination):* ${d}
+
+Tafadhali nisaidie makadirio ya nauli na dereva aliyepo karibu sasa hivi. Asante!`;
+
+  const encoded = encodeURIComponent(message);
+  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+}
+
+/**
+ * Builds a WhatsApp URL for inquiring about a shop product or ordering via WhatsApp
+ */
+export function buildProductInquiryWhatsAppUrl(
+  assistantOrShopPhone: string = '255712345678',
+  productName: string,
+  price?: number,
+  shopName: string = 'Duka la Papo Hapo'
+): string {
+  const phone = formatPhoneForWhatsApp(assistantOrShopPhone);
+  const priceText = price ? ` kwa TZS ${price.toLocaleString()}` : '';
+
+  const message = `Habari ${shopName}! 🛍️
+Nimeona bidhaa hii kwenye mfumo:
+👉 *${productName}*${priceText}
+
+Je, ipo stoo? Naomba utaratibu wa kulipia na kuletewa (Delivery). Asante!`;
+
+  const encoded = encodeURIComponent(message);
+  return phone ? `https://wa.me/${phone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+}
+
+
