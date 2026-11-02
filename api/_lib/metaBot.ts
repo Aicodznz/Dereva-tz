@@ -57,6 +57,96 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   return R * c; // Distance in km
 }
 
+/**
+ * Smart Natural Language Parser for Swahili & English Ride Requests
+ * Extracts vehicle type, clean pickup, and clean destination
+ */
+export function extractRideDetailsFromText(rawText: string): {
+  vehicleType?: 'bike' | 'bajaj' | 'mini';
+  vehicleTypeName?: string;
+  pickupName?: string;
+  destName?: string;
+} {
+  const text = (rawText || "").trim();
+
+  // 1. Detect vehicle type if mentioned
+  let vehicleType: 'bike' | 'bajaj' | 'mini' | undefined;
+  let vehicleTypeName: string | undefined;
+
+  if (/\b(boda|bodaboda|pikipiki|piki|bike|motorcycle)\b/i.test(text)) {
+    vehicleType = 'bike';
+    vehicleTypeName = 'Boda Boda 🏍️';
+  } else if (/\b(bajaj|bajaji|sharo|tuk[\s-]?tuk|keke)\b/i.test(text)) {
+    vehicleType = 'bajaj';
+    vehicleTypeName = 'Bajaji 🛺';
+  } else if (/\b(gari|teksi|taxi|cab|uber|bolt|car|mini)\b/i.test(text)) {
+    vehicleType = 'mini';
+    vehicleTypeName = 'Gari la Teksi 🚕';
+  }
+
+  // 2. Clean conversational filler words
+  let clean = text
+    .replace(/^(habari|mambo|vip|hallo|hello|hi|je|tafadhali)[,\s]+/i, "")
+    .replace(/^(naomba|nahitaji|nataka|omba|agiza|tuma|nisaidie)\s+(usafiri|huduma|oda)?\s*(wa|ya|la)?\s*/i, "")
+    .replace(/^(nauli|bei|gharama)\s+(ya|za)?\s*/i, "")
+    .replace(/\b(usafiri|huduma)\s+(wa|ya|la)?\s*/i, "")
+    .replace(/\b(wa|ya|la)?\s*(boda\s*boda|boda|pikipiki|bajaji|bajaj|gari\s*la\s*teksi|gari|teksi|taxi)\b/gi, "")
+    .replace(/\b(ni\s+ngapi|ngapi|kwa\s+bei\s+gani|\?)\s*$/gi, "")
+    .trim();
+
+  let pickup: string | undefined;
+  let dest: string | undefined;
+
+  // Pattern A: "toka/kutoka <pickup> kwenda/hadi/kuelekea/to/mpaka <dest>"
+  const matchA = clean.match(/(?:kutoka|toka|from)\s+([^,]+?)\s+(?:kwenda|kuelekea|hadi|mpaka|to)\s+(.+)/i);
+  if (matchA && matchA[1] && matchA[2]) {
+    pickup = matchA[1].trim();
+    dest = matchA[2].trim();
+  } else {
+    // Pattern B: "<pickup> kwenda/hadi/kuelekea/to <dest>"
+    const matchB = clean.match(/^([^,]+?)\s+(?:kwenda|kuelekea|hadi|mpaka|to)\s+(.+)/i);
+    if (matchB && matchB[1] && matchB[2]) {
+      pickup = matchB[1].trim();
+      dest = matchB[2].trim();
+    } else {
+      // Pattern C: Separator like " - ", " – ", " / "
+      const sepMatch = clean.match(/^([^-–/]+?)\s*(?:-|–|\/)\s*(.+)$/);
+      if (sepMatch && sepMatch[1] && sepMatch[2]) {
+        pickup = sepMatch[1].trim();
+        dest = sepMatch[2].trim();
+      }
+    }
+  }
+
+  // Clean remaining prefixes & suffixes
+  if (pickup) {
+    pickup = pickup
+      .replace(/^(kutoka|toka|from|hapa)\s+/i, "")
+      .replace(/^(naomba|nahitaji|nataka)\s+(usafiri|gari|boda|bajaj)?\s*(wa|ya|la)?\s*/i, "")
+      .replace(/\s+(kwenda|kuelekea|hadi|to)$/i, "")
+      .trim();
+    // Capitalize first letter of each word
+    pickup = pickup.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  }
+
+  if (dest) {
+    dest = dest
+      .replace(/^(kwenda|kuelekea|hadi|mpaka|to)\s+/i, "")
+      .replace(/\s+(kwa|kutumia|na)\s+(boda|bajaji|gari|teksi|taxi).*$/i, "")
+      .replace(/\s*\?+$/, "")
+      .trim();
+    // Capitalize first letter of each word
+    dest = dest.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  }
+
+  return {
+    vehicleType,
+    vehicleTypeName,
+    pickupName: pickup,
+    destName: dest
+  };
+}
+
 // Resilient helper to call Gemini generateContent with retries and fallback models
 export async function generateContentWithRetry(params: any, maxRetries = 2) {
   let attempt = 0;
@@ -1137,13 +1227,31 @@ async function routeToServiceFlow(
       if (cleaned === '1' || cleaned === 'TAXI' || cleaned === 'TEKSI' || input.length < 4) {
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
-        return `🚕 *MFUMO WA TAXI (Taxi Booking)*\n\nTafadhali andika njia unayotaka kusafiri (Kutoka kuelekea unapoenda).\nMfano:\n*POSTA - KINONDONI*\nau *AIRPORT - MASAKI*`;
+        return `🚕 *MFUMO WA TAXI (Taxi Booking)*\n\nTafadhali andika njia unayotaka kusafiri (Kutoka kuelekea unapoenda).\nMfano:\n*UBUNGO - POSTA*\nau *MWENGE - KARIAKOO*`;
       }
-      
-      session.details.route = cleaned;
-      session.step = 'SELECTING_VEHICLE';
-      await saveMetaSession(session, dbAdmin);
-      return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kuandika namba au jina lake:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+
+      // Smart natural language extraction of locations and vehicle
+      const parsed = extractRideDetailsFromText(input);
+      if (parsed.pickupName && parsed.destName) {
+        session.details.pickupName = parsed.pickupName;
+        session.details.destinationName = parsed.destName;
+        session.details.route = `${parsed.pickupName} - ${parsed.destName}`;
+
+        if (parsed.vehicleType && parsed.vehicleTypeName) {
+          // Vehicle already known! Progress to calculation directly
+          session.step = 'SELECTING_VEHICLE';
+          // Fall through to vehicle selection logic below
+        } else {
+          session.step = 'SELECTING_VEHICLE';
+          await saveMetaSession(session, dbAdmin);
+          return `🚕 *AINA YA USAFIRI*\n\nSafari: *${parsed.pickupName}* ➔ *${parsed.destName}*\n\nTafadhali chagua aina ya usafiri unaopendelea:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+        }
+      } else {
+        session.details.route = cleaned;
+        session.step = 'SELECTING_VEHICLE';
+        await saveMetaSession(session, dbAdmin);
+        return `🚕 *AINA YA USAFIRI*\n\nTafadhali chagua aina ya usafiri unaopendelea kwa kuandika namba au jina lake:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+      }
     }
 
     if (session.step === 'SELECTING_VEHICLE') {
@@ -1164,36 +1272,49 @@ async function routeToServiceFlow(
         return `⚠️ Chaguo si sahihi. Tafadhali andika:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕\n\nKuchagua aina ya usafiri!`;
       }
 
-      // Parse pickup & destination names from route
-      let pickupName = "Mwenge";
-      let destName = "Posta";
-      const routeStr = session.details.route || "";
-      const connectors = [" - ", "-", " KUTOKA ", " KWENDA ", " TO ", " / ", "/"];
-      let splitDone = false;
-      for (const conn of connectors) {
-        if (routeStr.toUpperCase().includes(conn)) {
-          const parts = routeStr.split(new RegExp(conn, 'i'));
-          if (parts.length >= 2) {
-            pickupName = parts[0].trim();
-            destName = parts[1].trim();
-            splitDone = true;
-            break;
+      // Parse pickup & destination names cleanly
+      let pickupName = session.details.pickupName;
+      let destName = session.details.destinationName;
+
+      if (!pickupName || !destName) {
+        const parsed = extractRideDetailsFromText(session.details.route || "");
+        pickupName = parsed.pickupName;
+        destName = parsed.destName;
+      }
+
+      if (!pickupName || !destName) {
+        const routeStr = session.details.route || "";
+        const connectors = [" - ", "-", " KUTOKA ", " TOKA ", " KWENDA ", " HADI ", " KUELEKEA ", " TO ", " / ", "/"];
+        for (const conn of connectors) {
+          if (routeStr.toUpperCase().includes(conn)) {
+            const parts = routeStr.split(new RegExp(conn, 'i'));
+            if (parts.length >= 2) {
+              pickupName = parts[0].trim();
+              destName = parts[1].trim();
+              break;
+            }
           }
         }
       }
-      if (!splitDone) {
-        const match = routeStr.match(/kutoka\s+(.*?)\s+kwenda\s+(.*)/i);
-        if (match && match[1] && match[2]) {
-          pickupName = match[1].trim();
-          destName = match[2].trim();
-        } else {
-          pickupName = "Mwenge";
-          destName = routeStr || "Posta";
-        }
-      }
 
-      const cleanPickupName = pickupName.replace(/\s*\(.*?\)/g, "").trim();
-      const cleanDestName = destName.replace(/\s*\(.*?\)/g, "").trim();
+      // Clean conversational filler words from pickup and destination
+      pickupName = (pickupName || "Mwenge")
+        .replace(/^(naomba|nahitaji|nataka|omba|tuma|leta|agiza)\s+(usafiri|gari|teksi|taxi|boda|bajaji|usafirishaji)?\s*(wa|ya|la)?\s*/i, "")
+        .replace(/^(kutoka|toka|from)\s+/i, "")
+        .trim();
+
+      destName = (destName || "Posta")
+        .replace(/^(kwenda|kuelekea|hadi|mpaka|to)\s+/i, "")
+        .trim();
+
+      pickupName = pickupName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') || "Mwenge";
+      destName = destName.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') || "Posta";
+
+      session.details.pickupName = pickupName;
+      session.details.destinationName = destName;
+
+      const cleanPickupName = pickupName.replace(/\s*\(.*?\)/g, "").trim() || "Mwenge";
+      const cleanDestName = destName.replace(/\s*\(.*?\)/g, "").trim() || "Posta";
 
       const pRes = await resolvePlace(cleanPickupName, dbAdmin);
       const dRes = await resolvePlace(cleanDestName, dbAdmin);

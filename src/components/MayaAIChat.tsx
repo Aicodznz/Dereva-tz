@@ -62,6 +62,15 @@ export default function MayaAIChat() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [isModalBlocked, setIsModalBlocked] = useState(false);
+  useEffect(() => {
+    const handler = (e: any) => {
+      setIsModalBlocked(!!e.detail?.open);
+    };
+    window.addEventListener('whatsapp_modal_state', handler);
+    return () => window.removeEventListener('whatsapp_modal_state', handler);
+  }, []);
+
   // Automatic AI Role Detection (Updates strictly based on route & profile)
   useEffect(() => {
     const path = location.pathname.toLowerCase();
@@ -680,8 +689,13 @@ export default function MayaAIChat() {
     return 'Mteja Voice 🛍️';
   };
 
-  // Do not render floating Maya AI FAB on Daladala, Profile, or PapoPay pages to avoid visual collision and screen obstruction
+  // Check if body class or modal block event is active
+  const isBodyBlocked = typeof document !== 'undefined' && document.body.classList.contains('whatsapp-ai-modal-open');
+
+  // Hide floating Maya AI FAB when WhatsApp AI modal is open or on specific routes
   if (
+    isModalBlocked ||
+    isBodyBlocked ||
     location.pathname.startsWith('/daladala') || 
     location.pathname.startsWith('/service/daladala') ||
     location.pathname.startsWith('/papopay') ||
@@ -698,6 +712,7 @@ export default function MayaAIChat() {
       {/* FLOATING DRAGGABLE AI FAB OR DOCKED MINI TAB */}
       {!isFabHidden ? (
         <motion.div
+          data-maya-fab="true"
           drag
           dragConstraints={{ left: -10, right: 280, top: -120, bottom: 350 }}
           dragElastic={0.08}
@@ -706,7 +721,7 @@ export default function MayaAIChat() {
           animate={{ scale: 1, opacity: 1 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="fixed top-44 sm:top-52 left-3 sm:left-4 z-[160] touch-none"
+          className="maya-ai-fab-container fixed top-44 sm:top-52 left-3 sm:left-4 z-[160] touch-none"
         >
           <div className={`relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
             {/* DRAG GRIP ICON */}

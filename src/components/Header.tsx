@@ -115,8 +115,9 @@ export default function Header() {
   };
 
   return (
-    <nav 
-      className="sticky top-0 z-[150] bg-background/95 backdrop-blur-md border-b border-border/80 shadow-xs"
+    <>
+      <nav 
+        className="sticky top-0 z-[150] bg-background/95 backdrop-blur-md border-b border-border/80 shadow-xs"
       style={{
         paddingTop: 'env(safe-area-inset-top, 0px)'
       }}
@@ -411,12 +412,13 @@ export default function Header() {
           zIndex="z-[99999]"
         />
       )}
+      </nav>
 
-      {/* WhatsApp AI Assistant Modal */}
+      {/* WhatsApp AI Assistant Modal - Top Level Outside Nav Context */}
       <WhatsAppAIAssistantModal
         isOpen={isWhatsAppAiOpen}
         onClose={() => setIsWhatsAppAiOpen(false)}
       />
-    </nav>
+    </>
   );
 }
