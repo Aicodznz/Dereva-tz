@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle, Box } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import LocationPicker from './LocationPicker';
 import WhatsAppAIAssistantModal from './common/WhatsAppAIAssistantModal';
+import SuperSplatViewerModal, { ScenePreset } from './common/SuperSplatViewerModal';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
@@ -26,6 +27,19 @@ export default function Header() {
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [isHeaderLocationPickerOpen, setIsHeaderLocationPickerOpen] = useState(false);
   const [isWhatsAppAiOpen, setIsWhatsAppAiOpen] = useState(false);
+  const [isSuperSplatOpen, setIsSuperSplatOpen] = useState(false);
+  const [superSplatScene, setSuperSplatScene] = useState<ScenePreset>('hotel');
+
+  useEffect(() => {
+    const handleOpenSuperSplat = (e: any) => {
+      if (e?.detail?.scene) {
+        setSuperSplatScene(e.detail.scene);
+      }
+      setIsSuperSplatOpen(true);
+    };
+    window.addEventListener('open_supersplat_modal', handleOpenSuperSplat);
+    return () => window.removeEventListener('open_supersplat_modal', handleOpenSuperSplat);
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -280,6 +294,19 @@ export default function Header() {
             </AnimatePresence>
           </button>
 
+          {/* SuperSplat 3D Gaussian Splatting Viewer Launcher */}
+          <button
+            onClick={() => {
+              setSuperSplatScene('hotel');
+              setIsSuperSplatOpen(true);
+            }}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-600 dark:text-purple-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            title="SuperSplat 3D Virtual Tour (Gaussian Splatting: Hoteli, Magari, Bidhaa, Stendi)"
+          >
+            <Box className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 animate-pulse" />
+            <span className="hidden sm:inline">3D Splat</span>
+          </button>
+
           {/* WhatsApp AI Assistant Launcher Button (Wajid Techtube Edition) */}
           <button
             onClick={() => setIsWhatsAppAiOpen(true)}
@@ -418,6 +445,13 @@ export default function Header() {
       <WhatsAppAIAssistantModal
         isOpen={isWhatsAppAiOpen}
         onClose={() => setIsWhatsAppAiOpen(false)}
+      />
+
+      {/* SuperSplat 3D Gaussian Splatting & Virtual Tour Modal */}
+      <SuperSplatViewerModal
+        isOpen={isSuperSplatOpen}
+        onClose={() => setIsSuperSplatOpen(false)}
+        initialScene={superSplatScene}
       />
     </>
   );

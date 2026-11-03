@@ -45,9 +45,11 @@ export default function MayaAIChat() {
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>('dark');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  // FAB Drag & Hide State Persistence
+  // FAB Drag & Hide State Persistence (Defaults to true/docked to prevent covering screen icons)
   const [isFabHidden, setIsFabHidden] = useState<boolean>(() => {
-    return localStorage.getItem('papo_ai_fab_hidden') === 'true';
+    const saved = localStorage.getItem('papo_ai_fab_hidden');
+    if (saved !== null) return saved === 'true';
+    return true;
   });
 
   // Active AI Role state (Customer / Driver / Vendor) automatically set
@@ -721,7 +723,7 @@ export default function MayaAIChat() {
           animate={{ scale: 1, opacity: 1 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="maya-ai-fab-container fixed top-44 sm:top-52 left-3 sm:left-4 z-[160] touch-none"
+          className="maya-ai-fab-container fixed bottom-24 sm:bottom-28 left-3 sm:left-4 z-[160] touch-none"
         >
           <div className={`relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
             {/* DRAG GRIP ICON */}
@@ -775,7 +777,7 @@ export default function MayaAIChat() {
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => toggleFabHidden(false)}
-          className={`fixed top-44 sm:top-52 left-0 z-[160] flex items-center gap-1.5 px-2.5 py-1.5 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
+          className={`fixed bottom-24 sm:bottom-28 left-0 z-[160] flex items-center gap-1.5 px-2.5 py-1.5 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
           title="Onyesha AI Assistant (Unhide FAB)"
         >
           {getRoleIcon()}

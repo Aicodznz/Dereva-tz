@@ -618,6 +618,7 @@ export default function CustomerDashboard() {
     { id: 'bus_ticket', label: 'PapoBus', icon: Bus, color: 'bg-gradient-to-br from-orange-500 via-red-600 to-amber-700', sub: 'Tiketi za mabasi 🚌', category: 'bus_ticket', badge: 'ONLY6K' },
     { id: 'car_rental', label: 'PapoRent', icon: Key, color: 'bg-gradient-to-br from-teal-400 via-teal-600 to-emerald-700', sub: 'Rental ya magari 🚘', category: 'taxi', badge: 'ONLY6K' },
     { id: 'maduka', label: 'PapoMall', icon: ShoppingBag, color: 'bg-gradient-to-br from-purple-400 via-purple-600 to-violet-700', sub: 'Soko la mtandaoni 🛍️', category: 'ecommerce' },
+    { id: 'supersplat', label: 'Papo3D', icon: Box, color: 'bg-gradient-to-br from-fuchsia-500 via-purple-600 to-indigo-800', sub: 'SuperSplat 3D Gaussian Splatting & Virtual Tour 🌐', category: 'supersplat', badge: '3D SPLAT' },
     { id: 'ramani', label: 'PapoMap', icon: MapPin, color: 'bg-gradient-to-br from-slate-500 via-neutral-700 to-zinc-800', sub: 'Ramani ya karibu 📍', category: 'all' },
   ];
 
@@ -1028,7 +1029,45 @@ export default function CustomerDashboard() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.03 * idx, type: "spring", bounce: 0.3 }}
                 >
-                  {service.id === 'ramani' ? (
+                  {service.id === 'supersplat' ? (
+                    <button 
+                      onClick={(e) => {
+                        if (isUnderMaintenance) {
+                          handleServiceClick(e);
+                        } else {
+                          window.dispatchEvent(new CustomEvent('open_supersplat_modal', { detail: { scene: 'hotel' } }));
+                        }
+                      }}
+                      className="flex flex-col items-center text-center group w-full gap-2 relative cursor-pointer"
+                      title="Fungua SuperSplat 3D Virtual Tour"
+                    >
+                      <div className="relative">
+                        <motion.div 
+                          whileHover={{ y: -6, scale: 1.05 }}
+                          whileTap={{ scale: 0.92, y: 2 }}
+                          className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-[1.75rem] flex items-center justify-center text-white shadow-[0_8px_20px_-4px_rgba(0,0,0,0.18)] group-hover:shadow-[0_16px_32px_-6px_rgba(234,88,12,0.35)] transition-all duration-300 overflow-hidden relative border-t-2 border-l border-white/50 border-b-2 border-r-2 border-black/20 ${service.color}`}
+                        >
+                          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
+                          <service.icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 relative z-10 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)] animate-pulse" />
+                          {isUnderMaintenance && (
+                            <div className="absolute inset-0 bg-neutral-900/75 backdrop-blur-[1.5px] flex flex-col items-center justify-center z-20">
+                              <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 animate-bounce" />
+                              <span className="text-[6px] font-black uppercase text-amber-400 select-none tracking-tighter mt-0.5">Wrench</span>
+                            </div>
+                          )}
+                        </motion.div>
+                        {service.badge && (
+                          <span className="absolute -top-1.5 -right-2 z-30 font-black text-[7px] md:text-[8.5px] px-1.5 py-0.5 rounded-full text-white shadow-md select-none tracking-tight uppercase border border-white dark:border-neutral-900 leading-none bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-600 animate-pulse">
+                            {service.badge}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-black text-[9px] md:text-[10.5px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 leading-tight block w-full truncate relative">
+                        {service.label}
+                        {isUnderMaintenance && <span className="absolute -top-1 right-0 w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping" />}
+                      </span>
+                    </button>
+                  ) : service.id === 'ramani' ? (
                     <button 
                       onClick={(e) => {
                         if (isUnderMaintenance) {
