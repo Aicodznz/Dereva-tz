@@ -180,7 +180,7 @@ function MapController({
     };
   }, []);
 
-  // Apply live dynamic whole map rotation (Waze / Google Maps Navigation Heading-Up vs North-Up)
+  // Apply live dynamic whole map rotation (Heading-Up, Manual 360° Rotate, and Two-Finger Touch Gesture)
   const accumulatedRotRef = React.useRef(0);
 
   useEffect(() => {
@@ -188,12 +188,20 @@ function MapController({
     const container = map.getContainer();
     if (!container) return;
 
-    // Only apply whole map rotation when isHeadingUp is explicitly active AND driver is on active trip
-    const shouldRotate = isHeadingUp && activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status);
+    // Determine active target angle:
+    // 1. If manualRotation is non-zero, use manualRotation
+    // 2. Else if isHeadingUp is active, use the vehicle's heading rotation (anytime, whether on trip or cruising)
+    // 3. Otherwise 0 (North-Up)
+    let targetAngle = 0;
+    if (typeof manualRotation === 'number' && manualRotation !== 0) {
+      targetAngle = manualRotation;
+    } else if (isHeadingUp && typeof rotation === 'number' && !isNaN(rotation)) {
+      targetAngle = rotation;
+    }
 
-    if (shouldRotate && typeof rotation === 'number' && !isNaN(rotation)) {
+    if (targetAngle !== 0) {
       const currentNormalized = ((accumulatedRotRef.current % 360) + 360) % 360;
-      const targetNormalized = ((rotation % 360) + 360) % 360;
+      const targetNormalized = ((targetAngle % 360) + 360) % 360;
       let diff = targetNormalized - currentNormalized;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
@@ -202,15 +210,67 @@ function MapController({
       const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
       container.style.transform = `${perspectiveTilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
       container.style.transformOrigin = 'center center';
-      container.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      container.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1)';
     } else {
       accumulatedRotRef.current = 0;
       const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
       container.style.transform = perspectiveTilt;
       container.style.transformOrigin = 'center center';
-      container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+      container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
     }
-  }, [map, is3DMode, isHeadingUp, autoFollow, rotation, activeRide?.status]);
+  }, [map, is3DMode, isHeadingUp, autoFollow, rotation, manualRotation, activeRide?.status]);
+
+  // Two-Finger Touch Rotate Gesture (Pinch & Twist to rotate map naturally on phone)
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    let initialAngle = 0;
+    let initialRotation = 0;
+    let isRotatingGesture = false;
+
+    const getTouchAngle = (t1: Touch, t2: Touch) => {
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      return Math.atan2(dy, dx) * (180 / Math.PI);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isRotatingGesture = true;
+        initialAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        initialRotation = manualRotation || (isHeadingUp ? (rotation || 0) : 0) || 0;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && isRotatingGesture) {
+        const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        const delta = currentAngle - initialAngle;
+        if (Math.abs(delta) > 2) {
+          const newRot = ((initialRotation + delta) % 360 + 360) % 360;
+          if (onRotate) {
+            onRotate(Math.round(newRot));
+          }
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isRotatingGesture = false;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [map, manualRotation, isHeadingUp, rotation, onRotate]);
 
   useEffect(() => {
     if (!position) return;
@@ -2575,7 +2635,7 @@ const getEndPin = (etaText: string) => {
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]">
+    <div className="relative h-full w-full fixed inset-0 overflow-hidden overscroll-none select-none touch-none bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]">
       {/* Top Bar Overlays */}
       <AnimatePresence>
         {!isMinimized && (
@@ -3608,8 +3668,61 @@ const getEndPin = (etaText: string) => {
             )}
           </AnimatePresence>
 
-          {/* Core Right Side Actions (Clean & Compact Stack of 4) */}
+          {/* Core Right Side Actions (Clean & Compact Stack) */}
           <div className="flex flex-col gap-2 items-center bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-1.5 rounded-2xl shadow-lg">
+            {/* 1. Compass Needle & 360° Map Rotation Indicator */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                if (manualRotation !== 0 || isHeadingUp) {
+                  setManualRotation(0);
+                  setIsHeadingUp(false);
+                  toast.success("🧭 Ramani imerejea Kaskazini (North-Up 0°)");
+                } else {
+                  setManualRotation(45);
+                  toast.info("🧭 Ramani imezungushwa (45°)");
+                }
+              }}
+              className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                (manualRotation !== 0 || isHeadingUp)
+                  ? 'bg-rose-500/15 text-rose-500 ring-2 ring-rose-500/40 shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+              title={manualRotation !== 0 ? `Bofya kurudisha Kaskazini (Sasa: ${Math.round(manualRotation)}°)` : "Zungusha Ramani (Rotate Map)"}
+            >
+              <div 
+                className="w-5 h-5 relative flex items-center justify-center transition-transform duration-300"
+                style={{ transform: `rotate(${manualRotation || (isHeadingUp ? (rotation || 0) : 0)}deg)` }}
+              >
+                <div className="w-0.5 h-4 bg-gradient-to-b from-rose-500 via-rose-500 50% to-neutral-400 50% to-neutral-400 rounded-full" />
+                <span className="absolute -top-1 font-black text-[7px] text-rose-600 leading-none">N</span>
+              </div>
+            </motion.button>
+
+            {/* Quick Rotate Buttons (↺ 45° / ↻ 45°) */}
+            <div className="flex flex-col border-t border-b border-neutral-200/60 dark:border-neutral-800/80 my-0.5 py-0.5">
+              <button
+                onClick={() => {
+                  setManualRotation(prev => ((prev - 45) % 360 + 360) % 360);
+                  toast.info("↺ Zungusha Kushoto (-45°)");
+                }}
+                className="w-9 h-6 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
+                title="Zungusha Kushoto (↺ 45°)"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  setManualRotation(prev => ((prev + 45) % 360 + 360) % 360);
+                  toast.info("↻ Zungusha Kulia (+45°)");
+                }}
+                className="w-9 h-6 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
+                title="Zungusha Kulia (↻ 45°)"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
             {/* 1. GPS Recenter / Locate Me & Heading-Up (Auto-Follow Target) */}
             <motion.button
               whileHover={{ scale: 1.05 }}

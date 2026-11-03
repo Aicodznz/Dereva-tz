@@ -109,7 +109,7 @@ export default function RiderDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 relative flex flex-col h-screen overflow-hidden">
+    <div className="h-screen h-[100dvh] w-full bg-neutral-50 dark:bg-neutral-950 relative flex flex-col overflow-hidden fixed inset-0 overscroll-none touch-none">
       {/* Content Area */}
       <div className="flex-1 relative overflow-hidden">
         <AnimatePresence mode="wait">

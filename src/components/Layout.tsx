@@ -36,16 +36,32 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   const isTaxiRoute = location.pathname === '/taxi';
   const isCarRentalRoute = location.pathname === '/car-rental';
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname === '/';
-  const isRiderDashboard = profile?.role === 'rider' && isDashboardRoute;
-  const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && profile?.role === 'rider' && profile?.driverType === 'delivery');
+  const isDriverUser = profile?.role === 'rider' || profile?.role === 'driver' || !!profile?.driverType || !!profile?.licensePlate;
+  const isRiderDashboard = isDriverUser && isDashboardRoute;
+  const isPartnerRoute = location.pathname === '/parcel-partner' || (isDashboardRoute && isDriverUser && profile?.driverType === 'delivery');
   const isFullscreen = isTaxiRoute || isPartnerRoute || isRiderDashboard;
   const isVendorOrAdmin = profile?.role === 'vendor' || profile?.role === 'admin';
   const isDaladalaRoute = location.pathname === '/daladala' || location.pathname.startsWith('/daladala') || location.pathname === '/service/daladala';
   const isProductDetailRoute = location.pathname.startsWith('/product/') || location.pathname.startsWith('/product');
   const isPapoPayRoute = location.pathname === '/papopay' || location.pathname.startsWith('/papopay') || location.pathname === '/pay';
-  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || isProductDetailRoute || profile?.role === 'rider' || isVendorOrAdmin || isPapoPayRoute;
+  const hideBottomNav = isFullscreen || isCarRentalRoute || isDaladalaRoute || isProductDetailRoute || isDriverUser || isVendorOrAdmin || isPapoPayRoute;
   const isFullWidthPage = location.pathname.startsWith('/vendor/') || location.pathname.startsWith('/service/') || isFullscreen || isCarRentalRoute || isDaladalaRoute || isPapoPayRoute;
   const isDarkBackgroundRoute = (isFullscreen || isCarRentalRoute) && resolvedTheme !== 'light';
+
+  // Lock body scroll whenever driver dashboard or fullscreen map is active
+  useEffect(() => {
+    if (isFullscreen) {
+      document.body.classList.add('driver-active');
+      document.documentElement.classList.add('driver-active');
+    } else {
+      document.body.classList.remove('driver-active');
+      document.documentElement.classList.remove('driver-active');
+    }
+    return () => {
+      document.body.classList.remove('driver-active');
+      document.documentElement.classList.remove('driver-active');
+    };
+  }, [isFullscreen]);
 
   // Responsive scroll detection: scroll down -> hide bottom bar, scroll up -> show bottom bar
   const [isNavVisible, setIsNavVisible] = useState(true);
@@ -69,15 +85,15 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   }, []);
 
   return (
-    <div className={`${isFullscreen ? 'h-screen w-full overflow-hidden' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-[#0a0a0f] text-white animate-fade-in' : 'bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
+    <div className={`${isFullscreen ? 'h-screen h-[100dvh] w-full overflow-hidden fixed inset-0 overscroll-none' : 'min-h-screen overflow-x-hidden'} ${isDarkBackgroundRoute ? 'bg-[#0a0a0f] text-white animate-fade-in' : 'bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]'} flex flex-col font-sans selection:bg-orange-100 dark:selection:bg-orange-900/30 selection:text-orange-900 ${isRTL ? 'font-arabic' : ''}`}>
       {/* Visual Grain Overlay */}
       <div className="fixed inset-0 pointer-events-none z-[1000] opacity-[0.03] contrast-150 mix-blend-multiply flex-none">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
       </div>
 
-      {!isVendorOrAdmin && !isFullscreen && !isCarRentalRoute && !isDaladalaRoute && <Header />}
+      {!isVendorOrAdmin && !isDriverUser && !isFullscreen && !isCarRentalRoute && !isDaladalaRoute && <Header />}
 
-      <main className={`flex-1 ${isFullscreen ? 'h-screen w-full overflow-hidden' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-24 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
+      <main className={`flex-1 ${isFullscreen ? 'h-full w-full overflow-hidden overscroll-none p-0' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-24 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
         {children || <Outlet />}
       </main>
 

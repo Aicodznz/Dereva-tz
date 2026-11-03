@@ -14,7 +14,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -1953,7 +1953,7 @@ The JSON output must contain the following keys:
 6. "generation_prompt": A highly detailed prompt to be passed to a 3D Mesh Generation pipeline to create the final .glb/.usdz file. Describe the geometry, lighting, textures, and exact shapes.`;
 
       const response = await generateContentWithRetry(client, {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.8-flash",
         contents: {
           parts: [
             { inlineData: { mimeType: "image/jpeg", data: image } },
