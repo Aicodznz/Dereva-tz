@@ -1081,4 +1081,33 @@ body.driver-active {
   touch-action: pan-x pan-y pinch-zoom !important;
 }
 
+/* ADVANCED 360° MAP ROTATION & SMART BILLBOARD SYSTEM */
+:root {
+  --map-rotation: 0deg;
+  --map-counter-rotation: 0deg;
+}
+
+.smart-map-billboard,
+.smart-billboard-inner,
+.custom-poi-marker > div,
+.driver-custom-stop-marker > div,
+.driver-stand-passenger-marker > div,
+.anchored-road-status-marker > div,
+.on-road-turn-callout > div,
+.leaflet-popup-content-wrapper {
+  transform: rotate(var(--map-counter-rotation, 0deg)) !important;
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+/* Ensure Leaflet container rotation performs hardware-accelerated transforms */
+.leaflet-container.smooth-360-rotating {
+  transform-origin: center center !important;
+  will-change: transform !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+}
+
+
 

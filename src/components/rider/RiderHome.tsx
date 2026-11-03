@@ -67,6 +67,8 @@ import { playSyntheticImportant } from '../../utils/soundAlert';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
+import SmartMapLabelsOverlay from '../map/SmartMapLabelsOverlay';
+import SmartRotationControls from '../map/SmartRotationControls';
 import { 
   DriverVoice, 
   getDefaultAudioSettings, 
@@ -180,7 +182,7 @@ function MapController({
     };
   }, []);
 
-  // Apply live dynamic whole map rotation (Heading-Up, Manual 360° Rotate, and Two-Finger Touch Gesture)
+  // Apply live dynamic whole map rotation (Heading-Up, Manual 360° Rotate, Two-Finger Touch & Desktop Drag)
   const accumulatedRotRef = React.useRef(0);
 
   useEffect(() => {
@@ -188,10 +190,8 @@ function MapController({
     const container = map.getContainer();
     if (!container) return;
 
-    // Determine active target angle:
-    // 1. If manualRotation is non-zero, use manualRotation
-    // 2. Else if isHeadingUp is active, use the vehicle's heading rotation (anytime, whether on trip or cruising)
-    // 3. Otherwise 0 (North-Up)
+    container.classList.add('smooth-360-rotating');
+
     let targetAngle = 0;
     if (typeof manualRotation === 'number' && manualRotation !== 0) {
       targetAngle = manualRotation;
@@ -207,12 +207,21 @@ function MapController({
       if (diff < -180) diff += 360;
       accumulatedRotRef.current = accumulatedRotRef.current + diff;
 
+      // Update CSS variables for smart billboard counter-rotation
+      container.style.setProperty('--map-rotation', `${accumulatedRotRef.current}deg`);
+      container.style.setProperty('--map-counter-rotation', `${accumulatedRotRef.current}deg`);
+      document.documentElement.style.setProperty('--map-counter-rotation', `${accumulatedRotRef.current}deg`);
+
       const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
       container.style.transform = `${perspectiveTilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
       container.style.transformOrigin = 'center center';
       container.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1)';
     } else {
       accumulatedRotRef.current = 0;
+      container.style.setProperty('--map-rotation', '0deg');
+      container.style.setProperty('--map-counter-rotation', '0deg');
+      document.documentElement.style.setProperty('--map-counter-rotation', '0deg');
+
       const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
       container.style.transform = perspectiveTilt;
       container.style.transformOrigin = 'center center';
@@ -220,7 +229,7 @@ function MapController({
     }
   }, [map, is3DMode, isHeadingUp, autoFollow, rotation, manualRotation, activeRide?.status]);
 
-  // Two-Finger Touch Rotate Gesture (Pinch & Twist to rotate map naturally on phone)
+  // Two-Finger Touch Rotate Gesture with Velocity & Inertia
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
@@ -229,6 +238,10 @@ function MapController({
     let initialAngle = 0;
     let initialRotation = 0;
     let isRotatingGesture = false;
+    let lastAngle = 0;
+    let lastTime = 0;
+    let angularVelocity = 0;
+    let inertiaFrame: number | null = null;
 
     const getTouchAngle = (t1: Touch, t2: Touch) => {
       const dx = t2.clientX - t1.clientX;
@@ -238,8 +251,12 @@ function MapController({
 
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
+        if (inertiaFrame) cancelAnimationFrame(inertiaFrame);
         isRotatingGesture = true;
         initialAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        lastAngle = initialAngle;
+        lastTime = performance.now();
+        angularVelocity = 0;
         initialRotation = manualRotation || (isHeadingUp ? (rotation || 0) : 0) || 0;
       }
     };
@@ -247,8 +264,16 @@ function MapController({
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && isRotatingGesture) {
         const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
+        const now = performance.now();
+        const dt = Math.max(1, now - lastTime);
+        const dAngle = currentAngle - lastAngle;
+
+        angularVelocity = dAngle / dt;
+        lastAngle = currentAngle;
+        lastTime = now;
+
         const delta = currentAngle - initialAngle;
-        if (Math.abs(delta) > 2) {
+        if (Math.abs(delta) > 1.5) {
           const newRot = ((initialRotation + delta) % 360 + 360) % 360;
           if (onRotate) {
             onRotate(Math.round(newRot));
@@ -258,17 +283,100 @@ function MapController({
     };
 
     const handleTouchEnd = () => {
+      if (!isRotatingGesture) return;
       isRotatingGesture = false;
+
+      // Apply smooth inertia damping if released with velocity
+      if (Math.abs(angularVelocity) > 0.04 && onRotate) {
+        let currentVel = angularVelocity * 16;
+        let currentRot = manualRotation || 0;
+
+        const stepInertia = () => {
+          if (Math.abs(currentVel) < 0.15) return;
+          currentRot = ((currentRot + currentVel) % 360 + 360) % 360;
+          currentVel *= 0.91;
+          onRotate(Math.round(currentRot));
+          inertiaFrame = requestAnimationFrame(stepInertia);
+        };
+
+        inertiaFrame = requestAnimationFrame(stepInertia);
+      }
     };
 
     container.addEventListener('touchstart', handleTouchStart, { passive: true });
     container.addEventListener('touchmove', handleTouchMove, { passive: true });
     container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 
     return () => {
+      if (inertiaFrame) cancelAnimationFrame(inertiaFrame);
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [map, manualRotation, isHeadingUp, rotation, onRotate]);
+
+  // Desktop Mouse Drag 360° Rotation (Right-click drag or Alt/Shift + drag)
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+
+    let isMouseRotating = false;
+    let initialMouseAngle = 0;
+    let startRotation = 0;
+
+    const getCenterAngle = (clientX: number, clientY: number) => {
+      const rect = container.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      return Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI);
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 2 || (e.button === 0 && (e.altKey || e.shiftKey))) {
+        e.preventDefault();
+        isMouseRotating = true;
+        initialMouseAngle = getCenterAngle(e.clientX, e.clientY);
+        startRotation = manualRotation || (isHeadingUp ? (rotation || 0) : 0) || 0;
+        container.style.cursor = 'grabbing';
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isMouseRotating) return;
+      const currentMouseAngle = getCenterAngle(e.clientX, e.clientY);
+      const delta = currentMouseAngle - initialMouseAngle;
+      const newRot = ((startRotation + delta) % 360 + 360) % 360;
+      if (onRotate) {
+        onRotate(Math.round(newRot));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isMouseRotating) {
+        isMouseRotating = false;
+        container.style.cursor = '';
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isMouseRotating || e.altKey || e.shiftKey) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('contextmenu', handleContextMenu);
+
+    return () => {
+      container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [map, manualRotation, isHeadingUp, rotation, onRotate]);
 
@@ -612,6 +720,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [is3DMode, setIs3DMode] = useState(false);
   const [isHeadingUp, setIsHeadingUp] = useState(false); // Default to North-Up so place names and icons are always upright and readable
   const [showRoadAlerts, setShowRoadAlerts] = useState(false);
+  const [showMapLabels, setShowMapLabels] = useState(true);
   const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
@@ -3423,6 +3532,13 @@ const getEndPin = (etaText: string) => {
               onZoneClick={(zone) => setSelectedHeatZone(zone)}
             />
 
+            {/* Intelligent Screen-Aligned Geographical Labels & Collision Avoidance */}
+            <SmartMapLabelsOverlay
+              currentRotation={manualRotation || (isHeadingUp ? (rotation || 0) : 0)}
+              theme={theme}
+              enabled={showMapLabels}
+            />
+
           </MapContainer>
         </div>
       </div>
@@ -3512,314 +3628,51 @@ const getEndPin = (etaText: string) => {
         )}
       </AnimatePresence>
 
-      {/* Floating Controls Column on the Right - Ultra Clean, Minimalist & Modern */}
-      {!isMinimized && (
-        <div className={`absolute right-3.5 z-40 flex flex-col gap-2 items-end pointer-events-auto transition-all duration-300 ${
-          isOnline && activeRide && !showPayment && !showRating
-            ? 'top-[180px] sm:top-[190px]'
-            : 'top-20'
-        }`}>
-          {/* Main Map Tools Flyout Menu */}
-          <AnimatePresence>
-            {showMapToolsMenu && (
-              <motion.div
-                initial={{ opacity: 0, x: 20, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 20, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="bg-white/95 dark:bg-[#111118]/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-[#1e1e2e] p-2.5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.25)] flex flex-col gap-1.5 min-w-[185px] mb-1"
-              >
-                <div className="flex items-center justify-between px-1.5 pb-1 border-b border-neutral-100 dark:border-neutral-800/80">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Mipangilio ya Ramani</span>
-                  <button 
-                    onClick={() => setShowMapToolsMenu(false)}
-                    className="w-4 h-4 rounded flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-                  >
-                    <CloseX className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* 1. Theme Toggle */}
-                <button
-                  onClick={() => setNextTheme(theme === "dark" ? "light" : "dark")}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwonekano</span>
-                  </div>
-                  <span className="text-[9px] font-black uppercase text-neutral-400">
-                    {theme === 'dark' ? 'Giza' : 'Mwangaza'}
-                  </span>
-                </button>
-
-                {/* 2. Satellite Mode */}
-                <button
-                  onClick={() => setMapType(mapType === 'satellite' ? 'standard' : 'satellite')}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <MapIcon className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Satelaiti</span>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${mapType === 'satellite' ? 'bg-blue-500/15 text-blue-500' : 'text-neutral-400'}`}>
-                    {mapType === 'satellite' ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-
-                {/* 3. 3D Mode Toggle */}
-                <button
-                  onClick={() => {
-                    const nextMode = !is3DMode;
-                    setIs3DMode(nextMode);
-                    toast.success(nextMode ? "Mwonekano wa 3D umewashwa!" : "Mwonekano wa 2D umewashwa.");
-                  }}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-purple-500" />
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwonekano wa 3D</span>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${is3DMode ? 'bg-purple-500/15 text-purple-500 font-bold' : 'text-neutral-400'}`}>
-                    {is3DMode ? '3D' : '2D'}
-                  </span>
-                </button>
-
-                {/* 4. Heading-Up / North-Up Toggle */}
-                <button
-                  onClick={() => {
-                    const nextHeading = !isHeadingUp;
-                    setIsHeadingUp(nextHeading);
-                    toast.success(nextHeading ? "Mwelekeo wa gari (Heading-Up) umewashwa!" : "Kaskazini (North-Up) imewashwa.");
-                  }}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Compass className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Mwelekeo wa Njia</span>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${isHeadingUp ? 'bg-emerald-500/15 text-emerald-500 font-bold' : 'text-neutral-400'}`}>
-                    {isHeadingUp ? 'Heading' : 'North'}
-                  </span>
-                </button>
-
-                {/* 5. Audio & Voice Alerts */}
-                <button
-                  onClick={() => {
-                    const newSound = !driverAudioSettings.soundEnabled;
-                    const newVoice = !driverAudioSettings.voiceEnabled;
-                    const updated = {
-                      ...driverAudioSettings,
-                      soundEnabled: newSound,
-                      voiceEnabled: newVoice
-                    };
-                    setDriverAudioSettings(updated);
-                    saveAudioSettings(updated);
-                    if (newSound || newVoice) {
-                      DriverVoice.testVoice();
-                      toast.success("Sauti na milio ya dereva imewashwa!");
-                    } else {
-                      toast.info("Sauti na milio ya dereva imezimwa.");
-                    }
-                  }}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    {driverAudioSettings.soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : <VolumeX className="w-3.5 h-3.5 text-neutral-400" />}
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Sauti / Mwongozo</span>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${driverAudioSettings.soundEnabled ? 'bg-emerald-500/15 text-emerald-500' : 'text-neutral-400'}`}>
-                    {driverAudioSettings.soundEnabled ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-
-                {/* 6. Road Hazards & Traffic Lights */}
-                <button
-                  onClick={() => {
-                    setShowRoadAlerts(!showRoadAlerts);
-                    toast.success(showRoadAlerts ? "Vituo vya barabara vimefichwa" : "Vituo vya barabara na taa za trafiki vimeoneshwa");
-                  }}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Hali ya Njia</span>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${showRoadAlerts ? 'bg-rose-500/15 text-rose-500' : 'text-neutral-400'}`}>
-                    {showRoadAlerts ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-
-                {/* 7. Earnings details button */}
-                <button
-                  onClick={() => {
-                    setShowEarningsModal(prev => !prev);
-                    setShowMapToolsMenu(false);
-                  }}
-                  className="flex items-center justify-between w-full px-2 py-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
-                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">Ripoti ya Mapato</span>
-                  </div>
-                  <ChevronRight className="w-3 h-3 text-neutral-400" />
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Core Right Side Actions (Clean & Compact Stack) */}
-          <div className="flex flex-col gap-2 items-center bg-white/95 dark:bg-[#111118]/95 backdrop-blur-xl border border-neutral-200/60 dark:border-[#1e1e2e] p-1.5 rounded-2xl shadow-lg">
-            {/* 1. Compass Needle & 360° Map Rotation Indicator */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (manualRotation !== 0 || isHeadingUp) {
-                  setManualRotation(0);
-                  setIsHeadingUp(false);
-                  toast.success("🧭 Ramani imerejea Kaskazini (North-Up 0°)");
-                } else {
-                  setManualRotation(45);
-                  toast.info("🧭 Ramani imezungushwa (45°)");
-                }
-              }}
-              className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                (manualRotation !== 0 || isHeadingUp)
-                  ? 'bg-rose-500/15 text-rose-500 ring-2 ring-rose-500/40 shadow-sm'
-                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title={manualRotation !== 0 ? `Bofya kurudisha Kaskazini (Sasa: ${Math.round(manualRotation)}°)` : "Zungusha Ramani (Rotate Map)"}
-            >
-              <div 
-                className="w-5 h-5 relative flex items-center justify-center transition-transform duration-300"
-                style={{ transform: `rotate(${manualRotation || (isHeadingUp ? (rotation || 0) : 0)}deg)` }}
-              >
-                <div className="w-0.5 h-4 bg-gradient-to-b from-rose-500 via-rose-500 50% to-neutral-400 50% to-neutral-400 rounded-full" />
-                <span className="absolute -top-1 font-black text-[7px] text-rose-600 leading-none">N</span>
-              </div>
-            </motion.button>
-
-            {/* Quick Rotate Buttons (↺ 45° / ↻ 45°) */}
-            <div className="flex flex-col border-t border-b border-neutral-200/60 dark:border-neutral-800/80 my-0.5 py-0.5">
-              <button
-                onClick={() => {
-                  setManualRotation(prev => ((prev - 45) % 360 + 360) % 360);
-                  toast.info("↺ Zungusha Kushoto (-45°)");
-                }}
-                className="w-9 h-6 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
-                title="Zungusha Kushoto (↺ 45°)"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  setManualRotation(prev => ((prev + 45) % 360 + 360) % 360);
-                  toast.info("↻ Zungusha Kulia (+45°)");
-                }}
-                className="w-9 h-6 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
-                title="Zungusha Kulia (↻ 45°)"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            {/* 1. GPS Recenter / Locate Me & Heading-Up (Auto-Follow Target) */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                const nextHeading = !isHeadingUp;
-                setIsHeadingUp(nextHeading);
-                setAutoFollow(true);
-                setRecenterTrigger(Date.now());
-                setZoomAction({ type: 'auto', id: Date.now() });
-                if (nextHeading) {
-                  toast.success("🧭 Mwelekeo wa Gari (Heading-Up) umewashwa!");
-                } else {
-                  toast.info("🧭 Ramani imelenga eneo lako (GPS Recenter)");
-                }
-              }}
-              className={`relative w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                autoFollow 
-                  ? 'bg-emerald-500/20 text-[#00B14F] dark:text-[#00FF88] ring-2 ring-emerald-500/50 shadow-sm' 
-                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title="Lenga Eneo Lako la Sasa / Mwelekeo (Locate Me)"
-            >
-              <svg 
-                viewBox="0 0 24 24" 
-                className="w-5 h-5" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2.3" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="7" />
-                <circle cx="12" cy="12" r="2.8" fill="currentColor" />
-                <line x1="12" y1="1.5" x2="12" y2="4.5" />
-                <line x1="12" y1="19.5" x2="12" y2="22.5" />
-                <line x1="1.5" y1="12" x2="4.5" y2="12" />
-                <line x1="19.5" y1="12" x2="22.5" y2="12" />
-              </svg>
-              {autoFollow && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-              )}
-            </motion.button>
-
-            {/* 2. Zoom In / Zoom Out Controls */}
-            <div className="flex flex-col border-t border-b border-neutral-200/60 dark:border-neutral-800/80 my-0.5 py-0.5">
-              <button
-                onClick={() => setZoomAction({ type: 'in', id: Date.now() })}
-                className="w-9 h-7 flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
-                title="Zoom In"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-              </button>
-              <button
-                onClick={() => setZoomAction({ type: 'out', id: Date.now() })}
-                className="w-9 h-7 flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 transition-colors"
-                title="Zoom Out"
-              >
-                <Minus className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
-
-            {/* 3. AI Smart Heat Map Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowHeatMap(!showHeatMap)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                showHeatMap
-                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/30'
-                  : 'text-amber-500 hover:bg-amber-500/10'
-              }`}
-              title="AI Smart Heatmap (Maeneo ya Uhitaji)"
-            >
-              <Flame className="w-4 h-4" />
-            </motion.button>
-
-            {/* 4. Layers & Map Settings Flyout Toggle */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowMapToolsMenu(prev => !prev)}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                showMapToolsMenu
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-              }`}
-              title="Mipangilio na Zana za Ramani"
-            >
-              <Layers className="w-4 h-4" />
-            </motion.button>
-          </div>
-        </div>
-      )}
+      {/* ADVANCED 360° MAP ROTATION & SMART NAVIGATION CONTROLS */}
+      <SmartRotationControls
+        currentRotation={manualRotation || (isHeadingUp ? (rotation || 0) : 0)}
+        onSetRotation={(newAngle) => {
+          setManualRotation(newAngle);
+          if (newAngle === 0) {
+            setIsHeadingUp(false);
+          }
+        }}
+        isHeadingUp={isHeadingUp}
+        onToggleHeadingUp={() => {
+          const nextVal = !isHeadingUp;
+          setIsHeadingUp(nextVal);
+          setAutoFollow(true);
+          if (nextVal) {
+            toast.success("🧭 Mwelekeo wa Njia (Heading-Up) umewashwa!");
+          } else {
+            setManualRotation(0);
+            toast.info("🧭 Kaskazini (North-Up 0°) imewashwa");
+          }
+        }}
+        is3DMode={is3DMode}
+        onToggle3D={() => {
+          setIs3DMode(prev => !prev);
+          toast.success(!is3DMode ? "Mwonekano wa 3D umewashwa!" : "Mwonekano wa 2D umewashwa.");
+        }}
+        autoFollow={autoFollow}
+        onRecenter={() => {
+          setAutoFollow(true);
+          setRecenterTrigger(Date.now());
+          setZoomAction({ type: 'auto', id: Date.now() });
+        }}
+        onZoomIn={() => setZoomAction({ type: 'in', id: Date.now() })}
+        onZoomOut={() => setZoomAction({ type: 'out', id: Date.now() })}
+        mapType={mapType}
+        onSetMapType={(t) => setMapType(t)}
+        theme={theme}
+        onToggleTheme={() => setNextTheme(theme === 'dark' ? 'light' : 'dark')}
+        showLabels={showMapLabels}
+        onToggleLabels={() => {
+          setShowMapLabels(prev => !prev);
+          toast.info(!showMapLabels ? "Majina ya maeneo yameoneshwa" : "Majina ya maeneo yamefichwa");
+        }}
+        isMinimized={isMinimized}
+      />
 
       {/* Floating Driver Services Column on the Left - Collapse/Expand Panel */}
       {!isMinimized && (
