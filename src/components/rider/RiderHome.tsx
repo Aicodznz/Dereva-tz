@@ -232,19 +232,27 @@ function MapController({
     }
   }, [map, is3DMode, isHeadingUp, autoFollow, rotation, manualRotation, activeRide?.status]);
 
-  // Two-Finger Touch Rotate Gesture with Velocity & Inertia
+  // Two-Finger Touch Rotate Gesture with Pinch-Zoom Discrimination & Direct Natural Rotation
   useEffect(() => {
     if (!map) return;
     const container = map.getContainer();
     if (!container) return;
 
+    let touchStartDist = 0;
     let initialAngle = 0;
     let initialRotation = 0;
-    let isRotatingGesture = false;
+    let isGestureConfirmed = false;
+    let isPinchZoomOnly = false;
     let lastAngle = 0;
     let lastTime = 0;
     let angularVelocity = 0;
     let inertiaFrame: number | null = null;
+
+    const getTouchDist = (t1: Touch, t2: Touch) => {
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      return Math.hypot(dx, dy);
+    };
 
     const getTouchAngle = (t1: Touch, t2: Touch) => {
       const dx = t2.clientX - t1.clientX;
@@ -255,49 +263,87 @@ function MapController({
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         if (inertiaFrame) cancelAnimationFrame(inertiaFrame);
-        isRotatingGesture = true;
+        touchStartDist = getTouchDist(e.touches[0], e.touches[1]);
         initialAngle = getTouchAngle(e.touches[0], e.touches[1]);
         lastAngle = initialAngle;
         lastTime = performance.now();
         angularVelocity = 0;
         initialRotation = manualRotation || (isHeadingUp ? (rotation || 0) : 0) || 0;
+        isGestureConfirmed = false;
+        isPinchZoomOnly = false;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && isRotatingGesture) {
-        const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
-        const now = performance.now();
-        const dt = Math.max(1, now - lastTime);
-        const dAngle = currentAngle - lastAngle;
+      if (e.touches.length !== 2) return;
+      if (isPinchZoomOnly) return; // User is clearly zooming in/out, do NOT rotate!
 
-        angularVelocity = dAngle / dt;
-        lastAngle = currentAngle;
-        lastTime = now;
+      const currentDist = getTouchDist(e.touches[0], e.touches[1]);
+      const currentAngle = getTouchAngle(e.touches[0], e.touches[1]);
 
-        const delta = currentAngle - initialAngle;
-        if (Math.abs(delta) > 1.5) {
-          const newRot = ((initialRotation + delta) % 360 + 360) % 360;
-          if (onRotate) {
-            onRotate(Math.round(newRot));
-          }
+      let angleDiff = currentAngle - initialAngle;
+      while (angleDiff < -180) angleDiff += 360;
+      while (angleDiff > 180) angleDiff -= 360;
+
+      const distChange = Math.abs(currentDist - touchStartDist);
+
+      // Smart Gesture Discrimination:
+      // If fingers are spreading/pinching (zoom) without intentional twist, lock to zoom only
+      if (!isGestureConfirmed) {
+        if (distChange > 22 && Math.abs(angleDiff) < 7) {
+          isPinchZoomOnly = true;
+          return;
         }
+
+        // Only engage rotation when user deliberately twists fingers beyond deadband (>= 8 deg)
+        if (Math.abs(angleDiff) >= 8) {
+          isGestureConfirmed = true;
+          initialAngle = currentAngle;
+          lastAngle = currentAngle;
+          angleDiff = 0;
+        } else {
+          return; // Within deadband: keep map steady during initial touch
+        }
+      }
+
+      const now = performance.now();
+      const dt = Math.max(1, now - lastTime);
+
+      let stepDelta = currentAngle - lastAngle;
+      while (stepDelta < -180) stepDelta += 360;
+      while (stepDelta > 180) stepDelta -= 360;
+
+      angularVelocity = stepDelta / dt;
+      lastAngle = currentAngle;
+      lastTime = now;
+
+      // Direct Natural Rotation:
+      // Twisting fingers right (clockwise) turns map right (clockwise).
+      // Twisting fingers left (counter-clockwise) turns map left (counter-clockwise).
+      const newRot = ((initialRotation - angleDiff) % 360 + 360) % 360;
+      if (onRotate) {
+        onRotate(Math.round(newRot));
       }
     };
 
     const handleTouchEnd = () => {
-      if (!isRotatingGesture) return;
-      isRotatingGesture = false;
+      if (!isGestureConfirmed) {
+        isGestureConfirmed = false;
+        isPinchZoomOnly = false;
+        return;
+      }
+      isGestureConfirmed = false;
+      isPinchZoomOnly = false;
 
-      // Apply smooth inertia damping if released with velocity
-      if (Math.abs(angularVelocity) > 0.04 && onRotate) {
-        let currentVel = angularVelocity * 16;
+      // Apply smooth inertia damping when released with rotational speed
+      if (Math.abs(angularVelocity) > 0.05 && onRotate) {
+        let currentVel = -angularVelocity * 16;
         let currentRot = manualRotation || 0;
 
         const stepInertia = () => {
-          if (Math.abs(currentVel) < 0.15) return;
+          if (Math.abs(currentVel) < 0.12) return;
           currentRot = ((currentRot + currentVel) % 360 + 360) % 360;
-          currentVel *= 0.91;
+          currentVel *= 0.90;
           onRotate(Math.round(currentRot));
           inertiaFrame = requestAnimationFrame(stepInertia);
         };
@@ -351,7 +397,7 @@ function MapController({
       if (!isMouseRotating) return;
       const currentMouseAngle = getCenterAngle(e.clientX, e.clientY);
       const delta = currentMouseAngle - initialMouseAngle;
-      const newRot = ((startRotation + delta) % 360 + 360) % 360;
+      const newRot = ((startRotation - delta) % 360 + 360) % 360;
       if (onRotate) {
         onRotate(Math.round(newRot));
       }
