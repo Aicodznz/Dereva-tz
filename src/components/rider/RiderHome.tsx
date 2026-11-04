@@ -2154,36 +2154,73 @@ const getEndPin = (etaText: string) => {
   // Update driver location periodically when online
   // Real-time Phone Compass Orientation Listener
   // When driver points their phone in any direction, rotate the GPS map and vehicle marker towards that orientation
+  // Real-time Phone Compass Orientation Listener (High Precision Tilt-Compensated Sensor Fusion)
+  // Ensures vehicle marker and map accurately face where the driver's phone is pointing
   useEffect(() => {
     if (!isOnline) return;
 
     let lastOrientationTime = 0;
+    let hasAbsoluteReceived = false;
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
       const now = Date.now();
-      if (now - lastOrientationTime < 60) return; // ~16 updates/sec for silky movement
+      if (now - lastOrientationTime < 50) return; // ~20 updates/sec for ultra-smooth responsiveness
 
       let compassHeading: number | null = null;
 
-      // 1. iOS Safari webkitCompassHeading (0 = North, 90 = East, 180 = South, 270 = West)
+      // 1. iOS Safari webkitCompassHeading (Direct, high-accuracy true north 0-360)
       if (typeof (e as any).webkitCompassHeading === 'number' && !isNaN((e as any).webkitCompassHeading)) {
         compassHeading = (e as any).webkitCompassHeading;
       } 
-      // 2. Android absolute deviceorientation or absolute event
-      else if ((e as any).absolute === true && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
-        compassHeading = (360 - e.alpha) % 360;
+      // 2. Android Chrome Absolute DeviceOrientation
+      else if (e.type === 'deviceorientationabsolute' || (e as any).absolute === true) {
+        hasAbsoluteReceived = true;
+        if (typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+          // Tilt-compensated heading using 3D pitch (beta) and roll (gamma)
+          if (typeof e.beta === 'number' && typeof e.gamma === 'number' && !isNaN(e.beta) && !isNaN(e.gamma)) {
+            const rad = Math.PI / 180;
+            const a = e.alpha * rad;
+            const b = e.beta * rad;
+            const g = e.gamma * rad;
+
+            const cA = Math.cos(a), sA = Math.sin(a);
+            const cB = Math.cos(b), sB = Math.sin(b);
+            const cG = Math.cos(g), sG = Math.sin(g);
+
+            // Forward-facing horizontal vector projected onto Earth plane
+            const vX = -sA * cB - cA * sG * sB;
+            const vY = cA * cB - sA * sG * sB;
+
+            let h = Math.atan2(vX, vY) * (180 / Math.PI);
+            if (h < 0) h += 360;
+            compassHeading = h;
+          } else {
+            compassHeading = (360 - e.alpha) % 360;
+          }
+        }
       }
-      else if (e.type === 'deviceorientationabsolute' && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
-        compassHeading = (360 - e.alpha) % 360;
-      }
-      // 3. Fallback standard Android / W3C device orientation
-      else if (e.alpha !== null && e.alpha !== undefined && !isNaN(e.alpha)) {
+      // 3. Fallback only if deviceorientationabsolute is unsupported
+      else if (!hasAbsoluteReceived && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
         compassHeading = (360 - e.alpha) % 360;
       }
 
       if (compassHeading !== null && !isNaN(compassHeading)) {
+        // Adjust for device screen orientation (portrait vs landscape)
+        let screenAngle = 0;
+        try {
+          if (typeof window !== 'undefined') {
+            if (window.screen?.orientation?.angle !== undefined) {
+              screenAngle = window.screen.orientation.angle;
+            } else if (typeof (window as any).orientation === 'number') {
+              screenAngle = (window as any).orientation;
+            }
+          }
+        } catch (_) {}
+
+        const rawHeading = (compassHeading + screenAngle + 360) % 360;
+        const roundedHeading = Math.round(rawHeading);
+
         lastOrientationTime = now;
-        const roundedHeading = Math.round((compassHeading + 360) % 360);
 
         setRotation(prev => {
           let diff = roundedHeading - prev;
@@ -2191,15 +2228,22 @@ const getEndPin = (etaText: string) => {
           while (diff > 180) diff -= 360;
           
           const absDiff = Math.abs(diff);
-          if (absDiff < 5) return prev; // Filter out small noise and jitter
-          
-          // Smoothen using a dampening factor of 0.15 (smoothly glides rather than snapping)
-          const step = diff * 0.15;
-          const next = (prev + step) % 360;
-          return next < 0 ? next + 360 : next;
+          if (absDiff < 2) return prev; // Filter out small sensor jitter
+
+          // Fast tracking when phone moves, smooth dampening for minor hand jitter
+          const factor = absDiff > 30 ? 0.35 : 0.22;
+          const next = (prev + diff * factor) % 360;
+          const finalVal = next < 0 ? next + 360 : next;
+
+          // Keep vehicleHeading in sync when stationary so vehicle icon always points where phone points
+          setVehicleHeading(Math.round(finalVal));
+          return finalVal;
         });
       }
     };
+
+    // Check if deviceorientationabsolute is available (standard on Android Chrome)
+    const supportsAbsolute = typeof window !== 'undefined' && 'ondeviceorientationabsolute' in window;
 
     // Request iOS orientation permission if required
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
@@ -2210,13 +2254,15 @@ const getEndPin = (etaText: string) => {
           }
         })
         .catch((err: any) => console.warn("DeviceOrientation permission:", err));
+    } else if (supportsAbsolute) {
+      // Prioritize absolute orientation on Android so relative events don't clobber North
+      window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
     } else {
-      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
       window.addEventListener('deviceorientation', handleOrientation, true);
     }
 
     return () => {
-      window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation as any, true);
       window.removeEventListener('deviceorientation', handleOrientation, true);
     };
   }, [isOnline]);
@@ -2953,11 +2999,6 @@ const getEndPin = (etaText: string) => {
               </Popup>
             </Marker>
 
-            <Circle 
-              center={position}
-              radius={30}
-              pathOptions={{ color: theme === 'dark' ? '#10b981' : '#7F77DD', fillOpacity: 0.1, weight: 1 }}
-            />
 
             {/* Incoming Request Preview */}
             {incomingRequest && (
@@ -3769,6 +3810,18 @@ const getEndPin = (etaText: string) => {
                     }`}
                   >
                     <span>🧭</span> {isHeadingUp ? 'Heading-Up' : 'North-Up'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualRotation(0);
+                      setIsHeadingUp(false);
+                      setShowLayerMenu(false);
+                      toast.success("🧭 Mwelekeo wa gari na ramani umesawazishwa na Kaskazini (0°)!");
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all border-t border-neutral-100 dark:border-neutral-800/80 pt-1.5"
+                  >
+                    <span>🎯</span> Sawazisha Dira
                   </button>
                 </motion.div>
               )}

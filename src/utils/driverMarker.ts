@@ -351,42 +351,18 @@ export function createDriverMarkerIcon(
           </div>
         ` : ''}
 
-        <!-- Rotating GPS Dotted Halo Ring -->
-        <div class="absolute inset-0 rounded-full border border-dashed ${isDark ? 'border-[#EA580C]/30' : 'border-[#EA580C]/35'} animate-spin [animation-duration:12s] pointer-events-none"></div>
-        
-        <!-- Energetic Pulse Ring -->
-        <div class="absolute w-[30px] h-[30px] rounded-full ${isDark ? 'bg-[#EA580C]/15' : 'bg-[#EA580C]/10'} ${pulseClass} pointer-events-none"></div>
-        
-        <!-- Compass Outer Body -->
-        <div class="absolute w-[34px] h-[34px] rounded-full border ${ringColor} flex items-center justify-center select-none pointer-events-none">
-          
-          <!-- COMPASS BEAM / FLASHLIGHT: Rotates with phone compass orientation -->
-          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
-            <!-- Compass Heading Flashlight Light Beam / Field-of-View Cone -->
-            <div class="absolute bottom-1/2 left-1/2 -translate-x-1/2 origin-bottom pointer-events-none" style="width: 70px; height: 60px; margin-bottom: 2px;">
-              <svg viewBox="0 0 100 90" class="w-full h-full overflow-visible">
-                <defs>
-                  <radialGradient id="driverCompassBeamGrad_${isDark ? 'dark' : 'light'}" cx="50%" cy="100%" r="100%">
-                    <stop offset="0%" stop-color="${isDark ? '#F97316' : '#EA580C'}" stop-opacity="0.6"/>
-                    <stop offset="45%" stop-color="${isDark ? '#F97316' : '#EA580C'}" stop-opacity="0.25"/>
-                    <stop offset="100%" stop-color="${isDark ? '#F97316' : '#EA580C'}" stop-opacity="0"/>
-                  </radialGradient>
-                </defs>
-                <path d="M 50 90 L 12 0 A 85 85 0 0 1 88 0 Z" fill="url(#driverCompassBeamGrad_${isDark ? 'dark' : 'light'})" />
-              </svg>
-            </div>
+        <!-- Subtle Pulse Ring -->
+        <div class="absolute w-[36px] h-[36px] rounded-full ${isDark ? 'bg-emerald-500/15' : 'bg-emerald-500/15'} ${pulseClass} pointer-events-none"></div>
 
-            <!-- Pointing arrow accent at front -->
-            <div class="absolute top-[1px] w-2 h-2 rotate-45 ${isDark ? 'bg-[#F97316]' : 'bg-[#EA580C]'} rounded-[1px] shadow-[0_0_8px_rgba(249,115,22,0.9)] z-10"></div>
+        <!-- Vehicle Body & Precise Heading Direction -->
+        <div class="absolute inset-0 flex items-center justify-center transition-transform duration-200 ease-out pointer-events-none" style="transform: rotate(${finalCompassHeading}deg);">
+          <!-- Forward Direction Pointer Arrow (clean, subtle apex indicator) -->
+          <div class="absolute -top-[3px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[6px] ${isDark ? 'border-b-emerald-400' : 'border-b-emerald-600'} drop-shadow-sm z-20"></div>
+
+          <!-- Vehicle SVG -->
+          <div class="w-7 h-7 flex items-center justify-center relative z-10 drop-shadow-[0_2px_6px_rgba(0,0,0,0.35)]">
+            ${vehicleSvg}
           </div>
-
-          <!-- VEHICLE ICON: Rotates with compass heading -->
-          <div class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out" style="transform: rotate(${finalCompassHeading}deg);">
-            <div class="w-6 h-6 flex items-center justify-center relative z-10">
-              ${vehicleSvg}
-            </div>
-          </div>
-
         </div>
       </div>
     `,
