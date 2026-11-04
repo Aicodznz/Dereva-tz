@@ -13,7 +13,7 @@ import {
   Volume2, VolumeX, Sun, Moon, Wrench, Sparkles, Plus, Minus, RotateCcw, RotateCw, Compass,
   AlertTriangle, TrafficCone, Wallet, Flame, ChevronRight, Gift, UserPlus, Layers,
   ExternalLink, Play, Square, Check,
-  CornerUpRight, CornerUpLeft, ArrowUp, Radio
+  CornerUpRight, CornerUpLeft, ArrowUp, Radio, Crosshair
 } from 'lucide-react';
 import { AISmartHeatMap, HeatZone } from '../map/AISmartHeatMap';
 import { useTheme } from '../../ThemeContext';
@@ -67,8 +67,6 @@ import { playSyntheticImportant } from '../../utils/soundAlert';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
-import SmartMapLabelsOverlay from '../map/SmartMapLabelsOverlay';
-import SmartRotationControls from '../map/SmartRotationControls';
 import { 
   DriverVoice, 
   getDefaultAudioSettings, 
@@ -716,6 +714,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(true);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
   const [isHeadingUp, setIsHeadingUp] = useState(false); // Default to North-Up so place names and icons are always upright and readable
@@ -3532,13 +3531,6 @@ const getEndPin = (etaText: string) => {
               onZoneClick={(zone) => setSelectedHeatZone(zone)}
             />
 
-            {/* Intelligent Screen-Aligned Geographical Labels & Collision Avoidance */}
-            <SmartMapLabelsOverlay
-              currentRotation={manualRotation || (isHeadingUp ? (rotation || 0) : 0)}
-              theme={theme}
-              enabled={showMapLabels}
-            />
-
           </MapContainer>
         </div>
       </div>
@@ -3628,51 +3620,162 @@ const getEndPin = (etaText: string) => {
         )}
       </AnimatePresence>
 
-      {/* ADVANCED 360° MAP ROTATION & SMART NAVIGATION CONTROLS */}
-      <SmartRotationControls
-        currentRotation={manualRotation || (isHeadingUp ? (rotation || 0) : 0)}
-        onSetRotation={(newAngle) => {
-          setManualRotation(newAngle);
-          if (newAngle === 0) {
-            setIsHeadingUp(false);
-          }
-        }}
-        isHeadingUp={isHeadingUp}
-        onToggleHeadingUp={() => {
-          const nextVal = !isHeadingUp;
-          setIsHeadingUp(nextVal);
-          setAutoFollow(true);
-          if (nextVal) {
-            toast.success("🧭 Mwelekeo wa Njia (Heading-Up) umewashwa!");
-          } else {
-            setManualRotation(0);
-            toast.info("🧭 Kaskazini (North-Up 0°) imewashwa");
-          }
-        }}
-        is3DMode={is3DMode}
-        onToggle3D={() => {
-          setIs3DMode(prev => !prev);
-          toast.success(!is3DMode ? "Mwonekano wa 3D umewashwa!" : "Mwonekano wa 2D umewashwa.");
-        }}
-        autoFollow={autoFollow}
-        onRecenter={() => {
-          setAutoFollow(true);
-          setRecenterTrigger(Date.now());
-          setZoomAction({ type: 'auto', id: Date.now() });
-        }}
-        onZoomIn={() => setZoomAction({ type: 'in', id: Date.now() })}
-        onZoomOut={() => setZoomAction({ type: 'out', id: Date.now() })}
-        mapType={mapType}
-        onSetMapType={(t) => setMapType(t)}
-        theme={theme}
-        onToggleTheme={() => setNextTheme(theme === 'dark' ? 'light' : 'dark')}
-        showLabels={showMapLabels}
-        onToggleLabels={() => {
-          setShowMapLabels(prev => !prev);
-          toast.info(!showMapLabels ? "Majina ya maeneo yameoneshwa" : "Majina ya maeneo yamefichwa");
-        }}
-        isMinimized={isMinimized}
-      />
+      {/* Authentic Driver Map Navigation Controls (Matching Papo Hapo Original Layout) */}
+      {!isMinimized && (
+        <div className="absolute top-28 sm:top-32 right-3.5 sm:right-4 z-40 flex flex-col items-center gap-3 pointer-events-auto">
+          {/* Circular Target / Locate GPS Button */}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            onClick={() => {
+              setAutoFollow(true);
+              setRecenterTrigger(Date.now());
+              setZoomAction({ type: 'auto', id: Date.now() });
+              toast.success("📍 Eneo lako limelengwa");
+            }}
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 shadow-lg flex items-center justify-center relative transition-all ${
+              autoFollow 
+                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-400' 
+                : 'bg-white/95 dark:bg-[#111118]/90 border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-emerald-500'
+            }`}
+            title="Lenga Eneo Langu (Recenter)"
+          >
+            <Crosshair className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
+            {/* Top right pulsing active indicator dot */}
+            <span className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#111118] ${autoFollow ? 'animate-pulse' : ''}`} />
+          </motion.button>
+
+          {/* Vertical Controls Pill */}
+          <div className="w-11 sm:w-12 bg-white/95 dark:bg-[#111118]/90 backdrop-blur-md rounded-2xl shadow-xl border border-neutral-200/80 dark:border-neutral-800 flex flex-col items-center py-1 divide-y divide-neutral-100 dark:divide-neutral-800/80 relative">
+            {/* Compass Arrow - visible when rotated or heading-up, resets North on tap */}
+            {(manualRotation !== 0 || isHeadingUp) && (
+              <motion.button
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                type="button"
+                onClick={() => {
+                  setManualRotation(0);
+                  setIsHeadingUp(false);
+                  toast.info("🧭 Ramani imerudishwa Kaskazini (0°)");
+                }}
+                className="w-10 h-10 flex items-center justify-center text-red-500 hover:text-red-600 active:scale-90 transition-transform"
+                title="Rudi Kaskazini (0° True North)"
+              >
+                <Navigation2 
+                  className="w-5 h-5 fill-red-500 text-red-500 transition-transform duration-300"
+                  style={{ transform: `rotate(${-((manualRotation || 0))}deg)` }}
+                />
+              </motion.button>
+            )}
+
+            {/* Zoom In */}
+            <button
+              type="button"
+              onClick={() => setZoomAction({ type: 'in', id: Date.now() })}
+              className="w-10 h-10 flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:text-black dark:hover:text-white active:scale-90 transition-colors"
+              title="Kuza Ramani (Zoom In)"
+            >
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+            </button>
+
+            {/* Zoom Out */}
+            <button
+              type="button"
+              onClick={() => setZoomAction({ type: 'out', id: Date.now() })}
+              className="w-10 h-10 flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:text-black dark:hover:text-white active:scale-90 transition-colors"
+              title="Punguza Ramani (Zoom Out)"
+            >
+              <Minus className="w-5 h-5 stroke-[2.5]" />
+            </button>
+
+            {/* AI Demand Heatmap Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowHeatMap(prev => !prev);
+                toast.info(!showHeatMap ? "🔥 AI Demand Heat Map Imewashwa" : "Heat Map Imezimwa");
+              }}
+              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-all"
+              title="AI Demand Heat Map"
+            >
+              <Flame className={`w-5 h-5 ${showHeatMap ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-amber-500 hover:text-amber-600'}`} />
+            </button>
+
+            {/* Map Layer Switcher */}
+            <button
+              type="button"
+              onClick={() => setShowLayerMenu(prev => !prev)}
+              className="w-10 h-10 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white active:scale-90 transition-colors relative"
+              title="Badili Mwonekano wa Ramani"
+            >
+              <Layers className={`w-5 h-5 ${mapType === 'satellite' ? 'text-blue-500' : ''}`} />
+            </button>
+
+            {/* Layers Quick Menu Popover */}
+            <AnimatePresence>
+              {showLayerMenu && (
+                <motion.div
+                  initial={{ opacity: 0, x: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 10, scale: 0.95 }}
+                  className="absolute right-14 bottom-0 bg-white/95 dark:bg-[#111118]/95 backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 flex flex-col gap-1 w-36 z-50 pointer-events-auto"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapType('standard');
+                      setShowLayerMenu(false);
+                      toast.info("🗺️ Ramani ya Kawaida imewashwa");
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      mapType === 'standard'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span>🗺️</span> Kawaida
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapType('satellite');
+                      setShowLayerMenu(false);
+                      toast.info("🛰️ Satelaiti ya Google imewashwa");
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      mapType === 'satellite'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span>🛰️</span> Satelaiti
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHeadingUp(prev => {
+                        const nxt = !prev;
+                        if (!nxt) setManualRotation(0);
+                        toast.info(nxt ? "🧭 Kufuata Mwelekeo (Heading-Up)" : "🧭 Kaskazini Juu (North-Up)");
+                        return nxt;
+                      });
+                      setShowLayerMenu(false);
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      isHeadingUp
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span>🧭</span> {isHeadingUp ? 'Heading-Up' : 'North-Up'}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* Floating Driver Services Column on the Left - Collapse/Expand Panel */}
       {!isMinimized && (
