@@ -96,6 +96,8 @@ function MapController({
   position, 
   activeRide, 
   rotation, 
+  vehicleHeading = 0,
+  driverGpsSpeed = 0,
   manualRotation = 0,
   onRotate,
   is3DMode = false,
@@ -107,6 +109,8 @@ function MapController({
   position: [number, number], 
   activeRide: any, 
   rotation: number, 
+  vehicleHeading?: number,
+  driverGpsSpeed?: number,
   manualRotation?: number,
   onRotate?: (newRotation: number) => void,
   is3DMode?: boolean,
@@ -193,8 +197,9 @@ function MapController({
     let targetAngle = 0;
     if (typeof manualRotation === 'number' && manualRotation !== 0) {
       targetAngle = manualRotation;
-    } else if (isHeadingUp && typeof rotation === 'number' && !isNaN(rotation)) {
-      targetAngle = rotation;
+    } else if (isHeadingUp) {
+      const isTripActive = (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status)) || (driverGpsSpeed >= 4);
+      targetAngle = isTripActive ? (vehicleHeading || 0) : (typeof rotation === 'number' && !isNaN(rotation) ? rotation : 0);
     }
 
     if (targetAngle !== 0) {
@@ -2235,8 +2240,11 @@ const getEndPin = (etaText: string) => {
           const next = (prev + diff * factor) % 360;
           const finalVal = next < 0 ? next + 360 : next;
 
-          // Keep vehicleHeading in sync when stationary so vehicle icon always points where phone points
-          setVehicleHeading(Math.round(finalVal));
+          // Only update vehicleHeading from phone compass when stationary and no moving trip is running
+          const isMovingTrip = (activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status)) || (driverGpsSpeed >= 4);
+          if (!isMovingTrip) {
+            setVehicleHeading(Math.round(finalVal));
+          }
           return finalVal;
         });
       }
@@ -2958,7 +2966,9 @@ const getEndPin = (etaText: string) => {
                 vehicleHeading,
                 vType,
                 theme,
-                rotation,
+                ((activeRide && ['accepted', 'driver_arriving', 'on_trip'].includes(activeRide?.status)) || driverGpsSpeed >= 4)
+                  ? vehicleHeading
+                  : rotation,
                 undefined
               )}
             >
@@ -3388,6 +3398,8 @@ const getEndPin = (etaText: string) => {
               position={position} 
               activeRide={activeRide} 
               rotation={rotation} 
+              vehicleHeading={vehicleHeading}
+              driverGpsSpeed={driverGpsSpeed}
               manualRotation={manualRotation} 
               onRotate={setManualRotation} 
               is3DMode={is3DMode} 
