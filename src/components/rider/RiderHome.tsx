@@ -5402,7 +5402,6 @@ const getEndPin = (etaText: string) => {
           theme={theme as any}
           incomingRequest={incomingRequest}
           onAcceptRide={() => {
-            setIsMapLibreOpen(false);
             handleAccept();
           }}
           onDeclineRide={(ride) => {
