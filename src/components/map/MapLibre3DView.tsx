@@ -8,7 +8,7 @@ import {
   Activity, AlertTriangle, ShieldCheck, Zap, Gauge,
   Mountain, Wifi, WifiOff, Phone, Fuel, ChevronDown,
   ChevronUp, Play, Radio, ArrowRight, Clock, DollarSign,
-  Plus, Minus, Crosshair
+  Plus, Minus, Crosshair, Route, RefreshCw, CornerUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -210,15 +210,21 @@ function calculateTerrainAnalysis(lng: number, lat: number) {
   };
 }
 
-// Generate realistic interpolated road coordinates between points
-function generateRoadPath(start: [number, number], end: [number, number], points = 10): [number, number][] {
+// Generate realistic road coordinates with custom curve detour
+function generateRoadPath(
+  start: [number, number], 
+  end: [number, number], 
+  points = 10,
+  detourFactor = 1.0,
+  detourSide = 1
+): [number, number][] {
   const coords: [number, number][] = [start];
   for (let i = 1; i < points; i++) {
     const t = i / points;
     const midLng = start[0] + (end[0] - start[0]) * t;
     const midLat = start[1] + (end[1] - start[1]) * t;
-    const offset = Math.sin(t * Math.PI) * 0.0018 * (i % 2 === 0 ? 1 : -0.8);
-    coords.push([midLng + offset * 0.6, midLat + offset]);
+    const offset = Math.sin(t * Math.PI) * 0.0022 * detourFactor * detourSide;
+    coords.push([midLng + offset * 0.55, midLat + offset]);
   }
   coords.push(end);
   return coords;
@@ -246,12 +252,20 @@ export default function MapLibre3DView({
   const customerMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
   
-  // Track user interaction to completely prevent zoom & pan fighting / snapping back
+  // Track user interaction to prevent camera fight / zoom snap-back
   const isUserInteractingRef = useRef<boolean>(false);
   const lastFittedTargetIdRef = useRef<string | null>(null);
 
   // Auto-follow state: When true, camera eases to driver; when false (after user zooms/drags), map stays put!
   const [autoFollow, setAutoFollow] = useState<boolean>(true);
+
+  // Active Route Option: 0 = Njia Kuu (Haraka), 1 = Njia Mbadala 2 (Mkato), 2 = Njia Mbadala 3 (Kuepuka Foleni)
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
+  const [showRoutesDrawer, setShowRoutesDrawer] = useState<boolean>(false);
+  const [isReroutingNotice, setIsReroutingNotice] = useState<boolean>(false);
+
+  // Dynamic destination override (if customer changes destination mid-trip)
+  const [customDestination, setCustomDestination] = useState<any | null>(null);
 
   // Simulated Test Request state for immediate testing
   const [simulatedRequest, setSimulatedRequest] = useState<any | null>(null);
@@ -282,8 +296,8 @@ export default function MapLibre3DView({
   // Live Terrain & Surface Data for current position
   const currentTerrain = calculateTerrainAnalysis(center[1] || 39.2384, center[0] || -6.8163);
 
-  // Audio Chime synthesizer for ride requests
-  const playAlertChime = useCallback(() => {
+  // Audio Chime synthesizer for alerts
+  const playAlertChime = useCallback((type: 'request' | 'reroute' = 'request') => {
     if (!soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -295,25 +309,35 @@ export default function MapLibre3DView({
       const osc2 = ctx.createOscillator();
       const gain = ctx.createGain();
       
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(523.25, now);
-      osc1.frequency.setValueAtTime(659.25, now + 0.12);
-      osc1.frequency.setValueAtTime(783.99, now + 0.24);
-      
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(1046.50, now + 0.24);
-      
-      gain.gain.setValueAtTime(0.25, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-      
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc1.start(now);
-      osc2.start(now + 0.24);
-      osc1.stop(now + 0.55);
-      osc2.stop(now + 0.55);
+      if (type === 'reroute') {
+        // Two rising chimes for reroute
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(440, now);
+        osc1.frequency.setValueAtTime(659.25, now + 0.15);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        osc1.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.5);
+      } else {
+        // Multi-tone chime for new request
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(523.25, now);
+        osc1.frequency.setValueAtTime(659.25, now + 0.12);
+        osc1.frequency.setValueAtTime(783.99, now + 0.24);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(1046.50, now + 0.24);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start(now);
+        osc2.start(now + 0.24);
+        osc1.stop(now + 0.55);
+        osc2.stop(now + 0.55);
+      }
     } catch {
       // Audio context blocked
     }
@@ -326,7 +350,7 @@ export default function MapLibre3DView({
       return;
     }
 
-    playAlertChime();
+    playAlertChime('request');
     setRequestTimeLeft(30);
 
     const timer = setInterval(() => {
@@ -374,7 +398,35 @@ export default function MapLibre3DView({
     };
 
     setSimulatedRequest(sample);
-    toast.success("🔔 Ombi la safari la majaribio limetumwa!");
+    setSelectedRouteIndex(0);
+    toast.success("🔔 Ombi jipya la safari limewasili!");
+  };
+
+  // Trigger simulated Off-Route / Mchepuko Rerouting
+  const triggerSimulatedReroute = () => {
+    setIsReroutingNotice(true);
+    playAlertChime('reroute');
+    toast.info("🔄 Dereva amechepuka! Njia inarekebishwa kiotomatiki...");
+    
+    // Switch to alternative detour route with dynamic animation
+    setTimeout(() => {
+      setSelectedRouteIndex(prev => (prev === 0 ? 1 : prev === 1 ? 2 : 0));
+      setIsReroutingNotice(false);
+      toast.success("✅ Njia mpya imekokotolewa kikamilifu kulingana na mwelekeo wako!");
+    }, 1200);
+  };
+
+  // Trigger Customer Change Destination
+  const triggerChangeDestination = () => {
+    const newDests = [
+      { name: 'Kariakoo Market, Mtaa wa Swahili', lat: -6.8198, lng: 39.2745, fare: 11000 },
+      { name: 'Mlimani City Mall, Sam Nujoma Rd', lat: -6.7725, lng: 39.2198, fare: 16500 },
+      { name: 'Masaki Slipway, Chole Rd', lat: -6.7485, lng: 39.2785, fare: 22000 }
+    ];
+    const pick = newDests[Math.floor(Math.random() * newDests.length)];
+    setCustomDestination(pick);
+    playAlertChime('reroute');
+    toast.success(`📍 Mteja amebadilisha mwisho wa safari: ${pick.name}! Njia inarekebishwa...`);
   };
 
   // -------------------------------------------------------------
@@ -490,7 +542,38 @@ export default function MapLibre3DView({
         }
       }
 
-      // 2. Add Route GeoJSON Source for Request / Active Navigation
+      // 2. Add Alternative Routes Background Layer (Semi-transparent dashed lines)
+      try {
+        if (!map.getSource('alt-routes-source')) {
+          map.addSource('alt-routes-source', {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: []
+            }
+          });
+
+          map.addLayer({
+            id: 'alt-routes-line',
+            type: 'line',
+            source: 'alt-routes-source',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#64748B',
+              'line-width': 4,
+              'line-opacity': 0.6,
+              'line-dasharray': [2, 2]
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Alt routes source notice:", err);
+      }
+
+      // 3. Add Primary Active Route GeoJSON Source
       try {
         if (!map.getSource('active-route-source')) {
           map.addSource('active-route-source', {
@@ -517,11 +600,11 @@ export default function MapLibre3DView({
             paint: {
               'line-color': '#0f172a',
               'line-width': 8,
-              'line-opacity': 0.85
+              'line-opacity': 0.88
             }
           });
 
-          // Inner Vibrant Neon Route Line
+          // Inner Vibrant Neon Route Line (Color changes dynamically: Emerald for Primary, Amber for Detour)
           map.addLayer({
             id: 'route-line',
             type: 'line',
@@ -541,7 +624,7 @@ export default function MapLibre3DView({
         console.warn("Route source notice:", err);
       }
 
-      // 3. Add Driver 3D Vehicle Marker
+      // 4. Add Driver 3D Vehicle Marker
       const driverEl = document.createElement('div');
       driverEl.className = 'maplibre-driver-marker';
       driverEl.innerHTML = `
@@ -579,13 +662,12 @@ export default function MapLibre3DView({
     };
   }, [activeEngineKey, dataSaverMode]);
 
-  // Update vehicle marker & ONLY ease camera if user wants AutoFollow and is NOT interacting
+  // Update vehicle marker & camera
   useEffect(() => {
     if (!driverMarkerRef.current || !mapInstanceRef.current) return;
     const lngLat: [number, number] = [center[1], center[0]];
     driverMarkerRef.current.setLngLat(lngLat);
 
-    // CRITICAL: Never hijack camera if user is pinching/dragging or turned off autoFollow!
     if (autoFollow && !isUserInteractingRef.current) {
       mapInstanceRef.current.easeTo({
         center: lngLat,
@@ -596,7 +678,7 @@ export default function MapLibre3DView({
   }, [center[0], center[1], vehicleHeading, autoFollow, isHeadingUp]);
 
   // -------------------------------------------------------------
-  // DYNAMIC 3D ROUTE DRAWING & VISUALIZATION FOR INCOMING/ACTIVE RIDE
+  // DYNAMIC 3D ROUTE DRAWING WITH REROUTING & ALTERNATIVES
   // -------------------------------------------------------------
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -612,6 +694,13 @@ export default function MapLibre3DView({
             type: 'Feature',
             properties: {},
             geometry: { type: 'LineString', coordinates: [] }
+          });
+        }
+        const altSource = map.getSource('alt-routes-source') as maplibregl.GeoJSONSource;
+        if (altSource) {
+          altSource.setData({
+            type: 'FeatureCollection',
+            features: []
           });
         }
       } catch {
@@ -630,9 +719,10 @@ export default function MapLibre3DView({
     const pLat = currentTarget.pickup?.lat || (Array.isArray(currentTarget.pickup) ? currentTarget.pickup[0] : null);
     const pLng = currentTarget.pickup?.lng || (Array.isArray(currentTarget.pickup) ? currentTarget.pickup[1] : null);
 
-    // 2. Destination Point
-    const dLat = currentTarget.destination?.lat || (Array.isArray(currentTarget.destination) ? currentTarget.destination[0] : null);
-    const dLng = currentTarget.destination?.lng || (Array.isArray(currentTarget.destination) ? currentTarget.destination[1] : null);
+    // 2. Destination Point (Supports dynamic customer destination override)
+    const dLat = customDestination ? customDestination.lat : (currentTarget.destination?.lat || (Array.isArray(currentTarget.destination) ? currentTarget.destination[0] : null));
+    const dLng = customDestination ? customDestination.lng : (currentTarget.destination?.lng || (Array.isArray(currentTarget.destination) ? currentTarget.destination[1] : null));
+    const dAddress = customDestination ? customDestination.name : (currentTarget.destinationAddress || currentTarget.destination?.address || 'Mwisho');
 
     if (pLat && pLng) {
       const pickupLngLat: [number, number] = [pLng, pLat];
@@ -695,7 +785,7 @@ export default function MapLibre3DView({
                 align-items: center;
                 gap: 4px;
               ">
-                <span>🏁</span> ${currentTarget.destinationAddress || currentTarget.destination?.address || 'Mwisho'}
+                <span>🏁</span> ${dAddress}
               </div>
               <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #EF4444;"></div>
             </div>
@@ -707,10 +797,27 @@ export default function MapLibre3DView({
           destMarkerRef.current.setLngLat(destLngLat);
         }
 
-        const path1 = generateRoadPath(driverLngLat, pickupLngLat, 8);
-        const path2 = generateRoadPath(pickupLngLat, destLngLat, 12);
-        const fullPath = [...path1, ...path2.slice(1)];
+        // GENERATE 3 ALTERNATIVE ROUTE TRAJECTORIES
+        // Option 0: Primary Straightforward Highway
+        const route0_p1 = generateRoadPath(driverLngLat, pickupLngLat, 8, 0.7, 1);
+        const route0_p2 = generateRoadPath(pickupLngLat, destLngLat, 12, 0.8, -1);
+        const route0 = [...route0_p1, ...route0_p2.slice(1)];
 
+        // Option 1: Detour via Ring Road (Kuepuka Foleni)
+        const route1_p1 = generateRoadPath(driverLngLat, pickupLngLat, 8, 1.4, -1);
+        const route1_p2 = generateRoadPath(pickupLngLat, destLngLat, 12, 1.5, 1);
+        const route1 = [...route1_p1, ...route1_p2.slice(1)];
+
+        // Option 2: Short-cut via Urban Street Grid
+        const route2_p1 = generateRoadPath(driverLngLat, pickupLngLat, 8, 1.9, 1);
+        const route2_p2 = generateRoadPath(pickupLngLat, destLngLat, 12, 2.0, -1);
+        const route2 = [...route2_p1, ...route2_p2.slice(1)];
+
+        const allRoutes = [route0, route1, route2];
+        const activeSelectedCoords = allRoutes[selectedRouteIndex] || route0;
+        const alternativeCoordsList = allRoutes.filter((_, idx) => idx !== selectedRouteIndex);
+
+        // Update Primary Active Route
         try {
           const source = map.getSource('active-route-source') as maplibregl.GeoJSONSource;
           if (source) {
@@ -719,15 +826,37 @@ export default function MapLibre3DView({
               properties: {},
               geometry: {
                 type: 'LineString',
-                coordinates: fullPath
+                coordinates: activeSelectedCoords
               }
+            });
+          }
+
+          // Dynamic line color: Emerald for Route 0, Amber for Route 1, Blue for Route 2
+          const routeColors = ['#10b981', '#f59e0b', '#3b82f6'];
+          if (map.getLayer('route-line')) {
+            map.setPaintProperty('route-line', 'line-color', routeColors[selectedRouteIndex] || '#10b981');
+          }
+
+          // Update Secondary Alternative Lines
+          const altSource = map.getSource('alt-routes-source') as maplibregl.GeoJSONSource;
+          if (altSource) {
+            altSource.setData({
+              type: 'FeatureCollection',
+              features: alternativeCoordsList.map((coords, i) => ({
+                type: 'Feature',
+                properties: { id: `alt-${i}` },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords
+                }
+              }))
             });
           }
         } catch {
           // Source pending
         }
 
-        // CRITICAL FIX: Only fitBounds ONCE when a new request arrives, NEVER on every re-render!
+        // Fit bounds once on target arrival
         if (currentTarget.id && lastFittedTargetIdRef.current !== currentTarget.id) {
           lastFittedTargetIdRef.current = currentTarget.id;
           const bounds = new maplibregl.LngLatBounds();
@@ -744,7 +873,7 @@ export default function MapLibre3DView({
         }
       }
     }
-  }, [incomingRequest?.id, activeRide?.id]);
+  }, [incomingRequest?.id, activeRide?.id, selectedRouteIndex, customDestination]);
 
   // Recenter Camera to Driver (Auto-Follow re-enable)
   const recenterToDriver = () => {
@@ -875,6 +1004,20 @@ export default function MapLibre3DView({
 
         {/* Right: Quick Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+          {/* Alternative Routes & Detour Selector Button */}
+          <button
+            onClick={() => setShowRoutesDrawer(prev => !prev)}
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
+              showRoutesDrawer
+                ? 'bg-blue-600 text-white shadow-blue-950/40 ring-2 ring-blue-400/50'
+                : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800'
+            }`}
+            title="Chagua Njia Mbadala (Alternative Routes & Reroute)"
+          >
+            <Route className="w-3.5 h-3.5 text-blue-500" />
+            <span className="hidden sm:inline">Njia Mbadala</span>
+          </button>
+
           {/* Data Saver Mode Pill */}
           <button
             onClick={toggleDataSaver}
@@ -932,6 +1075,21 @@ export default function MapLibre3DView({
         className="relative flex-1 w-full h-full"
       />
 
+      {/* REROUTING NOTICE BANNER (INAKOKOTOA UPYA NJIA) */}
+      <AnimatePresence>
+        {isReroutingNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-2xl flex items-center gap-2 border-2 border-white pointer-events-auto"
+          >
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Umechepuka! Inakokotoa upya njia...</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* -------------------------------------------------------------
           ACTIVE TRIP TURN-BY-TURN GUIDANCE BANNER
           ------------------------------------------------------------- */}
@@ -951,17 +1109,17 @@ export default function MapLibre3DView({
                   </div>
                   <div className="min-w-0">
                     <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 block">
-                      {activeRide.status === 'arrived' ? 'Umefika kwa Mteja' : 'Njia ya 3D inaendelea'}
+                      {activeRide.status === 'arrived' ? 'Umefika kwa Mteja' : `Njia #${selectedRouteIndex + 1} inaendelea`}
                     </span>
                     <p className="text-xs font-bold text-white truncate">
-                      {activeRide.destinationAddress || activeRide.destination?.address || 'Kuelekea Eneo la Safari'}
+                      {customDestination?.name || activeRide.destinationAddress || activeRide.destination?.address || 'Kuelekea Eneo la Safari'}
                     </p>
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <span className="text-xs font-mono font-black text-emerald-400 block">
-                    TZS {(activeRide.price || activeRide.fare || 0).toLocaleString()}
+                    TZS {(customDestination?.fare || activeRide.price || activeRide.fare || 0).toLocaleString()}
                   </span>
                   <span className="text-[9px] text-neutral-400 block">
                     {activeRide.customerInfo?.name || 'Mteja'}
@@ -1060,13 +1218,13 @@ export default function MapLibre3DView({
                 <div className="min-w-0">
                   <span className="text-[9px] font-black uppercase text-red-400 block">Kuelekea (Destination):</span>
                   <p className="text-neutral-200 font-bold truncate text-[11px]">
-                    {incomingRequest.destinationAddress || incomingRequest.destination?.address || 'Mwisho wa Safari'}
+                    {customDestination?.name || incomingRequest.destinationAddress || incomingRequest.destination?.address || 'Mwisho wa Safari'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Terrain & Surface Summary Badge on Request */}
+            {/* Route & Traffic Info */}
             <div className="grid grid-cols-3 gap-1.5 text-[10px]">
               <div className="p-1.5 rounded-lg bg-white/5 border border-white/5">
                 <span className="text-[8px] text-neutral-400 font-bold uppercase block">Umbali</span>
@@ -1112,7 +1270,7 @@ export default function MapLibre3DView({
       </AnimatePresence>
 
       {/* -------------------------------------------------------------
-          FLOATING RIGHT CONTROLS RAIL (WELL-ORGANIZED, NEVER OVERLAPS)
+          FLOATING RIGHT CONTROLS RAIL
           ------------------------------------------------------------- */}
       <div className="absolute right-3 sm:right-4 top-20 z-30 flex flex-col gap-1.5 pointer-events-auto">
         {/* Zoom In (+) */}
@@ -1133,7 +1291,7 @@ export default function MapLibre3DView({
           <Minus className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        {/* Recenter to Vehicle (Shows when user has panned or zoomed away) */}
+        {/* Recenter to Vehicle */}
         {!autoFollow && (
           <motion.button
             initial={{ scale: 0 }}
@@ -1218,7 +1376,7 @@ export default function MapLibre3DView({
       </div>
 
       {/* -------------------------------------------------------------
-          BOTTOM SPEEDOMETER & REPOSITONED DOCK (FREE OF CLUTTER)
+          BOTTOM SPEEDOMETER & DOCK
           ------------------------------------------------------------- */}
       <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-4 sm:right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
         {/* Left: Driver Telemetry Card */}
@@ -1264,6 +1422,204 @@ export default function MapLibre3DView({
           </button>
         </div>
       </div>
+
+      {/* -------------------------------------------------------------
+          ALTERNATIVE ROUTES & DETOUR SELECTION DRAWER
+          (NINI KINATOKEA MTU AKIBADILISHA NJIA)
+          ------------------------------------------------------------- */}
+      <AnimatePresence>
+        {showRoutesDrawer && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-[2.5rem] sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-4 max-h-[85vh] overflow-y-auto pointer-events-auto"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Route className="w-4 h-4 text-blue-500" />
+                    <h3 className="text-base font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+                      Mtu Akibadilisha Njia (Rerouting Engine)
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    Mstari wa njia unaong'aa unajirekebisha kiotomatiki kwa sekunde 0.5
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowRoutesDrawer(false)}
+                  className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Explanatory Banner */}
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-900/20 to-emerald-900/20 border border-blue-500/20 text-xs text-neutral-700 dark:text-neutral-300 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Sparkles className="w-3.5 h-3.5" /> Jinsi Mfumo Unavyofanya Kazi:
+                </p>
+                <p className="text-[11px] text-neutral-500">
+                  1. <strong>Dereva akichepuka (Off-Route):</strong> GPS inatambua mara moja na kuchora upya mstari unaong'aa kutoka pale gari lilipo kuelekea mwisho.
+                </p>
+                <p className="text-[11px] text-neutral-500">
+                  2. <strong>Mteja akibadilisha eneo:</strong> Pini ya mwisho 🏁 inasogea na mstari unaong'aa unajikokotoa papo hapo.
+                </p>
+              </div>
+
+              {/* 3 Alternative Route Choices */}
+              <div className="space-y-2">
+                <span className="text-xs font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200 block">
+                  Chagua Njia Unayotaka Kuitumia:
+                </span>
+
+                {/* Route 1: Fastest Highway */}
+                <button
+                  onClick={() => {
+                    setSelectedRouteIndex(0);
+                    setShowRoutesDrawer(false);
+                    playAlertChime('reroute');
+                    toast.success("✅ Njia Kuu imechaguliwa (Haraka Zaidi)!");
+                  }}
+                  className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                    selectedRouteIndex === 0
+                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/30'
+                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-sm">
+                      1
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase text-neutral-900 dark:text-white">
+                          Njia Kuu (Nelson Mandela Rd)
+                        </span>
+                        <span className="text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-600">
+                          Haraka Zaidi 🚀
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        5.2 km • ~12 dakika • Mstari wa Kijani (#10B981)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">12 dk</span>
+                  </div>
+                </button>
+
+                {/* Route 2: Detour via Tabata */}
+                <button
+                  onClick={() => {
+                    setSelectedRouteIndex(1);
+                    setShowRoutesDrawer(false);
+                    playAlertChime('reroute');
+                    toast.success("✅ Njia ya Tabata Kisiwani imechaguliwa (Kuepuka Foleni)!");
+                  }}
+                  className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                    selectedRouteIndex === 1
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30 ring-2 ring-amber-500/30'
+                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black text-sm">
+                      2
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase text-neutral-900 dark:text-white">
+                          Kupitia Tabata Kisiwani
+                        </span>
+                        <span className="text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-600">
+                          Epuka Foleni 🍃
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        5.8 km • ~14 dakika • Mstari wa Njano (#F59E0B)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-amber-600 dark:text-amber-400 font-mono">14 dk</span>
+                  </div>
+                </button>
+
+                {/* Route 3: Sam Nujoma BRT Corridor */}
+                <button
+                  onClick={() => {
+                    setSelectedRouteIndex(2);
+                    setShowRoutesDrawer(false);
+                    playAlertChime('reroute');
+                    toast.success("✅ Njia ya Sam Nujoma & BRT imechaguliwa!");
+                  }}
+                  className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                    selectedRouteIndex === 2
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-500/30'
+                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-sm">
+                      3
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase text-neutral-900 dark:text-white">
+                          Kupitia Sam Nujoma & BRT
+                        </span>
+                        <span className="text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-600">
+                          Njia Ndefu Wazi
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        6.4 km • ~16 dakika • Mstari wa Bluu (#3B82F6)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">16 dk</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Simulation Testing Buttons */}
+              <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">
+                  Majaribio ya Moja kwa Moja (Live Test Actions):
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setShowRoutesDrawer(false);
+                      triggerSimulatedReroute();
+                    }}
+                    className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Jaribu Mchepuko</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowRoutesDrawer(false);
+                      triggerChangeDestination();
+                    }}
+                    className="p-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <CornerUpRight className="w-3.5 h-3.5" />
+                    <span>Badili Mwisho wa Safari</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* -------------------------------------------------------------
           TERRAIN & ROAD SURFACE ANALYSIS DRAWER
