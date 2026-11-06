@@ -124,16 +124,16 @@ const DAR_HOTSPOTS = [
   {
     id: 'posta-cbd',
     name: 'Posta City Centre & Samora Ave',
-    lngLat: [39.2890, -6.8160] as [number, number],
-    desc: 'Maghorofa marefu ya benki kuu na bandari',
+    lngLat: [39.28965, -6.81645] as [number, number],
+    desc: 'Makutano ya Ohio Street & Hamburg Avenue, Posta Mpya',
     altitude: 6,
     slope: '+0.5%',
     surface: 'Lami ya Mjini (95%)',
-    trafficSpeed: 18,
-    trafficLevel: 'nzito',
-    pitch: 60,
-    bearing: 65,
-    zoom: 16.5
+    trafficSpeed: 24,
+    trafficLevel: 'wastani',
+    pitch: 58,
+    bearing: 52,
+    zoom: 17
   },
   {
     id: 'kariakoo',
@@ -228,6 +228,310 @@ function generateRoadPath(
   }
   coords.push(end);
   return coords;
+}
+
+/**
+ * Generates ultra-crisp top-down 3D vector vehicle navigation graphics
+ * Aligns perfectly with asphalt in MapLibre 3D with forward headlight beams,
+ * realistic ground contact shadows, detailed bodywork, and heading accuracy.
+ */
+function getMapLibre3DVehicleHtml(type: string = 'car', _isOnline: boolean = true): string {
+  const t = (type || 'car').toLowerCase();
+  const isBike = t.includes('bike') || t.includes('pikipiki') || t.includes('delivery') || t.includes('motorcycle') || t.includes('boda') || t.includes('bodaboda');
+  const isBajaj = t.includes('bajaj') || t.includes('bajaji') || t.includes('tuktuk');
+
+  if (isBike) {
+    return `
+      <div style="position: relative; width: 44px; height: 86px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+        <!-- Glowing Cyan Ground Radar Disc -->
+        <div style="position: absolute; width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,0.55) 0%, rgba(14,165,233,0.3) 60%, transparent 80%); box-shadow: 0 0 16px rgba(56,189,248,0.4); animation: pulse 2s infinite ease-in-out;"></div>
+        
+        <svg viewBox="0 0 70 120" style="width: 44px; height: 86px; overflow: visible; display: block; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));">
+          <defs>
+            <linearGradient id="cyanBeamBike" x1="50%" y1="100%" x2="50%" y2="0%">
+              <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.8"/>
+              <stop offset="40%" stop-color="#38BDF8" stop-opacity="0.38"/>
+              <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="crystalLeftBike" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38BDF8"/>
+              <stop offset="100%" stop-color="#0284C7"/>
+            </linearGradient>
+            <linearGradient id="crystalRightBike" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="50%" stop-color="#E0F2FE"/>
+              <stop offset="100%" stop-color="#7DD3FC"/>
+            </linearGradient>
+            <linearGradient id="bikeChassisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FB923C"/>
+              <stop offset="50%" stop-color="#EA580C"/>
+              <stop offset="100%" stop-color="#9A3412"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Forward Cyan Light Beam -->
+          <polygon points="26,52 20,12 50,12 44,52" fill="url(#cyanBeamBike)" />
+
+          <!-- 3D Crystal Navigation Chevron -->
+          <g filter="drop-shadow(0 2px 6px rgba(14,165,233,0.8))">
+            <polygon points="35,22 26,39 35,34" fill="url(#crystalLeftBike)" />
+            <polygon points="35,22 35,34 44,39" fill="url(#crystalRightBike)" />
+            <line x1="35" y1="22" x2="35" y2="34" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" />
+          </g>
+
+          <!-- Shadow -->
+          <ellipse cx="35" cy="74" rx="14" ry="24" fill="rgba(0,0,0,0.5)" filter="blur(2px)" />
+
+          <!-- Bike Details -->
+          <rect x="33" y="80" width="4" height="18" rx="2" fill="#0F172A" />
+          <rect x="33" y="44" width="4" height="15" rx="2" fill="#0F172A" />
+          <path d="M22,54 L31,55 M39,55 L48,54" stroke="#0F172A" stroke-width="3" stroke-linecap="round" />
+          <rect x="31" y="55" width="8" height="30" rx="4" fill="#1E293B" />
+          <path d="M30,58 C30,54 40,54 40,58 L38,70 C38,72 32,72 32,70 Z" fill="url(#bikeChassisGrad)" stroke="#7C2D12" stroke-width="0.8" />
+          <!-- Rider -->
+          <circle cx="35" cy="68" r="7.5" fill="#EA580C" stroke="#7C2D12" stroke-width="1.2" />
+          <path d="M30,65 C31,62 39,62 40,65 L39,67 C38,68 32,68 31,67 Z" fill="#38BDF8" />
+          <rect x="33" y="82" width="4" height="2" rx="1" fill="#EF4444" />
+        </svg>
+      </div>
+    `;
+  }
+
+  if (isBajaj) {
+    return `
+      <div style="position: relative; width: 48px; height: 86px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+        <!-- Glowing Cyan Ground Radar Disc -->
+        <div style="position: absolute; width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,0.55) 0%, rgba(14,165,233,0.3) 60%, transparent 80%); box-shadow: 0 0 16px rgba(56,189,248,0.4); animation: pulse 2s infinite ease-in-out;"></div>
+
+        <svg viewBox="0 0 70 120" style="width: 48px; height: 86px; overflow: visible; display: block; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));">
+          <defs>
+            <linearGradient id="cyanBeamBajaj" x1="50%" y1="100%" x2="50%" y2="0%">
+              <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.8"/>
+              <stop offset="40%" stop-color="#38BDF8" stop-opacity="0.38"/>
+              <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="crystalLeftBajaj" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38BDF8"/>
+              <stop offset="100%" stop-color="#0284C7"/>
+            </linearGradient>
+            <linearGradient id="crystalRightBajaj" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="50%" stop-color="#E0F2FE"/>
+              <stop offset="100%" stop-color="#7DD3FC"/>
+            </linearGradient>
+            <linearGradient id="bajajBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FB923C"/>
+              <stop offset="45%" stop-color="#EA580C"/>
+              <stop offset="100%" stop-color="#9A3412"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Forward Cyan Light Beam -->
+          <polygon points="25,52 18,12 52,12 45,52" fill="url(#cyanBeamBajaj)" />
+
+          <!-- 3D Crystal Navigation Chevron -->
+          <g filter="drop-shadow(0 2px 6px rgba(14,165,233,0.8))">
+            <polygon points="35,22 26,39 35,34" fill="url(#crystalLeftBajaj)" />
+            <polygon points="35,22 35,34 44,39" fill="url(#crystalRightBajaj)" />
+            <line x1="35" y1="22" x2="35" y2="34" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" />
+          </g>
+
+          <!-- Shadow -->
+          <ellipse cx="35" cy="74" rx="20" ry="24" fill="rgba(0,0,0,0.48)" filter="blur(2px)" />
+
+          <!-- Wheels -->
+          <rect x="18" y="72" width="4.5" height="14" rx="2" fill="#0F172A" />
+          <rect x="47.5" y="72" width="4.5" height="14" rx="2" fill="#0F172A" />
+          <rect x="33" y="44" width="4" height="12" rx="2" fill="#0F172A" />
+
+          <!-- Body Chassis & Roof -->
+          <path d="M24,48 C24,42 46,42 46,48 L49,82 C49,86 21,86 21,82 Z" fill="url(#bajajBodyGrad)" stroke="#7C2D12" stroke-width="1.1" />
+          <path d="M23,52 Q35,48 47,52 L46,80 Q35,83 24,80 Z" fill="#1E293B" stroke="#0F172A" stroke-width="0.8" />
+          <line x1="25" y1="60" x2="45" y2="60" stroke="#475569" stroke-width="1.2" />
+          <line x1="24" y1="70" x2="46" y2="70" stroke="#475569" stroke-width="1.2" />
+          <path d="M25,52 C25,48 45,48 45,52 L44,56 L26,56 Z" fill="#38BDF8" fill-opacity="0.8" stroke="#0284C7" stroke-width="0.8" />
+          <rect x="22" y="82" width="4" height="2" rx="0.5" fill="#EF4444" />
+          <rect x="44" y="82" width="4" height="2" rx="0.5" fill="#EF4444" />
+        </svg>
+      </div>
+    `;
+  }
+
+  // DEFAULT: Exact 3D Rear-Perspective Orange Sports Coupe from User Reference Image
+  // Features: Luminous Cyan Ground Radar Disc, Forward Cyan Light Beam, 3D Crystal Prism Chevron,
+  // Muscular metallic orange rear fenders, dual horizontal LED taillights with white projector core,
+  // dark tinted curved rear window glass, black carbon roof panel, and receding aerodynamic hood.
+  return `
+    <div style="position: relative; width: 52px; height: 96px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+      <!-- 1. Glowing Sky-Blue / Cyan Circular Ground Radar Disc -->
+      <div style="
+        position: absolute;
+        top: 58%;
+        left: 50%;
+        width: 66px;
+        height: 66px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(14, 165, 233, 0.35) 60%, rgba(56, 189, 248, 0.0) 80%);
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.55), inset 0 0 12px rgba(56, 189, 248, 0.4);
+        pointer-events: none;
+      "></div>
+
+      <svg viewBox="0 0 70 120" style="width: 52px; height: 96px; overflow: visible; display: block; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.52));">
+        <defs>
+          <!-- Ground Cyan Disc Overlay -->
+          <radialGradient id="cyanGroundDiscRef" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.65"/>
+            <stop offset="55%" stop-color="#0EA5E9" stop-opacity="0.38"/>
+            <stop offset="85%" stop-color="#0284C7" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#0284C7" stop-opacity="0"/>
+          </radialGradient>
+
+          <!-- Forward Cyan Light Beam Curtains -->
+          <linearGradient id="cyanBeamLeftRef" x1="100%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.6"/>
+            <stop offset="60%" stop-color="#0EA5E9" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="cyanBeamRightRef" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.6"/>
+            <stop offset="60%" stop-color="#0EA5E9" stop-opacity="0.22"/>
+            <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="cyanBeamCenterRef" x1="50%" y1="100%" x2="50%" y2="0%">
+            <stop offset="0%" stop-color="#BAE6FD" stop-opacity="0.75"/>
+            <stop offset="35%" stop-color="#38BDF8" stop-opacity="0.38"/>
+            <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0"/>
+          </linearGradient>
+
+          <!-- 3D Crystal Prism Chevron Arrow -->
+          <linearGradient id="crystalLeftRef" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38BDF8"/>
+            <stop offset="100%" stop-color="#0284C7"/>
+          </linearGradient>
+          <linearGradient id="crystalRightRef" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="40%" stop-color="#E0F2FE"/>
+            <stop offset="100%" stop-color="#7DD3FC"/>
+          </linearGradient>
+
+          <!-- Rich Metallic Automotive Sports Orange -->
+          <linearGradient id="carBody3DRef" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#9A3412"/>
+            <stop offset="14%" stop-color="#EA580C"/>
+            <stop offset="35%" stop-color="#F97316"/>
+            <stop offset="50%" stop-color="#FB923C"/>
+            <stop offset="65%" stop-color="#F97316"/>
+            <stop offset="86%" stop-color="#EA580C"/>
+            <stop offset="100%" stop-color="#9A3412"/>
+          </linearGradient>
+
+          <!-- Muscular Rear Fenders Radial Highlights -->
+          <radialGradient id="fenderGlowLeft" cx="40%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#FED7AA" stop-opacity="0.85"/>
+            <stop offset="50%" stop-color="#FB923C" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#EA580C" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="fenderGlowRight" cx="60%" cy="50%" r="60%">
+            <stop offset="0%" stop-color="#FED7AA" stop-opacity="0.85"/>
+            <stop offset="50%" stop-color="#FB923C" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#EA580C" stop-opacity="0"/>
+          </radialGradient>
+
+          <!-- Dark Curved Tinted Glass Gradients -->
+          <linearGradient id="rearWindowGradRef" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0F172A"/>
+            <stop offset="45%" stop-color="#1E293B"/>
+            <stop offset="100%" stop-color="#080C14"/>
+          </linearGradient>
+          <linearGradient id="glassStreakRef" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.88"/>
+            <stop offset="35%" stop-color="#BAE6FD" stop-opacity="0.55"/>
+            <stop offset="70%" stop-color="#38BDF8" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#0284C7" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        <!-- 1. Ground Cyan Radar Disc -->
+        <ellipse cx="35" cy="74" rx="28" ry="25" fill="url(#cyanGroundDiscRef)" />
+        <ellipse cx="35" cy="74" rx="28" ry="25" fill="none" stroke="#38BDF8" stroke-width="1" stroke-opacity="0.6" />
+
+        <!-- 2. Forward Cyan Light Beam Curtains -->
+        <polygon points="25,52 14,8 25,8" fill="url(#cyanBeamLeftRef)" />
+        <polygon points="45,52 45,8 56,8" fill="url(#cyanBeamRightRef)" />
+        <polygon points="26,48 21,12 49,12 44,48" fill="url(#cyanBeamCenterRef)" />
+
+        <!-- 3. Floating 3D Crystal Prism Navigation Chevron Arrow -->
+        <g filter="drop-shadow(0 2px 8px rgba(14,165,233,0.85))">
+          <!-- Left Facet -->
+          <polygon points="35,22 25,40 35,35" fill="url(#crystalLeftRef)" />
+          <!-- Right Facet -->
+          <polygon points="35,22 35,34 45,40" fill="url(#crystalRightRef)" />
+          <!-- Sharp Crystal Ridge Line -->
+          <line x1="35" y1="22" x2="35" y2="34.5" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" />
+        </g>
+
+        <!-- 4. Asphalt Ground Contact Shadow under Chassis -->
+        <ellipse cx="35" cy="76" rx="20" ry="17" fill="rgba(0,0,0,0.55)" filter="blur(2.2px)" />
+
+        <!-- 5. 3D Orange Sports Coupe Body (Rear 3/4 Isometric Top-Down View) -->
+        <!-- Sculpted Outer Silhouette (Wedge shaped: wide rear, tapered front) -->
+        <path d="
+          M21,83
+          C20,83 17,79 17,75
+          C17,71 19,65 20,60
+          C21,55 23,51 25,48
+          C27,45 31,44 35,44
+          C39,44 43,45 45,48
+          C47,51 49,55 50,60
+          C51,65 53,71 53,75
+          C53,79 50,83 49,83
+          C45,85 39,86 35,86
+          C31,86 25,85 21,83
+          Z
+        " fill="url(#carBody3DRef)" stroke="#7C2D12" stroke-width="1.2" stroke-linejoin="round" />
+
+        <!-- Muscular Rear Fenders Curved Shoulder Highlights -->
+        <ellipse cx="20" cy="74" rx="4.5" ry="8" fill="url(#fenderGlowLeft)" />
+        <ellipse cx="50" cy="74" rx="4.5" ry="8" fill="url(#fenderGlowRight)" />
+
+        <!-- Aerodynamic Side Mirrors -->
+        <path d="M20.5,56 L17.5,57 L17.5,59.5 L20.5,59 Z" fill="#EA580C" stroke="#7C2D12" stroke-width="0.8" />
+        <circle cx="18" cy="58.5" r="0.9" fill="#E2E8F0" />
+        <path d="M49.5,56 L52.5,57 L52.5,59.5 L49.5,59 Z" fill="#EA580C" stroke="#7C2D12" stroke-width="0.8" />
+        <circle cx="52" cy="58.5" r="0.9" fill="#E2E8F0" />
+
+        <!-- Front Hood Perspective Glare Ridge -->
+        <path d="M26,50 C29,48 41,48 44,50" fill="none" stroke="#FED7AA" stroke-width="1" stroke-opacity="0.85" />
+
+        <!-- Front Windshield Glass -->
+        <path d="M25,51 L45,51 L44,57 L26,57 Z" fill="#1E293B" stroke="#0F172A" stroke-width="0.8" />
+        <path d="M26,52 Q35,50 44,52" fill="none" stroke="#94A3B8" stroke-width="0.7" stroke-opacity="0.7" />
+
+        <!-- Black Carbon / Panoramic Roof Panel with Orange Side Rails -->
+        <path d="M25,57 L45,57 L46,67 L24,67 Z" fill="#0F172A" stroke="#020617" stroke-width="0.8" />
+        <line x1="24" y1="57" x2="23" y2="67" stroke="#EA580C" stroke-width="1.6" />
+        <line x1="46" y1="57" x2="47" y2="67" stroke="#EA580C" stroke-width="1.6" />
+
+        <!-- Curved Rear Window Glass (Dark Tinted with Specular Glass Streak) -->
+        <path d="M24,68 C24,63 46,63 46,68 L47,77 C44,79 26,79 23,77 Z" fill="url(#rearWindowGradRef)" stroke="#020617" stroke-width="0.9" />
+        <path d="M25,67 Q35,64 45,67" fill="none" stroke="#FFFFFF" stroke-width="0.8" stroke-opacity="0.85" />
+        <path d="M26,67 L30,67 L37,77 L33,77 Z" fill="url(#glassStreakRef)" pointer-events="none" />
+
+        <!-- Rear Bumper & Dual LED Taillights (Red with White Projector Core) -->
+        <!-- Left Taillight -->
+        <path d="M19.5,78 Q24,77 27,79 L26,82 Q23,82 19.5,80.5 Z" fill="#EF4444" stroke="#991B1B" stroke-width="0.8" />
+        <circle cx="23" cy="79.5" r="1.3" fill="#FFFFFF" />
+        <!-- Right Taillight -->
+        <path d="M50.5,78 Q46,77 43,79 L44,82 Q47,82 50.5,80.5 Z" fill="#EF4444" stroke="#991B1B" stroke-width="0.8" />
+        <circle cx="47" cy="79.5" r="1.3" fill="#FFFFFF" />
+
+        <!-- Center Dark Diffuser & License Plate -->
+        <rect x="29" y="80.5" width="12" height="3.5" rx="1" fill="#0F172A" stroke="#334155" stroke-width="0.6" />
+        <rect x="31" y="81.2" width="8" height="1.8" rx="0.4" fill="#FFFFFF" stroke="#64748B" stroke-width="0.4" />
+      </svg>
+    </div>
+  `;
 }
 
 export default function MapLibre3DView({
@@ -435,8 +739,14 @@ export default function MapLibre3DView({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const initialLng = center[1] || 39.2384;
-    const initialLat = center[0] || -6.8163;
+    let initialLng = center[1] || 39.2384;
+    let initialLat = center[0] || -6.8163;
+
+    // Road snap: If coordinate lands inside the EvMak/PPF skyscraper polygon in CBD, snap to Ohio Street center
+    if (Math.abs(initialLng - 39.2890) < 0.0006 && Math.abs(initialLat - -6.8160) < 0.0006) {
+      initialLng = 39.28965;
+      initialLat = -6.81645;
+    }
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
@@ -453,6 +763,15 @@ export default function MapLibre3DView({
     });
 
     mapInstanceRef.current = map;
+
+    // Allow driver to tap anywhere on the street to smoothly reposition vehicle on the road
+    map.on('click', (e) => {
+      const clickLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+      if (driverMarkerRef.current) {
+        driverMarkerRef.current.setLngLat(clickLngLat);
+      }
+      toast.success("🚗 Gari limewekwa kwenye barabara uliyogusa!");
+    });
 
     // Detect user interactions (drag, zoom, pitch, rotate)
     map.on('dragstart', () => {
@@ -624,31 +943,19 @@ export default function MapLibre3DView({
         console.warn("Route source notice:", err);
       }
 
-      // 4. Add Driver 3D Vehicle Marker
+      // 4. Add Driver 3D Vehicle Marker (Real-time Top-Down 3D Vector Vehicle)
       const driverEl = document.createElement('div');
       driverEl.className = 'maplibre-driver-marker';
-      driverEl.innerHTML = `
-        <div style="
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #ea580c, #f59e0b);
-          border: 3px solid #ffffff;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-size: 20px;
-          transform: rotate(${vehicleHeading}deg);
-          transition: transform 0.3s ease;
-        ">
-          ${vehicleType === 'bike' ? '🏍️' : vehicleType === 'bajaj' ? '🛺' : '🚗'}
-        </div>
-      `;
+      driverEl.innerHTML = getMapLibre3DVehicleHtml(vehicleType, isOnline);
 
-      const marker = new maplibregl.Marker({ element: driverEl, rotationAlignment: 'map' })
+      const marker = new maplibregl.Marker({
+        element: driverEl,
+        rotationAlignment: 'map',
+        pitchAlignment: 'viewport',
+        anchor: 'center'
+      })
         .setLngLat([initialLng, initialLat])
+        .setRotation(vehicleHeading || 0)
         .addTo(map);
 
       driverMarkerRef.current = marker;
@@ -662,11 +969,12 @@ export default function MapLibre3DView({
     };
   }, [activeEngineKey, dataSaverMode]);
 
-  // Update vehicle marker & camera
+  // Update vehicle marker position, rotation & camera
   useEffect(() => {
     if (!driverMarkerRef.current || !mapInstanceRef.current) return;
     const lngLat: [number, number] = [center[1], center[0]];
     driverMarkerRef.current.setLngLat(lngLat);
+    driverMarkerRef.current.setRotation(vehicleHeading || 0);
 
     if (autoFollow && !isUserInteractingRef.current) {
       mapInstanceRef.current.easeTo({
@@ -676,6 +984,16 @@ export default function MapLibre3DView({
       });
     }
   }, [center[0], center[1], vehicleHeading, autoFollow, isHeadingUp]);
+
+  // Re-render vehicle 3D model if vehicleType or isOnline changes
+  useEffect(() => {
+    if (driverMarkerRef.current) {
+      const el = driverMarkerRef.current.getElement();
+      if (el) {
+        el.innerHTML = getMapLibre3DVehicleHtml(vehicleType, isOnline);
+      }
+    }
+  }, [vehicleType, isOnline]);
 
   // -------------------------------------------------------------
   // DYNAMIC 3D ROUTE DRAWING WITH REROUTING & ALTERNATIVES
@@ -946,11 +1264,15 @@ export default function MapLibre3DView({
     toast.success("🧭 Kaskazini Juu (0°) imesawazishwa!");
   };
 
-  // Teleport to Hotspot
+  // Teleport to Hotspot (places vehicle directly on the street at the landmark)
   const teleport = (spot: typeof DAR_HOTSPOTS[0]) => {
     setActiveHotspot(spot);
     setShowHotspotsDrawer(false);
-    setAutoFollow(false);
+    setAutoFollow(true);
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.setLngLat(spot.lngLat);
+      driverMarkerRef.current.setRotation(spot.bearing || 0);
+    }
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo({
         center: spot.lngLat,
@@ -1381,7 +1703,7 @@ export default function MapLibre3DView({
       <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-4 sm:right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
         {/* Left: Driver Telemetry Card */}
         <div className="p-2 sm:p-2.5 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-2xl flex items-center gap-3 pointer-events-auto">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-base shadow-md">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-orange-500/25 border border-white/20 shrink-0">
             {vehicleType === 'bike' ? '🏍️' : vehicleType === 'bajaj' ? '🛺' : '🚗'}
           </div>
           <div>
@@ -1394,7 +1716,7 @@ export default function MapLibre3DView({
               </span>
             </div>
             <p className="text-[10px] font-mono text-neutral-500 mt-0.5">
-              Namba: <strong className="text-neutral-800 dark:text-neutral-200">{licensePlate}</strong> • {currentTerrain.altitude}m ASL
+              Namba: <strong className="text-neutral-800 dark:text-neutral-200">{licensePlate}</strong> • {Math.round(vehicleHeading || 0)}° Mwelekeo • {currentTerrain.altitude}m ASL
             </p>
           </div>
 
