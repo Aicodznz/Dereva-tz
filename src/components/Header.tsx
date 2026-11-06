@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle, Box } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle, Box, CreditCard } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import LocationPicker from './LocationPicker';
 import WhatsAppAIAssistantModal from './common/WhatsAppAIAssistantModal';
 import SuperSplatViewerModal, { ScenePreset } from './common/SuperSplatViewerModal';
+import PapoCreditModal from './credit/PapoCreditModal';
 
 export default function Header() {
   const { language, setLanguage, t, isRTL } = useLanguage();
@@ -29,6 +30,7 @@ export default function Header() {
   const [isWhatsAppAiOpen, setIsWhatsAppAiOpen] = useState(false);
   const [isSuperSplatOpen, setIsSuperSplatOpen] = useState(false);
   const [superSplatScene, setSuperSplatScene] = useState<ScenePreset>('hotel');
+  const [isPapoCreditOpen, setIsPapoCreditOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenSuperSplat = (e: any) => {
@@ -37,8 +39,14 @@ export default function Header() {
       }
       setIsSuperSplatOpen(true);
     };
+    const handleOpenPapoCredit = () => setIsPapoCreditOpen(true);
+
     window.addEventListener('open_supersplat_modal', handleOpenSuperSplat);
-    return () => window.removeEventListener('open_supersplat_modal', handleOpenSuperSplat);
+    window.addEventListener('open_papocredit_modal', handleOpenPapoCredit);
+    return () => {
+      window.removeEventListener('open_supersplat_modal', handleOpenSuperSplat);
+      window.removeEventListener('open_papocredit_modal', handleOpenPapoCredit);
+    };
   }, []);
 
   useEffect(() => {
@@ -317,6 +325,16 @@ export default function Header() {
             <span className="hidden sm:inline">WhatsApp AI</span>
           </button>
 
+          {/* PapoCredit - One Credit. All Services */}
+          <button
+            onClick={() => setIsPapoCreditOpen(true)}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            title="PapoCredit - One Credit. All Services (Mkopo wa Huduma Zote, PapoFlex, PapoGuarantor)"
+          >
+            <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">PapoCredit</span>
+          </button>
+
           {/* User Profile */}
           {user ? (
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -452,6 +470,12 @@ export default function Header() {
         isOpen={isSuperSplatOpen}
         onClose={() => setIsSuperSplatOpen(false)}
         initialScene={superSplatScene}
+      />
+
+      {/* PapoCredit Ecosystem Modal - One Credit. All Services */}
+      <PapoCreditModal
+        isOpen={isPapoCreditOpen}
+        onClose={() => setIsPapoCreditOpen(false)}
       />
     </>
   );

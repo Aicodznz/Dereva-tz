@@ -53,7 +53,7 @@ export default function Checkout() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [phoneNumber, setPhoneNumber] = useState(profile?.phoneNumber || '');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'online'>('mobile_money');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money' | 'online' | 'papo_credit'>('mobile_money');
   const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'walk_in'>('delivery');
   const [tableNumber, setTableNumber] = useState('');
   const [arrivalTime, setArrivalTime] = useState('');
@@ -384,6 +384,19 @@ export default function Checkout() {
           fee_payer: 'CUSTOMER'
         });
         toast.info('Ombi la malipo limetumwa kwenye simu yako!');
+      } else if (paymentMethod === 'papo_credit') {
+        try {
+          const currentUsed = parseInt(localStorage.getItem('papo_credit_used') || '55000', 10);
+          const orderTotal = Math.round(totalAmount + deliveryFee);
+          localStorage.setItem('papo_credit_used', String(currentUsed + orderTotal));
+          window.dispatchEvent(new Event('papo_credit_updated'));
+        } catch (e) {
+          console.warn("Could not persist credit update locally:", e);
+        }
+        toast.success('Imelipwa kwa PapoCredit! 🎉', {
+          description: 'Umepewa siku 7 bila riba (PapoFlex 0%).',
+          icon: '💳'
+        });
       }
 
       toast.success('Agizo lako limepokelewa! 🚀', {
@@ -785,8 +798,9 @@ export default function Checkout() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <button 
+                  type="button"
                   onClick={() => setPaymentMethod('mobile_money')}
-                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'mobile_money' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
+                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 cursor-pointer ${paymentMethod === 'mobile_money' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
                 >
                   <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
                     <Smartphone className="w-5 h-5 text-orange-600" />
@@ -794,13 +808,45 @@ export default function Checkout() {
                   <span className="text-[10px] font-black uppercase text-center">Simu (M-Pesa/Airtel...)</span>
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setPaymentMethod('cash')}
-                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'cash' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
+                  className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 cursor-pointer ${paymentMethod === 'cash' ? 'border-orange-600 bg-orange-50 dark:bg-orange-950/20' : 'border-neutral-100 dark:border-neutral-800 hover:border-orange-200'}`}
                 >
                   <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
                     <Home className="w-5 h-5 text-orange-600" />
                   </div>
                   <span className="text-[10px] font-black uppercase text-center">Lipia Ufikapo (Cash)</span>
+                </button>
+
+                {/* PapoCredit - One Credit. All Services */}
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('papo_credit')}
+                  className={`col-span-2 p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 text-left cursor-pointer ${paymentMethod === 'papo_credit' ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20' : 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-900/30 shrink-0">
+                      <CreditCard className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-neutral-900 dark:text-white">PapoCredit (Lipa Baadaye)</span>
+                        <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-xs">0% Siku 7</span>
+                      </div>
+                      <p className="text-[10px] font-medium text-neutral-500 dark:text-neutral-400 mt-0.5">
+                        Salio Linalopatikana: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">TZS 145,000</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.dispatchEvent(new CustomEvent('open_papocredit_modal'));
+                    }}
+                    className="text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/40 px-2.5 py-1.5 rounded-xl transition-colors shrink-0"
+                  >
+                    Dhibiti Mikopo
+                  </span>
                 </button>
               </div>
             </CardContent>

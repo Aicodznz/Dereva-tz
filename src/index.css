@@ -1109,5 +1109,20 @@ body.driver-active {
   -webkit-backface-visibility: hidden !important;
 }
 
+/* 3D Horizon & Depth in F4Map 3D Real Map Mode */
+.leaflet-container[style*="perspective"] {
+  overflow: hidden !important;
+}
+
+.leaflet-container[style*="perspective"] .leaflet-tile-pane {
+  filter: contrast(1.04) saturate(1.08);
+}
+
+.leaflet-container[style*="perspective"] .leaflet-marker-icon,
+.leaflet-container[style*="perspective"] .smart-map-billboard,
+.leaflet-container[style*="perspective"] .custom-poi-marker {
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+}
+
 
 

@@ -67,6 +67,8 @@ import { playSyntheticImportant } from '../../utils/soundAlert';
 import { AnimatedRoute } from '../map/AnimatedRoute';
 import AppDownloadButton from '../AppDownloadButton';
 import { Navigation3DHudOverlay } from '../map/Navigation3DHudOverlay';
+import F4Map3DView from '../map/F4Map3DView';
+import MapLibre3DView from '../map/MapLibre3DView';
 import { 
   DriverVoice, 
   getDefaultAudioSettings, 
@@ -215,20 +217,23 @@ function MapController({
       container.style.setProperty('--map-counter-rotation', `${accumulatedRotRef.current}deg`);
       document.documentElement.style.setProperty('--map-counter-rotation', `${accumulatedRotRef.current}deg`);
 
-      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(28deg) ' : '';
-      container.style.transform = `${perspectiveTilt}rotateZ(${-accumulatedRotRef.current}deg) scale(1.38)`;
+      const is3DActive = !!is3DMode;
+      const perspectiveTilt = is3DActive ? 'perspective(950px) rotateX(50deg) ' : '';
+      const scaleFactor = is3DActive ? '1.45' : '1.38';
+      container.style.transform = `${perspectiveTilt}rotateZ(${-accumulatedRotRef.current}deg) scale(${scaleFactor})`;
       container.style.transformOrigin = 'center center';
-      container.style.transition = 'transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      container.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1)';
     } else {
       accumulatedRotRef.current = 0;
       container.style.setProperty('--map-rotation', '0deg');
       container.style.setProperty('--map-counter-rotation', '0deg');
       document.documentElement.style.setProperty('--map-counter-rotation', '0deg');
 
-      const perspectiveTilt = is3DMode ? 'perspective(1000px) rotateX(25deg)' : 'none';
+      const is3DActive = !!is3DMode;
+      const perspectiveTilt = is3DActive ? 'perspective(950px) rotateX(48deg) scale(1.42)' : 'none';
       container.style.transform = perspectiveTilt;
       container.style.transformOrigin = 'center center';
-      container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
+      container.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
     }
   }, [map, is3DMode, isHeadingUp, autoFollow, rotation, manualRotation, activeRide?.status]);
 
@@ -764,10 +769,12 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [position, setPosition] = useState<[number, number]>([-6.7924, 39.2083]);
   const [activePoiCategory, setActivePoiCategory] = useState<string | null>(null);
   const [poisCollapsed, setPoisCollapsed] = useState<boolean>(true);
-  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [mapType, setMapType] = useState<'standard' | 'satellite' | 'f4map_3d'>('standard');
   const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [manualRotation, setManualRotation] = useState(0);
   const [is3DMode, setIs3DMode] = useState(false);
+  const [isF4MapExplorerOpen, setIsF4MapExplorerOpen] = useState(false);
+  const [isMapLibreOpen, setIsMapLibreOpen] = useState(false);
   const [isHeadingUp, setIsHeadingUp] = useState(false); // Default to North-Up so place names and icons are always upright and readable
   const [showRoadAlerts, setShowRoadAlerts] = useState(false);
   const [showMapLabels, setShowMapLabels] = useState(true);
@@ -2995,10 +3002,16 @@ const getEndPin = (etaText: string) => {
             className="transition-all duration-1000"
           >
             <TileLayer 
-              key={`${theme}-${mapType}`}
-              url={mapType === 'satellite' ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : mapTileUrl}
-              subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-              attribution="&copy; Google Maps"
+              key={`${theme}-${mapType}-${is3DMode ? '3d' : '2d'}`}
+              url={
+                mapType === 'satellite' 
+                  ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" 
+                  : (mapType === 'f4map_3d' || is3DMode)
+                    ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    : mapTileUrl
+              }
+              subdomains={(mapType === 'f4map_3d' || is3DMode) ? ['a', 'b', 'c'] : ['mt0', 'mt1', 'mt2', 'mt3']}
+              attribution={(mapType === 'f4map_3d' || is3DMode) ? "&copy; OpenStreetMap contributors" : "&copy; Google Maps"}
               maxZoom={22}
               maxNativeZoom={19}
               detectRetina={true}
@@ -3127,7 +3140,7 @@ const getEndPin = (etaText: string) => {
                   const stopLabel = stop.address ? (stop.address.length > 18 ? `${stop.address.substring(0, 18)}...` : stop.address) : `Kituo #${idx + 1}`;
                   return (
                     <Marker
-                      key={`driver-stop-pin-${stop.id || idx}`}
+                      key={`driver-stop-pin-${stop.id || 'stop'}-${idx}`}
                       position={[stop.lat, stop.lng]}
                       icon={L.divIcon({
                         className: "driver-custom-stop-marker",
@@ -3358,7 +3371,7 @@ const getEndPin = (etaText: string) => {
 
                     return (
                       <Marker
-                        key={`driver-stand-p-${p.passengerId || idx}`}
+                        key={`driver-stand-p-${p.passengerId || 'p'}-${idx}`}
                         position={[p.dropoffLat, p.dropoffLng]}
                         icon={L.divIcon({
                           className: "driver-stand-passenger-marker",
@@ -3509,9 +3522,9 @@ const getEndPin = (etaText: string) => {
               };
 
               const pois = mergedPois[activePoiCategory as keyof typeof mergedPois] || [];
-              return pois.map((poi: any) => (
+              return pois.map((poi: any, pIdx: number) => (
                 <Marker
-                  key={poi.id}
+                  key={`poi-${poi.id || 'p'}-${pIdx}`}
                   position={[poi.lat, poi.lng]}
                   icon={getPoiMarkerIcon(poi.type)}
                 >
@@ -3579,7 +3592,7 @@ const getEndPin = (etaText: string) => {
             })()}
 
             {/* Render Anchored Road Status Points with Location Name Labels and Proximity Alert */}
-            {showRoadAlerts && roadAlerts.map((alert: any) => {
+            {showRoadAlerts && roadAlerts.map((alert: any, aIdx: number) => {
               const icon = createAnchoredRoadStatusIcon(
                 alert.type,
                 alert.name || alert.title || 'Eneo La Njia',
@@ -3590,7 +3603,7 @@ const getEndPin = (etaText: string) => {
 
               return (
                 <Marker 
-                  key={alert.id} 
+                  key={`road-alert-${alert.id || 'a'}-${aIdx}`} 
                   position={[alert.lat, alert.lng]} 
                   icon={icon}
                 >
@@ -3801,14 +3814,30 @@ const getEndPin = (etaText: string) => {
               <Flame className={`w-5 h-5 ${showHeatMap ? 'text-amber-500 fill-amber-500 animate-pulse' : 'text-amber-500 hover:text-amber-600'}`} />
             </button>
 
+            {/* 3D MapLibre Engine Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsMapLibreOpen(prev => !prev);
+              }}
+              className={`w-10 h-10 flex items-center justify-center font-black text-[11px] rounded-xl transition-all cursor-pointer ${
+                isMapLibreOpen
+                  ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-950/40 ring-2 ring-blue-500/40' 
+                  : 'text-neutral-700 dark:text-neutral-300 hover:text-blue-500'
+              }`}
+              title="MapLibre GL 3D (Majengo ya Vekta & 3D WebGL)"
+            >
+              3D
+            </button>
+
             {/* Map Layer Switcher */}
             <button
               type="button"
               onClick={() => setShowLayerMenu(prev => !prev)}
-              className="w-10 h-10 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white active:scale-90 transition-colors relative"
+              className="w-10 h-10 flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white active:scale-90 transition-colors relative cursor-pointer"
               title="Badili Mwonekano wa Ramani"
             >
-              <Layers className={`w-5 h-5 ${mapType === 'satellite' ? 'text-blue-500' : ''}`} />
+              <Layers className={`w-5 h-5 ${mapType === 'satellite' ? 'text-blue-500' : isMapLibreOpen ? 'text-blue-500' : ''}`} />
             </button>
 
             {/* Layers Quick Menu Popover */}
@@ -3818,31 +3847,48 @@ const getEndPin = (etaText: string) => {
                   initial={{ opacity: 0, x: 10, scale: 0.95 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 10, scale: 0.95 }}
-                  className="absolute right-14 bottom-0 bg-white/95 dark:bg-[#111118]/95 backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 flex flex-col gap-1 w-36 z-50 pointer-events-auto"
+                  className="absolute right-14 bottom-0 bg-white/95 dark:bg-[#111118]/95 backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-neutral-200/80 dark:border-neutral-800 flex flex-col gap-1 w-44 z-50 pointer-events-auto"
                 >
                   <button
                     type="button"
                     onClick={() => {
-                      setMapType('standard');
+                      setIsMapLibreOpen(true);
                       setShowLayerMenu(false);
-                      toast.info("🗺️ Ramani ya Kawaida imewashwa");
+                      toast.success("⚡ MapLibre GL 3D: Majengo ya Vekta & 3D Extrusions yamewashwa!");
                     }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                      mapType === 'standard'
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      isMapLibreOpen
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm'
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span>⚡</span> MapLibre GL 3D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapType('standard');
+                      setIs3DMode(false);
+                      setShowLayerMenu(false);
+                      toast.info("🗺️ Ramani ya Kawaida ya 2D imewashwa");
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      mapType === 'standard' && !is3DMode && !isMapLibreOpen
                         ? 'bg-emerald-500 text-white shadow-sm'
                         : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                     }`}
                   >
-                    <span>🗺️</span> Kawaida
+                    <span>🗺️</span> Kawaida (2D)
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setMapType('satellite');
+                      setIs3DMode(false);
                       setShowLayerMenu(false);
                       toast.info("🛰️ Satelaiti ya Google imewashwa");
                     }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       mapType === 'satellite'
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -5040,8 +5086,8 @@ const getEndPin = (etaText: string) => {
                           Hakuna safari zilizokamilika bado.
                         </div>
                       ) : (
-                        stats.completedRides.map((ride: any) => (
-                          <div key={ride.id} className="bg-[#111118] border border-neutral-800/60 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
+                        stats.completedRides.map((ride: any, rIdx: number) => (
+                          <div key={`completed-ride-${ride.id || 'r'}-${rIdx}`} className="bg-[#111118] border border-neutral-800/60 p-3 rounded-2xl flex items-center justify-between gap-3 text-xs">
                             <div className="space-y-0.5 min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[9px] font-black uppercase text-[#7F77DD]">{ride.formattedDate}</span>
@@ -5313,6 +5359,58 @@ const getEndPin = (etaText: string) => {
           </>
         )}
       </AnimatePresence>
+
+      {/* F4Map 3D Real-City OpenStreetMap Visualization Engine Tour */}
+      {isF4MapExplorerOpen && (
+        <F4Map3DView
+          isOpen={isF4MapExplorerOpen}
+          onClose={() => setIsF4MapExplorerOpen(false)}
+          center={position}
+          vehicleHeading={vehicleHeading}
+          vehicleType={vType as any}
+          isOnline={isOnline}
+          speed={driverGpsSpeed}
+          driverName={profile?.displayName || 'Dereva Papo Hapo'}
+          licensePlate={profile?.licensePlate || 'T 782 DSK'}
+          activeRide={activeRide}
+          theme={theme as any}
+          incomingRequest={incomingRequest}
+          onAcceptRide={() => {
+            setIsF4MapExplorerOpen(false);
+            handleAccept();
+          }}
+          onDeclineRide={(ride) => {
+            setDeclinedRequests(prev => new Set(prev).add(ride.id));
+            setIncomingRequest(null);
+          }}
+        />
+      )}
+
+      {/* MapLibre GL JS Native 3D Vector & Buildings View */}
+      {isMapLibreOpen && (
+        <MapLibre3DView
+          isOpen={isMapLibreOpen}
+          onClose={() => setIsMapLibreOpen(false)}
+          center={position}
+          vehicleHeading={vehicleHeading}
+          vehicleType={vType as any}
+          isOnline={isOnline}
+          speed={driverGpsSpeed}
+          driverName={profile?.displayName || 'Dereva Papo Hapo'}
+          licensePlate={profile?.licensePlate || 'T 782 DSK'}
+          activeRide={activeRide}
+          theme={theme as any}
+          incomingRequest={incomingRequest}
+          onAcceptRide={() => {
+            setIsMapLibreOpen(false);
+            handleAccept();
+          }}
+          onDeclineRide={(ride) => {
+            setDeclinedRequests(prev => new Set(prev).add(ride.id));
+            setIncomingRequest(null);
+          }}
+        />
+      )}
     </div>
   );
 }
