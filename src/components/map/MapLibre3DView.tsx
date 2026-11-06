@@ -7,7 +7,8 @@ import {
   MapPin, Building2, Check, ArrowUpRight, Sparkles,
   Activity, AlertTriangle, ShieldCheck, Zap, Gauge,
   Mountain, Wifi, WifiOff, Phone, Fuel, ChevronDown,
-  ChevronUp, Play, Radio, ArrowRight, Clock, DollarSign
+  ChevronUp, Play, Radio, ArrowRight, Clock, DollarSign,
+  Plus, Minus, Crosshair
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -48,7 +49,6 @@ export interface MapLibre3DViewProps {
 
 // 100% Free OpenFreeMap & Vector Styles (Zero API key, zero watermarks, high data-saving)
 const TILE_ENGINES = {
-  // Vector Tile PBF - High speed, 75% data saving
   vector_liberty: {
     id: 'vector_liberty',
     name: 'Vekta ya Kasi (Liberty)',
@@ -58,7 +58,6 @@ const TILE_ENGINES = {
     supports3D: true,
     isDataSaver: false
   },
-  // Lite Data Saver - Ultra compressed, minimal bandwidth for 2G/3G mobile networks
   lite_saver: {
     id: 'lite_saver',
     name: 'Bando Kidogo Sana (Lite Saver)',
@@ -68,7 +67,6 @@ const TILE_ENGINES = {
     supports3D: false,
     isDataSaver: true
   },
-  // High Contrast Bright Vector
   vector_bright: {
     id: 'vector_bright',
     name: 'Mwangaza Wazi (Bright)',
@@ -155,16 +153,11 @@ const DAR_HOTSPOTS = [
 
 // Helper to calculate terrain elevation & slope for any Dar es Salaam coordinate
 function calculateTerrainAnalysis(lng: number, lat: number) {
-  // Dar es Salaam terrain profile: Low at coast (~2m), rises towards Mbezi/Kimara (~140m)
-  // Distance from ocean (roughly lng: 39.29 is coast, 39.18 is inland hills)
   const inlandFactor = Math.max(0, (39.29 - lng) * 100);
   const estimatedAltitude = Math.round(Math.max(3, inlandFactor * 8.5 + (Math.sin(lat * 50) * 12)));
-  
-  // Slope calculation
   const slopePercent = (estimatedAltitude > 60 ? (estimatedAltitude * 0.05).toFixed(1) : (estimatedAltitude * 0.035).toFixed(1));
   const isUphill = estimatedAltitude > 25;
 
-  // Road surface estimation based on zones
   let surfaceType = 'Lami Nzuri (Smooth Asphalt)';
   let surfaceQuality = 92;
   let hasBumps = false;
@@ -184,7 +177,6 @@ function calculateTerrainAnalysis(lng: number, lat: number) {
     hasBumps = true;
   }
 
-  // Traffic congestion calculation based on time and area
   const hour = new Date().getHours();
   const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
   let congestionLevel: 'nyepesi' | 'wastani' | 'nzito' = 'nyepesi';
@@ -201,7 +193,6 @@ function calculateTerrainAnalysis(lng: number, lat: number) {
     delayMinutes = 1;
   }
 
-  // Fuel / Energy efficiency impact
   const fuelImpact = isUphill ? `+${(Number(slopePercent) * 2.2).toFixed(0)}% (Panda Mlima)` : 'Kawaida (0%)';
 
   return {
@@ -254,7 +245,13 @@ export default function MapLibre3DView({
   const driverMarkerRef = useRef<maplibregl.Marker | null>(null);
   const customerMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const routeSourceAddedRef = useRef<boolean>(false);
+  
+  // Track user interaction to completely prevent zoom & pan fighting / snapping back
+  const isUserInteractingRef = useRef<boolean>(false);
+  const lastFittedTargetIdRef = useRef<string | null>(null);
+
+  // Auto-follow state: When true, camera eases to driver; when false (after user zooms/drags), map stays put!
+  const [autoFollow, setAutoFollow] = useState<boolean>(true);
 
   // Simulated Test Request state for immediate testing
   const [simulatedRequest, setSimulatedRequest] = useState<any | null>(null);
@@ -267,15 +264,17 @@ export default function MapLibre3DView({
   // Camera & Map State
   const [pitch, setPitch] = useState<number>(55);
   const [bearing, setBearing] = useState<number>(0);
+  const [currentZoom, setCurrentZoom] = useState<number>(16.5);
   const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true);
   const [buildings3DEnabled, setBuildings3DEnabled] = useState<boolean>(true);
   const [dataSaverMode, setDataSaverMode] = useState<boolean>(false);
 
-  // Analyzer Panels
+  // Analyzer Panels & Modals
   const [showTerrainDrawer, setShowTerrainDrawer] = useState<boolean>(false);
   const [showHotspotsDrawer, setShowHotspotsDrawer] = useState<boolean>(false);
   const [activeHotspot, setActiveHotspot] = useState(DAR_HOTSPOTS[0]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [isTurnBarMinimized, setIsTurnBarMinimized] = useState<boolean>(false);
 
   // Request countdown timer (30s)
   const [requestTimeLeft, setRequestTimeLeft] = useState<number>(30);
@@ -297,15 +296,15 @@ export default function MapLibre3DView({
       const gain = ctx.createGain();
       
       osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(523.25, now); // C5
-      osc1.frequency.setValueAtTime(659.25, now + 0.12); // E5
-      osc1.frequency.setValueAtTime(783.99, now + 0.24); // G5
+      osc1.frequency.setValueAtTime(523.25, now);
+      osc1.frequency.setValueAtTime(659.25, now + 0.12);
+      osc1.frequency.setValueAtTime(783.99, now + 0.24);
       
       osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+      osc2.frequency.setValueAtTime(1046.50, now + 0.24);
       
-      gain.gain.setValueAtTime(0.28, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
       
       osc1.connect(gain);
       osc2.connect(gain);
@@ -313,8 +312,8 @@ export default function MapLibre3DView({
       
       osc1.start(now);
       osc2.start(now + 0.24);
-      osc1.stop(now + 0.6);
-      osc2.stop(now + 0.6);
+      osc1.stop(now + 0.55);
+      osc2.stop(now + 0.55);
     } catch {
       // Audio context blocked
     }
@@ -378,16 +377,6 @@ export default function MapLibre3DView({
     toast.success("🔔 Ombi la safari la majaribio limetumwa!");
   };
 
-  // Convert lat/lng to MapLibre [lng, lat]
-  useEffect(() => {
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.easeTo({
-        center: [center[1], center[0]],
-        duration: 800
-      });
-    }
-  }, [center[0], center[1]]);
-
   // -------------------------------------------------------------
   // INITIALIZE MAPLIBRE GL JS
   // -------------------------------------------------------------
@@ -405,14 +394,44 @@ export default function MapLibre3DView({
       pitch: pitch,
       bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
       attributionControl: false,
-      maxPitch: 85
+      maxPitch: 85,
+      dragRotate: true,
+      touchPitch: true,
+      touchZoomRotate: true
     });
 
     mapInstanceRef.current = map;
-    routeSourceAddedRef.current = false;
 
-    // Add navigation controls
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    // Detect user interactions (drag, zoom, pitch, rotate)
+    map.on('dragstart', () => {
+      isUserInteractingRef.current = true;
+      setAutoFollow(false);
+    });
+    map.on('zoomstart', () => {
+      isUserInteractingRef.current = true;
+      setAutoFollow(false);
+    });
+    map.on('rotatestart', () => {
+      isUserInteractingRef.current = true;
+      setAutoFollow(false);
+    });
+    map.on('pitchstart', () => {
+      isUserInteractingRef.current = true;
+    });
+
+    map.on('dragend', () => {
+      isUserInteractingRef.current = false;
+    });
+    map.on('zoomend', () => {
+      isUserInteractingRef.current = false;
+      setCurrentZoom(Number(map.getZoom().toFixed(1)));
+    });
+    map.on('rotateend', () => {
+      isUserInteractingRef.current = false;
+    });
+    map.on('pitchend', () => {
+      isUserInteractingRef.current = false;
+    });
 
     map.on('rotate', () => {
       setBearing(Math.round(map.getBearing()));
@@ -423,7 +442,7 @@ export default function MapLibre3DView({
     });
 
     map.on('load', () => {
-      // 1. Add 3D Extruded Buildings Layer from OpenFreeMap vector tiles (if supported by engine)
+      // 1. Add 3D Extruded Buildings Layer from OpenFreeMap vector tiles
       if (activeEngine.supports3D && !dataSaverMode) {
         try {
           const layers = map.getStyle().layers;
@@ -497,7 +516,7 @@ export default function MapLibre3DView({
             },
             paint: {
               'line-color': '#0f172a',
-              'line-width': 9,
+              'line-width': 8,
               'line-opacity': 0.85
             }
           });
@@ -513,12 +532,10 @@ export default function MapLibre3DView({
             },
             paint: {
               'line-color': '#10b981',
-              'line-width': 5,
+              'line-width': 4.5,
               'line-opacity': 0.95
             }
           });
-
-          routeSourceAddedRef.current = true;
         }
       } catch (err) {
         console.warn("Route source notice:", err);
@@ -562,21 +579,21 @@ export default function MapLibre3DView({
     };
   }, [activeEngineKey, dataSaverMode]);
 
-  // Update vehicle heading & position
+  // Update vehicle marker & ONLY ease camera if user wants AutoFollow and is NOT interacting
   useEffect(() => {
     if (!driverMarkerRef.current || !mapInstanceRef.current) return;
     const lngLat: [number, number] = [center[1], center[0]];
     driverMarkerRef.current.setLngLat(lngLat);
 
-    if (isHeadingUp) {
+    // CRITICAL: Never hijack camera if user is pinching/dragging or turned off autoFollow!
+    if (autoFollow && !isUserInteractingRef.current) {
       mapInstanceRef.current.easeTo({
         center: lngLat,
-        bearing: vehicleHeading || 0,
-        pitch: pitch,
+        bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
         duration: 400
       });
     }
-  }, [center[0], center[1], vehicleHeading, isHeadingUp, pitch]);
+  }, [center[0], center[1], vehicleHeading, autoFollow, isHeadingUp]);
 
   // -------------------------------------------------------------
   // DYNAMIC 3D ROUTE DRAWING & VISUALIZATION FOR INCOMING/ACTIVE RIDE
@@ -587,7 +604,7 @@ export default function MapLibre3DView({
     const currentTarget = incomingRequest || activeRide;
 
     if (!currentTarget) {
-      // Clear route line and markers
+      lastFittedTargetIdRef.current = null;
       try {
         const source = map.getSource('active-route-source') as maplibregl.GeoJSONSource;
         if (source) {
@@ -620,17 +637,16 @@ export default function MapLibre3DView({
     if (pLat && pLng) {
       const pickupLngLat: [number, number] = [pLng, pLat];
 
-      // Create or update Pickup Marker with pulsing wave
       if (!customerMarkerRef.current) {
         const custEl = document.createElement('div');
         custEl.innerHTML = `
           <div style="position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
             <div style="
               position: absolute;
-              width: 48px;
-              height: 48px;
+              width: 44px;
+              height: 44px;
               border-radius: 50%;
-              background: rgba(16, 185, 129, 0.35);
+              background: rgba(16, 185, 129, 0.4);
               animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
             "></div>
             <div style="
@@ -638,18 +654,18 @@ export default function MapLibre3DView({
               color: white;
               font-weight: 900;
               font-size: 11px;
-              padding: 5px 10px;
-              border-radius: 14px;
+              padding: 4px 9px;
+              border-radius: 12px;
               border: 2px solid white;
-              box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+              box-shadow: 0 6px 18px rgba(0,0,0,0.4);
               display: flex;
               align-items: center;
-              gap: 5px;
+              gap: 4px;
               z-index: 10;
             ">
-              <span>👤</span> ${currentTarget.customerInfo?.name || 'Mteja Anangoja'}
+              <span>👤</span> ${currentTarget.customerInfo?.name || 'Mteja'}
             </div>
-            <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #10B981;"></div>
+            <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #10B981;"></div>
           </div>
         `;
         customerMarkerRef.current = new maplibregl.Marker({ element: custEl })
@@ -659,7 +675,6 @@ export default function MapLibre3DView({
         customerMarkerRef.current.setLngLat(pickupLngLat);
       }
 
-      // Create or update Destination Marker
       if (dLat && dLng) {
         const destLngLat: [number, number] = [dLng, dLat];
 
@@ -672,17 +687,17 @@ export default function MapLibre3DView({
                 color: white;
                 font-weight: 900;
                 font-size: 11px;
-                padding: 5px 10px;
-                border-radius: 14px;
+                padding: 4px 9px;
+                border-radius: 12px;
                 border: 2px solid white;
-                box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+                box-shadow: 0 6px 18px rgba(0,0,0,0.4);
                 display: flex;
                 align-items: center;
-                gap: 5px;
+                gap: 4px;
               ">
-                <span>🏁</span> ${currentTarget.destinationAddress || currentTarget.destination?.address || 'Mwisho wa Safari'}
+                <span>🏁</span> ${currentTarget.destinationAddress || currentTarget.destination?.address || 'Mwisho'}
               </div>
-              <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #EF4444;"></div>
+              <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #EF4444;"></div>
             </div>
           `;
           destMarkerRef.current = new maplibregl.Marker({ element: destEl })
@@ -692,7 +707,6 @@ export default function MapLibre3DView({
           destMarkerRef.current.setLngLat(destLngLat);
         }
 
-        // Generate full journey path: Driver -> Pickup -> Destination
         const path1 = generateRoadPath(driverLngLat, pickupLngLat, 8);
         const path2 = generateRoadPath(pickupLngLat, destLngLat, 12);
         const fullPath = [...path1, ...path2.slice(1)];
@@ -713,21 +727,53 @@ export default function MapLibre3DView({
           // Source pending
         }
 
-        // Auto Frame Camera to show Driver, Pickup, and Destination in 3D perspective
-        const bounds = new maplibregl.LngLatBounds();
-        bounds.extend(driverLngLat);
-        bounds.extend(pickupLngLat);
-        bounds.extend(destLngLat);
+        // CRITICAL FIX: Only fitBounds ONCE when a new request arrives, NEVER on every re-render!
+        if (currentTarget.id && lastFittedTargetIdRef.current !== currentTarget.id) {
+          lastFittedTargetIdRef.current = currentTarget.id;
+          const bounds = new maplibregl.LngLatBounds();
+          bounds.extend(driverLngLat);
+          bounds.extend(pickupLngLat);
+          bounds.extend(destLngLat);
 
-        map.fitBounds(bounds, {
-          padding: { top: 120, bottom: 180, left: 60, right: 60 },
-          pitch: 50,
-          maxZoom: 16.5,
-          duration: 1600
-        });
+          map.fitBounds(bounds, {
+            padding: { top: 90, bottom: 180, left: 50, right: 50 },
+            pitch: 50,
+            maxZoom: 16.5,
+            duration: 1200
+          });
+        }
       }
     }
-  }, [incomingRequest, activeRide]);
+  }, [incomingRequest?.id, activeRide?.id]);
+
+  // Recenter Camera to Driver (Auto-Follow re-enable)
+  const recenterToDriver = () => {
+    if (!mapInstanceRef.current) return;
+    const lngLat: [number, number] = [center[1], center[0]];
+    mapInstanceRef.current.easeTo({
+      center: lngLat,
+      zoom: 16.5,
+      pitch: pitch,
+      bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
+      duration: 600
+    });
+    setAutoFollow(true);
+    toast.success("🎯 Kamera imerejeshwa kwenye gari lako!");
+  };
+
+  // Zoom In
+  const handleZoomIn = () => {
+    if (!mapInstanceRef.current) return;
+    setAutoFollow(false);
+    mapInstanceRef.current.zoomIn({ duration: 300 });
+  };
+
+  // Zoom Out
+  const handleZoomOut = () => {
+    if (!mapInstanceRef.current) return;
+    setAutoFollow(false);
+    mapInstanceRef.current.zoomOut({ duration: 300 });
+  };
 
   // Toggle 3D buildings layer
   const toggle3DBuildings = () => {
@@ -775,13 +821,14 @@ export default function MapLibre3DView({
   const teleport = (spot: typeof DAR_HOTSPOTS[0]) => {
     setActiveHotspot(spot);
     setShowHotspotsDrawer(false);
+    setAutoFollow(false);
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo({
         center: spot.lngLat,
         zoom: spot.zoom,
         pitch: spot.pitch,
         bearing: spot.bearing,
-        duration: 2000
+        duration: 1800
       });
       setPitch(spot.pitch);
       setBearing(spot.bearing);
@@ -792,31 +839,34 @@ export default function MapLibre3DView({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] bg-neutral-900 overflow-hidden select-none touch-none flex flex-col">
-      {/* Top Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-3 sm:p-4 flex items-center justify-between pointer-events-none">
+    <div className="fixed inset-0 z-[100000] bg-neutral-950 overflow-hidden select-none touch-none flex flex-col font-sans">
+      {/* -------------------------------------------------------------
+          TOP HEADER BAR (CLEAN, ORGANIZED & RESPONSIVE)
+          ------------------------------------------------------------- */}
+      <div className="absolute top-0 left-0 right-0 z-30 p-2.5 sm:p-4 flex items-center justify-between pointer-events-none gap-2">
         {/* Left: Branding & Current Landmark */}
-        <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+        <div className="flex items-center gap-2 pointer-events-auto">
           <button
             onClick={onClose}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer"
-            title="Rudi Ramani ya Kawaida (2D)"
+            className="h-10 px-3 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer font-black text-xs uppercase"
+            title="Rudi Ramani ya 2D"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-rose-500" />
+            <span className="hidden sm:inline">2D</span>
           </button>
 
-          <div className="px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-md">
-              ML
+          <div className="px-3 py-1.5 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-[11px] shadow-sm">
+              3D
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-neutral-900 dark:text-white uppercase tracking-tight">MapLibre GL 3D</span>
-                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${dataSaverMode ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'}`}>
+                <span className="text-xs font-black text-neutral-900 dark:text-white uppercase tracking-tight">MapLibre GL</span>
+                <span className={`text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${dataSaverMode ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'}`}>
                   {activeEngine.tag}
                 </span>
               </div>
-              <p className="text-[10px] text-neutral-500 font-medium truncate max-w-[150px] sm:max-w-[240px]">
+              <p className="text-[9.5px] text-neutral-500 font-medium truncate max-w-[120px] sm:max-w-[200px]">
                 {activeHotspot.name}
               </p>
             </div>
@@ -828,7 +878,7 @@ export default function MapLibre3DView({
           {/* Data Saver Mode Pill */}
           <button
             onClick={toggleDataSaver}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl transition-all cursor-pointer active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
               dataSaverMode 
                 ? 'bg-emerald-600 text-white shadow-emerald-950/40 ring-2 ring-emerald-400/50' 
                 : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800'
@@ -836,29 +886,29 @@ export default function MapLibre3DView({
             title="Hali ya Kubana Bando (Data Saver)"
           >
             <Wifi className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{dataSaverMode ? 'Bando Kidogo (84%)' : 'Bando Saver'}</span>
+            <span className="hidden md:inline">{dataSaverMode ? 'Bando Kidogo' : 'Saver'}</span>
           </button>
 
           {/* Terrain & Surface Analyzer Toggle */}
           <button
             onClick={() => setShowTerrainDrawer(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl transition-all cursor-pointer active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
               showTerrainDrawer
-                ? 'bg-amber-500 text-slate-950 shadow-amber-950/40 font-black'
+                ? 'bg-amber-500 text-slate-950 shadow-amber-950/40'
                 : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800'
             }`}
-            title="Kukokotoa Hali ya Trafiki na Miinuko (Terrain & Road Analysis)"
+            title="Kukokotoa Hali ya Trafiki na Miinuko"
           >
             <Activity className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">Trafiki & Miinuko</span>
+            <span className="hidden sm:inline">Trafiki</span>
           </button>
 
-          {/* Test Sample Request Trigger (Jaribu Ombi la Safari) */}
+          {/* Test Sample Request Trigger */}
           {!incomingRequest && !activeRide && (
             <button
               onClick={triggerSampleRequest}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-orange-950/30 active:scale-95 transition-all cursor-pointer"
-              title="Jaribu kuona jinsi mteja akirekwesti inavyoonekana kwenye 3D"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-orange-600 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-orange-950/30 active:scale-95 transition-all cursor-pointer"
+              title="Jaribu kuona mteja akirekwesti"
             >
               <Play className="w-3.5 h-3.5 fill-white" />
               <span className="hidden lg:inline">Jaribu Ombi</span>
@@ -868,10 +918,10 @@ export default function MapLibre3DView({
           {/* Hotspots Modal Drawer Trigger */}
           <button
             onClick={() => setShowHotspotsDrawer(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-800 font-black text-xs uppercase tracking-wider shadow-xl active:scale-95 transition-all cursor-pointer border border-neutral-700"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-800 font-black text-[11px] uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer border border-neutral-700"
           >
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Maeneo ya DSM</span>
+            <MapPin className="w-3.5 h-3.5 text-orange-400" />
+            <span className="hidden sm:inline">Maeneo DSM</span>
           </button>
         </div>
       </div>
@@ -883,75 +933,133 @@ export default function MapLibre3DView({
       />
 
       {/* -------------------------------------------------------------
+          ACTIVE TRIP TURN-BY-TURN GUIDANCE BANNER
+          ------------------------------------------------------------- */}
+      <AnimatePresence>
+        {activeRide && !incomingRequest && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-16 sm:top-20 inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-30 pointer-events-auto"
+          >
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-neutral-950/95 backdrop-blur-xl border border-emerald-500/40 shadow-2xl text-white space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-sm shadow-md shrink-0">
+                    <Navigation className="w-4 h-4 rotate-45" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 block">
+                      {activeRide.status === 'arrived' ? 'Umefika kwa Mteja' : 'Njia ya 3D inaendelea'}
+                    </span>
+                    <p className="text-xs font-bold text-white truncate">
+                      {activeRide.destinationAddress || activeRide.destination?.address || 'Kuelekea Eneo la Safari'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-mono font-black text-emerald-400 block">
+                    TZS {(activeRide.price || activeRide.fare || 0).toLocaleString()}
+                  </span>
+                  <span className="text-[9px] text-neutral-400 block">
+                    {activeRide.customerInfo?.name || 'Mteja'}
+                  </span>
+                </div>
+              </div>
+
+              {!isTurnBarMinimized && (
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/5 text-[10px]">
+                  <div className="p-1.5 rounded-lg bg-white/5">
+                    <span className="text-[8px] text-neutral-400 block">Mwinuko wa Njia</span>
+                    <strong className="text-white font-mono">{currentTerrain.altitude}m ASL</strong>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-white/5">
+                    <span className="text-[8px] text-neutral-400 block">Hali ya Trafiki</span>
+                    <strong className="text-emerald-400 font-mono">Nyepesi</strong>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-white/5">
+                    <span className="text-[8px] text-neutral-400 block">Uso wa Barabara</span>
+                    <strong className="text-amber-400 font-mono truncate">Lami Safi</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* -------------------------------------------------------------
           RICH 3D INCOMING RIDE REQUEST CARD (MTU AKIREKWESTI USAFIRI)
           ------------------------------------------------------------- */}
       <AnimatePresence>
         {incomingRequest && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+            initial={{ opacity: 0, scale: 0.95, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-            className="absolute bottom-20 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[500px] z-50 p-4 sm:p-5 rounded-3xl bg-neutral-950/95 backdrop-blur-2xl border-2 border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.3)] text-white space-y-4 pointer-events-auto"
+            exit={{ opacity: 0, scale: 0.95, y: 30 }}
+            className="absolute bottom-22 inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-40 p-4 sm:p-5 rounded-3xl bg-neutral-950/95 backdrop-blur-2xl border-2 border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.3)] text-white space-y-3.5 pointer-events-auto"
           >
             {/* Header: Status and Timer */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                   <Radio className="w-3.5 h-3.5" /> Ombi Jipya la Safari Liko Hapa!
                 </span>
               </div>
-              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs font-black">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs font-black">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{requestTimeLeft}s</span>
               </div>
             </div>
 
             {/* Customer & Price Card */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-xl font-black text-white shadow-md">
+            <div className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-lg font-black text-white shadow-md">
                   {incomingRequest.customerInfo?.name?.[0] || 'M'}
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-white uppercase tracking-tight">
+                  <h4 className="text-xs font-black text-white uppercase tracking-tight">
                     {incomingRequest.customerInfo?.name || 'Mteja wa Papo Hapo'}
                   </h4>
-                  <p className="text-[11px] text-neutral-400 flex items-center gap-1 mt-0.5">
+                  <p className="text-[10px] text-neutral-400 flex items-center gap-1 mt-0.5">
                     <span>⭐ {incomingRequest.customerInfo?.rating || '4.9'}</span>
-                    <span>• {incomingRequest.paymentMethod || 'M-Pesa / PapoCredit'}</span>
+                    <span>• {incomingRequest.paymentMethod || 'M-Pesa'}</span>
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">Nauli (Fare)</span>
-                <span className="text-xl font-black font-mono text-emerald-400">
+                <span className="text-[8.5px] font-bold text-neutral-400 uppercase tracking-widest block">Nauli (Fare)</span>
+                <span className="text-lg font-black font-mono text-emerald-400">
                   TZS {(incomingRequest.price || incomingRequest.fare || 14500).toLocaleString()}
                 </span>
               </div>
             </div>
 
-            {/* Journey Addresses & Route Distance */}
-            <div className="space-y-2 text-xs bg-black/40 p-3 rounded-2xl border border-white/5">
-              <div className="flex items-start gap-2.5">
-                <div className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black">
+            {/* Journey Addresses */}
+            <div className="space-y-1.5 text-xs bg-black/40 p-2.5 rounded-xl border border-white/5">
+              <div className="flex items-start gap-2">
+                <div className="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-black">
                   A
                 </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-emerald-400 block">Kuanzia (Pickup):</span>
-                  <p className="text-neutral-200 font-bold truncate">
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-emerald-400 block">Kuanzia (Pickup):</span>
+                  <p className="text-neutral-200 font-bold truncate text-[11px]">
                     {incomingRequest.pickupAddress || incomingRequest.pickup?.address || 'Eneo la Mteja'}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2.5 border-t border-white/5 pt-2">
-                <div className="w-4 h-4 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black">
+              <div className="flex items-start gap-2 border-t border-white/5 pt-1.5">
+                <div className="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-black">
                   B
                 </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-red-400 block">Kuelekea (Destination):</span>
-                  <p className="text-neutral-200 font-bold truncate">
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase text-red-400 block">Kuelekea (Destination):</span>
+                  <p className="text-neutral-200 font-bold truncate text-[11px]">
                     {incomingRequest.destinationAddress || incomingRequest.destination?.address || 'Mwisho wa Safari'}
                   </p>
                 </div>
@@ -959,36 +1067,30 @@ export default function MapLibre3DView({
             </div>
 
             {/* Terrain & Surface Summary Badge on Request */}
-            <div className="grid grid-cols-3 gap-2 text-[10.5px]">
-              <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex flex-col">
-                <span className="text-[9px] text-neutral-400 font-bold uppercase">Umbali & Muda</span>
-                <strong className="text-white font-mono mt-0.5">
-                  {incomingRequest.distance || '5.2'} km • ~12 dk
-                </strong>
+            <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+              <div className="p-1.5 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-[8px] text-neutral-400 font-bold uppercase block">Umbali</span>
+                <strong className="text-white font-mono">{incomingRequest.distance || '5.2'} km • 12 dk</strong>
               </div>
-              <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex flex-col">
-                <span className="text-[9px] text-neutral-400 font-bold uppercase">Hali ya Trafiki</span>
-                <strong className="text-emerald-400 font-mono mt-0.5">
-                  Nyepesi (45 km/h)
-                </strong>
+              <div className="p-1.5 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-[8px] text-neutral-400 font-bold uppercase block">Trafiki</span>
+                <strong className="text-emerald-400 font-mono">Nyepesi (45 km/h)</strong>
               </div>
-              <div className="p-2 rounded-xl bg-white/5 border border-white/5 flex flex-col">
-                <span className="text-[9px] text-neutral-400 font-bold uppercase">Uso wa Barabara</span>
-                <strong className="text-amber-400 font-mono mt-0.5 truncate">
-                  92% Lami Nzuri
-                </strong>
+              <div className="p-1.5 rounded-lg bg-white/5 border border-white/5">
+                <span className="text-[8px] text-neutral-400 font-bold uppercase block">Uso Barabara</span>
+                <strong className="text-amber-400 font-mono truncate">92% Lami Safi</strong>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={() => {
                   if (simulatedRequest) setSimulatedRequest(null);
                   onDeclineRide?.(incomingRequest);
                 }}
-                className="flex-1 py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-neutral-300 font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 text-neutral-300 font-black text-xs uppercase tracking-wider transition-all cursor-pointer"
               >
                 Kataa
               </button>
@@ -999,7 +1101,7 @@ export default function MapLibre3DView({
                   toast.success("✅ Safari imepokelewa! Mwongozo wa 3D unaanza...");
                   onAcceptRide?.();
                 }}
-                className="flex-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/60 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="flex-2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/60 transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
                 <span>Pokea Safari Sasa</span>
@@ -1010,54 +1112,52 @@ export default function MapLibre3DView({
       </AnimatePresence>
 
       {/* -------------------------------------------------------------
-          ACTIVE TRIP TURN-BY-TURN GUIDANCE OVERLAY (WAKATI WA SAFARI)
+          FLOATING RIGHT CONTROLS RAIL (WELL-ORGANIZED, NEVER OVERLAPS)
           ------------------------------------------------------------- */}
-      <AnimatePresence>
-        {activeRide && !incomingRequest && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-18 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-30 p-3.5 rounded-2xl bg-neutral-900/95 backdrop-blur-xl border border-emerald-500/40 shadow-2xl text-white pointer-events-auto flex items-center justify-between gap-3"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-base shadow-md">
-                <Navigation className="w-5 h-5 rotate-45" />
-              </div>
-              <div>
-                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 block">
-                  {activeRide.status === 'arrived' ? 'Umefika kwa Mteja' : 'Njia ya 3D inaendelea...'}
-                </span>
-                <p className="text-xs font-bold text-white truncate max-w-[220px]">
-                  {activeRide.destinationAddress || activeRide.destination?.address || 'Kuelekea Eneo la Mteja'}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] font-mono font-black text-emerald-400">
-                TZS {(activeRide.price || activeRide.fare || 0).toLocaleString()}
-              </span>
-              <span className="text-[9px] text-neutral-400 block">
-                {activeRide.customerInfo?.name || 'Mteja'}
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="absolute right-3 sm:right-4 top-20 z-30 flex flex-col gap-1.5 pointer-events-auto">
+        {/* Zoom In (+) */}
+        <button
+          onClick={handleZoomIn}
+          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer"
+          title="Zoom In (+)"
+        >
+          <Plus className="w-5 h-5 stroke-[2.5]" />
+        </button>
 
-      {/* Floating Controls HUD on Right */}
-      <div className="absolute right-3 sm:right-4 top-20 z-20 flex flex-col gap-2 pointer-events-auto">
+        {/* Zoom Out (-) */}
+        <button
+          onClick={handleZoomOut}
+          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer"
+          title="Zoom Out (-)"
+        >
+          <Minus className="w-5 h-5 stroke-[2.5]" />
+        </button>
+
+        {/* Recenter to Vehicle (Shows when user has panned or zoomed away) */}
+        {!autoFollow && (
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0 }}
+            onClick={recenterToDriver}
+            className="w-10 h-10 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-950/40 flex items-center justify-center active:scale-95 transition-all cursor-pointer ring-2 ring-emerald-400 animate-pulse"
+            title="🎯 Rejea Kwenye Gari (Auto-Follow)"
+          >
+            <Crosshair className="w-5 h-5 stroke-[2.5]" />
+          </motion.button>
+        )}
+
         {/* 360° Compass */}
         <button
           onClick={resetNorth}
-          className="w-11 h-11 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col items-center justify-center hover:bg-white active:scale-95 transition-all group cursor-pointer"
+          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col items-center justify-center hover:bg-white active:scale-95 transition-all cursor-pointer"
           title="Kaskazini Juu (Reset North 0°)"
         >
           <Compass 
-            className="w-5 h-5 text-orange-600 transition-transform duration-300" 
+            className="w-4 h-4 text-orange-600 transition-transform duration-300" 
             style={{ transform: `rotate(${-bearing}deg)` }}
           />
-          <span className="text-[8px] font-mono font-black text-neutral-700 dark:text-neutral-300 mt-0.5">
+          <span className="text-[7.5px] font-mono font-black text-neutral-700 dark:text-neutral-300">
             {bearing}°
           </span>
         </button>
@@ -1070,20 +1170,20 @@ export default function MapLibre3DView({
             mapInstanceRef.current?.easeTo({ pitch: nextPitch, duration: 400 });
             toast.info(nextPitch > 0 ? "Mwinuko wa 3D: 60°" : "Mwinuko wa 2D: 0°");
           }}
-          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex flex-col items-center justify-center font-black text-xs transition-all cursor-pointer ${pitch > 0 ? 'bg-orange-600 text-white border-orange-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 border-neutral-200'}`}
+          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex flex-col items-center justify-center font-black text-xs transition-all cursor-pointer ${pitch > 0 ? 'bg-orange-600 text-white border-orange-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 border-neutral-200'}`}
           title="Badili Mwinuko wa 3D (Pitch Toggle)"
         >
           <span>3D</span>
-          <span className="text-[7.5px] font-mono font-normal">{pitch}°</span>
+          <span className="text-[7px] font-mono font-normal">{pitch}°</span>
         </button>
 
         {/* 3D Building Extrusions Toggle */}
         <button
           onClick={toggle3DBuildings}
-          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${buildings3DEnabled ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
+          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${buildings3DEnabled ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
           title="Washa/Zima Majengo ya 3D (3D Buildings)"
         >
-          <Building2 className="w-5 h-5" />
+          <Building2 className="w-4 h-4" />
         </button>
 
         {/* Sound Toggle */}
@@ -1095,10 +1195,10 @@ export default function MapLibre3DView({
               return next;
             });
           }}
-          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${soundEnabled ? 'bg-white/95 dark:bg-neutral-900/95 text-emerald-500 border-neutral-200' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
+          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${soundEnabled ? 'bg-white/95 dark:bg-neutral-900/95 text-emerald-500 border-neutral-200' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
           title="Sauti ya Kengele ya Maombi"
         >
-          {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
 
         {/* Heading-Up Toggle */}
@@ -1110,124 +1210,123 @@ export default function MapLibre3DView({
               return nxt;
             });
           }}
-          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${isHeadingUp ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 border-neutral-200'}`}
+          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${isHeadingUp ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 border-neutral-200'}`}
           title="Heading-Up (Kufuata Mwelekeo wa Gari)"
         >
-          <Navigation className="w-5 h-5 rotate-45" />
+          <Navigation className="w-4 h-4 rotate-45" />
         </button>
       </div>
 
-      {/* Bottom Driver Speedometer & HUD Card */}
-      <div className="absolute bottom-3 left-3 right-3 sm:left-4 sm:right-4 z-20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pointer-events-none">
-        {/* Left: Driver Telemetry & Active Status */}
-        <div className="p-3 sm:p-3.5 rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200/80 dark:border-neutral-800 shadow-2xl flex items-center justify-between sm:justify-start gap-4 pointer-events-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-indigo-950/30">
-              {vehicleType === 'bike' ? '🏍️' : vehicleType === 'bajaj' ? '🛺' : '🚗'}
+      {/* -------------------------------------------------------------
+          BOTTOM SPEEDOMETER & REPOSITONED DOCK (FREE OF CLUTTER)
+          ------------------------------------------------------------- */}
+      <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-4 sm:right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Driver Telemetry Card */}
+        <div className="p-2 sm:p-2.5 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-2xl flex items-center gap-3 pointer-events-auto">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-base shadow-md">
+            {vehicleType === 'bike' ? '🏍️' : vehicleType === 'bajaj' ? '🛺' : '🚗'}
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h4 className="text-xs font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+                {driverName}
+              </h4>
+              <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase ${isOnline ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600'}`}>
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-black text-neutral-900 dark:text-white uppercase tracking-tight">
-                  {driverName}
-                </h4>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${isOnline ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600'}`}>
-                  {isOnline ? 'Online' : 'Offline'}
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-neutral-500 mt-0.5">
-                Namba: <strong className="text-neutral-800 dark:text-neutral-200">{licensePlate}</strong> • Mwinuko: <strong>{currentTerrain.altitude}m</strong>
-              </p>
-            </div>
+            <p className="text-[10px] font-mono text-neutral-500 mt-0.5">
+              Namba: <strong className="text-neutral-800 dark:text-neutral-200">{licensePlate}</strong> • {currentTerrain.altitude}m ASL
+            </p>
           </div>
 
-          <div className="pl-4 border-l border-neutral-200 dark:border-neutral-800 text-right">
-            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">Kasi (Speed)</span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-blue-600 dark:text-blue-400">
-              {speed} <span className="text-xs font-normal text-neutral-500">km/h</span>
+          <div className="pl-3 border-l border-neutral-200 dark:border-neutral-800 text-right">
+            <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest block">Kasi</span>
+            <span className="text-lg font-black font-mono text-blue-600 dark:text-blue-400">
+              {speed} <span className="text-[10px] font-normal text-neutral-500">km/h</span>
             </span>
           </div>
         </div>
 
-        {/* Right: Quick Action Return Button & Info */}
-        <div className="flex items-center justify-end gap-2 pointer-events-auto">
-          {/* Data Saver Counter Pill */}
-          <div className="px-3 py-2.5 rounded-2xl bg-neutral-950/80 backdrop-blur-md border border-white/10 text-neutral-300 text-[11px] font-mono hidden md:flex items-center gap-2">
+        {/* Right: Data Rate Pill & Return Button */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="px-3 py-2 rounded-xl bg-neutral-950/80 backdrop-blur-md border border-white/10 text-neutral-300 text-[10.5px] font-mono hidden md:flex items-center gap-1.5">
             <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Matumizi: <strong>{activeEngine.dataRate}</strong></span>
+            <span>{activeEngine.dataRate}</span>
           </div>
 
           <button
             onClick={onClose}
-            className="h-12 px-5 rounded-2xl bg-gradient-to-r from-neutral-900 to-neutral-800 hover:from-neutral-800 hover:to-neutral-700 text-white font-black text-xs uppercase tracking-wider shadow-xl shadow-neutral-950/40 flex items-center gap-2 active:scale-95 transition-all cursor-pointer border border-neutral-700"
+            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neutral-900 to-neutral-800 hover:from-neutral-800 hover:to-neutral-700 text-white font-black text-xs uppercase tracking-wider shadow-xl flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer border border-neutral-700"
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-3.5 h-3.5 text-orange-400" />
             <span>Rudi Ramani ya 2D</span>
           </button>
         </div>
       </div>
 
       {/* -------------------------------------------------------------
-          KUKOKOTOA HALI YA TRAFIKI NA MIINUKO (TERRAIN & SURFACE DRAWER)
+          TERRAIN & ROAD SURFACE ANALYSIS DRAWER
           ------------------------------------------------------------- */}
       <AnimatePresence>
         {showTerrainDrawer && (
-          <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-[2.5rem] sm:rounded-3xl p-6 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-4 max-h-[85vh] overflow-y-auto pointer-events-auto"
+              className="w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-[2.5rem] sm:rounded-3xl p-5 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-3.5 max-h-[85vh] overflow-y-auto pointer-events-auto"
             >
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                    <h3 className="text-lg font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+                    <h3 className="text-base font-black text-neutral-900 dark:text-white uppercase tracking-tight">
                       Hali ya Trafiki na Miinuko ya DSM
                     </h3>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-0.5">
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
                     Kukokotoa uso wa barabara, mwinuko, na msongamano wa magari
                   </p>
                 </div>
                 <button
                   onClick={() => setShowTerrainDrawer(false)}
-                  className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 flex items-center justify-center cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 flex items-center justify-center cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* 1. Live Traffic Congestion Calculation */}
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-amber-500" />
-                    <span className="text-xs font-black uppercase text-neutral-900 dark:text-white tracking-wide">
-                      Msongamano wa Trafiki (Live Traffic Index)
+                    <span className="text-[11px] font-black uppercase text-neutral-900 dark:text-white">
+                      Msongamano wa Trafiki
                     </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                     currentTerrain.congestionLevel === 'nyepesi' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
                     currentTerrain.congestionLevel === 'wastani' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
                     'bg-red-500/20 text-red-600 dark:text-red-400'
                   }`}>
                     {currentTerrain.congestionLevel === 'nyepesi' ? '🟢 Nyepesi (Smooth)' :
-                     currentTerrain.congestionLevel === 'wastani' ? '🟡 Wastani (Moderate)' :
-                     '🔴 Nzito (Congested)'}
+                     currentTerrain.congestionLevel === 'wastani' ? '🟡 Wastani' :
+                     '🔴 Nzito (Foleni)'}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <span className="text-[10px] text-neutral-500 block">Kasi ya Wastani ya Trafiki</span>
-                    <strong className="text-base font-black font-mono text-neutral-900 dark:text-white">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <span className="text-[9px] text-neutral-500 block">Kasi ya Wastani</span>
+                    <strong className="text-sm font-black font-mono text-neutral-900 dark:text-white">
                       {currentTerrain.avgTrafficSpeed} km/h
                     </strong>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <span className="text-[10px] text-neutral-500 block">Kuchelewa kwa Foleni</span>
-                    <strong className="text-base font-black font-mono text-amber-500">
+                  <div className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <span className="text-[9px] text-neutral-500 block">Kuchelewa kwa Foleni</span>
+                    <strong className="text-sm font-black font-mono text-amber-500">
                       +{currentTerrain.delayMinutes} dakika
                     </strong>
                   </div>
@@ -1235,11 +1334,11 @@ export default function MapLibre3DView({
               </div>
 
               {/* 2. Terrain Elevation & Slope Profile */}
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <Mountain className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs font-black uppercase text-neutral-900 dark:text-white tracking-wide">
+                    <span className="text-[11px] font-black uppercase text-neutral-900 dark:text-white">
                       Mwinuko wa Ardhi (Elevation & Slope)
                     </span>
                   </div>
@@ -1249,15 +1348,15 @@ export default function MapLibre3DView({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <span className="text-[10px] text-neutral-500 block">Mwinuko / Mteremko (Slope)</span>
-                    <strong className="text-sm font-black font-mono text-neutral-900 dark:text-white">
+                  <div className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <span className="text-[9px] text-neutral-500 block">Mwinuko / Mteremko</span>
+                    <strong className="text-xs font-black font-mono text-neutral-900 dark:text-white">
                       {currentTerrain.slope} {currentTerrain.isUphill ? '↗️ Panda' : '↘️ Shuka'}
                     </strong>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                    <span className="text-[10px] text-neutral-500 block">Athari ya Mafuta / Betri</span>
-                    <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                  <div className="p-2 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+                    <span className="text-[9px] text-neutral-500 block">Athari ya Mafuta / Betri</span>
+                    <strong className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                       {currentTerrain.fuelImpact}
                     </strong>
                   </div>
@@ -1265,12 +1364,12 @@ export default function MapLibre3DView({
               </div>
 
               {/* 3. Road Surface Quality Breakdown */}
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span className="text-xs font-black uppercase text-neutral-900 dark:text-white tracking-wide">
-                      Uso wa Barabara (Road Surface Quality)
+                    <span className="text-[11px] font-black uppercase text-neutral-900 dark:text-white">
+                      Uso wa Barabara
                     </span>
                   </div>
                   <span className="text-xs font-mono font-black text-emerald-500">
@@ -1278,58 +1377,9 @@ export default function MapLibre3DView({
                   </span>
                 </div>
 
-                <div className="text-xs space-y-1 text-neutral-700 dark:text-neutral-300">
-                  <p>🛣️ <strong>Aina ya Barabara:</strong> {currentTerrain.surfaceType}</p>
-                  <p>⚠️ <strong>Vizingiti / Mashimo:</strong> {currentTerrain.hasBumps ? 'Vizingiti vipo kwenye maeneo ya makazi' : 'Hakuna vizuizi vilivyoripotiwa'}</p>
-                  {currentTerrain.flyoverNearby && (
-                    <p>🌉 <strong>Madaraja / BRT:</strong> Karibu na njia kuu ya BRT Mwendo Kasi</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 4. Tile Engine & Data Saver Switcher */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border border-blue-500/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-neutral-900 dark:text-white">
-                    Uchaguzi wa Tabaka za Ramani (Tile Engine)
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-emerald-500">
-                    Bando Saver
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      setActiveEngineKey('vector_liberty');
-                      setDataSaverMode(false);
-                      toast.info("⚡ Vekta ya Kasi (Liberty) Imewashwa");
-                    }}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                      activeEngineKey === 'vector_liberty' && !dataSaverMode
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
-                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    <span className="text-xs font-black block">⚡ Vekta ya Kasi PBF</span>
-                    <span className="text-[10px] text-neutral-500">22 KB/s • 3D Kamili</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveEngineKey('lite_saver');
-                      setDataSaverMode(true);
-                      toast.success("🍃 Bando Kidogo Sana (Lite Saver) Imewashwa!");
-                    }}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                      dataSaverMode
-                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold'
-                        : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'
-                    }`}
-                  >
-                    <span className="text-xs font-black block">🍃 Bando Kidogo Sana</span>
-                    <span className="text-[10px] text-neutral-500">8 KB/s • 84% Okoa Bando</span>
-                  </button>
+                <div className="text-[11px] space-y-1 text-neutral-700 dark:text-neutral-300">
+                  <p>🛣️ <strong>Aina:</strong> {currentTerrain.surfaceType}</p>
+                  <p>⚠️ <strong>Vizingiti:</strong> {currentTerrain.hasBumps ? 'Vizingiti vipo kwenye mitaa' : 'Barabara safi haina vizuizi'}</p>
                 </div>
               </div>
             </motion.div>
@@ -1337,44 +1387,46 @@ export default function MapLibre3DView({
         )}
       </AnimatePresence>
 
-      {/* Dar es Salaam Hotspots Drawer */}
+      {/* -------------------------------------------------------------
+          DAR ES SALAAM HOTSPOTS DRAWER
+          ------------------------------------------------------------- */}
       <AnimatePresence>
         {showHotspotsDrawer && (
-          <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center sm:p-4">
             <motion.div
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-[2.5rem] sm:rounded-3xl p-6 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-4 max-h-[85vh] overflow-y-auto pointer-events-auto"
+              className="w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-[2.5rem] sm:rounded-3xl p-5 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-3 max-h-[85vh] overflow-y-auto pointer-events-auto"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+                  <h3 className="text-base font-black text-neutral-900 dark:text-white uppercase tracking-tight">
                     Maeneo ya 3D ya Dar es Salaam
                   </h3>
-                  <p className="text-xs text-neutral-500">MapLibre GL Vector & Majengo ya 3D</p>
+                  <p className="text-[11px] text-neutral-500">MapLibre GL Vector & Majengo ya 3D</p>
                 </div>
                 <button
                   onClick={() => setShowHotspotsDrawer(false)}
-                  className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 flex items-center justify-center cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 flex items-center justify-center cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {DAR_HOTSPOTS.map((spot, sIdx) => (
                   <button
                     key={`ml-spot-${spot.id}-${sIdx}`}
                     onClick={() => teleport(spot)}
-                    className={`w-full p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${activeHotspot.id === spot.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}
+                    className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${activeHotspot.id === spot.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}
                   >
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black uppercase text-neutral-900 dark:text-white">{spot.name}</span>
                         <span className="text-[9px] font-mono text-blue-500">({spot.altitude}m)</span>
                       </div>
-                      <p className="text-[11px] text-neutral-500 mt-0.5">{spot.desc}</p>
+                      <p className="text-[10px] text-neutral-500 mt-0.5">{spot.desc}</p>
                     </div>
                     <ArrowUpRight className="w-4 h-4 text-blue-500 shrink-0" />
                   </button>

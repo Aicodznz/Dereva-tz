@@ -2853,7 +2853,7 @@ const getEndPin = (etaText: string) => {
     <div className="relative h-full w-full fixed inset-0 overflow-hidden overscroll-none select-none touch-none bg-neutral-50 dark:bg-[#0a0a0f] text-neutral-900 dark:text-[#f0eeff]">
       {/* Top Bar Overlays */}
       <AnimatePresence>
-        {!isMinimized && (
+        {!isMinimized && !isMapLibreOpen && (
           <motion.div 
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -4122,7 +4122,7 @@ const getEndPin = (etaText: string) => {
       )}
 
       {/* Sleek Master Driver Bottom Dock (Clean, Organized & Free of Clutter) */}
-      {isOnline && !incomingRequest && !activeRide && !incomingOrder && (
+      {isOnline && !incomingRequest && !activeRide && !incomingOrder && !isMapLibreOpen && (
         <div className="absolute bottom-20 sm:bottom-24 inset-x-3.5 max-w-md mx-auto z-40 pointer-events-none flex flex-col items-center gap-2">
           {/* 1. Slim Switchable / Dismissible Promo Pill (Hidden while driving active trip) */}
           {!dismissedPromo && (!activeDriverStandRoute || activeDriverStandRoute.status !== 'started') && (
@@ -4567,7 +4567,7 @@ const getEndPin = (etaText: string) => {
       })()}
 
       {/* Top Google Maps Turn-by-Turn Navigation HUD for Driver */}
-      {isOnline && activeRide && !showPayment && !showRating && (
+      {isOnline && activeRide && !showPayment && !showRating && !isMapLibreOpen && (
         <Navigation3DHudOverlay
           ride={activeRide as any}
           isDriver={true}
@@ -4599,7 +4599,7 @@ const getEndPin = (etaText: string) => {
       )}
 
       {/* Interactive Bottom Sheet Container - Only for active states */}
-      {isOnline && (incomingRequest || activeRide || incomingOrder) && (
+      {isOnline && (incomingRequest || activeRide || incomingOrder) && !isMapLibreOpen && (
         <motion.div 
           initial={{ y: 0 }}
           animate={{ y: isMinimized ? 1000 : 0 }}
