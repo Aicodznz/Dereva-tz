@@ -80,6 +80,111 @@ const TILE_ENGINES = {
 
 const DAR_HOTSPOTS = [
   {
+    id: 'posta-cbd',
+    name: 'Posta Mpya & Ohio St (Katikati ya Jiji)',
+    lngLat: [39.29028, -6.81437] as [number, number],
+    desc: 'Makutano ya Ohio St & Hamburg Ave, BoT na Samora Ave',
+    altitude: 6,
+    slope: '+0.5%',
+    surface: 'Lami Safi ya Mjini (98%)',
+    trafficSpeed: 24,
+    trafficLevel: 'wastani',
+    pitch: 58,
+    bearing: 52,
+    zoom: 17.5,
+    tag: '🏛️ Katikati ya Jiji'
+  },
+  {
+    id: 'kivukoni-ferry',
+    name: 'Kivukoni Feri & Soko la Samaki',
+    lngLat: [39.2965, -6.8160] as [number, number],
+    desc: 'Kivuko cha Kigamboni (Pantoni), Azam Marine & Bahari ya Hindi',
+    altitude: 2,
+    slope: '0.0%',
+    surface: 'Lami ya Kivukoni Front (95%)',
+    trafficSpeed: 30,
+    trafficLevel: 'wastani',
+    pitch: 58,
+    bearing: 95,
+    zoom: 17,
+    tag: '🚢 Bahari & Kivuko'
+  },
+  {
+    id: 'askari-monument',
+    name: 'Sanamu ya Askari & Mtaa wa Azikiwe',
+    lngLat: [39.2894, -6.8162] as [number, number],
+    desc: 'Alama kuu ya jiji, makutano ya Samora Avenue na Azikiwe',
+    altitude: 8,
+    slope: '+0.4%',
+    surface: 'Lami ya Kihistoria (94%)',
+    trafficSpeed: 20,
+    trafficLevel: 'wastani',
+    pitch: 60,
+    bearing: 45,
+    zoom: 17.5,
+    tag: '🗽 Alama ya DSM'
+  },
+  {
+    id: 'kariakoo',
+    name: 'Kariakoo Market & Msimbazi St',
+    lngLat: [39.2745, -6.8198] as [number, number],
+    desc: 'Soko kuu la Afrika Mashariki, mzunguko wa BRT & daladala',
+    altitude: 16,
+    slope: '+1.1%',
+    surface: 'Lami na Njia ya BRT (90%)',
+    trafficSpeed: 14,
+    trafficLevel: 'nzito',
+    pitch: 56,
+    bearing: 15,
+    zoom: 16.5,
+    tag: '🛍️ Soko Kuu'
+  },
+  {
+    id: 'ubungo-kijazi',
+    name: 'Ubungo Kijazi Interchange (Flyover)',
+    lngLat: [39.2132, -6.7865] as [number, number],
+    desc: 'Makutano ya kisasa ya madaraja ya Morogoro Rd, Sam Nujoma na Mandela',
+    altitude: 45,
+    slope: '+3.2%',
+    surface: 'Lami Safi ya Madaraja (99%)',
+    trafficSpeed: 55,
+    trafficLevel: 'nyepesi',
+    pitch: 58,
+    bearing: 40,
+    zoom: 16.8,
+    tag: '🌉 Flyover ya Kijazi'
+  },
+  {
+    id: 'coco-beach',
+    name: 'Coco Beach & Msasani Peninsula',
+    lngLat: [39.2785, -6.7485] as [number, number],
+    desc: 'Ufukwe wa Oysterbay, Barabara ya Toure & upepo wa Bahari ya Hindi',
+    altitude: 4,
+    slope: '+0.2%',
+    surface: 'Lami ya Ufukweni (96%)',
+    trafficSpeed: 45,
+    trafficLevel: 'nyepesi',
+    pitch: 52,
+    bearing: 110,
+    zoom: 16.5,
+    tag: '🌴 Pwani ya Oysterbay'
+  },
+  {
+    id: 'sam-nujoma',
+    name: 'Mlimani City Mall & Sam Nujoma Rd',
+    lngLat: [39.2198, -6.7725] as [number, number],
+    desc: 'Mlimani City Mall, Chuo Kikuu cha Dar es Salaam (UDSM)',
+    altitude: 68,
+    slope: '+4.8%',
+    surface: 'Lami Safi ya Barabara Kuu (98%)',
+    trafficSpeed: 50,
+    trafficLevel: 'nyepesi',
+    pitch: 55,
+    bearing: -20,
+    zoom: 16,
+    tag: '🏬 Mlimani City'
+  },
+  {
     id: 'mabibo-mandela',
     name: 'Nelson Mandela Rd & Mabibo Relini',
     lngLat: [39.2384, -6.8163] as [number, number],
@@ -91,63 +196,8 @@ const DAR_HOTSPOTS = [
     trafficLevel: 'wastani',
     pitch: 58,
     bearing: 42,
-    zoom: 16.5
-  },
-  {
-    id: 'tabata-kisiwani',
-    name: 'Tabata Kisiwani & Kamoti St',
-    lngLat: [39.2431, -6.8225] as [number, number],
-    desc: 'Mtaa wa Kamoti, Mgasa & Chanzi',
-    altitude: 28,
-    slope: '+1.4%',
-    surface: 'Changarawe & Lami ya Kati (75%)',
-    trafficSpeed: 28,
-    trafficLevel: 'nyepesi',
-    pitch: 62,
-    bearing: 35,
-    zoom: 17
-  },
-  {
-    id: 'sam-nujoma',
-    name: 'Sam Nujoma Rd & Mlimani City',
-    lngLat: [39.2198, -6.7725] as [number, number],
-    desc: 'Mlimani City Mall & UDSM Campus',
-    altitude: 68,
-    slope: '+4.8%',
-    surface: 'Lami Safi ya Barabara Kuu (98%)',
-    trafficSpeed: 50,
-    trafficLevel: 'nyepesi',
-    pitch: 55,
-    bearing: -20,
-    zoom: 16
-  },
-  {
-    id: 'posta-cbd',
-    name: 'Posta City Centre & Ohio St',
-    lngLat: [39.29028, -6.81437] as [number, number],
-    desc: 'Makutano ya Ohio Street & Hamburg Avenue, Posta Mpya',
-    altitude: 6,
-    slope: '+0.5%',
-    surface: 'Lami ya Mjini (95%)',
-    trafficSpeed: 24,
-    trafficLevel: 'wastani',
-    pitch: 58,
-    bearing: 52,
-    zoom: 17.5
-  },
-  {
-    id: 'kariakoo',
-    name: 'Kariakoo Market & Morogoro Rd',
-    lngLat: [39.2745, -6.8198] as [number, number],
-    desc: 'Soko kuu la Kariakoo na barabara ya BRT',
-    altitude: 16,
-    slope: '+1.1%',
-    surface: 'Lami na Njia ya BRT (90%)',
-    trafficSpeed: 14,
-    trafficLevel: 'nzito',
-    pitch: 56,
-    bearing: 15,
-    zoom: 16.5
+    zoom: 16.5,
+    tag: '🚂 Mandela Relini'
   }
 ];
 
@@ -1363,101 +1413,93 @@ export default function MapLibre3DView({
   return (
     <div className="fixed inset-0 z-[100000] bg-neutral-950 overflow-hidden select-none touch-none flex flex-col font-sans">
       {/* -------------------------------------------------------------
-          TOP HEADER BAR (CLEAN, ORGANIZED & RESPONSIVE)
+          TOP COMPACT FLOATING HEADER CAPSULE (SLEEK, MINIMAL & POLISHED)
           ------------------------------------------------------------- */}
-      <div className="absolute top-0 left-0 right-0 z-30 p-2.5 sm:p-4 flex items-center justify-between pointer-events-none gap-2">
-        {/* Left: Branding & Current Landmark */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+      <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-4 sm:right-4 z-30 flex items-center justify-between pointer-events-none gap-2">
+        {/* Left: Close 2D & Compact Brand Badge */}
+        <div className="flex items-center gap-1.5 pointer-events-auto">
           <button
             onClick={onClose}
-            className="h-10 px-3 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center gap-1.5 text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer font-black text-xs uppercase"
+            className="h-8 px-2.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center gap-1 text-neutral-700 dark:text-neutral-200 hover:text-rose-500 active:scale-95 transition-all cursor-pointer font-bold text-[11px]"
             title="Rudi Ramani ya 2D"
           >
-            <X className="w-4 h-4 text-rose-500" />
-            <span className="hidden sm:inline">2D</span>
+            <X className="w-3.5 h-3.5 text-rose-500" />
+            <span>2D</span>
           </button>
 
-          <div className="px-3 py-1.5 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-[11px] shadow-sm">
+          <div className="h-8 px-2.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-[9px] shadow-xs shrink-0">
               3D
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black text-neutral-900 dark:text-white uppercase tracking-tight">MapLibre GL</span>
-                <span className={`text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full ${dataSaverMode ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'}`}>
-                  {activeEngine.tag}
-                </span>
-              </div>
-              <p className="text-[9.5px] text-neutral-500 font-medium truncate max-w-[120px] sm:max-w-[200px]">
-                {activeHotspot.name}
-              </p>
-            </div>
+            <span className="text-[11px] font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+              MapLibre
+            </span>
+            <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full hidden sm:inline-block ${dataSaverMode ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'}`}>
+              {activeEngine.tag}
+            </span>
           </div>
         </div>
 
-        {/* Right: Quick Action Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+        {/* Right: Quick Action Compact Icon Pills */}
+        <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
           {/* Alternative Routes & Detour Selector Button */}
           <button
             onClick={() => setShowRoutesDrawer(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer active:scale-90 ${
               showRoutesDrawer
-                ? 'bg-blue-600 text-white shadow-blue-950/40 ring-2 ring-blue-400/50'
-                : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800'
+                ? 'bg-blue-600 text-white shadow-blue-950/40 ring-1 ring-blue-400/50'
+                : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800'
             }`}
             title="Chagua Njia Mbadala (Alternative Routes & Reroute)"
           >
             <Route className="w-3.5 h-3.5 text-blue-500" />
-            <span className="hidden sm:inline">Njia Mbadala</span>
           </button>
 
           {/* Data Saver Mode Pill */}
           <button
             onClick={toggleDataSaver}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer active:scale-90 ${
               dataSaverMode 
-                ? 'bg-emerald-600 text-white shadow-emerald-950/40 ring-2 ring-emerald-400/50' 
-                : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800'
+                ? 'bg-emerald-600 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/50' 
+                : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800'
             }`}
             title="Hali ya Kubana Bando (Data Saver)"
           >
             <Wifi className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{dataSaverMode ? 'Bando Kidogo' : 'Saver'}</span>
           </button>
 
           {/* Terrain & Surface Analyzer Toggle */}
           <button
             onClick={() => setShowTerrainDrawer(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl text-[11px] font-black uppercase tracking-wider shadow-lg transition-all cursor-pointer active:scale-95 ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer active:scale-90 ${
               showTerrainDrawer
                 ? 'bg-amber-500 text-slate-950 shadow-amber-950/40'
-                : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800'
+                : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800'
             }`}
             title="Kukokotoa Hali ya Trafiki na Miinuko"
           >
             <Activity className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">Trafiki</span>
           </button>
 
           {/* Test Sample Request Trigger */}
           {!incomingRequest && !activeRide && (
             <button
               onClick={triggerSampleRequest}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-orange-600 text-white font-black text-[11px] uppercase tracking-wider shadow-lg shadow-orange-950/30 active:scale-95 transition-all cursor-pointer"
-              title="Jaribu kuona mteja akirekwesti"
+              className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-orange-600 text-white flex items-center justify-center shadow-md active:scale-90 transition-all cursor-pointer"
+              title="Jaribu ombi la safari (Test Request)"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
-              <span className="hidden lg:inline">Jaribu Ombi</span>
+              <Play className="w-3 h-3 fill-white ml-0.5" />
             </button>
           )}
 
           {/* Hotspots Modal Drawer Trigger */}
           <button
             onClick={() => setShowHotspotsDrawer(true)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-neutral-800 font-black text-[11px] uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer border border-neutral-700"
+            className="h-8 px-2.5 rounded-full bg-neutral-900/90 text-white dark:bg-neutral-800/90 font-bold text-[10px] uppercase tracking-wider shadow-md active:scale-90 transition-all cursor-pointer border border-neutral-700 flex items-center gap-1"
+            title="Maeneo ya Dar es Salaam"
           >
-            <MapPin className="w-3.5 h-3.5 text-orange-400" />
-            <span className="hidden sm:inline">Maeneo DSM</span>
+            <MapPin className="w-3 h-3 text-orange-400" />
+            <span className="hidden xs:inline">Maeneo</span>
           </button>
         </div>
       </div>
@@ -1663,47 +1705,47 @@ export default function MapLibre3DView({
       </AnimatePresence>
 
       {/* -------------------------------------------------------------
-          FLOATING RIGHT CONTROLS RAIL
+          FLOATING RIGHT CONTROLS RAIL (COMPACT & SLEEK)
           ------------------------------------------------------------- */}
-      <div className="absolute right-3 sm:right-4 top-20 z-30 flex flex-col gap-1.5 pointer-events-auto">
+      <div className="absolute right-2 sm:right-4 top-14 sm:top-16 z-30 flex flex-col gap-1 pointer-events-auto">
         {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
-          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-90 transition-all cursor-pointer"
           title="Zoom In (+)"
         >
-          <Plus className="w-5 h-5 stroke-[2.5]" />
+          <Plus className="w-4 h-4 stroke-[2.5]" />
         </button>
 
         {/* Zoom Out (-) */}
         <button
           onClick={handleZoomOut}
-          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-95 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center justify-center text-neutral-800 dark:text-neutral-200 hover:bg-white active:scale-90 transition-all cursor-pointer"
           title="Zoom Out (-)"
         >
-          <Minus className="w-5 h-5 stroke-[2.5]" />
+          <Minus className="w-4 h-4 stroke-[2.5]" />
         </button>
 
         {/* Recenter & Snap to Road Center */}
         <button
           onClick={recenterToDriver}
-          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-neutral-800 active:scale-95 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-neutral-800 active:scale-90 transition-all cursor-pointer"
           title="🎯 Sawazisha Katikati ya Barabara (Snap to Road)"
         >
-          <Crosshair className="w-5 h-5 stroke-[2.5]" />
+          <Crosshair className="w-4 h-4 stroke-[2.5]" />
         </button>
 
         {/* 360° Compass */}
         <button
           onClick={resetNorth}
-          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col items-center justify-center hover:bg-white active:scale-95 transition-all cursor-pointer"
+          className="w-8 h-8 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md flex flex-col items-center justify-center hover:bg-white active:scale-90 transition-all cursor-pointer"
           title="Kaskazini Juu (Reset North 0°)"
         >
           <Compass 
-            className="w-4 h-4 text-orange-600 transition-transform duration-300" 
+            className="w-3.5 h-3.5 text-orange-600 transition-transform duration-300" 
             style={{ transform: `rotate(${-bearing}deg)` }}
           />
-          <span className="text-[7.5px] font-mono font-black text-neutral-700 dark:text-neutral-300">
+          <span className="text-[6.5px] font-mono font-black text-neutral-700 dark:text-neutral-300 -mt-0.5">
             {bearing}°
           </span>
         </button>
@@ -1716,20 +1758,20 @@ export default function MapLibre3DView({
             mapInstanceRef.current?.easeTo({ pitch: nextPitch, duration: 400 });
             toast.info(nextPitch > 0 ? "Mwinuko wa 3D: 60°" : "Mwinuko wa 2D: 0°");
           }}
-          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex flex-col items-center justify-center font-black text-xs transition-all cursor-pointer ${pitch > 0 ? 'bg-orange-600 text-white border-orange-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 dark:text-neutral-300 border-neutral-200'}`}
+          className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-md flex flex-col items-center justify-center font-black transition-all cursor-pointer active:scale-90 ${pitch > 0 ? 'bg-orange-600 text-white border-orange-500 shadow-orange-950/40' : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-800'}`}
           title="Badili Mwinuko wa 3D (Pitch Toggle)"
         >
-          <span>3D</span>
-          <span className="text-[7px] font-mono font-normal">{pitch}°</span>
+          <span className="text-[9px]">3D</span>
+          <span className="text-[6px] font-mono font-normal -mt-0.5">{pitch}°</span>
         </button>
 
         {/* 3D Building Extrusions Toggle */}
         <button
           onClick={toggle3DBuildings}
-          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${buildings3DEnabled ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
+          className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-90 ${buildings3DEnabled ? 'bg-blue-600 text-white border-blue-500 shadow-blue-950/40' : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-400 border-neutral-200/80 dark:border-neutral-800'}`}
           title="Washa/Zima Majengo ya 3D (3D Buildings)"
         >
-          <Building2 className="w-4 h-4" />
+          <Building2 className="w-3.5 h-3.5" />
         </button>
 
         {/* Sound Toggle */}
@@ -1741,10 +1783,10 @@ export default function MapLibre3DView({
               return next;
             });
           }}
-          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${soundEnabled ? 'bg-white/95 dark:bg-neutral-900/95 text-emerald-500 border-neutral-200' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-400 border-neutral-200'}`}
+          className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-90 ${soundEnabled ? 'bg-white/90 dark:bg-neutral-900/90 text-emerald-500 border-neutral-200/80 dark:border-neutral-800' : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-400 border-neutral-200/80 dark:border-neutral-800'}`}
           title="Sauti ya Kengele ya Maombi"
         >
-          {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
         </button>
 
         {/* Heading-Up Toggle */}
@@ -1756,57 +1798,59 @@ export default function MapLibre3DView({
               return nxt;
             });
           }}
-          className={`w-10 h-10 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center transition-all cursor-pointer ${isHeadingUp ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-white/95 dark:bg-neutral-900/95 text-neutral-700 border-neutral-200'}`}
+          className={`w-8 h-8 rounded-full backdrop-blur-xl border shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-90 ${isHeadingUp ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-950/40' : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-800'}`}
           title="Heading-Up (Kufuata Mwelekeo wa Gari)"
         >
-          <Navigation className="w-4 h-4 rotate-45" />
+          <Navigation className="w-3.5 h-3.5 rotate-45" />
         </button>
       </div>
 
       {/* -------------------------------------------------------------
-          BOTTOM SPEEDOMETER & DOCK
+          BOTTOM COMPACT FLOATING DOCK (SLEEK & REFINED)
           ------------------------------------------------------------- */}
-      <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:left-4 sm:right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
-        {/* Left: Driver Telemetry Card */}
-        <div className="p-2 sm:p-2.5 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-2xl flex items-center gap-3 pointer-events-auto">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-600 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-orange-500/25 border border-white/20 shrink-0">
+      <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-4 sm:right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Driver Telemetry Compact Pill */}
+        <div className="h-9 px-2.5 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl flex items-center gap-2 pointer-events-auto">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-orange-500 via-amber-500 to-orange-600 text-white flex items-center justify-center text-[10px] shadow-xs shrink-0">
             {vehicleType === 'bike' ? '🏍️' : vehicleType === 'bajaj' ? '🛺' : '🚗'}
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h4 className="text-xs font-black text-neutral-900 dark:text-white uppercase tracking-tight">
-                {driverName}
-              </h4>
-              <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase ${isOnline ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600'}`}>
-                {isOnline ? 'Online' : 'Offline'}
-              </span>
-            </div>
-            <p className="text-[10px] font-mono text-neutral-500 mt-0.5">
-              Namba: <strong className="text-neutral-800 dark:text-neutral-200">{licensePlate}</strong> • {Math.round(vehicleHeading || 0)}° Mwelekeo • {currentTerrain.altitude}m ASL
-            </p>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-black text-neutral-900 dark:text-white uppercase tracking-tight">
+              {driverName}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Online
+            </span>
           </div>
 
-          <div className="pl-3 border-l border-neutral-200 dark:border-neutral-800 text-right">
-            <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest block">Kasi</span>
-            <span className="text-lg font-black font-mono text-blue-600 dark:text-blue-400">
-              {speed} <span className="text-[10px] font-normal text-neutral-500">km/h</span>
+          <div className="hidden sm:flex items-center text-[9px] font-mono text-neutral-400 pl-1">
+            <span>{licensePlate}</span>
+          </div>
+
+          <div className="pl-2 border-l border-neutral-200 dark:border-neutral-800 flex items-baseline gap-0.5">
+            <span className="text-xs font-black font-mono text-blue-600 dark:text-blue-400">
+              {speed}
             </span>
+            <span className="text-[7.5px] font-bold text-neutral-400 uppercase">km/h</span>
           </div>
         </div>
 
-        {/* Right: Data Rate Pill & Return Button */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="px-3 py-2 rounded-xl bg-neutral-950/80 backdrop-blur-md border border-white/10 text-neutral-300 text-[10.5px] font-mono hidden md:flex items-center gap-1.5">
-            <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+        {/* Right: Sleek Return to 2D Button */}
+        <div className="flex items-center gap-1.5 pointer-events-auto">
+          <div className="h-9 px-2.5 rounded-full bg-neutral-950/80 backdrop-blur-md border border-white/10 text-neutral-300 text-[10px] font-mono hidden md:flex items-center gap-1.5 shadow-md">
+            <Wifi className="w-3 h-3 text-emerald-400" />
             <span>{activeEngine.dataRate}</span>
           </div>
 
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl bg-gradient-to-r from-neutral-900 to-neutral-800 hover:from-neutral-800 hover:to-neutral-700 text-white font-black text-xs uppercase tracking-wider shadow-xl flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer border border-neutral-700"
+            className="h-9 px-3.5 rounded-full bg-neutral-900/90 dark:bg-neutral-800/90 hover:bg-neutral-900 text-white font-bold text-[10.5px] uppercase tracking-wider backdrop-blur-md border border-white/15 shadow-xl flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            title="Rudi kwenye Ramani ya Kawaida ya 2D"
           >
             <Layers className="w-3.5 h-3.5 text-orange-400" />
-            <span>Rudi Ramani ya 2D</span>
+            <span>2D Ramani</span>
           </button>
         </div>
       </div>
@@ -2132,6 +2176,9 @@ export default function MapLibre3DView({
       </AnimatePresence>
 
       {/* -------------------------------------------------------------
+          DAR ES SALAAM ICONIC LANDMARK CARD (INTERACTIVE 3D POPUP)
+          ------------------------------------------------------------- */}
+      {/* -------------------------------------------------------------
           DAR ES SALAAM HOTSPOTS DRAWER
           ------------------------------------------------------------- */}
       <AnimatePresence>
@@ -2163,7 +2210,11 @@ export default function MapLibre3DView({
                   <button
                     key={`ml-spot-${spot.id}-${sIdx}`}
                     onClick={() => teleport(spot)}
-                    className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${activeHotspot.id === spot.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'}`}
+                    className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                      activeHotspot.id === spot.id 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
+                        : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+                    }`}
                   >
                     <div>
                       <div className="flex items-center gap-1.5">
