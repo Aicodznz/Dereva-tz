@@ -23,7 +23,7 @@ interface StreetHailModalProps {
 
 const POPULAR_DESTINATIONS = [
   { name: 'Kariakoo Market', address: 'Kariakoo, Dar es Salaam', lat: -6.8222, lng: 39.2748, icon: '🛍️' },
-  { name: 'Posta Mpya / Kivukoni', address: 'Posta Mpya, Dar es Salaam', lat: -6.8162, lng: 39.2894, icon: '🏢' },
+  { name: 'Posta Mpya / Kivukoni', address: 'Posta Mpya, Dar es Salaam', lat: -6.81437, lng: 39.29028, icon: '🏢' },
   { name: 'Mlimani City / Mwenge', address: 'Mlimani City Mall, Sam Nujoma Rd', lat: -6.7725, lng: 39.2222, icon: '🎓' },
   { name: 'Masaki / Slipway', address: 'Slipway, Masaki, Dar es Salaam', lat: -6.7461, lng: 39.2758, icon: '🌴' },
   { name: 'Ubungo Simu 2000', address: 'Ubungo, Morogoro Rd, Dar es Salaam', lat: -6.7865, lng: 39.2132, icon: '🚌' },

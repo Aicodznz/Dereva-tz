@@ -123,8 +123,8 @@ const DAR_HOTSPOTS = [
   },
   {
     id: 'posta-cbd',
-    name: 'Posta City Centre & Samora Ave',
-    lngLat: [39.28965, -6.81645] as [number, number],
+    name: 'Posta City Centre & Ohio St',
+    lngLat: [39.29028, -6.81437] as [number, number],
     desc: 'Makutano ya Ohio Street & Hamburg Avenue, Posta Mpya',
     altitude: 6,
     slope: '+0.5%',
@@ -133,7 +133,7 @@ const DAR_HOTSPOTS = [
     trafficLevel: 'wastani',
     pitch: 58,
     bearing: 52,
-    zoom: 17
+    zoom: 17.5
   },
   {
     id: 'kariakoo',
@@ -150,6 +150,50 @@ const DAR_HOTSPOTS = [
     zoom: 16.5
   }
 ];
+
+/**
+ * Ensures vehicle coordinates never get placed inside skyscraper blocks (e.g. EvMak/CRDB tower footprints)
+ * and always snap squarely onto open asphalt street centers with correct road bearing.
+ */
+export function snapToSafeRoadCoordinate(
+  lng: number, 
+  lat: number, 
+  fallbackBearing?: number
+): { lng: number; lat: number; bearing: number } {
+  // EvMak / CRDB / PPF Tower skyscraper footprint in Posta CBD:
+  // West of Ohio Street: lat around -6.8170 to -6.8120, lng around 39.2880 to 39.2901
+  if (lat >= -6.8170 && lat <= -6.8120 && lng >= 39.2880 && lng <= 39.2901) {
+    return {
+      lng: 39.29028,
+      lat: -6.81437,
+      bearing: 52 // Ohio Street runs northeast at 52°
+    };
+  }
+
+  // Kariakoo central market hall footprint -> snap to Morogoro Rd / Swahili St
+  if (lat >= -6.8215 && lat <= -6.8180 && lng >= 39.2730 && lng <= 39.2760) {
+    return {
+      lng: 39.2745,
+      lat: -6.8198,
+      bearing: fallbackBearing && fallbackBearing !== 0 ? fallbackBearing : 15
+    };
+  }
+
+  // Sam Nujoma near Mlimani Mall building footprint -> snap to highway
+  if (lat >= -6.7745 && lat <= -6.7710 && lng >= 39.2180 && lng <= 39.2215) {
+    return {
+      lng: 39.2198,
+      lat: -6.7725,
+      bearing: fallbackBearing && fallbackBearing !== 0 ? fallbackBearing : 340
+    };
+  }
+
+  return {
+    lng,
+    lat,
+    bearing: fallbackBearing && fallbackBearing !== 0 ? fallbackBearing : 52
+  };
+}
 
 // Helper to calculate terrain elevation & slope for any Dar es Salaam coordinate
 function calculateTerrainAnalysis(lng: number, lat: number) {
@@ -362,22 +406,22 @@ function getMapLibre3DVehicleHtml(type: string = 'car', _isOnline: boolean = tru
   // Muscular metallic orange rear fenders, dual horizontal LED taillights with white projector core,
   // dark tinted curved rear window glass, black carbon roof panel, and receding aerodynamic hood.
   return `
-    <div style="position: relative; width: 52px; height: 96px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+    <div style="position: relative; width: 60px; height: 108px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
       <!-- 1. Glowing Sky-Blue / Cyan Circular Ground Radar Disc -->
       <div style="
         position: absolute;
         top: 58%;
         left: 50%;
-        width: 66px;
-        height: 66px;
+        width: 76px;
+        height: 76px;
         transform: translate(-50%, -50%);
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(14, 165, 233, 0.35) 60%, rgba(56, 189, 248, 0.0) 80%);
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.55), inset 0 0 12px rgba(56, 189, 248, 0.4);
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.72) 0%, rgba(14, 165, 233, 0.42) 55%, rgba(56, 189, 248, 0.0) 80%);
+        box-shadow: 0 0 24px rgba(56, 189, 248, 0.65), inset 0 0 14px rgba(56, 189, 248, 0.45);
         pointer-events: none;
       "></div>
 
-      <svg viewBox="0 0 70 120" style="width: 52px; height: 96px; overflow: visible; display: block; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.52));">
+      <svg viewBox="0 0 70 120" style="width: 60px; height: 108px; overflow: visible; display: block; filter: drop-shadow(0 8px 18px rgba(0,0,0,0.55));">
         <defs>
           <!-- Ground Cyan Disc Overlay -->
           <radialGradient id="cyanGroundDiscRef" cx="50%" cy="50%" r="50%">
@@ -739,22 +783,22 @@ export default function MapLibre3DView({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    let initialLng = center[1] || 39.2384;
-    let initialLat = center[0] || -6.8163;
-
-    // Road snap: If coordinate lands inside the EvMak/PPF skyscraper polygon in CBD, snap to Ohio Street center
-    if (Math.abs(initialLng - 39.2890) < 0.0006 && Math.abs(initialLat - -6.8160) < 0.0006) {
-      initialLng = 39.28965;
-      initialLat = -6.81645;
-    }
+    const snappedInit = snapToSafeRoadCoordinate(
+      center[1] || 39.29028,
+      center[0] || -6.81437,
+      vehicleHeading
+    );
+    const initialLng = snappedInit.lng;
+    const initialLat = snappedInit.lat;
+    const initialHeading = snappedInit.bearing;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: activeEngine.url,
       center: [initialLng, initialLat],
-      zoom: 16.5,
+      zoom: 17,
       pitch: pitch,
-      bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
+      bearing: isHeadingUp ? initialHeading : 0,
       attributionControl: false,
       maxPitch: 85,
       dragRotate: true,
@@ -766,11 +810,27 @@ export default function MapLibre3DView({
 
     // Allow driver to tap anywhere on the street to smoothly reposition vehicle on the road
     map.on('click', (e) => {
-      const clickLngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
+      const clickLng = e.lngLat.lng;
+      const clickLat = e.lngLat.lat;
+
+      // Query if user clicked directly on a 3D extruded skyscraper building
+      const features = map.queryRenderedFeatures(e.point);
+      const isBuilding = features?.some(f => 
+        f.layer?.id === '3d-buildings' || 
+        (f.layer as any)?.['source-layer'] === 'building'
+      );
+
+      const snapped = snapToSafeRoadCoordinate(clickLng, clickLat, vehicleHeading);
       if (driverMarkerRef.current) {
-        driverMarkerRef.current.setLngLat(clickLngLat);
+        driverMarkerRef.current.setLngLat([snapped.lng, snapped.lat]);
+        driverMarkerRef.current.setRotation(snapped.bearing);
       }
-      toast.success("🚗 Gari limewekwa kwenye barabara uliyogusa!");
+
+      if (isBuilding) {
+        toast.info("🚧 Eneo la jengo: Gari limewekwa katikati ya barabara salama!");
+      } else {
+        toast.success("🚗 Gari limewekwa kwenye barabara uliyogusa!");
+      }
     });
 
     // Detect user interactions (drag, zoom, pitch, rotate)
@@ -955,7 +1015,7 @@ export default function MapLibre3DView({
         anchor: 'center'
       })
         .setLngLat([initialLng, initialLat])
-        .setRotation(vehicleHeading || 0)
+        .setRotation(initialHeading)
         .addTo(map);
 
       driverMarkerRef.current = marker;
@@ -972,14 +1032,18 @@ export default function MapLibre3DView({
   // Update vehicle marker position, rotation & camera
   useEffect(() => {
     if (!driverMarkerRef.current || !mapInstanceRef.current) return;
-    const lngLat: [number, number] = [center[1], center[0]];
+    const rawLng = center[1] || 39.29028;
+    const rawLat = center[0] || -6.81437;
+    const snapped = snapToSafeRoadCoordinate(rawLng, rawLat, vehicleHeading);
+    const lngLat: [number, number] = [snapped.lng, snapped.lat];
+
     driverMarkerRef.current.setLngLat(lngLat);
-    driverMarkerRef.current.setRotation(vehicleHeading || 0);
+    driverMarkerRef.current.setRotation(snapped.bearing);
 
     if (autoFollow && !isUserInteractingRef.current) {
       mapInstanceRef.current.easeTo({
         center: lngLat,
-        bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
+        bearing: isHeadingUp ? snapped.bearing : 0,
         duration: 400
       });
     }
@@ -1196,16 +1260,23 @@ export default function MapLibre3DView({
   // Recenter Camera to Driver (Auto-Follow re-enable)
   const recenterToDriver = () => {
     if (!mapInstanceRef.current) return;
-    const lngLat: [number, number] = [center[1], center[0]];
+    const rawLng = center[1] || 39.29028;
+    const rawLat = center[0] || -6.81437;
+    const snapped = snapToSafeRoadCoordinate(rawLng, rawLat, vehicleHeading);
+    const lngLat: [number, number] = [snapped.lng, snapped.lat];
     mapInstanceRef.current.easeTo({
       center: lngLat,
-      zoom: 16.5,
+      zoom: 17.2,
       pitch: pitch,
-      bearing: isHeadingUp ? (vehicleHeading || 0) : 0,
+      bearing: isHeadingUp ? snapped.bearing : 0,
       duration: 600
     });
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.setLngLat(lngLat);
+      driverMarkerRef.current.setRotation(snapped.bearing);
+    }
     setAutoFollow(true);
-    toast.success("🎯 Kamera imerejeshwa kwenye gari lako!");
+    toast.success("🎯 Gari limewekwa katikati ya barabara safi!");
   };
 
   // Zoom In
@@ -1613,19 +1684,14 @@ export default function MapLibre3DView({
           <Minus className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        {/* Recenter to Vehicle */}
-        {!autoFollow && (
-          <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
-            onClick={recenterToDriver}
-            className="w-10 h-10 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-950/40 flex items-center justify-center active:scale-95 transition-all cursor-pointer ring-2 ring-emerald-400 animate-pulse"
-            title="🎯 Rejea Kwenye Gari (Auto-Follow)"
-          >
-            <Crosshair className="w-5 h-5 stroke-[2.5]" />
-          </motion.button>
-        )}
+        {/* Recenter & Snap to Road Center */}
+        <button
+          onClick={recenterToDriver}
+          className="w-10 h-10 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-xl flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-neutral-800 active:scale-95 transition-all cursor-pointer"
+          title="🎯 Sawazisha Katikati ya Barabara (Snap to Road)"
+        >
+          <Crosshair className="w-5 h-5 stroke-[2.5]" />
+        </button>
 
         {/* 360° Compass */}
         <button
