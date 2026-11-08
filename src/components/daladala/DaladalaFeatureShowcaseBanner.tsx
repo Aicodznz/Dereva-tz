@@ -15,7 +15,8 @@ import {
   FileText,
   ShieldAlert,
   GraduationCap,
-  Wallet
+  Wallet,
+  Award
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -34,6 +35,7 @@ interface DaladalaFeatureShowcaseBannerProps {
   onOpenFleetMode: () => void;
   onOpenSafetyModal?: () => void;
   onOpenStudentFareModal?: () => void;
+  onOpenPartnershipModal?: () => void;
 }
 
 export default function DaladalaFeatureShowcaseBanner({
@@ -43,6 +45,7 @@ export default function DaladalaFeatureShowcaseBanner({
   onOpenFleetMode,
   onOpenSafetyModal,
   onOpenStudentFareModal,
+  onOpenPartnershipModal,
 }: DaladalaFeatureShowcaseBannerProps) {
   const navigate = useNavigate();
   const [activeVoiceStation, setActiveVoiceStation] = useState<string | null>(null);
@@ -98,6 +101,17 @@ export default function DaladalaFeatureShowcaseBanner({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {onOpenPartnershipModal && (
+            <button
+              type="button"
+              onClick={onOpenPartnershipModal}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md shadow-amber-950/40"
+            >
+              <Award className="w-4 h-4 text-neutral-950" />
+              <span>🤝 Ubia wa UWADAR &amp; Proposal 📋</span>
+            </button>
+          )}
+
           {onOpenStudentFareModal && (
             <button
               type="button"

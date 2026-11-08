@@ -28,6 +28,7 @@ import DaladalaRegisterPassengerModal from './DaladalaRegisterPassengerModal';
 import DaladalaRegisterVehicleModal from './DaladalaRegisterVehicleModal';
 import DaladalaAuthModal from './DaladalaAuthModal';
 import DaladalaDailyOwnerReportModal from './DaladalaDailyOwnerReportModal';
+import DaladalaPartnershipStrategyModal from './DaladalaPartnershipStrategyModal';
 import { 
   Bus, 
   ArrowLeft, 
@@ -92,6 +93,9 @@ export default function DaladalaHome() {
 
   // End-of-Day Daily Owner WhatsApp Report Modal
   const [isDailyReportOpen, setIsDailyReportOpen] = useState(false);
+
+  // UWADAR & DARCOBOA Strategic Partnership Proposal Modal
+  const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
 
   // State for data
   const [routes, setRoutes] = useState<DaladalaRoute[]>(mockDaladalaRoutes);
@@ -583,6 +587,16 @@ export default function DaladalaHome() {
 
           {/* Right Action Elements */}
           <div className="flex items-center gap-2">
+            {/* UWADAR & DARCOBOA Strategic Partnership Button */}
+            <button
+              type="button"
+              onClick={() => setIsPartnershipModalOpen(true)}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 whitespace-nowrap cursor-pointer"
+              title="Mkakati wa UWADAR & DARCOBOA (Proposal & LATRA)"
+            >
+              <span>🤝</span>
+              <span className="hidden sm:inline">Ubia wa UWADAR &amp; Proposal</span>
+            </button>
             {/* If logged-in operator is viewing public map, allow them to return to their role screen */}
             {sessionUser && sessionUser.role !== 'passenger' && ecosystemMode === 'passenger' && (
               <button
@@ -847,6 +861,7 @@ export default function DaladalaHome() {
                     onOpenConductorMode={() => setEcosystemMode('conductor')}
                     onOpenDriverMode={() => setEcosystemMode('driver')}
                     onOpenDailyReport={() => setIsDailyReportOpen(true)}
+                    onOpenPartnershipModal={() => setIsPartnershipModalOpen(true)}
                     sessionUser={sessionUser}
                     onOpenAuthModal={(role) => {
                       setAuthModalInitialRole(role || 'owner');
@@ -924,6 +939,7 @@ export default function DaladalaHome() {
             onOpenConductorMode={() => setEcosystemMode('conductor')}
             onOpenDriverMode={() => setEcosystemMode('driver')}
             onOpenDailyReport={() => setIsDailyReportOpen(true)}
+            onOpenPartnershipModal={() => setIsPartnershipModalOpen(true)}
             sessionUser={sessionUser}
             onOpenAuthModal={(role) => {
               setAuthModalInitialRole(role || 'owner');
@@ -1007,6 +1023,7 @@ export default function DaladalaHome() {
             onUpdateVehicleCrew={handleUpdateVehicleCrew}
             onOpenRegisterPassenger={() => setIsRegisterPassengerOpen(true)}
             ownerProfile={currentOwnerProfile}
+            onOpenPartnershipModal={() => setIsPartnershipModalOpen(true)}
             onLogout={handleLogout}
           />
         )}
@@ -1053,6 +1070,12 @@ export default function DaladalaHome() {
           onClose={() => setIsDailyReportOpen(false)}
         />
       )}
+
+      {/* MODAL 5: MKAKATI WA UBIA WA UWADAR & DARCOBOA NA PROPOSAL */}
+      <DaladalaPartnershipStrategyModal
+        isOpen={isPartnershipModalOpen}
+        onClose={() => setIsPartnershipModalOpen(false)}
+      />
     </div>
   );
 }

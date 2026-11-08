@@ -41,7 +41,8 @@ import {
   Crown,
   ShieldCheck,
   EyeOff,
-  GraduationCap
+  GraduationCap,
+  Briefcase
 } from 'lucide-react';
 import { toast } from 'sonner';
 import DaladalaJourneyFilter from './DaladalaJourneyFilter';
@@ -65,6 +66,7 @@ interface DaladalaPassengerViewProps {
   onOpenConductorMode?: () => void;
   onOpenDriverMode?: () => void;
   onOpenDailyReport?: () => void;
+  onOpenPartnershipModal?: () => void;
   sessionUser?: DaladalaSessionUser | null;
   onOpenAuthModal?: (role?: 'owner' | 'conductor' | 'passenger') => void;
   onLogout?: () => void;
@@ -103,6 +105,7 @@ export default function DaladalaPassengerView({
   onOpenConductorMode,
   onOpenDriverMode,
   onOpenDailyReport,
+  onOpenPartnershipModal,
   sessionUser,
   onOpenAuthModal,
   onLogout,
@@ -446,8 +449,8 @@ export default function DaladalaPassengerView({
         </div>
       )}
 
-      {/* 🚀 HUDUMA MUHIMU ZA ABIRIA WA KAWAIDA (LATRA FARE, WANAFUNZI & CROWD STATUS) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* 🚀 HUDUMA MUHIMU ZA ABIRIA WA KAWAIDA (LATRA FARE, WANAFUNZI, CROWD STATUS & UBIA WA UWADAR) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           type="button"
           onClick={() => setIsFareCalculatorOpen(true)}
@@ -519,6 +522,32 @@ export default function DaladalaPassengerView({
           </div>
           <ChevronRight className="w-4 h-4 text-neutral-950/70 group-hover:translate-x-0.5 transition shrink-0" />
         </button>
+
+        {onOpenPartnershipModal && (
+          <button
+            type="button"
+            onClick={onOpenPartnershipModal}
+            className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-800 via-indigo-900 to-slate-900 hover:from-purple-700 hover:to-indigo-800 text-white flex items-center justify-between shadow-md transition active:scale-[0.98] group text-left border border-purple-500/40"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-amber-300 shrink-0 group-hover:scale-105 transition shadow-inner">
+                <Briefcase className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <strong className="text-xs sm:text-sm font-black">Ubia wa UWADAR</strong>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-400 text-neutral-950 font-black text-[9px] uppercase">
+                    PROPOSAL &amp; LATRA
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/80 mt-0.5">
+                  Mkakati wa Hatua 5, Mgawo wa Mapato &amp; Rasimu ya Chama
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-purple-300 group-hover:translate-x-0.5 transition shrink-0" />
+          </button>
+        )}
       </div>
 
       {/* Stop Crowd Drawer Section */}

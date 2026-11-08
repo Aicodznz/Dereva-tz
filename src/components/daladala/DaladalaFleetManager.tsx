@@ -149,6 +149,7 @@ interface DaladalaFleetManagerProps {
   onOpenRegisterPassenger?: () => void;
   ownerProfile?: DaladalaOwnerProfile;
   onUpdateOwnerProfile?: (profile: DaladalaOwnerProfile) => void;
+  onOpenPartnershipModal?: () => void;
   onLogout?: () => void;
 }
 
@@ -164,6 +165,7 @@ export default function DaladalaFleetManager({
   onOpenRegisterPassenger,
   ownerProfile: propOwnerProfile,
   onUpdateOwnerProfile,
+  onOpenPartnershipModal,
   onLogout,
 }: DaladalaFleetManagerProps) {
   // Navigation tabs in Owner Panel
@@ -605,6 +607,18 @@ export default function DaladalaFleetManager({
               <Edit3 className="w-3.5 h-3.5" />
               <span>Hariri Taarifa</span>
             </button>
+
+            {onOpenPartnershipModal && (
+              <button
+                type="button"
+                onClick={onOpenPartnershipModal}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-neutral-950 text-xs font-black flex items-center gap-1.5 shadow-md transition active:scale-95"
+                title="Soma Proposal ya UWADAR & DARCOBOA, Mkakati wa Hatua 5 na Mwigaji wa Mapato"
+              >
+                <span>🤝</span>
+                <span>Ubia wa UWADAR &amp; Proposal</span>
+              </button>
+            )}
 
             <button
               onClick={() => setShowRegisterVehicleModal(true)}
