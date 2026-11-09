@@ -93,65 +93,65 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
 
       {!isVendorOrAdmin && !isDriverUser && !isFullscreen && !isCarRentalRoute && !isDaladalaRoute && <Header />}
 
-      <main className={`flex-1 ${isFullscreen ? 'h-full w-full overflow-hidden overscroll-none p-0' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-24 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
+      <main className={`flex-1 ${isFullscreen ? 'h-full w-full overflow-hidden overscroll-none p-0' : `max-w-[2400px] mx-auto w-full ${isFullWidthPage ? 'px-0 pt-0' : 'px-2 pt-1.5 md:pt-2 pb-16 md:pb-16'} md:px-4 lg:px-6 relative z-10`}`}>
         {children || <Outlet />}
       </main>
 
-      {/* Bottom Navigation for Mobile */}
+      {/* Bottom Navigation for Mobile (Sleek, Compact & Low-Profile) */}
       {!hideBottomNav && (
-        <div className={`md:hidden fixed bottom-5 left-0 right-0 z-[160] px-4 flex justify-center pointer-events-none transition-all duration-300 ease-in-out ${isNavVisible ? 'translate-y-0 opacity-100' : 'translate-y-28 opacity-0 pointer-events-none'}`}>
+        <div className={`md:hidden fixed bottom-3 left-0 right-0 z-[160] px-3 flex justify-center pointer-events-none transition-all duration-300 ease-in-out ${isNavVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'}`}>
           <nav 
-            className="pointer-events-auto bg-neutral-900/95 dark:bg-black/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] px-2 py-1.5 flex items-center justify-around w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden touch-manipulation"
+            className="pointer-events-auto bg-neutral-950/92 dark:bg-black/92 backdrop-blur-xl border border-white/10 rounded-2xl px-2 py-1 flex items-center justify-between w-full max-w-[310px] shadow-[0_10px_25px_rgba(0,0,0,0.4)] relative overflow-hidden touch-manipulation"
           >
             {/* Top Shine Effect */}
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
 
             <Link 
               to="/" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all duration-200 active:scale-90 ${location.pathname === '/' || location.pathname === '/dashboard' ? 'text-orange-500' : 'text-neutral-400 hover:text-neutral-200'}`}
               title="Mwanzo"
             >
               {(location.pathname === '/' || location.pathname === '/dashboard') && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
+                  <motion.div layoutId="nav-active" className="absolute top-0 w-6 h-[2.5px] bg-orange-500 rounded-full shadow-[0_0_8px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-full pointer-events-none" />
                 </>
               )}
-              <Home className="w-6 h-6 relative z-10" />
+              <Home className="w-5 h-5 relative z-10" />
             </Link>
 
             <Link 
               to="/my-orders" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/my-orders' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all duration-200 active:scale-90 ${location.pathname === '/my-orders' ? 'text-orange-500' : 'text-neutral-400 hover:text-neutral-200'}`}
               title="Oda Zangu"
             >
               {location.pathname === '/my-orders' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
+                  <motion.div layoutId="nav-active" className="absolute top-0 w-6 h-[2.5px] bg-orange-500 rounded-full shadow-[0_0_8px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-full pointer-events-none" />
                 </>
               )}
-              <Receipt className="w-6 h-6 relative z-10" />
+              <Receipt className="w-5 h-5 relative z-10" />
             </Link>
 
             <button 
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl group transition-all duration-300 active:scale-95 cursor-pointer ${isCartOpen ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-xl group transition-all duration-200 active:scale-90 cursor-pointer ${isCartOpen ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(234,88,12,0.5)]' : 'text-neutral-400 hover:text-neutral-200'}`}
               title="Kikapu"
             >
               {(isCartOpen || cartCount > 0) && (
-                <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full animate-pulse pointer-events-none" />
+                <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-full animate-pulse pointer-events-none" />
               )}
               <div className="relative">
-                <ShoppingCart className="w-6 h-6 relative z-10 group-active:scale-110 transition-transform" />
+                <ShoppingCart className="w-5 h-5 relative z-10 group-active:scale-110 transition-transform" />
                 {cartCount > 0 && (
                   <motion.span 
                     key={`nav-badge-${badgeAnimateKey}`}
                     initial={{ scale: 0.5 }}
                     animate={{ scale: [1, 1.45, 0.85, 1.15, 1], rotate: [0, 15, -15, 10, 0] }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-orange-600 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-neutral-900 shadow-lg z-20 pointer-events-none"
+                    className="absolute -top-1.5 -right-2 w-4 h-4 bg-orange-600 text-white text-[8px] font-black flex items-center justify-center rounded-full border border-neutral-900 shadow-md z-20 pointer-events-none"
                   >
                     {cartCount}
                   </motion.span>
@@ -161,30 +161,30 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
 
             <Link 
               to="/chat" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/chat' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all duration-200 active:scale-90 ${location.pathname === '/chat' ? 'text-orange-500' : 'text-neutral-400 hover:text-neutral-200'}`}
               title="Mawasiliano"
             >
               {location.pathname === '/chat' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
+                  <motion.div layoutId="nav-active" className="absolute top-0 w-6 h-[2.5px] bg-orange-500 rounded-full shadow-[0_0_8px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-full pointer-events-none" />
                 </>
               )}
-              <MessageSquare className="w-6 h-6 relative z-10" />
+              <MessageSquare className="w-5 h-5 relative z-10" />
             </Link>
 
             <Link 
               to="/profile" 
-              className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-95 ${location.pathname === '/profile' ? 'text-orange-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-xl transition-all duration-200 active:scale-90 ${location.pathname === '/profile' ? 'text-orange-500' : 'text-neutral-400 hover:text-neutral-200'}`}
               title="Wasifu Wangu"
             >
               {location.pathname === '/profile' && (
                 <>
-                  <motion.div layoutId="nav-active" className="absolute top-[-4px] w-8 h-[3px] bg-orange-600 rounded-full shadow-[0_0_10px_rgba(234,88,12,0.8)]" />
-                  <div className="absolute inset-0 bg-orange-500/10 blur-xl rounded-full pointer-events-none" />
+                  <motion.div layoutId="nav-active" className="absolute top-0 w-6 h-[2.5px] bg-orange-500 rounded-full shadow-[0_0_8px_rgba(234,88,12,0.8)]" />
+                  <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-full pointer-events-none" />
                 </>
               )}
-              <User className="w-6 h-6 relative z-10" />
+              <User className="w-5 h-5 relative z-10" />
             </Link>
           </nav>
         </div>

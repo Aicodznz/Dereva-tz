@@ -723,7 +723,7 @@ export default function MayaAIChat() {
           animate={{ scale: 1, opacity: 1 }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="maya-ai-fab-container fixed bottom-24 sm:bottom-28 left-3 sm:left-4 z-[160] touch-none"
+          className="maya-ai-fab-container fixed bottom-16 sm:bottom-20 left-3 sm:left-4 z-[160] touch-none"
         >
           <div className={`relative flex items-center gap-2 px-3 py-2 rounded-2xl shadow-2xl border backdrop-blur-md cursor-grab active:cursor-grabbing group transition-all duration-300 ${getRoleFabStyle()}`}>
             {/* DRAG GRIP ICON */}
@@ -777,7 +777,7 @@ export default function MayaAIChat() {
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => toggleFabHidden(false)}
-          className={`fixed bottom-24 sm:bottom-28 left-0 z-[160] flex items-center gap-1.5 px-2.5 py-1.5 rounded-r-2xl shadow-xl border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
+          className={`fixed bottom-16 sm:bottom-20 left-0 z-[160] flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-r-xl shadow-lg border-y border-r border-white/20 text-white font-black text-xs uppercase tracking-wider backdrop-blur-md transition-all ${getRoleFabStyle()}`}
           title="Onyesha AI Assistant (Unhide FAB)"
         >
           {getRoleIcon()}
