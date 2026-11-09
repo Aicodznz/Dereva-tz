@@ -146,8 +146,8 @@ export default function Header() {
     >
       <div className={`${isFullscreen ? 'w-full px-2.5 sm:px-4 md:px-6' : 'max-w-[2400px] mx-auto px-2.5 sm:px-4 md:px-6'} min-h-[58px] sm:h-16 md:h-20 flex items-center justify-between gap-1 sm:gap-3 py-1 sm:py-0 w-full`}>
         
-        {/* Left: Logo and Brand + Location Directly Under Express */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[55%] xs:max-w-[60%] sm:max-w-none">
+        {/* Left: Logo and Brand */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <Link to="/" className="flex items-center shrink-0 group touch-manipulation" title="Papo Hapo Express">
             {/* Attractive High-Speed 3D Emblem Icon */}
             <div className="relative group shrink-0">
@@ -163,9 +163,9 @@ export default function Header() {
             </div>
           </Link>
 
-          <div className="flex flex-col leading-none min-w-0 justify-center flex-1">
+          <div className="flex flex-col leading-none min-w-0 justify-center">
             <Link to="/" className="flex items-center gap-1 group/brand">
-              <span className="font-black text-xs sm:text-base md:text-lg uppercase italic tracking-tight text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
+              <span className="font-black text-sm sm:text-base md:text-lg uppercase italic tracking-tight text-neutral-900 dark:text-white whitespace-nowrap group-hover/brand:text-orange-600 transition-colors">
                 Papo Hapo
               </span>
               <span className="text-[11px] sm:text-sm leading-none select-none">🇹🇿</span>
@@ -179,11 +179,11 @@ export default function Header() {
               <span className="text-[7px] sm:text-[7.5px] text-neutral-400 font-bold uppercase tracking-wider hidden xs:inline">Dakika 15–30</span>
             </div>
 
-            {/* CHINI YA EXPRESS: Aone eneo alipo + akibonyeza aweze kuediti */}
+            {/* DESKTOP / TABLET ONLY: Location Directly Under Express */}
             <button
               type="button"
               onClick={handleOpenLocationEdit}
-              className="flex items-center gap-1 sm:gap-1.5 mt-1 -ml-0.5 py-0.5 sm:py-1 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-orange-500/10 hover:bg-orange-500/20 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 border border-orange-500/30 hover:border-orange-500/60 transition-all text-left group/loc cursor-pointer max-w-[125px] xs:max-w-[170px] sm:max-w-[260px] md:max-w-[360px] shadow-xs active:scale-95 touch-manipulation"
+              className="hidden sm:flex items-center gap-1 sm:gap-1.5 mt-1 -ml-0.5 py-0.5 sm:py-1 px-1.5 sm:px-2 rounded-lg sm:rounded-xl bg-orange-500/10 hover:bg-orange-500/20 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 border border-orange-500/30 hover:border-orange-500/60 transition-all text-left group/loc cursor-pointer sm:max-w-[260px] md:max-w-[360px] shadow-xs active:scale-95 touch-manipulation"
               title={`Eneo lako la sasa: ${displayAddress}. Bonyeza kubadili au kuediti.`}
             >
               <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-md bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover/loc:scale-110 transition-transform">
@@ -308,31 +308,31 @@ export default function Header() {
               setSuperSplatScene('hotel');
               setIsSuperSplatOpen(true);
             }}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-600 dark:text-purple-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-purple-600 dark:text-purple-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
             title="SuperSplat 3D Virtual Tour (Gaussian Splatting: Hoteli, Magari, Bidhaa, Stendi)"
           >
             <Box className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 animate-pulse" />
-            <span className="hidden sm:inline">3D Splat</span>
+            <span className="hidden md:inline">3D Splat</span>
           </button>
 
           {/* WhatsApp AI Assistant Launcher Button (Wajid Techtube Edition) */}
           <button
             onClick={() => setIsWhatsAppAiOpen(true)}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#00A884]/15 hover:bg-[#00A884]/25 border border-[#00A884]/40 text-[#00A884] dark:text-[#25D366] font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#00A884]/15 hover:bg-[#00A884]/25 border border-[#00A884]/40 text-[#00A884] dark:text-[#25D366] font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
             title="Msaidizi wa WhatsApp AI - Agiza Safari, Bidhaa & Risiti"
           >
             <MessageCircle className="w-3.5 h-3.5 fill-[#00A884] dark:fill-[#25D366] text-transparent" />
-            <span className="hidden sm:inline">WhatsApp AI</span>
+            <span className="hidden md:inline">WhatsApp AI</span>
           </button>
 
           {/* PapoCredit - One Credit. All Services */}
           <button
             onClick={() => setIsPapoCreditOpen(true)}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
+            className="hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0 cursor-pointer"
             title="PapoCredit - One Credit. All Services (Mkopo wa Huduma Zote, PapoFlex, PapoGuarantor)"
           >
             <CreditCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="hidden sm:inline">PapoCredit</span>
+            <span className="hidden md:inline">PapoCredit</span>
           </button>
 
           {/* User Profile */}
@@ -415,8 +415,34 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Search Row Removed as per user request */}
-      
+      {/* Mobile Dedicated Location Sub-Bar (Zero Overlap & Crystal-Clear Readability) */}
+      <div className="sm:hidden px-2.5 pb-1.5 pt-0.5">
+        <button
+          type="button"
+          onClick={handleOpenLocationEdit}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/15 dark:bg-orange-950/30 border border-orange-500/25 text-left transition-all active:scale-[0.99] touch-manipulation shadow-2xs"
+          title={`Eneo lako la sasa: ${displayAddress}. Bonyeza kubadili.`}
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-4 h-4 rounded-md bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <MapPin className="w-2.5 h-2.5 fill-white/40 text-white" />
+            </div>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-[9px] text-neutral-500 dark:text-neutral-400 font-bold uppercase tracking-wider shrink-0">
+                Eneo:
+              </span>
+              <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200 truncate">
+                {displayAddress}
+              </span>
+            </div>
+          </div>
+          <span className="text-[8.5px] font-black uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-200/80 dark:bg-orange-900/80 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 ml-2">
+            <Edit3 className="w-2 h-2" />
+            <span>Badili</span>
+          </span>
+        </button>
+      </div>
+
       {/* Dynamic Screen Language Change Overlay */}
       <AnimatePresence>
         {isChangingLanguage && (
