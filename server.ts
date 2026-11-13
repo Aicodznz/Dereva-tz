@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInput } from "./src/lib/metaBot";
+import { handleMetaInput, sendMetaOutboundMessage } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -247,7 +247,7 @@ async function startServer() {
       status: "active",
       service: "Papo Hapo Meta Webhook",
       verify_token: expectedToken,
-      endpoint_url: "https://dereva-tz.vercel.app/api/meta/webhook"
+      endpoint_url: "https://dereva-tz.onrender.com/api/meta/webhook"
     });
   });
 
@@ -257,6 +257,7 @@ async function startServer() {
     
     let senderId = "";
     let textBody = "";
+    let phoneNumberId = "";
     let channel: 'whatsapp' | 'messenger' | 'instagram' = 'whatsapp';
     
     // 1. WhatsApp Business Cloud API payload detection
@@ -264,10 +265,17 @@ async function startServer() {
       const entry = req.body.entry?.[0];
       const change = entry?.changes?.[0];
       const value = change?.value;
+      phoneNumberId = value?.metadata?.phone_number_id || "";
       const message = value?.messages?.[0];
       if (message) {
         senderId = message.from || "";
-        textBody = message.text?.body || "";
+        textBody =
+          message.text?.body ||
+          message.interactive?.button_reply?.title ||
+          message.interactive?.list_reply?.title ||
+          message.button?.text ||
+          (message.location ? `${message.location.name || ''} ${message.location.address || ''} (${message.location.latitude},${message.location.longitude})`.trim() : "") ||
+          "";
         channel = 'whatsapp';
       }
     } 
@@ -287,6 +295,13 @@ async function startServer() {
         console.log(`[Meta Webhook] Incoming message on ${channel} from ${senderId}: "${textBody}"`);
         const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
         console.log(`[Meta Webhook] Responding to ${channel}:${senderId} -> "${reply}"`);
+
+        await sendMetaOutboundMessage({
+          channel,
+          recipientId: senderId,
+          text: reply,
+          phoneNumberId,
+        });
         
         recordMetaChatInMemory(channel, senderId, textBody, reply);
 

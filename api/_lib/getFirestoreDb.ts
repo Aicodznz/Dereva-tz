@@ -20,6 +20,35 @@ import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 // Fallback in-memory store
 const memoryStore = new Map<string, Map<string, any>>();
 
+export function cleanUndefined(obj: any): any {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof Date) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined).filter((v) => v !== undefined);
+  }
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      clean[k] = cleanUndefined(v);
+    }
+  }
+  return clean;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms = 2500, label = "Operation"): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 function getMemoryCollection(colPath: string): Map<string, any> {
   let col = memoryStore.get(colPath);
   if (!col) {
@@ -42,15 +71,20 @@ try {
 
     // Automatically sign in the server-side client as the guest staff to avoid permission denied
     const auth = getAuth(appInstance);
-    authPromise = signInWithEmailAndPassword(auth, 'guest_staff@mabasi.com', 'GuestStaff123!')
-      .then((userCred) => {
-        console.log(`[getFirestoreDb] Server-side Firebase client signed in successfully as guest staff (UID: ${userCred.user.uid})`);
-        return userCred;
-      })
-      .catch((err) => {
-        console.error("[getFirestoreDb] Server-side guest staff authentication failed:", err.message);
-        throw err;
-      });
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Auth timeout")), 1500)
+    );
+    authPromise = Promise.race([
+      signInWithEmailAndPassword(auth, 'guest_staff@mabasi.com', 'GuestStaff123!')
+        .then((userCred) => {
+          console.log(`[getFirestoreDb] Server-side Firebase client signed in successfully as guest staff (UID: ${userCred.user.uid})`);
+          return userCred;
+        }),
+      timeoutPromise
+    ]).catch((err) => {
+      console.warn("[getFirestoreDb] Server-side guest staff authentication skipped/timed out:", err.message);
+      return null;
+    });
   }
 } catch (e) {
   console.warn("[getFirestoreDb] Failed to initialize JS Client Firestore:", e);
@@ -152,8 +186,8 @@ export function getFirestoreDb() {
         if (authPromise) {
           try {
             await authPromise;
-          } catch (e) {
-            console.warn("[getFirestoreDb] Failed awaiting authPromise in get(), continuing:", e.message);
+          } catch (e: any) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in get(), continuing:", e?.message || e);
           }
         }
         if (realDb) {
@@ -175,7 +209,7 @@ export function getFirestoreDb() {
                 ? firestoreQuery(colRef, ...queryParams)
                 : colRef;
                 
-              const snap = await firestoreGetDocs(q);
+              const snap = await withTimeout(firestoreGetDocs(q), 2500, `getDocs(${colPath})`);
               const docs = snap.docs.map((doc: any) => ({
                 id: doc.id,
                 data: () => doc.data()
@@ -189,15 +223,15 @@ export function getFirestoreDb() {
               };
             } else {
               const docRef = firestoreDoc(realDb, colPath);
-              const snap = await firestoreGetDoc(docRef);
+              const snap = await withTimeout(firestoreGetDoc(docRef), 2500, `getDoc(${colPath})`);
               return {
                 id: snap.id,
                 exists: snap.exists(),
                 data: () => snap.data()
               };
             }
-          } catch (err) {
-            console.warn(`[getFirestoreDb] Real DB get() failed for ${colPath}, using in-memory fallback:`, err);
+          } catch (err: any) {
+            console.warn(`[getFirestoreDb] Real DB get() fallback for ${colPath}:`, err?.message || err);
             return getInMemory();
           }
         }
@@ -205,66 +239,69 @@ export function getFirestoreDb() {
       },
 
       set: async (data: any, options?: any) => {
+        const cleanData = cleanUndefined(data);
         // Sync in-memory first
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
         const col = getMemoryCollection(parentColPath);
         if (options && options.merge && col.has(docId)) {
-          col.set(docId, { ...col.get(docId), ...data });
+          col.set(docId, { ...col.get(docId), ...cleanData });
         } else {
-          col.set(docId, { ...data });
+          col.set(docId, { ...cleanData });
         }
 
         // Try real DB
         if (authPromise) {
           try {
             await authPromise;
-          } catch (e) {
-            console.warn("[getFirestoreDb] Failed awaiting authPromise in set():", e.message);
+          } catch (e: any) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in set():", e?.message || e);
           }
         }
         if (realDb) {
           try {
             const docRef = firestoreDoc(realDb, colPath);
-            await firestoreSetDoc(docRef, data, options);
-          } catch (err) {
-            console.warn(`[getFirestoreDb] Real DB set() failed for ${colPath}/${docId}:`, err);
+            await withTimeout(firestoreSetDoc(docRef, cleanData, options), 2500, `setDoc(${colPath})`);
+          } catch (err: any) {
+            console.warn(`[getFirestoreDb] Real DB set() failed for ${colPath}/${docId}:`, err?.message || err);
           }
         }
       },
 
       update: async (data: any) => {
+        const cleanData = cleanUndefined(data);
         // Sync in-memory first
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
         const col = getMemoryCollection(parentColPath);
         const current = col.get(docId) || {};
-        col.set(docId, { ...current, ...data });
+        col.set(docId, { ...current, ...cleanData });
 
         // Try real DB
         if (authPromise) {
           try {
             await authPromise;
-          } catch (e) {
-            console.warn("[getFirestoreDb] Failed awaiting authPromise in update():", e.message);
+          } catch (e: any) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in update():", e?.message || e);
           }
         }
         if (realDb) {
           try {
             const docRef = firestoreDoc(realDb, colPath);
-            await firestoreUpdateDoc(docRef, data);
-          } catch (err) {
-            console.warn(`[getFirestoreDb] Real DB update() failed for ${colPath}/${docId}:`, err);
+            await withTimeout(firestoreUpdateDoc(docRef, cleanData), 2500, `updateDoc(${colPath})`);
+          } catch (err: any) {
+            console.warn(`[getFirestoreDb] Real DB update() failed for ${colPath}/${docId}:`, err?.message || err);
           }
         }
       },
 
       add: async (data: any) => {
+        const cleanData = cleanUndefined(data);
         const autoId = `m-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         
         // Sync in-memory first
         const col = getMemoryCollection(colPath);
-        col.set(autoId, { id: autoId, ...data });
+        col.set(autoId, { id: autoId, ...cleanData });
 
         let finalId = autoId;
 
@@ -272,19 +309,19 @@ export function getFirestoreDb() {
         if (authPromise) {
           try {
             await authPromise;
-          } catch (e) {
-            console.warn("[getFirestoreDb] Failed awaiting authPromise in add():", e.message);
+          } catch (e: any) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in add():", e?.message || e);
           }
         }
         if (realDb) {
           try {
             const colRef = firestoreCollection(realDb, colPath);
-            const docRef = await firestoreAddDoc(colRef, data);
+            const docRef = await withTimeout(firestoreAddDoc(colRef, cleanData), 2500, `addDoc(${colPath})`);
             finalId = docRef.id;
             col.delete(autoId);
-            col.set(finalId, { id: finalId, ...data });
-          } catch (err) {
-            console.warn(`[getFirestoreDb] Real DB add() failed for ${colPath}:`, err);
+            col.set(finalId, { id: finalId, ...cleanData });
+          } catch (err: any) {
+            console.warn(`[getFirestoreDb] Real DB add() failed for ${colPath}:`, err?.message || err);
           }
         }
 

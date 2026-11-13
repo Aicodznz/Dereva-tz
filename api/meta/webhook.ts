@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { handleMetaInput } from '../_lib/metaBot';
+import { handleMetaInput, sendMetaOutboundMessage } from '../_lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: "active",
         service: "Papo Hapo Meta Webhook (WhatsApp, Messenger, Instagram)",
         verify_token: expectedToken,
-        endpoint_url: "https://dereva-tz.vercel.app/api/meta/webhook",
+        endpoint_url: "https://dereva-tz.onrender.com/api/meta/webhook",
         timestamp: new Date().toISOString()
       });
     }
@@ -71,6 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let senderId = "";
       let textBody = "";
+      let phoneNumberId = "";
       let channel: 'whatsapp' | 'messenger' | 'instagram' = 'whatsapp';
 
       // WhatsApp Business Cloud API payload
@@ -78,10 +79,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const entry = body.entry?.[0];
         const change = entry?.changes?.[0];
         const value = change?.value;
+        phoneNumberId = value?.metadata?.phone_number_id || "";
         const message = value?.messages?.[0];
         if (message) {
           senderId = message.from || "";
-          textBody = message.text?.body || "";
+          textBody =
+            message.text?.body ||
+            message.interactive?.button_reply?.title ||
+            message.interactive?.list_reply?.title ||
+            message.button?.text ||
+            (message.location ? `${message.location.name || ''} ${message.location.address || ''} (${message.location.latitude},${message.location.longitude})`.trim() : "") ||
+            "";
           channel = 'whatsapp';
         }
       } 
@@ -103,6 +111,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.log(`[Meta Webhook Vercel] Processing message from ${channel}:${senderId}: "${textBody}"`);
           const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
           console.log(`[Meta Webhook Vercel] Reply to ${channel}:${senderId} -> "${reply}"`);
+
+          await sendMetaOutboundMessage({
+            channel,
+            recipientId: senderId,
+            text: reply,
+            phoneNumberId,
+          });
 
           if (dbAdmin) {
             await dbAdmin.collection('meta_chats').add({

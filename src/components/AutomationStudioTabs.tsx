@@ -172,9 +172,13 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
   const [customProductionDomain, setCustomProductionDomain] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('custom_production_domain') || 'https://dereva-tz.vercel.app';
+      const saved = localStorage.getItem('custom_production_domain');
+      if (!saved || saved.includes('dereva-tz.vercel.app')) {
+        return 'https://dereva-tz.onrender.com';
+      }
+      return saved;
     }
-    return 'https://dereva-tz.vercel.app';
+    return 'https://dereva-tz.onrender.com';
   });
 
   const handleDomainChange = (val: string) => {
@@ -1243,7 +1247,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handleDomainChange('https://dereva-tz.vercel.app')}
+                            onClick={() => handleDomainChange('https://dereva-tz.onrender.com')}
                             className="h-5 px-1.5 text-[9px] uppercase font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                           >
                             Rejesha Chaguomsingi
@@ -1253,7 +1257,7 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                           <Input 
                             value={customProductionDomain}
                             onChange={(e) => handleDomainChange(e.target.value)}
-                            placeholder="https://dereva-tz.vercel.app"
+                            placeholder="https://dereva-tz.onrender.com"
                             className="font-mono text-xs bg-white dark:bg-black h-8 border-neutral-200/60 py-1"
                           />
                         </div>

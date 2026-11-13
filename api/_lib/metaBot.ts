@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
 import { resolvePlace, getRoadDistanceAndDuration } from './geocoder.js';
+import { cleanUndefined } from './getFirestoreDb.js';
 
 export interface MetaSession {
   senderId: string;
@@ -240,7 +241,8 @@ export async function saveMetaSession(session: MetaSession, dbAdmin: any): Promi
 
   if (dbAdmin) {
     try {
-      await dbAdmin.collection('meta_sessions').doc(sessionKey).set(session);
+      const sanitized = cleanUndefined(session);
+      await dbAdmin.collection('meta_sessions').doc(sessionKey).set(sanitized);
     } catch (err) {
       console.warn("[Meta Bot] Firestore write failed:", err);
     }
@@ -441,6 +443,7 @@ export async function executeNodeChain(
   let replyText = "";
   let loopCount = 0;
   const maxLoops = 20; // Secure against cyclic loops
+  const visitedNodeIds = new Set<string>();
 
   if (!session.details.variables) {
     session.details.variables = {};
@@ -467,6 +470,12 @@ export async function executeNodeChain(
 
   while (currentNode && loopCount < maxLoops) {
     loopCount++;
+    if (visitedNodeIds.has(currentNode.id)) {
+      console.log(`[Meta Bot] Cycle detected at node ${currentNode.id}, halting chain.`);
+      break;
+    }
+    visitedNodeIds.add(currentNode.id);
+
     const nodeType = currentNode.type;
     const nodeData = currentNode.data || {};
 
@@ -506,7 +515,7 @@ export async function executeNodeChain(
       if (session.details.activeQuestionNodeId === currentNode.id) {
         const varName = nodeData.variableName || "temp";
         session.details.variables[varName] = userInput;
-        session.details.activeQuestionNodeId = undefined; // Cleared
+        delete session.details.activeQuestionNodeId; // Cleared
 
         let nextId = nodeData.nextNodeId;
         // Option/Quick Reply routing
@@ -572,14 +581,24 @@ export async function executeNodeChain(
         break;
       }
     }
-    // 5. AI INTENT DECISION BLOCK (GEMINI INTEGRATION)
+    // 5. AI INTENT DECISION BLOCK (GEMINI & KEYWORD HYBRID)
     else if (nodeType === 'ai_decision') {
-      let nextId = nodeData.nextNodeId;
+      let nextId: string | undefined = undefined;
       const intentMappings = nodeData.intentMappings || [];
 
       if (intentMappings.length > 0) {
-        // Real-time AI classification via Gemini!
-        if (process.env.GEMINI_API_KEY) {
+        const cleanedUser = userInput.toLowerCase().trim();
+        // 1. Instant keyword & numeric matching
+        for (const m of intentMappings) {
+          const keywords = (m.keywords || "").split(',').map((k: any) => k.trim().toLowerCase());
+          if (keywords.some((k: any) => cleanedUser === k || (k.length > 1 && cleanedUser.includes(k)))) {
+            nextId = m.nextNodeId;
+            break;
+          }
+        }
+
+        // 2. Real-time AI classification via Gemini if keyword did not match directly and user input is substantial
+        if (!nextId && process.env.GEMINI_API_KEY && userInput.length > 3 && !['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani'].includes(cleanedUser)) {
           try {
             const prompt = `You are the core AI routing engine for Papo Hapo Super App.
 Analyze the customer's input message and select the best matching category from the list.
@@ -601,18 +620,7 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
               console.log(`[Workflow AI Classifier] Classified "${userInput}" to Category: ${nextId}`);
             }
           } catch (err) {
-            console.warn("[Workflow AI Classifier] Gemini failed, falling back to keyword mapping:", err);
-          }
-        }
-
-        // Keyword fallback if Gemini fails or is not configured
-        if (nextId === nodeData.nextNodeId || !nextId) {
-          for (const m of intentMappings) {
-            const keywords = (m.keywords || "").split(',').map((k: any) => k.trim().toLowerCase());
-            if (keywords.some((k: any) => userInput.toLowerCase().includes(k))) {
-              nextId = m.nextNodeId;
-              break;
-            }
+            console.warn("[Workflow AI Classifier] Gemini classification skipped:", err);
           }
         }
       }
@@ -620,6 +628,9 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
       if (nextId) {
         currentNode = nodes.find(n => n.id === nextId);
       } else {
+        // No choice made yet: stay at this decision node and await user's selection
+        session.details.currentNodeId = currentNode.id;
+        await saveMetaSession(session, dbAdmin);
         break;
       }
     }
@@ -815,8 +826,8 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
     }
     // 15. END NODE
     else if (nodeType === 'end') {
-      session.details.currentNodeId = undefined;
-      session.details.activeQuestionNodeId = undefined;
+      delete session.details.currentNodeId;
+      delete session.details.activeQuestionNodeId;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -836,7 +847,8 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
   if (currentNode) {
     session.details.currentNodeId = currentNode.id;
   } else {
-    session.details.currentNodeId = undefined;
+    delete session.details.currentNodeId;
+    delete session.details.activeQuestionNodeId;
     session.step = 'START';
   }
 
@@ -1054,8 +1066,12 @@ export async function handleMetaInput(
     if (isReset || !session.details.currentNodeId) {
       // Reset flow and find start node
       const startNode = workflowNodes.find(n => n.type === 'start');
-      session.details.currentNodeId = startNode ? startNode.id : undefined;
-      session.details.activeQuestionNodeId = undefined;
+      if (startNode) {
+        session.details.currentNodeId = startNode.id;
+      } else {
+        delete session.details.currentNodeId;
+      }
+      delete session.details.activeQuestionNodeId;
       session.details.variables = {};
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
@@ -1077,7 +1093,7 @@ export async function handleMetaInput(
       if (keywordsArray.includes(cleanedLower)) {
         // Clear active session to return to start mode, and return response
         session.step = 'COLLECTING_ROUTE';
-        session.service = undefined;
+        delete session.service;
         session.details = {};
         await saveMetaSession(session, dbAdmin);
         return t.response;
@@ -1134,7 +1150,7 @@ export async function handleMetaInput(
   
   if (isGreeting || session.step === 'START') {
     session.step = 'START';
-    session.service = undefined;
+    delete session.service;
     session.details = {};
     
     // Classify first statement if it is conversational and not just a greeting
@@ -1199,7 +1215,7 @@ export async function handleMetaInput(
   if (activeSrv && activeSrv.isMaintenance) {
     // Intercept if active flow got put into maintenance mid-way
     session.step = 'START';
-    session.service = undefined;
+    delete session.service;
     session.details = {};
     await saveMetaSession(session, dbAdmin);
     return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
@@ -1429,7 +1445,7 @@ async function routeToServiceFlow(
         return `📍 Tafadhali andika namba yako ya simu ya mkononi ya kupokelea simu ya dereva (Mfano: *0712345678*):`;
       } else if (cleaned === '2' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('no') || cleaned.includes('cancel')) {
         session.step = 'START';
-        session.service = undefined;
+        delete session.service;
         session.details = {};
         await saveMetaSession(session, dbAdmin);
         return `❌ Safari yako imesitishwa kikamilifu. Karibu tena wakati mwingine ukiwa tayari kusafiri na Papo Hapo! 🚖`;
@@ -1987,7 +2003,7 @@ async function routeToServiceFlow(
 
   // Reset to default
   session.step = 'START';
-  session.service = undefined;
+  delete session.service;
   session.details = {};
   await saveMetaSession(session, dbAdmin);
   
@@ -2005,3 +2021,96 @@ async function routeToServiceFlow(
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
   return generateDynamicWelcomeMessage(servicesConfig, chSymbol);
 }
+
+/**
+ * Sends a real outbound reply via Meta Graph API (WhatsApp Cloud API / Messenger / Instagram)
+ */
+export async function sendMetaOutboundMessage(params: {
+  channel: 'whatsapp' | 'messenger' | 'instagram';
+  recipientId: string;
+  text: string;
+  phoneNumberId?: string;
+}): Promise<{ sent: boolean; reason?: string }> {
+  const { channel, recipientId, text, phoneNumberId } = params;
+  if (!recipientId || !text) {
+    return { sent: false, reason: 'Missing recipientId or text' };
+  }
+
+  try {
+    if (channel === 'whatsapp') {
+      const accessToken = (
+        process.env.META_WHATSAPP_ACCESS_TOKEN ||
+        process.env.WHATSAPP_ACCESS_TOKEN ||
+        process.env.META_ACCESS_TOKEN ||
+        ''
+      ).trim();
+
+      const resolvedPhoneId = (
+        phoneNumberId ||
+        process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
+        process.env.WHATSAPP_PHONE_NUMBER_ID ||
+        ''
+      ).trim();
+
+      if (!accessToken || !resolvedPhoneId) {
+        console.warn('[Meta Outbound] Skipping WhatsApp send: missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId');
+        return { sent: false, reason: 'Missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId' };
+      }
+
+      const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipientId,
+          type: 'text',
+          text: {
+            preview_url: false,
+            body: text.slice(0, 4096),
+          },
+        }),
+      });
+
+      const respData = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error('[Meta Outbound] WhatsApp Cloud API error:', resp.status, JSON.stringify(respData));
+        return { sent: false, reason: respData?.error?.message || `HTTP ${resp.status}` };
+      }
+
+      console.log(`[Meta Outbound] WhatsApp reply sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
+      return { sent: true };
+    }
+
+    const pageToken = (process.env.META_PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '').trim();
+    if (!pageToken) {
+      return { sent: false, reason: 'Missing META_PAGE_ACCESS_TOKEN' };
+    }
+
+    const resp = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(pageToken)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        messaging_type: 'RESPONSE',
+        message: { text: text.slice(0, 2000) },
+      }),
+    });
+
+    const respData = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      console.error(`[Meta Outbound] ${channel} API error:`, resp.status, JSON.stringify(respData));
+      return { sent: false, reason: respData?.error?.message || `HTTP ${resp.status}` };
+    }
+
+    console.log(`[Meta Outbound] ${channel} reply sent to ${recipientId}`);
+    return { sent: true };
+  } catch (err: any) {
+    console.error('[Meta Outbound] Network error:', err?.message || err);
+    return { sent: false, reason: err?.message || String(err) };
+  }
+}
+
