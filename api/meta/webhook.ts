@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             message.interactive?.button_reply?.title ||
             message.interactive?.list_reply?.title ||
             message.button?.text ||
-            (message.location ? `${message.location.name || ''} ${message.location.address || ''} (${message.location.latitude},${message.location.longitude})`.trim() : "") ||
+            (message.location ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}` : "") ||
             "";
           channel = 'whatsapp';
         }

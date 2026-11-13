@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInput, sendMetaOutboundMessage } from "./src/lib/metaBot";
+import { handleMetaInput, sendMetaOutboundMessage, notifyRideStatusToMeta } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -274,7 +274,7 @@ async function startServer() {
           message.interactive?.button_reply?.title ||
           message.interactive?.list_reply?.title ||
           message.button?.text ||
-          (message.location ? `${message.location.name || ''} ${message.location.address || ''} (${message.location.latitude},${message.location.longitude})`.trim() : "") ||
+          (message.location ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}` : "") ||
           "";
         channel = 'whatsapp';
       }
@@ -331,6 +331,24 @@ async function startServer() {
     }
     
     return res.status(200).send("EVENT_RECEIVED");
+  });
+
+  // Notify Meta customer (WhatsApp / Messenger / Instagram) when driver updates ride status
+  app.post("/api/meta/ride-status-notify", async (req, res) => {
+    try {
+      const { rideId, status, driverInfo, driverLocation, rideData } = req.body || {};
+      if (!rideId || !status) {
+        return res.status(400).json({ error: "rideId and status are required" });
+      }
+      const result = await notifyRideStatusToMeta(
+        { rideId, status, driverInfo, driverLocation, rideData },
+        dbAdmin
+      );
+      return res.json({ status: "ok", ...result });
+    } catch (err: any) {
+      console.error("[Meta Ride Status Notify] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to send ride status notification" });
+    }
   });
 
   // Meta Omni-Channel Simulator endpoint for front-end testing
