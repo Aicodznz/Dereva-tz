@@ -2085,6 +2085,41 @@ export async function sendMetaOutboundMessage(params: {
       return { sent: true };
     }
 
+    if (channel === 'instagram') {
+      const igToken = (process.env.META_INSTAGRAM_ACCESS_TOKEN || '').trim();
+      const pageToken = (process.env.META_PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '').trim();
+      const token = igToken || pageToken;
+
+      if (!token) {
+        return { sent: false, reason: 'Missing META_INSTAGRAM_ACCESS_TOKEN or META_PAGE_ACCESS_TOKEN' };
+      }
+
+      const endpoint = igToken
+        ? `https://graph.instagram.com/v21.0/me/messages`
+        : `https://graph.facebook.com/v21.0/me/messages`;
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text: text.slice(0, 1000) },
+        }),
+      });
+
+      const respData = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error(`[Meta Outbound] instagram API error:`, resp.status, JSON.stringify(respData));
+        return { sent: false, reason: respData?.error?.message || `HTTP ${resp.status}` };
+      }
+
+      console.log(`[Meta Outbound] instagram reply sent to ${recipientId}`);
+      return { sent: true };
+    }
+
     const pageToken = (process.env.META_PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '').trim();
     if (!pageToken) {
       return { sent: false, reason: 'Missing META_PAGE_ACCESS_TOKEN' };

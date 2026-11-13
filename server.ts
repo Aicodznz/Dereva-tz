@@ -283,9 +283,15 @@ async function startServer() {
     else if (req.body.object === "page" || req.body.object === "instagram") {
       const entry = req.body.entry?.[0];
       const messaging = entry?.messaging?.[0];
-      if (messaging) {
+      const isEcho = Boolean(messaging?.message?.is_echo);
+      if (messaging && !isEcho) {
         senderId = messaging.sender?.id || "";
-        textBody = messaging.message?.text || "";
+        textBody =
+          messaging.message?.text ||
+          messaging.message?.quick_reply?.payload ||
+          messaging.postback?.title ||
+          messaging.postback?.payload ||
+          "";
         channel = req.body.object === "instagram" ? 'instagram' : 'messenger';
       }
     }

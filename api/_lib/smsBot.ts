@@ -4156,26 +4156,28 @@ export async function sendAfricaTalkingSMS(
   vendorId: string = 'admin-global'
 ): Promise<{ success: boolean; data?: string; error?: string }> {
   try {
-    if (!dbAdmin) {
-      console.warn("[Africa's Talking] Missing dbAdmin");
-      return { success: false, error: "Database not initialized" };
-    }
+    let username = process.env.AFRICASTALKING_USERNAME || "";
+    let apiKey = process.env.AFRICASTALKING_API_KEY || "";
+    let senderId = process.env.AFRICASTALKING_SENDER_ID || "";
 
-    const docRef = dbAdmin.collection('vendors').doc(vendorId).collection('settings').doc('sms_config');
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) {
-      console.warn("[Africa's Talking] sms_config document does not exist for vendor:", vendorId);
-      return { success: false, error: "sms_config not configured in Firestore" };
+    if (dbAdmin) {
+      try {
+        const docRef = dbAdmin.collection('vendors').doc(vendorId).collection('settings').doc('sms_config');
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          username = data?.atUsername || username;
+          apiKey = data?.atApiKey || apiKey;
+          senderId = data?.atSenderId || senderId;
+        }
+      } catch (dbErr) {
+        console.warn("[Africa's Talking] Could not read sms_config from Firestore, using env vars if set");
+      }
     }
-
-    const data = docSnap.data();
-    const username = data.atUsername || "";
-    const apiKey = data.atApiKey || "";
-    const senderId = data.atSenderId || "";
 
     if (!username || !apiKey) {
       console.warn("[Africa's Talking] Missing username or apiKey for vendor:", vendorId);
-      return { success: false, error: "Africa's Talking Username au API Key haijawekwa kwenye Mipangilio" };
+      return { success: false, error: "Africa's Talking Username au API Key haijawekwa kwenye Mipangilio au Environment Variables" };
     }
 
     const isSandbox = username.toLowerCase() === 'sandbox';

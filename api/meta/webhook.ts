@@ -97,9 +97,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       else if (body.object === "page" || body.object === "instagram") {
         const entry = body.entry?.[0];
         const messaging = entry?.messaging?.[0];
-        if (messaging) {
+        const isEcho = Boolean(messaging?.message?.is_echo);
+        if (messaging && !isEcho) {
           senderId = messaging.sender?.id || "";
-          textBody = messaging.message?.text || "";
+          textBody =
+            messaging.message?.text ||
+            messaging.message?.quick_reply?.payload ||
+            messaging.postback?.title ||
+            messaging.postback?.payload ||
+            "";
           channel = body.object === "instagram" ? 'instagram' : 'messenger';
         }
       }
