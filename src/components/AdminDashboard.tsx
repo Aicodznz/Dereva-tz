@@ -1173,15 +1173,18 @@ export default function AdminDashboard() {
     }
   ], [t]);
 
-  const filteredUsers = allUsers.filter(u => 
-    u.displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = allUsers.filter(u => {
+    const q = (searchQuery || '').toLowerCase();
+    const dName = (u.displayName || (u as any).name || '').toLowerCase();
+    const email = (u.email || u.phone || '').toLowerCase();
+    return dName.includes(q) || email.includes(q);
+  });
 
-  const filteredVendors = vendors.filter(v => 
-    v.businessName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    v.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVendors = vendors.filter(v => {
+    const q = (searchQuery || '').toLowerCase();
+    return (v.businessName || '').toLowerCase().includes(q) ||
+      (v.category || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col md:flex-row">
@@ -1505,7 +1508,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                         {allProducts.filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((product, idx) => {
+                         {allProducts.filter(p => !searchQuery || (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())).map((product, idx) => {
                             const currentVendor = vendors.find(v => v.id === product.vendorId);
                            const mongikeFee = product.price * 0.035;
                            const platformCommission = product.price * 0.10;
@@ -1620,11 +1623,11 @@ export default function AdminDashboard() {
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center font-black text-orange-600">
-                              {user.displayName[0]}
+                              {(user.displayName || (user as any).name || 'U')[0]}
                             </div>
                             <div>
-                              <p className="font-black text-neutral-900 dark:text-white">{user.displayName}</p>
-                              <p className="text-xs text-neutral-400">{user.email}</p>
+                              <p className="font-black text-neutral-900 dark:text-white">{user.displayName || (user as any).name || 'Mteja'}</p>
+                              <p className="text-xs text-neutral-400">{user.email || user.phone || '—'}</p>
                             </div>
                           </div>
                         </td>
@@ -2313,10 +2316,10 @@ export default function AdminDashboard() {
                       >
                          <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center font-black group-hover:scale-110 transition-transform text-blue-600">
-                               {rider.displayName[0]}
+                               {(rider.displayName || (rider as any).name || 'D')[0]}
                             </div>
                             <div>
-                               <p className="font-bold text-sm group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</p>
+                               <p className="font-bold text-sm group-hover:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName || (rider as any).name || 'Driver'}</p>
                                <p className="text-[10px] opacity-60 uppercase font-black">{rider.driverType || 'Driver'}</p>
                             </div>
                          </div>
@@ -2350,11 +2353,11 @@ export default function AdminDashboard() {
                                }}
                              >
                                <div className="w-14 h-14 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-blue-600 font-black text-xl group-hover/driver:scale-105 transition-transform duration-200">
-                                  {rider.displayName[0]}
+                                  {(rider.displayName || (rider as any).name || 'D')[0]}
                                </div>
                                <div className="flex flex-col">
                                   <div className="flex items-center gap-2">
-                                     <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover/driver:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName}</h4>
+                                     <h4 className="font-black text-lg text-neutral-900 dark:text-white group-hover/driver:text-blue-600 transition-colors uppercase italic leading-none">{rider.displayName || (rider as any).name || 'Driver'}</h4>
                                      {driverLocations.find(d => d.id === rider.id && (d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true)) && (
                                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Live Online" />
                                      )}

@@ -181,11 +181,12 @@ async function getMetaCustomerProfile(
           const uSnap = await usersCol.where('phone', '==', candidate).limit(1).get();
           if (!uSnap.empty) {
             const uData = uSnap.docs[0].data();
-            if (uData?.name) {
+            const resolvedName = uData?.displayName || uData?.name;
+            if (resolvedName) {
               const profile: MetaCustomerProfile = {
                 senderId,
                 channel,
-                name: uData.name,
+                name: resolvedName,
                 phone: uData.phone || `+${cleanDigits}`,
                 createdAt: Date.now(),
               };
@@ -211,10 +212,14 @@ async function saveMetaCustomerProfile(
   if (dbAdmin) {
     try {
       await dbAdmin.collection('meta_customers').doc(key).set(cleanUndefined(profile));
-      const userId = `meta-${profile.channel}-${profile.senderId.replace(/[^a-zA-Z0-9]/g, '')}`;
+      const cleanId = profile.senderId.replace(/[^a-zA-Z0-9]/g, '');
+      const userId = `meta-${profile.channel}-${cleanId}`;
+      const fallbackEmail = `${cleanId || 'guest'}@${profile.channel}.papohapo.tz`;
       await dbAdmin.collection('users').doc(userId).set(
         cleanUndefined({
+          displayName: profile.name,
           name: profile.name,
+          email: fallbackEmail,
           phone: profile.phone,
           role: 'customer',
           channel: profile.channel,
