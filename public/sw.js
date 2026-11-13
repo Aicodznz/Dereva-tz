@@ -1,8 +1,11 @@
-const CACHE_NAME = 'papo-hapo-v3';
+const CACHE_NAME = 'papo-hapo-v4';
 const ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/brand/app-icon.png',
+  '/brand/logo-full.png',
+  '/brand/whatsapp-badge.png'
 ];
 
 // Install Event
@@ -110,8 +113,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Papo Hapo';
   const options = {
     body: data.body || 'Una taarifa mpya kutoka Papo Hapo',
-    icon: data.icon || 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
-    badge: data.badge || 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
+    icon: data.icon || '/brand/app-icon.png',
+    badge: data.badge || '/brand/whatsapp-badge.png',
     image: data.image || undefined,
     tag: data.tag || 'papopay_general',
     data: data.data || { url: data.url || '/notifications' },

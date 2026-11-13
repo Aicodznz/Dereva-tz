@@ -489,7 +489,7 @@ export default function AdminDashboard() {
     currencySymbol: 'Tsh',
     timeFormat: '24h',
     // App Design & Download Branding
-    appLogo: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png', // beautiful default taxi/car logo
+    appLogo: '/brand/app-icon.png',
     splashText: 'Usafiri wa Haraka, Salama na Uhakika',
     splashColor: '#0c0c0e',
     enableAppDownload: true,

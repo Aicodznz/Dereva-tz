@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Zap, Edit3, MessageCircle, Box, CreditCard } from 'lucide-react';
+import { MapPin, Search, ChevronDown, Sun, Moon, ShoppingCart, MessageSquare, Receipt, LogOut, Bike, Car, Bot, Bell, Globe, Edit3, MessageCircle, Box, CreditCard } from 'lucide-react';
 import { useLanguage } from '../LanguageContext';
 import { useTheme } from '../ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -149,13 +149,14 @@ export default function Header() {
         {/* Left: Logo and Brand */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <Link to="/" className="flex items-center shrink-0 group touch-manipulation" title="Papo Hapo Express">
-            {/* Attractive High-Speed 3D Emblem Icon */}
+            {/* Official Papo Hapo Super App Icon */}
             <div className="relative group shrink-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.4)] border border-amber-300/50 transform group-hover:scale-105 transition-all duration-300">
-                <div className="w-full h-full bg-gradient-to-br from-neutral-900 via-neutral-950 to-orange-950 rounded-[10px] sm:rounded-[14px] flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/25 via-transparent to-amber-400/20" />
-                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-amber-400 fill-amber-400/90 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] relative z-10 transform -rotate-6 group-hover:rotate-0 group-hover:scale-110 transition-transform duration-300" />
-                </div>
+              <div className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl sm:rounded-2xl bg-white p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.3)] border border-orange-200/80 dark:border-orange-500/40 transform group-hover:scale-105 transition-all duration-300 flex items-center justify-center overflow-hidden">
+                <img
+                  src="/brand/app-icon.png"
+                  alt="Papo Hapo"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 shadow-sm flex items-center justify-center">
                 <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white animate-ping" />

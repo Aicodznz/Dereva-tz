@@ -46,8 +46,8 @@ export interface ActionClickEvent {
 
 class PushNotificationService {
   private listeners: Set<(event: ActionClickEvent) => void> = new Set();
-  private defaultIcon = 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png';
-  private defaultBadge = 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png';
+  private defaultIcon = '/brand/app-icon.png';
+  private defaultBadge = '/brand/whatsapp-badge.png';
 
   constructor() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

@@ -221,9 +221,11 @@ Ungependa nikusaidie nini leo? Andika ujumbe wako hapa chini!`,
         <div className="bg-[#1f2c34] px-3.5 py-3 sm:px-4 sm:py-3.5 border-b border-white/10 flex items-center justify-between shrink-0 shadow-md z-30">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center text-white shadow-md">
-                <MessageCircle className="w-5 h-5 fill-white text-emerald-900" />
-              </div>
+              <img
+                src="/brand/whatsapp-badge.png"
+                alt="Papo Hapo WhatsApp"
+                className="w-10 h-10 rounded-full object-cover shadow-md border border-orange-400/50 bg-white"
+              />
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-[#1f2c34] rounded-full"></span>
             </div>
             <div className="min-w-0">

@@ -22,7 +22,7 @@ const defaultConfig: BusinessConfig = {
   phone: '+255 700 000 000',
   maintenanceMode: false,
   enableAR: true,
-  appLogo: 'https://cdn-icons-png.flaticon.com/512/5717/5717387.png',
+  appLogo: '/brand/app-icon.png',
   splashText: 'Usafiri wa Haraka, Salama na Uhakika',
   splashColor: '#0c0c0e',
   splashSlides: [

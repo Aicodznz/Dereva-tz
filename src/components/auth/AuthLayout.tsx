@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Store, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface AuthLayoutProps {
@@ -28,11 +28,15 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
         className="w-full max-w-md"
       >
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-orange-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
-            <Store className="w-10 h-10 text-white" />
+          <div className="bg-white px-5 py-2.5 rounded-2xl shadow-lg border border-orange-100 mb-4 flex items-center justify-center">
+            <img
+              src="/brand/logo-full.png"
+              alt="Papo Hapo Super App"
+              className="h-12 sm:h-14 w-auto object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-bold text-neutral-900">{title}</h1>
-          {subtitle && <p className="text-neutral-500 mt-2">{subtitle}</p>}
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white text-center">{title}</h1>
+          {subtitle && <p className="text-neutral-500 dark:text-neutral-400 mt-2 text-center">{subtitle}</p>}
         </div>
         
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-neutral-100">
