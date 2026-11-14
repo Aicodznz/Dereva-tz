@@ -2100,19 +2100,19 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
  * to any custom welcome message or node text that contains the services list.
  */
 export const META_DEFAULT_SERVICES = [
-  { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'PAPORIDE (Taxi)', desc: 'Agiza gari, boda au bajaji' },
-  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PAPOFOOD (Chakula)', desc: 'Chakula & Booking ya Meza' },
-  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PAPOMART (Sokoni)', desc: 'Groceries, Nyanya, Mchele' },
-  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PAPOSEND (Parcel)', desc: 'Tuma au wasilisha mzigo' },
-  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PAPOMED (Pharmacy)', desc: 'Agiza Dawa & vifaa vya afya' },
-  { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'PAPOSTYLE (Saluni)', desc: 'Hair cut, Nails, Spa, Makeup' },
-  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PAPOFIX (Mafundi)', desc: 'Umeme, Bomba, AC/Friji, Usafi' },
-  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PAPOSTAY (Hoteli)', desc: 'Weka vyumba & malazi' },
-  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PAPOTICKET (Matukio)', desc: 'Tiketi za mechi & matamasha' },
-  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PAPOBUS (Mabasi)', desc: 'Tiketi za mabasi ya mikoani' },
-  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PAPORENT (Kodi Gari)', desc: 'Kodisha Prado, Harrier, Noah' },
-  { key: 'ecommerce', id: 'maduka', emoji: '🛒', title: 'PAPOMALL (Maduka)', desc: 'Simu, Viatu, Nguo & Vifaa' },
-  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PAPOPAY (Malipo)', desc: 'Salio, Lipa Bili & Wakala' }
+  { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'PapoRide', desc: 'Usafiri' },
+  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PapoFood', desc: 'Chakula & Meza' },
+  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PapoMart', desc: 'Sokoni' },
+  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PapoSend', desc: 'Vifurushi' },
+  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PapoMed', desc: 'Dawa' },
+  { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'PapoStyle', desc: 'Saluni' },
+  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PapoFix', desc: 'Mafundi' },
+  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PapoStay', desc: 'Hoteli' },
+  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PapoTicket', desc: 'Matukio' },
+  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PapoBus', desc: 'Mabasi' },
+  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PapoRent', desc: 'Kodi Gari' },
+  { key: 'ecommerce', id: 'maduka', emoji: '🛒', title: 'PapoMall', desc: 'Maduka' },
+  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Wallet & Bili' }
 ];
 
 /**
@@ -2127,8 +2127,10 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
   const hasServiceList =
     text.includes("TAXI") ||
     text.includes("PAPORIDE") ||
+    text.includes("PapoRide") ||
     text.includes("CHAKULA") ||
     text.includes("PAPOFOOD") ||
+    text.includes("PapoFood") ||
     text.includes("SOKONI");
   if (!hasServiceList) return text;
 
@@ -2147,44 +2149,37 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
 
   // Find where the list starts by looking for service emojis or bullet patterns
   const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|🏨|🚗|💊|🚌|🛠️|🎟️|🛒|💳|\*\d+\.)/);
-  let welcomeHeader = `👋 *Karibu Papo Hapo Super App Bot!*\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote kwa haraka kupitia hapa!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
+  let welcomeHeader = `👋 *Karibu Papo Hapo*\nChagua huduma:\n\n`;
   if (firstServiceIndex !== -1) {
     welcomeHeader = text.substring(0, firstServiceIndex);
   }
 
   let welcomeBody = "";
   active.forEach(srv => {
-    const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
-    welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+    const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
+    welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* • ${srv.desc}${maintTag}\n`;
   });
-  welcomeBody += `📋 *${active.length + 1}. ODA ZANGU* (Fuatilia oda, meza & safari zako zote)\n`;
+  welcomeBody += `📋 *${active.length + 1}. Oda Zangu* • Fuatilia\n`;
 
-  // Find where the footer starts
-  let welcomeFooter = `\n*Andika namba, jina la huduma (mf. "PapoFix", "PapoMall") au unachohitaji moja kwa moja!* ✨`;
-  const footerStart = text.indexOf("*Andika namba");
-  if (footerStart !== -1) {
-    welcomeFooter = "\n" + text.substring(footerStart);
-  } else {
-    const lastTrack = text.indexOf("ODA ZANGU");
-    const lastAnchor = lastTrack !== -1 ? lastTrack : text.indexOf("MABASI");
-    if (lastAnchor !== -1) {
-      const nextNewline = text.indexOf("\n", lastAnchor);
-      if (nextNewline !== -1) {
-        welcomeFooter = text.substring(nextNewline);
-      }
-    }
-  }
-
+  const welcomeFooter = `\n_Andika namba (1–${active.length + 1}), jina la huduma au tuma 📍 Location._`;
   return welcomeHeader + welcomeBody + welcomeFooter;
 }
 
 /**
  * Generates the dynamic welcome message based on active/enabled services
  */
-export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: string, customWelcome?: string): string {
+export function generateDynamicWelcomeMessage(
+  servicesConfig: any,
+  chSymbol: string,
+  customWelcome?: string,
+  customerName?: string
+): string {
   if (customWelcome) {
     const replaced = customWelcome.replace(/{channel}/g, chSymbol);
-    return applyBusinessConfigToWelcomeText(replaced, servicesConfig);
+    const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig);
+    return customerName && !applied.includes(customerName)
+      ? `👋 *Habari ${customerName}!*\n${applied}`
+      : applied;
   }
 
   const activeServices = META_DEFAULT_SERVICES.filter(item => {
@@ -2200,15 +2195,16 @@ export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: str
     };
   });
 
-  let welcome = `👋 *Karibu Papo Hapo Super App Bot!* (${chSymbol})\n\nMimi ni Assistant wako wa Papo Hapo. Unaweza kupata na kuagiza huduma zote za App yetu moja kwa moja kupitia WhatsApp!\n\n*Tafadhali chagua au andika unachotaka:* \n`;
-                
+  let welcome = customerName
+    ? `👋 *Habari ${customerName}!* — *Papo Hapo*\nChagua huduma:\n\n`
+    : `👋 *Karibu Papo Hapo* (${chSymbol})\nChagua huduma:\n\n`;
+
   activeServices.forEach(srv => {
-    const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
-    welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
+    const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
+    welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* • ${srv.desc}${maintTag}\n`;
   });
-  welcome += `📋 *${activeServices.length + 1}. ODA ZANGU* (Fuatilia oda, meza & safari zako zote)\n`;
-  
-  welcome += `\n*Andika namba (1–${activeServices.length + 1}), jina la huduma (mfano "PapoFix", "PapoPay", "PapoMall") au andika unachotaka moja kwa moja!* ✨`;
+  welcome += `📋 *${activeServices.length + 1}. Oda Zangu* • Fuatilia\n`;
+  welcome += `\n_Andika namba (1–${activeServices.length + 1}), jina la huduma au tuma 📍 Location._`;
   return welcome;
 }
 
@@ -2344,13 +2340,13 @@ async function handleMetaInputInternal(
       delete session.service;
       await saveMetaSession(session, dbAdmin);
 
-      return `✅ Asante *${cleanName}*! Akaunti yako imesajiliwa kikamilifu kwenye *Papo Hapo* (${chSymbol}).\n\nSasa chagua huduma unayohitaji leo:\n\n` +
-        META_DEFAULT_SERVICES.map((s, idx) => `${s.emoji} *${idx + 1}. ${s.title}* (${s.desc})`).join('\n') +
-        `\n📋 *${META_DEFAULT_SERVICES.length + 1}. ODA ZANGU* (Fuatilia oda & booking zako zote)\n\n_Andika namba, jina la huduma (mf. "PapoFix", "PapoMall") au tuma 📍 Location yako ya GPS moja kwa moja!_`;
+      return `✅ *Karibu ${cleanName}!* Chagua huduma:\n\n` +
+        META_DEFAULT_SERVICES.map((s, idx) => `${s.emoji} *${idx + 1}. ${s.title}* • ${s.desc}`).join('\n') +
+        `\n📋 *${META_DEFAULT_SERVICES.length + 1}. Oda Zangu* • Fuatilia\n\n_Andika namba (1–${META_DEFAULT_SERVICES.length + 1}), jina la huduma au tuma 📍 Location._`;
     } else {
       session.step = 'REGISTERING_CUSTOMER';
       await saveMetaSession(session, dbAdmin);
-      return `👋 Karibu sana kwenye *Papo Hapo Super App* (${chSymbol})!\n\nKwa kuwa namba yako ni mpya kwenye mfumo wetu, tafadhali andika *Jina lako kamili* mara moja tu ili tukusajili (Mfano: *Juma Hassan*):`;
+      return `👋 Karibu *Papo Hapo* (${chSymbol})!\n\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
     }
   }
 
@@ -2399,7 +2395,8 @@ async function handleMetaInputInternal(
       session.details.route = `${session.details.pickupName} - ${gpsLoc.name}`;
       session.step = 'SELECTING_VEHICLE';
       await saveMetaSession(session, dbAdmin);
-      return `📍 Tumepokea GPS ya unapoenda: *${gpsLoc.name}*\nSafari: *${session.details.pickupName}* ➔ *${gpsLoc.name}*\n\nTafadhali chagua aina ya usafiri:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+      const avail = await getLiveDriverAvailability(dbAdmin);
+      return formatVehicleChoiceMessage(session.details.pickupName, gpsLoc.name, avail);
     }
     session.service = 'taxi';
     session.step = 'COLLECTING_ROUTE';
@@ -2409,7 +2406,7 @@ async function handleMetaInputInternal(
     delete session.details.awaitingPickup;
     session.details.awaitingDest = true;
     await saveMetaSession(session, dbAdmin);
-    return `📍 Tumetambua eneo lako la GPS: *${gpsLoc.name}*\n\nSasa andika eneo *unapokwenda* (au tuma 📍 GPS Location ya unapoenda), mfano: *Posta*, *Kariakoo*, au *Airport*:`;
+    return `📍 *Kutoka:* ${gpsLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
   }
 
   // --- 0D. GLOBAL ORDER & BOOKING TRACKING ("ODA ZANGU" / #FD-3441 / #TBL-3947 / #PFX-... / #TK-... / #ML-... / #PP-...) ---
@@ -2635,8 +2632,8 @@ async function handleMetaInputInternal(
   const trackMenuNumber = (activeServices.length + 1).toString();
 
   // Master Welcome Message
-  const getWelcomeMessage = () => {
-    return generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome);
+  const getWelcomeMessage = (customerName?: string) => {
+    return generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome, customerName);
   };
 
   // If user says "hi" or triggers restart
@@ -2658,20 +2655,19 @@ async function handleMetaInputInternal(
         const matchedSrv = activeServices.find(srv => srv.key === intent);
         if (matchedSrv) {
           if (matchedSrv.isMaintenance) {
-            return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrv.maintenanceMessage}`;
+            return `⚠️ *${matchedSrv.title}* ipo kwenye matengenezo kwa sasa.`;
           }
           session.service = intent as any;
           return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
         } else {
-          return `⚠️ Samahani, huduma ya ${intent.toUpperCase()} haipatikani kwa sasa.`;
+          return `⚠️ Samahani, huduma ya *${intent.toUpperCase()}* haipatikani kwa sasa.`;
         }
       }
     }
     
     session.step = 'COLLECTING_ROUTE'; // Transition to standard numeric choices
     await saveMetaSession(session, dbAdmin);
-    const baseWelcome = getWelcomeMessage();
-    return preservedName ? `Habari *${preservedName}*! 👋\n\n${baseWelcome}` : baseWelcome;
+    return getWelcomeMessage(preservedName);
   }
 
   // If we are collecting initial selection
@@ -2768,6 +2764,111 @@ async function handleMetaInputInternal(
   return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
 }
 
+type VehicleBucket = 'bike' | 'bajaj' | 'mini';
+
+interface LiveDriverAvailability {
+  free: Record<VehicleBucket, number>;
+  busy: Record<VehicleBucket, number>;
+  totalOnline: number;
+  totalFree: number;
+  totalBusy: number;
+}
+
+function normalizeDriverVehicleBucket(rawType?: string): VehicleBucket {
+  const v = String(rawType || '').toLowerCase();
+  if (v.includes('bike') || v.includes('boda') || v.includes('piki') || v.includes('moto')) return 'bike';
+  if (v.includes('bajaj') || v.includes('sharo') || v.includes('tri')) return 'bajaj';
+  return 'mini';
+}
+
+async function getLiveDriverAvailability(dbAdmin: any): Promise<LiveDriverAvailability> {
+  const result: LiveDriverAvailability = {
+    free: { bike: 0, bajaj: 0, mini: 0 },
+    busy: { bike: 0, bajaj: 0, mini: 0 },
+    totalOnline: 0,
+    totalFree: 0,
+    totalBusy: 0
+  };
+  if (!dbAdmin) return result;
+
+  try {
+    const [driversSnap, activeRidesSnap, activeParcelsSnap] = await Promise.all([
+      dbAdmin.collection('drivers').where('isOnline', '==', true).get(),
+      dbAdmin
+        .collection('rides')
+        .where('status', 'in', ['accepted', 'driver_arriving', 'driver_arrived', 'on_trip'])
+        .limit(50)
+        .get()
+        .catch(() => ({ docs: [] })),
+      dbAdmin
+        .collection('parcels')
+        .where('status', 'in', ['accepted', 'picked_up', 'in_transit'])
+        .limit(50)
+        .get()
+        .catch(() => ({ docs: [] }))
+    ]);
+
+    const busyDriverIds = new Set<string>();
+    (activeRidesSnap?.docs || []).forEach((doc: any) => {
+      const r = doc.data() || {};
+      if (r.driverId) busyDriverIds.add(String(r.driverId));
+    });
+    (activeParcelsSnap?.docs || []).forEach((doc: any) => {
+      const p = doc.data() || {};
+      if (p.driverId) busyDriverIds.add(String(p.driverId));
+      if (p.riderId) busyDriverIds.add(String(p.riderId));
+    });
+
+    const staleCutoffMs = Date.now() - 5 * 60 * 1000;
+    (driversSnap?.docs || []).forEach((doc: any) => {
+      const d = doc.data() || {};
+      const lastActiveMs = normalizeEpochMs(d.lastActive) || normalizeEpochMs(d.updatedAt);
+      if (lastActiveMs > 0 && lastActiveMs < staleCutoffMs) {
+        return; // Stale heartbeat (> 5 min) => treat as offline
+      }
+
+      const bucket = normalizeDriverVehicleBucket(
+        d.vehicleType || d.driverType || d.driverRegVehicle || d.selectedService
+      );
+      const isBusy =
+        d.receiving === false ||
+        String(d.status || '').toLowerCase() === 'busy' ||
+        busyDriverIds.has(doc.id);
+
+      result.totalOnline += 1;
+      if (isBusy) {
+        result.busy[bucket] += 1;
+        result.totalBusy += 1;
+      } else {
+        result.free[bucket] += 1;
+        result.totalFree += 1;
+      }
+    });
+  } catch (err) {
+    console.warn('[Meta Bot] Could not query live drivers availability:', err);
+  }
+
+  return result;
+}
+
+function formatDriverBucketBadge(avail: LiveDriverAvailability, bucket: VehicleBucket): string {
+  const freeN = avail.free[bucket];
+  const busyN = avail.busy[bucket];
+  if (freeN > 0) return `🟢 ${freeN} tayari`;
+  if (busyN > 0) return `🟡 Wako busy`;
+  return `🔴 Hawapo online`;
+}
+
+function formatVehicleChoiceMessage(pickupName: string, destName: string, avail: LiveDriverAvailability): string {
+  return (
+    `🗺️ *${pickupName}* ➜ *${destName}*\n\n` +
+    `Chagua usafiri:\n` +
+    `1. 🏍️ *Boda Boda* _(${formatDriverBucketBadge(avail, 'bike')})_\n` +
+    `2. 🛺 *Bajaji* _(${formatDriverBucketBadge(avail, 'bajaj')})_\n` +
+    `3. 🚕 *Teksi* _(${formatDriverBucketBadge(avail, 'mini')})_`
+  );
+}
+
 /**
  * Route input to specific module flow states
  */
@@ -2793,19 +2894,19 @@ async function routeToServiceFlow(
         .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
 
-    // Step A: Collect Pickup & Destination (supports both "UBUNGO - POSTA" in one message OR one-by-one like "MIKOCHENI" then "POSTA" OR GPS Location pins)
+    // Step A: Collect Pickup & Destination
     if (!session.details.route && session.step !== 'SELECTING_VEHICLE' && session.step !== 'CONFIRMING_TRIP' && session.step !== 'SELECTING_PAYMENT_METHOD' && session.step !== 'COLLECTING_PHONE') {
-      if (!session.details.awaitingPickup && !session.details.awaitingDest && (cleaned === '1' || cleaned === 'TAXI' || cleaned === 'TEKSI' || input.trim().length < 3)) {
+      if (!session.details.awaitingPickup && !session.details.awaitingDest && (cleaned === '1' || cleaned === 'TAXI' || cleaned === 'TEKSI' || cleaned === 'PAPORIDE' || input.trim().length < 3)) {
         session.details.awaitingPickup = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
-        return `🚕 *MFUMO WA TAXI (Taxi Booking)*\n\nTafadhali andika *unapotoka* (au tuma *📍 Location yako ya GPS* kwa kubofya 📎 → Location).\nMfano:\n*MIKOCHENI*\nau *UBUNGO - POSTA*`;
+        return `🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:`;
       }
 
       if (session.details.awaitingDest && session.details.pickupName) {
         const destClean = cleanPlaceName(input);
         if (!destClean || destClean.length < 2) {
-          return `📍 Unatoka *${session.details.pickupName}*. Tafadhali andika jina la eneo *unapokwenda* (Mfano: *Posta*, *Kariakoo*, *Mwenge*):`;
+          return `📍 *Kutoka:* ${session.details.pickupName}\nAndika eneo *unapokwenda* (mf. *Posta*, *Kariakoo*):`;
         }
         session.details.destinationName = destClean;
         delete session.details.awaitingDest;
@@ -2813,7 +2914,8 @@ async function routeToServiceFlow(
         session.details.route = `${session.details.pickupName} - ${destClean}`;
         session.step = 'SELECTING_VEHICLE';
         await saveMetaSession(session, dbAdmin);
-        return `🚕 *AINA YA USAFIRI*\n\nSafari: *${session.details.pickupName}* ➔ *${destClean}*\n\nTafadhali chagua aina ya usafiri unaopendelea:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+        const avail = await getLiveDriverAvailability(dbAdmin);
+        return formatVehicleChoiceMessage(session.details.pickupName, destClean, avail);
       }
 
       // Smart natural language extraction of locations and vehicle
@@ -2843,33 +2945,31 @@ async function routeToServiceFlow(
         delete session.details.awaitingDest;
 
         if (parsed.vehicleType && parsed.vehicleTypeName) {
-          // Vehicle already known! Progress to calculation directly
           session.step = 'SELECTING_VEHICLE';
-          // Fall through to vehicle selection logic below
         } else {
           session.step = 'SELECTING_VEHICLE';
           await saveMetaSession(session, dbAdmin);
-          return `🚕 *AINA YA USAFIRI*\n\nSafari: *${pName}* ➔ *${dName}*\n\nTafadhali chagua aina ya usafiri unaopendelea:\n\n1. 🏍️ *Boda Boda* (Haraka na bei nafuu)\n2. 🛺 *Bajaji* (Salama na bei ya wastani)\n3. 🚕 *Gari la Teksi* (Starehe na usalama mkubwa)`;
+          const avail = await getLiveDriverAvailability(dbAdmin);
+          return formatVehicleChoiceMessage(pName, dName, avail);
         }
       } else {
-        // User entered a single location (e.g. "MIKOCHENI") -> Save as pickup and ask for destination!
         const singlePlace = cleanPlaceName(input);
         if (!singlePlace || singlePlace.length < 2) {
-          return `📍 Tafadhali andika jina sahihi la eneo *unapotoka* au tuma *📍 Location ya GPS* (Mfano: *Mikocheni* au *Ubungo - Posta*):`;
+          return `📍 Andika eneo *unapotoka* au tuma 📍 *Location* (mf. *Mikocheni*):`;
         }
         session.details.pickupName = singlePlace;
         delete session.details.awaitingPickup;
         session.details.awaitingDest = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
-        return `📍 Eneo la kuchukuliwa (Pickup): *${singlePlace}*\n\nSasa andika eneo *unapokwenda* (au tuma *📍 GPS Location*), mfano: *Posta*, *Kariakoo*, au *Airport*:`;
+        return `📍 *Kutoka:* ${singlePlace}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
       }
     }
 
     if (session.step === 'SELECTING_VEHICLE') {
-      let vehicleType = '';
+      let vehicleType: VehicleBucket = 'mini';
       let typeName = '';
-      
+
       const vInput = cleaned.toLowerCase();
       if (vInput === '1' || vInput.includes('boda') || vInput.includes('bike') || vInput.includes('piki')) {
         vehicleType = 'bike';
@@ -2877,11 +2977,11 @@ async function routeToServiceFlow(
       } else if (vInput === '2' || vInput.includes('bajaj') || vInput.includes('sharo')) {
         vehicleType = 'bajaj';
         typeName = 'Bajaji 🛺';
-      } else if (vInput === '3' || vInput.includes('taxi') || vInput.includes('gari') || vInput.includes('mini') || vInput.includes('car')) {
+      } else if (vInput === '3' || vInput.includes('taxi') || vInput.includes('teksi') || vInput.includes('gari') || vInput.includes('mini') || vInput.includes('car')) {
         vehicleType = 'mini';
-        typeName = 'Gari la Teksi 🚕';
+        typeName = 'Teksi 🚕';
       } else {
-        return `⚠️ Chaguo si sahihi. Tafadhali andika:\n1. Boda Boda 🏍️\n2. Bajaji 🛺\n3. Gari la Teksi 🚕\n\nKuchagua aina ya usafiri!`;
+        return `⚠️ Chagua namba *1–3*:\n1. 🏍️ Boda Boda\n2. 🛺 Bajaji\n3. 🚕 Teksi`;
       }
 
       const pickupName = session.details.pickupName || "Mwenge";
@@ -2929,12 +3029,10 @@ async function routeToServiceFlow(
         };
       }
 
-      // Distance and routing calculation using OSRM with Haversine fallback!
       const routeInfo = await getRoadDistanceAndDuration(pLoc, dLoc);
       const distanceKm = routeInfo.distanceKm;
       const durationMin = routeInfo.durationMin;
 
-      // Fare calculation based on real rates configured
       let fare = 0;
       if (vehicleType === 'bike') {
         fare = 300 + distanceKm * 350;
@@ -2943,39 +3041,25 @@ async function routeToServiceFlow(
         fare = 500 + distanceKm * 500;
         if (fare < 2500) fare = 2500;
       } else {
-        // mini / taxi
         fare = 1000 + distanceKm * 800 + durationMin * 100;
         if (fare < 4000) fare = 4000;
       }
-      fare = Math.round(fare / 500) * 500; // Round to nearest 500 TZS
+      fare = Math.round(fare / 500) * 500;
 
-      // Real or simulated nearby drivers count
-      let nearbyCount = 0;
-      if (dbAdmin) {
-        try {
-          const dSnap = await dbAdmin.collection('drivers')
-            .where('isOnline', '==', true)
-            .where('receiving', '==', true)
-            .get();
-          if (!dSnap.empty) {
-            const driversList = dSnap.docs.map((doc: any) => doc.data());
-            const matchingDrivers = driversList.filter((d: any) => {
-              const dVType = (d.vehicleType || "").toLowerCase();
-              if (dVType === vehicleType) return true;
-              if (vehicleType === 'bike' && (dVType.includes('bike') || dVType.includes('piki') || dVType.includes('boda'))) return true;
-              if (vehicleType === 'bajaj' && dVType.includes('bajaj')) return true;
-              if (vehicleType === 'mini' && (dVType.includes('mini') || dVType.includes('gari') || dVType.includes('cab') || dVType.includes('car') || dVType.includes('taxi'))) return true;
-              return false;
-            });
-            nearbyCount = matchingDrivers.length;
-          }
-        } catch (e) {
-          console.warn("Could not query live drivers count:", e);
-        }
-      }
-      if (nearbyCount === 0) {
-        nearbyCount = Math.floor(Math.random() * 3) + 2; // Simulated 2-4 drivers
-      }
+      // Real-time driver status check (NEVER simulated!)
+      const avail = await getLiveDriverAvailability(dbAdmin);
+      const freeCount = avail.free[vehicleType];
+      const busyCount = avail.busy[vehicleType];
+      const availabilityState: 'available' | 'busy' | 'offline' =
+        freeCount > 0 ? 'available' : busyCount > 0 ? 'busy' : 'offline';
+
+      const labels: Record<VehicleBucket, string> = { bike: 'Boda Boda', bajaj: 'Bajaji', mini: 'Teksi' };
+      const altFreeList = (['bike', 'bajaj', 'mini'] as VehicleBucket[])
+        .filter((b) => b !== vehicleType && avail.free[b] > 0)
+        .map((b) => `${labels[b]} (${avail.free[b]})`);
+      const altBusyList = (['bike', 'bajaj', 'mini'] as VehicleBucket[])
+        .filter((b) => b !== vehicleType && avail.busy[b] > 0)
+        .map((b) => `${labels[b]} (${avail.busy[b]})`);
 
       session.details.vehicleType = vehicleType;
       session.details.vehicleTypeName = typeName;
@@ -2986,39 +3070,84 @@ async function routeToServiceFlow(
       session.details.destinationCoords = dLoc;
       session.details.pickupName = pLoc.name;
       session.details.destinationName = dLoc.name;
-      session.details.nearbyCount = nearbyCount;
-      
+      session.details.nearbyCount = freeCount;
+      session.details.busyCount = busyCount;
+      session.details.availabilityState = availabilityState;
+
       session.step = 'CONFIRMING_TRIP';
       await saveMetaSession(session, dbAdmin);
 
-      let resp = `🧮 *KADIRIO LA NAULI*\n\n`;
-      resp += `Kutoka: *${pLoc.name}*\n`;
-      resp += `Kwenda: *${dLoc.name}*\n`;
-      resp += `📏 Umbali: *${distanceKm} km* (Muda wa safari: ~${durationMin} dk)\n`;
-      resp += `Aina ya Usafiri: *${typeName}*\n\n`;
-      resp += `💵 *Nauli inayokadiriwa: TZS ${fare.toLocaleString()}/=*\n`;
-      resp += `📌 Tuna madereva *${nearbyCount}* karibu nawe waliotayari!\n\n`;
-      resp += `Je, unakubali kuanza kutafutiwa dereva?\n`;
-      resp += `1. Ndio, Tafuta Dereva\n`;
-      resp += `2. Hapana, Ghairi Safari`;
+      let statusLine = '';
+      if (availabilityState === 'available') {
+        statusLine = `🟢 Madereva *${freeCount}* wapo tayari karibu`;
+      } else if (availabilityState === 'busy') {
+        statusLine = `🟡 Madereva *${busyCount}* wa *${labels[vehicleType]}* wako *busy* safarini sasa.`;
+      } else {
+        statusLine = `🔴 Hakuna dereva wa *${labels[vehicleType]}* aliye *Online* kwa sasa.`;
+      }
+
+      let resp = `🧾 *${pLoc.name}* ➜ *${dLoc.name}*\n` +
+        `• *${typeName}* • *${distanceKm} km* (~${durationMin} dk)\n` +
+        `• Nauli: *TZS ${fare.toLocaleString()}*\n` +
+        `• Hali: ${statusLine}`;
+
+      if (availabilityState !== 'available') {
+        if (altFreeList.length > 0) {
+          resp += `\n💡 Wapo tayari sasa: *${altFreeList.join(', ')}*`;
+        } else if (availabilityState === 'offline' && altBusyList.length > 0) {
+          resp += `\n🟡 Wako busy: *${altBusyList.join(', ')}*`;
+        }
+        resp += `\n\n1. 🔄 *Badili Usafiri*\n2. ⏳ *Tuma Ombi (Subiri Dereva)*\n3. ❌ *Ghairi*`;
+      } else {
+        resp += `\n\n1. ✅ *Tafuta Dereva*\n2. ❌ *Ghairi*`;
+      }
       return resp;
     }
 
     if (session.step === 'CONFIRMING_TRIP') {
+      const availState = session.details.availabilityState || 'available';
+
+      if (availState !== 'available') {
+        if (cleaned === '1' || cleaned.includes('badili') || cleaned.includes('change')) {
+          session.step = 'SELECTING_VEHICLE';
+          await saveMetaSession(session, dbAdmin);
+          const avail = await getLiveDriverAvailability(dbAdmin);
+          return formatVehicleChoiceMessage(
+            session.details.pickupName || 'Hapa',
+            session.details.destinationName || 'Unapoenda',
+            avail
+          );
+        } else if (cleaned === '2' || cleaned.includes('tuma') || cleaned.includes('subiri') || cleaned.includes('ndio') || cleaned.includes('tafuta')) {
+          session.step = 'SELECTING_PAYMENT_METHOD';
+          await saveMetaSession(session, dbAdmin);
+          const fare = session.details.calculatedFare || 0;
+          return `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
+        } else if (cleaned === '3' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('cancel')) {
+          const preservedName = session.details?.customerName;
+          session.step = 'COLLECTING_ROUTE';
+          delete session.service;
+          session.details = preservedName ? { customerName: preservedName } : {};
+          await saveMetaSession(session, dbAdmin);
+          return `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
+        } else {
+          return `⚠️ Chagua *1* (Badili Usafiri), *2* (Tuma Ombi Subiri) au *3* (Ghairi).`;
+        }
+      }
+
       if (cleaned === '1' || cleaned.includes('ndio') || cleaned.includes('tafuta') || cleaned.includes('kubali') || cleaned.includes('yes')) {
         session.step = 'SELECTING_PAYMENT_METHOD';
         await saveMetaSession(session, dbAdmin);
         const fare = session.details.calculatedFare || 0;
-        return `💳 *CHAGUA NJIA YA MALIPO*\nNauli ya safari: *TZS ${fare.toLocaleString()}/=*\n\nTafadhali chagua njia utakayolipia:\n1. 💵 *Cash* (Pesa Taslimu)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+        return `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
       } else if (cleaned === '2' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('no') || cleaned.includes('cancel')) {
         const preservedName = session.details?.customerName;
         session.step = 'COLLECTING_ROUTE';
         delete session.service;
         session.details = preservedName ? { customerName: preservedName } : {};
         await saveMetaSession(session, dbAdmin);
-        return `❌ Safari yako imesitishwa kikamilifu. Karibu tena wakati mwingine! (Andika *Menu* kuona huduma zingine 🚖)`;
+        return `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
       } else {
-        return `⚠️ Samahani, sielewi chaguo lako. Tafadhali andika:\n*1* - Ndio, Tafuta Dereva\n*2* - Hapana, Ghairi Safari`;
+        return `⚠️ Chagua *1* (Tafuta Dereva) au *2* (Ghairi).`;
       }
     }
 
@@ -3029,18 +3158,18 @@ async function routeToServiceFlow(
 
       if (pLower === '1' || pLower.includes('cash') || pLower.includes('taslimu') || pLower.includes('pesa mkononi')) {
         paymentMethod = 'cash';
-        paymentMethodLabel = 'Cash (Pesa Taslimu) 💵';
+        paymentMethodLabel = 'Cash 💵';
       } else if (pLower === '2' || pLower.includes('mpesa') || pLower.includes('m-pesa') || pLower.includes('voda')) {
         paymentMethod = 'mpesa';
         paymentMethodLabel = 'M-Pesa 📱';
       } else if (pLower === '3' || pLower.includes('tigo') || pLower.includes('yas') || pLower.includes('mixx')) {
         paymentMethod = 'tigopesa';
-        paymentMethodLabel = 'Tigo Pesa (Mixx by Yas) 📱';
+        paymentMethodLabel = 'Tigo Pesa 📱';
       } else if (pLower === '4' || pLower.includes('airtel')) {
         paymentMethod = 'airtelmoney';
         paymentMethodLabel = 'Airtel Money 📱';
       } else {
-        return `⚠️ Chaguo la malipo si sahihi. Tafadhali andika namba *1* hadi *4*:\n1. Cash (Pesa Taslimu)\n2. M-Pesa\n3. Tigo Pesa (Mixx by Yas)\n4. Airtel Money`;
+        return `⚠️ Chagua *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
       }
 
       session.details.paymentMethod = paymentMethod;
@@ -3050,9 +3179,9 @@ async function routeToServiceFlow(
 
       const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       if (waDigits.length >= 9) {
-        return `💳 Malipo: *${paymentMethodLabel}*\n\n📞 Je, dereva akupigie kwenye namba yako hii ya WhatsApp (*+${waDigits}*)?\n\n1. Ndio, tumia *+${waDigits}*\nAu andika namba nyingine (Mfano: *0712345678*):`;
+        return `📞 *Namba ya mawasiliano?*\n1. ✅ Tumia *+${waDigits}*\n_Au andika namba nyingine:_`;
       }
-      return `💳 Malipo: *${paymentMethodLabel}*\n\n📍 Tafadhali andika namba yako ya simu ya mkononi ya kupokelea simu ya dereva (Mfano: *0712345678*):`;
+      return `📞 Andika namba yako ya simu (mf. *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -3063,7 +3192,7 @@ async function routeToServiceFlow(
       } else {
         const digitsOnly = phoneNum.replace(/\D/g, '');
         if (digitsOnly.length < 9) {
-          return `⚠️ Namba ya simu si sahihi. Tafadhali andika namba sahihi yenye tarakimu 10 (Mfano: *0712345678*)${waDigits.length >= 9 ? ` au andika *1* kutumia *+${waDigits}*` : ''}:`;
+          return `⚠️ Weka namba sahihi (mf. *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
         }
       }
 
@@ -3078,15 +3207,14 @@ async function routeToServiceFlow(
       const distanceKm = session.details.calculatedDistance;
       const durationMin = session.details.calculatedDuration;
       const paymentMethod = session.details.paymentMethod || 'cash';
-      const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash (Pesa Taslimu) 💵';
+      const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
+      const availState = session.details.availabilityState || 'available';
 
-      // Reset session cleanly while preserving registered customer info
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
       session.details = { customerName, phone: phoneNum };
       await saveMetaSession(session, dbAdmin);
 
-      // Create realistic Ride in Firestore and capture document ID for Live Tracking
       const randId = Math.floor(100000 + Math.random() * 900000);
       const bookingCode = `PH-${randId}`;
       let createdRideId = bookingCode;
@@ -3096,7 +3224,7 @@ async function routeToServiceFlow(
           expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
 
           const rideRef = await dbAdmin.collection('rides').add({
-            status: "pending", // Set to pending so the live Rider Dashboard can receive it!
+            status: "pending",
             customerId: `meta-client-${session.senderId}`,
             metaSenderId: session.senderId,
             metaChannel: session.channel,
@@ -3136,20 +3264,22 @@ async function routeToServiceFlow(
       const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
       const trackingUrl = `${publicBaseUrl}/track/${createdRideId}`;
 
-      return `✅ *Oda ya Taxi imewasilishwa!* 🚖\n` +
-             `🔖 Namba ya Safari: *${bookingCode}*\n` +
-             `👤 Mteja: *${customerName}*\n\n` +
-             `Ombi lako limetumwa kwa madereva wa *${typeName}* waliopo karibu.\n\n` +
-             `- Kutoka: *${pickupName}*\n` +
-             `- Kwenda: *${destName}*\n` +
-             `- Umbali: *${distanceKm} km* (~${durationMin} dk)\n` +
-             `- Nauli: *TZS ${fare?.toLocaleString()}/=*\n` +
-             `- Malipo: *${paymentMethodLabel}*\n` +
-             `- Simu yako: *${phoneNum}*\n\n` +
-             `🗺️ *Fuatilia safari kwenye ramani mubashara:*\n${trackingUrl}\n` +
-             `📋 *Oda zako zote:* ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
-             `Utapokea taarifa hapa hapa dereva akishakubali oda (na jina lake, namba ya gari, na muda wa kufika)! 🙏✨\n\n` +
-             `_(Andika *Oda zangu*, *Menu* au namba *1-14* kuendelea)_`;
+      const statusNote =
+        availState === 'busy'
+          ? `🟡 Madereva wako *busy* sasa — ombi lipo kwenye foleni, utapokea taarifa hapa mmoja akimaliza safari.`
+          : availState === 'offline'
+          ? `🔴 Hakuna dereva aliye *Online* kwa sasa — ombi limehifadhiwa, dereva akiingia hewani ataliona.`
+          : `📡 Madereva wamejulishwa — utapata taarifa hapa hapa dereva akishakubali.`;
+
+      return `✅ *Oda ya PapoRide Imetumwa!*\n` +
+             `🔖 *${bookingCode}* • *${typeName}*\n` +
+             `📍 *${pickupName}* ➜ *${destName}*\n` +
+             `📏 *${distanceKm} km* (~${durationMin} dk) • *TZS ${fare?.toLocaleString()}*\n` +
+             `💳 ${paymentMethodLabel} • 📞 ${phoneNum}\n\n` +
+             `${statusNote}\n\n` +
+             `🗺️ Ramani: ${trackingUrl}\n` +
+             `📋 Oda zako: ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
+             `_Andika *Menu* au *Oda zangu* muda wowote._`;
     }
   }
 
@@ -3719,15 +3849,21 @@ async function routeToServiceFlow(
       session.details.route = cleaned;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      return `📦 *Papo Hapo Express Parcel Delivery*:\n\n` +
-             `Umesema unataka kutuma mzigo: *"${cleaned}"*\n\n` +
-             `Tafadhali andika namba yako ya simu na maelekezo ya kupokea (Mfano: *0712345678, Kutoka Kariakoo kwenda Tegeta*):`;
+      return `📦 *PapoSend — Tuma Mzigo*\nAndika *namba yako ya simu* na *njia ya mzigo* (mf. *0712345678, Kariakoo - Tegeta*):`;
     }
     if (session.step === 'COLLECTING_PHONE') {
       const parcelPhone = input.split(',')[0].trim();
       const prCode = `PR-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
+
+      const avail = await getLiveDriverAvailability(dbAdmin);
+      const courierStatusNote =
+        avail.free.bike + avail.free.bajaj > 0
+          ? `📡 Madereva *${avail.free.bike + avail.free.bajaj}* wapo tayari kuchukua mzigo.`
+          : avail.busy.bike + avail.busy.bajaj > 0
+          ? `🟡 Madereva wa mizigo wako *busy* sasa — ombi lipo kwenye foleni, utapigiwa akimaliza.`
+          : `🔴 Hakuna dereva aliye *Online* sasa — ombi limehifadhiwa, dereva akiingia hewani ataliona.`;
 
       await triggerAutomatedOrder(
         dbAdmin,
@@ -3742,13 +3878,11 @@ async function routeToServiceFlow(
         { bookingCode: prCode, orderType: 'delivery', deliveryAddress: input }
       );
 
-      return `✅ *Ombi la Kusafirisha Mzigo Limesajiliwa!* 📦\n` +
-             `🔖 Namba ya Mzigo: *#${prCode}*\n\n` +
-             `- Aina ya Mzigo: *${session.details.route}*\n` +
-             `- Maelekezo: *${input}*\n` +
-             `- Gharama ya Kuanzia: *TSH 5,000*\n\n` +
-             `🔗 *Fuatilia mzigo & oda zako zote:*\n${buildOrdersTrackingUrl(parcelPhone, prCode)}\n\n` +
-             `Dereva wetu wa Baiskeli au Bodaboda atafika eneo la kupokea mzigo sasa hivi. Tutawasiliana nawe hivi punde! Ahsante!`;
+      return `✅ *Oda ya PapoSend Imepokelewa!*\n` +
+             `🔖 *#${prCode}* • *TZS 5,000*\n` +
+             `📦 ${session.details.route} • ${input}\n\n` +
+             `${courierStatusNote}\n\n` +
+             `📋 Oda zako: ${buildOrdersTrackingUrl(parcelPhone, prCode)}`;
     }
   }
 

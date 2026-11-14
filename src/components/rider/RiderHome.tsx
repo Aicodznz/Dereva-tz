@@ -2521,8 +2521,8 @@ const getEndPin = (etaText: string) => {
         await updateDoc(doc(db, 'drivers', user.uid), {
           lastActive: serverTimestamp(),
           isOnline: true,
-          receiving: true,
-          status: 'online'
+          receiving: !activeRide,
+          status: activeRide ? 'busy' : 'online'
         });
       } catch (err) {
         console.warn("[RiderHome] Heartbeat silent fail:", err);
@@ -2530,7 +2530,7 @@ const getEndPin = (etaText: string) => {
     }, 25000); // Send heartbeat every 25 seconds
 
     return () => clearInterval(heartbeatInterval);
-  }, [isOnline, user?.uid]);
+  }, [isOnline, user?.uid, activeRide]);
 
   const handleAccept = async () => {
     if (!incomingRequest?.id || !user) return;
