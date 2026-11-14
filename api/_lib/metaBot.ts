@@ -2101,18 +2101,18 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
  */
 export const META_DEFAULT_SERVICES = [
   { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'PapoRide', desc: 'Usafiri' },
-  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PapoFood', desc: 'Chakula & Meza' },
-  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PapoMart', desc: 'Sokoni' },
-  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PapoSend', desc: 'Vifurushi' },
-  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PapoMed', desc: 'Dawa' },
-  { key: 'salon', id: 'saluni', emoji: '💇‍♀️', title: 'PapoStyle', desc: 'Saluni' },
-  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PapoFix', desc: 'Mafundi' },
-  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PapoStay', desc: 'Hoteli' },
-  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PapoTicket', desc: 'Matukio' },
-  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PapoBus', desc: 'Mabasi' },
-  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PapoRent', desc: 'Kodi Gari' },
+  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PapoFood', desc: 'Chakula' },
+  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PapoMart', desc: 'Mahitaji ya Sokoni' },
+  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PapoSend', desc: 'Usafirishaji wa Mizigo' },
+  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PapoMed', desc: 'Dawa na Afya' },
+  { key: 'salon', id: 'saluni', emoji: '💇', title: 'PapoStyle', desc: 'Saluni na Spa' },
+  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PapoFix', desc: 'Mafundi na Matengenezo' },
+  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PapoStay', desc: 'Hoteli na Malazi' },
+  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PapoTicket', desc: 'Tiketi za Matukio' },
+  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PapoBus', desc: 'Tiketi za Mabasi' },
+  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PapoRent', desc: 'Kukodisha Magari' },
   { key: 'ecommerce', id: 'maduka', emoji: '🛒', title: 'PapoMall', desc: 'Maduka' },
-  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Wallet & Bili' }
+  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Malipo na Wakala' }
 ];
 
 /**
@@ -2123,7 +2123,6 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
   if (!text) return text;
   if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
 
-  // Detect if the text contains the main uppercase services list identifiers
   const hasServiceList =
     text.includes("TAXI") ||
     text.includes("PAPORIDE") ||
@@ -2134,7 +2133,6 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
     text.includes("SOKONI");
   if (!hasServiceList) return text;
 
-  // Filter and build the list of active/enabled services
   const active = META_DEFAULT_SERVICES.filter(item => {
     const sData = servicesConfig[item.id];
     return !sData || sData.enabled !== false;
@@ -2147,9 +2145,11 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
     };
   });
 
-  // Find where the list starts by looking for service emojis or bullet patterns
-  const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|🏨|🚗|💊|🚌|🛠️|🎟️|🛒|💳|\*\d+\.)/);
-  let welcomeHeader = `👋 *Karibu Papo Hapo*\nChagua huduma:\n\n`;
+  const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|💇|🏨|🚗|💊|🚌|🛠️|🎟️|🛒|💳|\*\d+\.)/);
+  let welcomeHeader =
+    `👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\n` +
+    `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
+    `*CHAGUA HUDUMA YAKO:*\n\n`;
   if (firstServiceIndex !== -1) {
     welcomeHeader = text.substring(0, firstServiceIndex);
   }
@@ -2157,11 +2157,13 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
   let welcomeBody = "";
   active.forEach(srv => {
     const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
-    welcomeBody += `${srv.emoji} *${srv.displayNum}. ${srv.title}* • ${srv.desc}${maintTag}\n`;
+    welcomeBody += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.desc}${maintTag}\n`;
   });
-  welcomeBody += `📋 *${active.length + 1}. Oda Zangu* • Fuatilia\n`;
+  welcomeBody += `📋 ${active.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
 
-  const welcomeFooter = `\n_Andika namba (1–${active.length + 1}), jina la huduma au tuma 📍 Location._`;
+  const welcomeFooter =
+    `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
+    `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`;
   return welcomeHeader + welcomeBody + welcomeFooter;
 }
 
@@ -2178,9 +2180,11 @@ export function generateDynamicWelcomeMessage(
     const replaced = customWelcome.replace(/{channel}/g, chSymbol);
     const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig);
     return customerName && !applied.includes(customerName)
-      ? `👋 *Habari ${customerName}!*\n${applied}`
+      ? `Habari *${customerName}* 👋\n\n${applied}`
       : applied;
   }
+
+  const badge = chSymbol.includes('🟢') ? '🟢' : chSymbol.includes('🔵') ? '🔵' : '🟣';
 
   const activeServices = META_DEFAULT_SERVICES.filter(item => {
     const sData = servicesConfig?.[item.id];
@@ -2195,16 +2199,20 @@ export function generateDynamicWelcomeMessage(
     };
   });
 
-  let welcome = customerName
-    ? `👋 *Habari ${customerName}!* — *Papo Hapo*\nChagua huduma:\n\n`
-    : `👋 *Karibu Papo Hapo* (${chSymbol})\nChagua huduma:\n\n`;
+  let welcome = customerName ? `Habari *${customerName}* 👋\n\n` : '';
+  welcome +=
+    `👋 *KARIBU PAPO HAPO SUPER APP!* ${badge}\n\n` +
+    `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
+    `*CHAGUA HUDUMA YAKO:*\n\n`;
 
   activeServices.forEach(srv => {
     const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
-    welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* • ${srv.desc}${maintTag}\n`;
+    welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.desc}${maintTag}\n`;
   });
-  welcome += `📋 *${activeServices.length + 1}. Oda Zangu* • Fuatilia\n`;
-  welcome += `\n_Andika namba (1–${activeServices.length + 1}), jina la huduma au tuma 📍 Location._`;
+  welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
+  welcome +=
+    `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
+    `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`;
   return welcome;
 }
 
@@ -2340,9 +2348,17 @@ async function handleMetaInputInternal(
       delete session.service;
       await saveMetaSession(session, dbAdmin);
 
-      return `✅ *Karibu ${cleanName}!* Chagua huduma:\n\n` +
-        META_DEFAULT_SERVICES.map((s, idx) => `${s.emoji} *${idx + 1}. ${s.title}* • ${s.desc}`).join('\n') +
-        `\n📋 *${META_DEFAULT_SERVICES.length + 1}. Oda Zangu* • Fuatilia\n\n_Andika namba (1–${META_DEFAULT_SERVICES.length + 1}), jina la huduma au tuma 📍 Location._`;
+      const badge = chSymbol.includes('🟢') ? '🟢' : chSymbol.includes('🔵') ? '🔵' : '🟣';
+      return (
+        `Habari *${cleanName}* 👋\n\n` +
+        `👋 *KARIBU PAPO HAPO SUPER APP!* ${badge}\n\n` +
+        `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
+        `*CHAGUA HUDUMA YAKO:*\n\n` +
+        META_DEFAULT_SERVICES.map((s, idx) => `${s.emoji} ${idx + 1}. ${s.title} – ${s.desc}`).join('\n') +
+        `\n📋 ${META_DEFAULT_SERVICES.length + 1}. Oda Zangu – Fuatilia Oda Zako\n\n` +
+        `✨ *Unaweza kuandika namba (1–${META_DEFAULT_SERVICES.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
+        `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`
+      );
     } else {
       session.step = 'REGISTERING_CUSTOMER';
       await saveMetaSession(session, dbAdmin);
