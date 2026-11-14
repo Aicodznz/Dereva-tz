@@ -16,7 +16,7 @@ import {
   Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin as MapPinIcon, Utensils, Beer, Dumbbell, Users,
   Plane, Shirt, Bell, Umbrella, Tag, Sparkles, Zap, Percent, Award, Gift,
-  Armchair, Calendar, CheckCircle2
+  Armchair, Calendar, CheckCircle2, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -55,6 +55,8 @@ export default function VendorStore() {
   const [includeCartPreOrder, setIncludeCartPreOrder] = useState<boolean>(true);
   const [bookingSubmitting, setBookingSubmitting] = useState<boolean>(false);
   const [confirmedTableBooking, setConfirmedTableBooking] = useState<any>(null);
+  const [menuSearch, setMenuSearch] = useState<string>('');
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>('Zote');
 
   // Synchronize table parameter or session
   const activeTableNumber = tableNumber || tableSession?.tableId || '';
@@ -123,6 +125,12 @@ export default function VendorStore() {
     if (profile?.displayName && !bookingName) setBookingName(profile.displayName);
     if ((profile?.phone || user?.phoneNumber) && !bookingPhone) setBookingPhone(profile?.phone || user?.phoneNumber || '');
   }, [profile, user]);
+
+  useEffect(() => {
+    if (searchParams.get('book') === 'table' && vendor?.category === 'restaurant') {
+      setIsBookTableOpen(true);
+    }
+  }, [searchParams, vendor?.category]);
 
   // Check active Happy Hour
   const activeHappyHourPromo = React.useMemo(() => {
@@ -221,159 +229,170 @@ export default function VendorStore() {
 
   if (!vendor) return null;
 
+  const visibleProducts = vendor.hideProducts === true ? [] : products;
+  const menuCategories = ['Zote', ...Array.from(new Set(visibleProducts.map((p) => (p.category || '').trim()).filter(Boolean)))];
+  const filteredProducts = visibleProducts.filter((p) => {
+    const matchesCat = selectedMenuCategory === 'Zote' || (p.category || '').trim() === selectedMenuCategory;
+    const q = menuSearch.trim().toLowerCase();
+    const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q);
+    return matchesCat && matchesSearch;
+  });
+
+  const openTablesCount = restaurantTables.filter((t) => (t.status || 'available') === 'available').length;
+
+  const fallbackBannerUrl =
+    vendor.category === 'restaurant'
+      ? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=80'
+      : vendor.category === 'hotel'
+      ? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1400&q=80'
+      : vendor.category === 'pharmacy'
+      ? 'https://images.unsplash.com/photo-1576602976047-174e57a47881?auto=format&fit=crop&w=1400&q=80'
+      : vendor.category === 'salon'
+      ? 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1400&q=80'
+      : 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=80';
+
+  const heroBannerSrc = vendor.bannerUrl || fallbackBannerUrl;
+  const initials = (vendor.businessName || 'PH')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w.charAt(0).toUpperCase())
+    .join('') || 'PH';
+
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 pb-32 transition-colors duration-500">
-      {/* Header Image */}
-      <div className="h-72 md:h-[32rem] w-full relative overflow-hidden bg-orange-50 dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
-        {vendor.bannerUrl ? (
-          <motion.img 
-            initial={{ scale: 1.2, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            key={vendor.bannerUrl}
-            src={vendor.bannerUrl} 
-            alt={vendor.businessName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80';
-            }}
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-600 to-orange-950 flex items-center justify-center relative overflow-hidden">
-            <motion.div 
-              animate={{ 
-                rotate: [0, 360],
-                scale: [1, 1.4, 1]
-              }}
-              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-              className="absolute w-[800px] h-[800px] border-[80px] border-white/5 rounded-full blur-3xl"
-            />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-from)_0%,_transparent_70%)] from-white/10" />
-            <Store className="w-32 h-32 text-white/10 relative z-10" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-neutral-950 via-transparent to-black/20" />
-        
-        <div className="absolute top-6 left-6 z-30">
-          <button 
+    <div className="min-h-screen bg-white dark:bg-neutral-950 pb-28 transition-colors duration-500">
+      {/* Compact Editorial Hero Banner */}
+      <div className="h-44 sm:h-52 md:h-64 w-full relative overflow-hidden bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
+        <img
+          src={heroBannerSrc}
+          alt={vendor.businessName}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = fallbackBannerUrl;
+          }}
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/30" />
+
+        <div className="absolute top-4 left-4 md:top-6 md:left-6 z-30">
+          <button
             onClick={() => navigate(-1)}
-            className="w-12 h-12 bg-white/20 backdrop-blur-2xl border border-white/30 rounded-2xl flex items-center justify-center text-white hover:bg-white/40 transition-all shadow-2xl active:scale-95 group"
+            className="w-10 h-10 md:w-11 md:h-11 bg-black/40 backdrop-blur-md border border-white/25 rounded-2xl flex items-center justify-center text-white hover:bg-black/60 transition-all shadow-lg active:scale-95 group cursor-pointer"
           >
-            <ChevronLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
           </button>
         </div>
 
         {/* Quick Access Top Tabs */}
-        <div className="absolute top-6 right-6 flex items-center gap-2 md:gap-3 z-30">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.95 }}
+        <div className="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-2 z-30">
+          <button
             onClick={() => {
               setActiveTab('reviews');
               const el = document.getElementById('store-content');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="h-12 px-5 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl flex items-center gap-2 text-white hover:bg-white/20 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest whitespace-nowrap"
+            className="h-10 px-4 bg-black/40 backdrop-blur-md border border-white/25 rounded-2xl flex items-center gap-1.5 text-white hover:bg-black/60 transition-all shadow-lg font-black uppercase text-[10px] tracking-widest whitespace-nowrap cursor-pointer"
           >
-            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+            <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" />
             <span className="hidden sm:inline">Maoni</span>
-          </motion.button>
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.95 }}
+          </button>
+          <button
             onClick={() => {
               setActiveTab('info');
               const el = document.getElementById('store-content');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="h-12 px-5 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl flex items-center gap-2 text-white hover:bg-white/20 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest whitespace-nowrap"
+            className="h-10 px-4 bg-black/40 backdrop-blur-md border border-white/25 rounded-2xl flex items-center gap-1.5 text-white hover:bg-black/60 transition-all shadow-lg font-black uppercase text-[10px] tracking-widest whitespace-nowrap cursor-pointer"
           >
-            <Info className="w-4 h-4 text-blue-400" />
+            <Info className="w-3.5 h-3.5 text-sky-300" />
             <span className="hidden sm:inline">Habari</span>
-          </motion.button>
+          </button>
         </div>
       </div>
 
       {/* Vendor Profile Section */}
-      <div className="max-w-5xl mx-auto px-4 -mt-24 md:-mt-32 relative z-20">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-12 md:-mt-16 relative z-20">
         <div className="relative">
-          {/* Distance Badge */}
-          <div className="absolute -top-4 md:-top-10 left-4 md:left-6 z-10 transition-all active:scale-95">
-            <button 
-              onClick={() => {
-                if (vendor?.location) {
-                  const originStr = location ? `&origin=${location.lat},${location.lng}` : '';
-                  window.open(`https://www.google.com/maps/dir/?api=1${originStr}&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
-                } else {
-                  window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor?.address || vendor?.businessName || '')}`, '_blank');
-                }
-              }}
-              className="bg-[#E6F6EF] dark:bg-green-950/30 text-[#00A756] px-5 py-2 rounded-full border border-green-100/50 dark:border-green-900/40 flex items-center gap-2 shadow-sm hover:shadow-md transition-all group cursor-pointer"
-            >
-              <MapPin className="w-4 h-4 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
-              <span className="text-[12px] md:text-[16px] font-black uppercase tracking-tight leading-none">
-                {getDistance() === null ? 'N/A' : getDistance()! < 0.5 
-                  ? `${(getDistance()! * 1000).toFixed(0)}M` 
-                  : `${getDistance()!.toFixed(1)}KM`}
-              </span>
-            </button>
-          </div>
-
-          <div className="bg-white dark:bg-neutral-900 shadow-2xl shadow-black/5 rounded-[2.5rem] overflow-hidden border border-neutral-100 dark:border-white/5 p-4 sm:p-6 md:p-12">
-            {/* Rating - Top Right */}
-            <div className="absolute top-1.5 right-4 md:top-12 md:right-12">
-              <div className="flex items-center gap-1 opacity-95">
-                 <span className="text-[10px] md:text-base font-black text-neutral-900 dark:text-white uppercase tracking-tighter">Star</span>
-                 <Star className="w-3 h-3 md:w-6 md:h-6 text-yellow-400 fill-current" />
-                 <span className="text-xs md:text-2xl font-black text-neutral-900 dark:text-white">
-                   {getDisplayRating()}
-                 </span>
-                 <span className="text-neutral-400 font-bold text-[9px] md:text-base">({vendor.ratingCount || 0})</span>
-              </div>
-            </div>
-
-            <div className="flex flex-row items-center md:items-start gap-2 md:gap-8">
-              {/* Logo */}
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="w-14 h-14 sm:w-20 sm:h-20 md:w-32 md:h-32 rounded-2xl md:rounded-3xl overflow-hidden bg-white dark:bg-neutral-800 shadow-xl shadow-black/5 shrink-0 border-2 md:border-4 border-white dark:border-neutral-950"
-              >
-                {vendor.logoUrl ? (
-                  <img 
-                    src={vendor.logoUrl} 
-                    alt={vendor.businessName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'vendor')}`;
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center">
-                    <Store className="w-8 h-8 md:w-10 md:h-10 text-neutral-300" />
-                  </div>
-                )}
-              </motion.div>
-
-              <div className="flex-1 min-w-0 flex flex-col items-start text-left gap-0.5 md:gap-2 pt-1 md:pt-2">
-                <div className="flex flex-nowrap items-center gap-1.5 md:gap-3">
-                  <div className="flex -space-x-0.5 shrink-0">
-                    <div className="w-4 h-4 md:w-6 md:h-6 bg-orange-600 rounded-md flex items-center justify-center text-white font-black text-[9px] md:text-xs">P</div>
-                    <div className="w-4 h-4 md:w-6 md:h-6 bg-blue-600 rounded-md flex items-center justify-center text-white">
-                      <Plus className="w-2 md:w-3 md:h-3 stroke-[4px]" />
+          <div className="bg-white dark:bg-neutral-900 shadow-xl shadow-black/5 rounded-3xl overflow-hidden border border-neutral-100 dark:border-white/10 p-4 sm:p-6 md:p-7">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 md:gap-5 min-w-0">
+                {/* Logo */}
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-orange-500 to-amber-600 shadow-lg shrink-0 border-2 border-white dark:border-neutral-800 flex items-center justify-center">
+                  {vendor.logoUrl ? (
+                    <img
+                      src={vendor.logoUrl}
+                      alt={vendor.businessName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(vendor.businessName || 'PH')}`;
+                      }}
+                    />
+                  ) : vendor.category === 'restaurant' ? (
+                    <div className="flex flex-col items-center justify-center text-white">
+                      <Utensils className="w-6 h-6 md:w-7 md:h-7" />
+                      <span className="text-[9px] font-black tracking-widest mt-0.5">{initials}</span>
                     </div>
-                  </div>
-                  <h1 className="text-[17px] md:text-4xl font-black text-neutral-900 dark:text-white uppercase tracking-tighter leading-tight truncate w-full max-w-[120px] xs:max-w-[170px] md:max-w-none">
-                    {vendor.businessName}
-                  </h1>
+                  ) : (
+                    <span className="text-xl md:text-2xl font-black text-white tracking-tight">{initials}</span>
+                  )}
                 </div>
-                                
-                {/* Category/Description line removed per user request */}
+
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-neutral-900 dark:text-white uppercase tracking-tight leading-tight truncate">
+                      {vendor.businessName}
+                    </h1>
+                    <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-blue-600 shrink-0" />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+                    {vendor.address && (
+                      <span className="flex items-center gap-1 truncate max-w-md">
+                        <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                        <span className="truncate">{vendor.address}</span>
+                      </span>
+                    )}
+                    {vendor.operatingHours && (
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        {vendor.operatingHours}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Distance & Star Rating Pills */}
+              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (vendor?.location) {
+                      const originStr = location ? `&origin=${location.lat},${location.lng}` : '';
+                      window.open(`https://www.google.com/maps/dir/?api=1${originStr}&destination=${vendor.location.lat},${vendor.location.lng}`, '_blank');
+                    } else {
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor?.address || vendor?.businessName || '')}`, '_blank');
+                    }
+                  }}
+                  className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 px-3.5 py-1.5 rounded-full border border-emerald-200/80 dark:border-emerald-800 flex items-center gap-1.5 text-xs font-black hover:bg-emerald-100 transition-colors cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>
+                    {getDistance() === null ? 'Dar es Salaam' : getDistance()! < 0.5
+                      ? `${(getDistance()! * 1000).toFixed(0)}M`
+                      : `${getDistance()!.toFixed(1)}KM`}
+                  </span>
+                </button>
+
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800 px-3.5 py-1.5 rounded-full flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                  <span className="text-xs font-black text-neutral-900 dark:text-white">{getDisplayRating()}</span>
+                  <span className="text-[11px] text-neutral-500 font-bold">({vendor.ratingCount || 0})</span>
+                </div>
               </div>
             </div>
 
             {/* Action Bar */}
-            <div className={`mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100 dark:border-white/5 grid ${vendor.category === 'restaurant' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            <div className={`mt-5 pt-4 border-t border-neutral-100 dark:border-white/5 grid ${vendor.category === 'restaurant' ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <button 
                 onClick={() => {
                   const el = document.getElementById('store-content');
@@ -445,17 +464,17 @@ export default function VendorStore() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-6 p-4 rounded-3xl bg-gradient-to-r from-amber-950/60 via-neutral-900 to-amber-950/60 border border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl"
+            className="mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-gradient-to-r dark:from-amber-950/60 dark:via-neutral-900 dark:to-amber-950/60 border border-amber-200 dark:border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
           >
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-amber-500 text-black flex items-center justify-center font-black text-sm shadow-md">
                 #{activeTableNumber}
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wide text-amber-300 flex items-center gap-1.5">
+                <p className="text-xs font-black uppercase tracking-wide text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                   <Utensils className="w-3.5 h-3.5" /> Umekaa Meza #{activeTableNumber}
                 </p>
-                <p className="text-[11px] text-neutral-400">
+                <p className="text-[11px] text-amber-800/80 dark:text-neutral-400">
                   Agiza vyakula na vinywaji vyako hapa, vitaletwa moja kwa moja mezani kwako.
                 </p>
               </div>
@@ -464,7 +483,7 @@ export default function VendorStore() {
             <Button
               type="button"
               onClick={() => setIsCallWaiterOpen(true)}
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider h-11 px-5 rounded-2xl shadow-lg shadow-orange-950/40 flex items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0"
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-white font-black text-xs uppercase tracking-wider h-11 px-5 rounded-2xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95 shrink-0"
             >
               <Bell className="w-4 h-4 animate-bounce" />
               Muite Mhudumu / Bili
@@ -477,7 +496,7 @@ export default function VendorStore() {
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mt-4 p-4 rounded-3xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 text-white shadow-xl shadow-orange-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
+            className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden"
           >
             <div className="flex items-center gap-3 relative z-10">
               <div className="w-10 h-10 rounded-2xl bg-black/20 backdrop-blur-md flex items-center justify-center text-amber-200 shrink-0">
@@ -516,22 +535,22 @@ export default function VendorStore() {
           </motion.div>
         )}
 
-        {/* Digital Loyalty Stamp Pass Banner */}
+        {/* Digital Loyalty Stamp Pass Banner (Clean Light & Dark Mode) */}
         {vendor && vendor.loyaltyProgram?.enabled !== false && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-3.5 rounded-3xl bg-gradient-to-r from-amber-950/40 via-neutral-900 to-amber-950/40 border border-amber-500/30 flex items-center justify-between gap-3 shadow-md"
+            className="mt-4 p-3.5 sm:px-5 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 dark:from-amber-950/50 dark:via-neutral-900 dark:to-amber-950/50 border border-amber-200 dark:border-amber-500/30 flex items-center justify-between gap-3 shadow-sm"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0 shadow-sm">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-black flex items-center justify-center font-black shrink-0 shadow-sm">
                 <Award className="w-5 h-5 text-black" />
               </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-tight text-amber-300 flex items-center gap-1.5">
-                  <Gift className="w-3.5 h-3.5 text-amber-400" /> Mpango wa Uaminifu (VIP Rewards)
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-tight text-amber-900 dark:text-amber-300 flex items-center gap-1.5 truncate">
+                  <Gift className="w-3.5 h-3.5 text-orange-600 dark:text-amber-400 shrink-0" /> Mpango wa Uaminifu (VIP Rewards)
                 </p>
-                <p className="text-[11px] text-neutral-400">
+                <p className="text-[11px] text-amber-800/80 dark:text-neutral-300 truncate">
                   Kusanya stempu {vendor.loyaltyProgram?.stampsRequired || 5} ujipatie <strong>{vendor.loyaltyProgram?.rewardDescription || 'Chakula BURE!'}</strong>
                 </p>
               </div>
@@ -541,122 +560,180 @@ export default function VendorStore() {
               type="button"
               size="sm"
               onClick={() => setIsLoyaltyOpen(true)}
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-black font-black text-xs uppercase px-4 h-9 rounded-xl cursor-pointer shrink-0"
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:brightness-110 text-white font-black text-xs uppercase px-4 h-9 rounded-xl cursor-pointer shrink-0 shadow-sm"
             >
               Fungua Kadi
             </Button>
           </motion.div>
         )}
 
-        {/* Tabs */}
-        <div className="flex gap-10 border-b border-neutral-100 dark:border-white/5 mt-6 md:mt-12 overflow-x-auto no-scrollbar relative">
-              {[
-                { id: 'products', label: t('products') || 'Bidhaa', icon: ShoppingBag },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`pb-5 text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 transition-all relative shrink-0 ${
-                    activeTab === tab.id ? 'text-orange-600' : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200'
-                  }`}
-                >
-                  <tab.icon className={`w-4.5 h-4.5 ${activeTab === tab.id ? 'animate-bounce' : ''}`} />
-                  {tab.label}
-                  {activeTab === tab.id && (
-                    <motion.div 
-                      layoutId="activeTabVendor"
-                      className="absolute bottom-0 left-0 right-0 h-1.5 bg-orange-600 rounded-full shadow-[0_0_20px_rgba(234,88,12,0.6)]" 
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
+        {/* Menu Header & Filters */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-neutral-100 dark:border-white/5 mt-5 pb-3">
+          <div className="flex items-center gap-6 overflow-x-auto no-scrollbar">
+            {[
+              {
+                id: 'products',
+                label: vendor.category === 'restaurant' ? `Menyu ya Leo (${filteredProducts.length})` : `${t('products') || 'Bidhaa'} (${filteredProducts.length})`,
+                icon: vendor.category === 'restaurant' ? Utensils : ShoppingBag
+              },
+              { id: 'reviews', label: `Maoni (${vendor.ratingCount || 0})`, icon: Star },
+              { id: 'info', label: 'Taarifa', icon: Info }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`pb-2 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all relative shrink-0 cursor-pointer ${
+                  activeTab === tab.id ? 'text-orange-600' : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTabVendor"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600 rounded-full"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {activeTab === 'products' && visibleProducts.length > 0 && (
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  placeholder={vendor.category === 'restaurant' ? 'Tafuta chakula...' : 'Tafuta bidhaa...'}
+                  className="w-full h-9 pl-8 pr-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-xs font-medium text-neutral-900 dark:text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+
+            {vendor.category === 'restaurant' && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  setConfirmedTableBooking(null);
+                  setIsBookTableOpen(true);
+                }}
+                className="h-9 px-3.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:border-orange-800 dark:text-orange-300 font-black text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Armchair className="w-3.5 h-3.5" />
+                <span>Weka Meza{openTablesCount > 0 ? ` (${openTablesCount} Wazi)` : ''}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Filter Strip */}
+        {activeTab === 'products' && menuCategories.length > 2 && (
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-3">
+            {menuCategories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedMenuCategory(cat)}
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                  selectedMenuCategory === cat
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
             {/* Tab Content */}
-            <div className="mt-12">
+            <div className="mt-5">
               <AnimatePresence mode="wait">
                 {activeTab === 'products' && (
                   <motion.div
                     key="products"
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -30 }}
-                    className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-10"
+                    exit={{ opacity: 0, y: -15 }}
+                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 md:gap-5"
                   >
-                    {(vendor.hideProducts === true ? [] : products).map((product, idx) => (
+                    {filteredProducts.map((product, idx) => (
                       <motion.div
                         key={product.id}
-                        initial={{ opacity: 0, y: 30 }}
+                        initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 * idx, ease: "easeOut" }}
+                        transition={{ delay: 0.04 * idx, ease: "easeOut" }}
                       >
                         <Link 
                           to={product.vendorCategory === 'bus_ticket' || product.category === 'bus_ticket' || product.name.toLowerCase().includes('bus ticket') ? `/product/${product.id}?booking=true` : `/product/${product.id}`}
                           className="group block h-full"
                         >
-                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-[1.5rem] md:rounded-[3.2rem] border border-neutral-100 dark:border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.03)] hover:shadow-[0_25px_50px_rgba(234,88,12,0.12)] transition-all duration-550 overflow-hidden group/card flex flex-col justify-between">
+                          <div className="relative h-full bg-white dark:bg-neutral-900 rounded-2xl md:rounded-3xl border border-neutral-100 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-orange-200 dark:hover:border-orange-900/50 transition-all duration-300 overflow-hidden group/card flex flex-col justify-between">
                             <div>
-                              <div className="aspect-[3/4] relative overflow-hidden bg-neutral-50 dark:bg-neutral-800 m-1.5 md:m-3 rounded-[1.2rem] md:rounded-[2.6rem]">
+                              <div className="aspect-[4/3] relative overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                                 <img 
-                                  src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'} 
+                                  src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80'} 
                                   alt={product.name} 
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80';
                                   }}
                                   referrerPolicy="no-referrer"
                                 />
                                 
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 
-                                <div className="absolute top-4 left-4">
-                                  <Badge className="bg-white/90 dark:bg-black/80 backdrop-blur-md text-neutral-900 dark:text-white border-none px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
+                                <div className="absolute top-2.5 left-2.5">
+                                  <Badge className="bg-white/95 dark:bg-black/80 backdrop-blur-md text-neutral-900 dark:text-white border-none px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full shadow-sm">
                                     {product.category || 'Standard'}
                                   </Badge>
                                 </div>
 
                                 {product?.model3dUrl && businessConfig?.enableAR && (
-                                  <div className="absolute top-4 right-4 animate-pulse">
-                                    <div className="bg-orange-600 text-white p-2 rounded-full shadow-lg shadow-orange-600/40 border border-white/20">
+                                  <div className="absolute top-2.5 right-2.5 animate-pulse">
+                                    <div className="bg-orange-600 text-white p-1.5 rounded-full shadow-lg border border-white/20">
                                       <Box className="w-3.5 h-3.5" />
                                     </div>
                                   </div>
                                 )}
                               </div>
                               
-                              <div className="p-3 md:p-8 pt-1 md:pt-2 space-y-1.5 md:space-y-3">
-                                <div className="space-y-0.5 md:space-y-1">
-                                  <h4 className="font-[900] text-sm md:text-lg text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors uppercase italic tracking-tighter leading-snug line-clamp-1">{product.name}</h4>
-                                  <p className="text-[9px] md:text-[11px] text-neutral-400 font-bold uppercase tracking-[0.2em] line-clamp-1 italic">{product.description || 'Verified Quality'}</p>
+                              <div className="p-3 md:p-4 space-y-1.5">
+                                <div>
+                                  <h4 className="font-black text-sm md:text-base text-neutral-900 dark:text-white group-hover/card:text-orange-600 transition-colors leading-snug line-clamp-1">{product.name}</h4>
+                                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-1">{product.description || 'Verified Quality'}</p>
                                 </div>
 
-                                <div className="flex items-center justify-between pt-2 md:pt-3 border-t border-neutral-100 dark:border-white/5">
-                                  <div className="space-y-0.5">
+                                <div className="flex items-center justify-between pt-2 border-t border-neutral-100 dark:border-white/5">
+                                  <div>
                                     {product.discountPrice ? (
                                       <div className="flex flex-col leading-tight">
-                                        <span className="text-[8px] md:text-[10px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
-                                        <span className="text-xs md:text-base font-[900] text-orange-600 italic tracking-tighter">
+                                        <span className="text-[10px] text-neutral-400 line-through font-bold">TZS {product.price.toLocaleString()}</span>
+                                        <span className="text-sm md:text-base font-black text-orange-600 tracking-tight">
                                           TZS {product.discountPrice.toLocaleString()}
                                         </span>
                                       </div>
                                     ) : (
-                                      <p className="text-xs md:text-base font-[900] text-orange-600 italic tracking-tighter">
+                                      <p className="text-sm md:text-base font-black text-orange-600 tracking-tight">
                                         TZS {product.price.toLocaleString()}
                                       </p>
                                     )}
                                   </div>
-                                  <div className="bg-orange-50 dark:bg-orange-900/10 px-2.5 py-0.5 rounded-full text-[7px] md:text-[8px] font-black text-orange-600 uppercase tracking-widest leading-none shrink-0">
+                                  <span className="bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full text-[9px] font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
                                     In Stock
-                                  </div>
+                                  </span>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Tactile, mobile-friendly Add to Cart button */}
-                            <div className="p-3 md:p-8 pt-0 pb-3 md:pb-6">
+                            {/* Tactile Add to Cart button */}
+                            <div className="px-3 pb-3 md:px-4 md:pb-4">
                               <motion.button 
-                                whileTap={{ scale: 0.95 }}
+                                whileTap={{ scale: 0.96 }}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -666,9 +743,9 @@ export default function VendorStore() {
                                     className: 'font-black uppercase text-[10px] tracking-widest'
                                   });
                                 }}
-                                className="w-full py-2.5 md:py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl shadow-lg shadow-orange-600/10 flex items-center justify-center gap-1.5 text-[9px] md:text-xs font-black uppercase tracking-wider transition-all"
+                                className="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-wide transition-all cursor-pointer"
                               >
-                                <Plus className="w-3 md:w-4.5 h-3 md:h-4.5 stroke-[3px]" />
+                                <Plus className="w-4 h-4 stroke-[2.5px]" />
                                 <span>Agiza Sasa</span>
                               </motion.button>
                             </div>
@@ -677,23 +754,22 @@ export default function VendorStore() {
                       </motion.div>
                     ))}
 
-                    {(vendor.hideProducts === true || products.length === 0) && (
+                    {(vendor.hideProducts === true || filteredProducts.length === 0) && (
                       <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }}
+                        initial={{ opacity: 0, scale: 0.96 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="col-span-full py-32 text-center bg-neutral-50 dark:bg-neutral-900/30 rounded-[4rem] border-2 border-dashed border-neutral-100 dark:border-white/5 relative overflow-hidden"
+                        className="col-span-full py-16 text-center bg-neutral-50 dark:bg-neutral-900/30 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-white/10"
                       >
-                        <motion.div 
-                          animate={{ y: [0, -10, 0] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                          <ShoppingBasket className="w-20 h-20 text-orange-100 dark:text-neutral-800 mx-auto mb-8 stroke-[1px]" />
-                        </motion.div>
-                        <h3 className="text-2xl font-black text-neutral-900 dark:text-white uppercase italic tracking-tighter mb-2">
-                          {vendor.hideProducts === true ? "Bidhaa Hazipatikani" : "Hakuna Bidhaa"}
+                        <ShoppingBasket className="w-12 h-12 text-orange-300 dark:text-neutral-700 mx-auto mb-3" />
+                        <h3 className="text-lg font-black text-neutral-900 dark:text-white uppercase tracking-tight mb-1">
+                          {vendor.hideProducts === true ? "Bidhaa Hazipatikani" : menuSearch ? "Hakuna Kilichopatikana" : "Hakuna Bidhaa"}
                         </h3>
-                        <p className="text-neutral-400 font-bold uppercase tracking-[0.2em] text-[10px]">
-                          {vendor.hideProducts === true ? "Bidhaa za muuzaji huyu zimefichwa na admin kwa sasa." : "Tutasasisha hivi punde, Karibu tena."}
+                        <p className="text-neutral-500 font-medium text-xs">
+                          {vendor.hideProducts === true
+                            ? "Bidhaa za muuzaji huyu zimefichwa na admin kwa sasa."
+                            : menuSearch
+                            ? "Jaribu neno jingine au onyesha vyote."
+                            : "Tutasasisha menyu hivi punde, karibu tena."}
                         </p>
                       </motion.div>
                     )}
