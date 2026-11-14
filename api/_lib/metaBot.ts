@@ -26,7 +26,9 @@ export interface MetaSession {
     | 'FOOD_DELIVERY_ADDRESS'
     | 'TABLE_SELECT_SEATS'
     | 'TABLE_SELECT_TIME'
-    | 'TABLE_ASK_PREORDER';
+    | 'TABLE_ASK_PREORDER'
+    | 'HOTEL_SELECT_VENDOR'
+    | 'HOTEL_SELECT_ROOM';
   service?: 'taxi' | 'food' | 'grocery' | 'parcel' | 'salon' | 'hotel' | 'car_rental' | 'pharmacy' | 'bus_ticket';
   details: {
     route?: string;
@@ -39,6 +41,16 @@ export interface MetaSession {
     [key: string]: any;
   };
   lastUpdated: number;
+}
+
+export interface MetaMediaAttachment {
+  url: string;
+  caption?: string;
+}
+
+export interface MetaBotResponse {
+  text: string;
+  media: MetaMediaAttachment[];
 }
 
 export interface MetaCustomerProfile {
@@ -479,6 +491,40 @@ async function triggerAutomatedOrder(
   }
 }
 
+function resolvePublicImageUrl(rawUrl?: string): string {
+  const url = String(rawUrl || '').trim();
+  if (!url) return '';
+  if (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('data:image/')) {
+    return url;
+  }
+  if (url.startsWith('/')) {
+    const base = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
+    return `${base}${url}`;
+  }
+  return '';
+}
+
+function appendMediaItems(
+  collector: MetaMediaAttachment[] | undefined,
+  items: Array<{ url?: string; caption?: string }>,
+  maxCount = 4
+) {
+  if (!collector) return;
+  const seen = new Set(collector.map((m) => m.url));
+  let added = 0;
+  for (const item of items) {
+    if (added >= maxCount) break;
+    const resolved = resolvePublicImageUrl(item.url);
+    if (!resolved || seen.has(resolved)) continue;
+    seen.add(resolved);
+    collector.push({
+      url: resolved,
+      caption: item.caption ? item.caption.slice(0, 1024) : undefined,
+    });
+    added++;
+  }
+}
+
 interface MetaRestaurantOption {
   id: string;
   name: string;
@@ -487,6 +533,7 @@ interface MetaRestaurantOption {
   lng?: number;
   distanceKm?: number;
   openTablesCount?: number;
+  imageUrl?: string;
 }
 
 interface MetaFoodMenuItem {
@@ -494,6 +541,20 @@ interface MetaFoodMenuItem {
   name: string;
   price: number;
   category?: string;
+  imageUrl?: string;
+  description?: string;
+}
+
+interface MetaCatalogOption {
+  id: string;
+  vendorId?: string;
+  vendorName?: string;
+  name: string;
+  price: number;
+  desc?: string;
+  imageUrl?: string;
+  galleryPhotos?: string[];
+  roomPricing?: { single?: number; double?: number; vip?: number };
 }
 
 interface MetaRestaurantTable {
@@ -551,7 +612,8 @@ async function fetchRestaurantsForMeta(
             lat: vLat,
             lng: vLng,
             distanceKm: dist,
-            openTablesCount
+            openTablesCount,
+            imageUrl: resolvePublicImageUrl(data.bannerUrl || data.logoUrl || '')
           });
         }
       }
@@ -562,9 +624,27 @@ async function fetchRestaurantsForMeta(
 
   if (results.length === 0) {
     return [
-      { id: 'papo-hapo-kitchen', name: 'Papo Hapo Kitchen & Grill', address: 'Mikocheni, Dar es Salaam', openTablesCount: 6 },
-      { id: 'masaki-bistro-pizza', name: 'Masaki Bistro & Pizza', address: 'Masaki, Dar es Salaam', openTablesCount: 5 },
-      { id: 'al-farouq-biryani', name: 'Al-Farouq Biryani House', address: 'Kariakoo, Dar es Salaam', openTablesCount: 8 }
+      {
+        id: 'papo-hapo-kitchen',
+        name: 'Papo Hapo Kitchen & Grill',
+        address: 'Mikocheni, Dar es Salaam',
+        openTablesCount: 6,
+        imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'masaki-bistro-pizza',
+        name: 'Masaki Bistro & Pizza',
+        address: 'Masaki, Dar es Salaam',
+        openTablesCount: 5,
+        imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'al-farouq-biryani',
+        name: 'Al-Farouq Biryani House',
+        address: 'Kariakoo, Dar es Salaam',
+        openTablesCount: 8,
+        imageUrl: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80'
+      }
     ];
   }
 
@@ -586,12 +666,15 @@ async function fetchRestaurantMenu(
       if (!snap.empty) {
         snap.docs.forEach((pDoc: any) => {
           const p = pDoc.data() || {};
-          if (p.available === false) return;
+          if (p.available === false || p.hidden === true || p.status === 'discontinued') return;
+          const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || '';
           items.push({
             id: pDoc.id,
             name: p.name || 'Chakula Maalum',
-            price: Number(p.price) || 5000,
-            category: p.category || ''
+            price: Number(p.discountPrice || p.price) || 5000,
+            category: p.category || '',
+            imageUrl: resolvePublicImageUrl(rawImg),
+            description: p.description ? String(p.description).slice(0, 140) : undefined
           });
         });
       }
@@ -602,11 +685,41 @@ async function fetchRestaurantMenu(
 
   if (items.length === 0) {
     items.push(
-      { id: 'f1', name: 'Chips Kuku Choma (Nusu)', price: 8500, category: 'Chakula' },
-      { id: 'f2', name: 'Pizza ya Kuku & Cheese (Classic)', price: 15000, category: 'Pizza' },
-      { id: 'f3', name: 'Biryani ya Nyama (Mlo Kamili)', price: 9000, category: 'Biryani' },
-      { id: 'f4', name: 'Beef Burger & Chips Combo', price: 12000, category: 'Burger' },
-      { id: 'f5', name: 'Juisi ya Embe / Passion (Fresh)', price: 3000, category: 'Vinywaji' }
+      {
+        id: 'f1',
+        name: 'Chips Kuku Choma (Nusu)',
+        price: 8500,
+        category: 'Chakula',
+        imageUrl: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'f2',
+        name: 'Pizza ya Kuku & Cheese (Classic)',
+        price: 15000,
+        category: 'Pizza',
+        imageUrl: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'f3',
+        name: 'Biryani ya Nyama (Mlo Kamili)',
+        price: 9000,
+        category: 'Biryani',
+        imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'f4',
+        name: 'Beef Burger & Chips Combo',
+        price: 12000,
+        category: 'Burger',
+        imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'f5',
+        name: 'Juisi ya Embe / Passion (Fresh)',
+        price: 3000,
+        category: 'Vinywaji',
+        imageUrl: 'https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&w=800&q=80'
+      }
     );
   }
 
@@ -619,6 +732,210 @@ async function fetchRestaurantMenu(
     });
   }
   return items.slice(0, 8);
+}
+
+async function fetchCatalogItemsForMeta(
+  dbAdmin: any,
+  vendorCategory: string,
+  searchQuery: string | undefined,
+  fallbacks: MetaCatalogOption[]
+): Promise<MetaCatalogOption[]> {
+  const results: MetaCatalogOption[] = [];
+  if (dbAdmin) {
+    try {
+      const prodSnap = await dbAdmin.collection('products').where('vendorCategory', '==', vendorCategory).limit(20).get();
+      if (!prodSnap.empty) {
+        prodSnap.docs.forEach((docSnap: any) => {
+          const p = docSnap.data() || {};
+          if (p.hidden === true || p.status === 'discontinued') return;
+          const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || '';
+          results.push({
+            id: docSnap.id,
+            vendorId: p.vendorId || `${vendorCategory}-vendor-meta`,
+            name: p.name || 'Bidhaa Maalum',
+            price: Number(p.discountPrice || p.price) || 5000,
+            desc: p.description ? String(p.description).slice(0, 90) : (p.category || ''),
+            imageUrl: resolvePublicImageUrl(rawImg)
+          });
+        });
+      }
+
+      if (results.length === 0) {
+        const vSnap = await dbAdmin.collection('vendors').where('category', '==', vendorCategory).limit(10).get();
+        if (!vSnap.empty) {
+          for (const vDoc of vSnap.docs) {
+            const v = vDoc.data() || {};
+            if (v.status === 'suspended' || v.isApproved === false) continue;
+            const vpSnap = await dbAdmin.collection('products').where('vendorId', '==', vDoc.id).limit(10).get();
+            if (!vpSnap.empty) {
+              vpSnap.docs.forEach((pDoc: any) => {
+                const p = pDoc.data() || {};
+                if (p.hidden === true || p.status === 'discontinued') return;
+                const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || v.bannerUrl || v.logoUrl || '';
+                results.push({
+                  id: pDoc.id,
+                  vendorId: vDoc.id,
+                  vendorName: v.businessName || '',
+                  name: p.name || v.businessName || 'Huduma Maalum',
+                  price: Number(p.discountPrice || p.price) || 10000,
+                  desc: p.description ? String(p.description).slice(0, 90) : (v.address || ''),
+                  imageUrl: resolvePublicImageUrl(rawImg)
+                });
+              });
+            } else {
+              results.push({
+                id: vDoc.id,
+                vendorId: vDoc.id,
+                vendorName: v.businessName || '',
+                name: v.businessName || 'Mtoa Huduma',
+                price: 15000,
+                desc: v.description ? String(v.description).slice(0, 90) : (v.address || ''),
+                imageUrl: resolvePublicImageUrl(v.bannerUrl || v.logoUrl || '')
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[Meta Bot] Failed fetching ${vendorCategory} catalog:`, err);
+    }
+  }
+
+  const finalItems = results.length > 0 ? results : fallbacks;
+  if (searchQuery && searchQuery.length >= 3) {
+    const q = searchQuery.toLowerCase();
+    finalItems.sort((a, b) => {
+      const aMatch = `${a.name} ${a.desc || ''}`.toLowerCase().includes(q) ? 0 : 1;
+      const bMatch = `${b.name} ${b.desc || ''}`.toLowerCase().includes(q) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }
+  return finalItems.slice(0, 6);
+}
+
+async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
+  const results: MetaCatalogOption[] = [];
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('vendors').where('category', '==', 'hotel').limit(15).get();
+      if (!snap.empty) {
+        snap.docs.forEach((docSnap: any) => {
+          const data = docSnap.data() || {};
+          if (data.status === 'suspended' || data.isApproved === false) return;
+          const gallery = Array.isArray(data.galleryPhotos) ? data.galleryPhotos : [];
+          const rawImg = data.bannerUrl || gallery[0] || data.logoUrl || '';
+          const minPrice = Number(data.roomPricing?.single || data.roomPricing?.double || data.roomPricing?.vip || 85000);
+          results.push({
+            id: docSnap.id,
+            vendorId: docSnap.id,
+            name: data.businessName || 'Hoteli ya Papo Hapo',
+            price: minPrice,
+            desc: data.address || data.hotelCategory || 'Dar es Salaam',
+            imageUrl: resolvePublicImageUrl(rawImg),
+            galleryPhotos: gallery.map((g: string) => resolvePublicImageUrl(g)).filter(Boolean),
+            roomPricing: data.roomPricing
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('[Meta Bot] Failed fetching hotels:', err);
+    }
+  }
+
+  if (results.length === 0) {
+    return [
+      {
+        id: 'htl-m1',
+        vendorId: 'htl-m1',
+        name: 'The Hyatt Regency Kilimanjaro',
+        price: 280000,
+        desc: 'Posta • Luxury Sea View',
+        imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'htl-m2',
+        vendorId: 'htl-m2',
+        name: 'Serena Luxury Hotel & Suites',
+        price: 220000,
+        desc: 'City Centre • Pool & Breakfast',
+        imageUrl: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'htl-m3',
+        vendorId: 'htl-m3',
+        name: 'Transit Motel Airport',
+        price: 65000,
+        desc: 'Kipawa • AC & WiFi',
+        imageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80'
+      }
+    ];
+  }
+  return results.slice(0, 6);
+}
+
+async function fetchHotelRoomsForMeta(
+  dbAdmin: any,
+  hotel: MetaCatalogOption
+): Promise<MetaCatalogOption[]> {
+  const rooms: MetaCatalogOption[] = [];
+  if (dbAdmin && hotel.id) {
+    try {
+      const snap = await dbAdmin.collection('products').where('vendorId', '==', hotel.id).limit(20).get();
+      if (!snap.empty) {
+        snap.docs.forEach((pDoc: any) => {
+          const p = pDoc.data() || {};
+          if (p.hidden === true || p.status === 'discontinued') return;
+          const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || hotel.imageUrl || '';
+          rooms.push({
+            id: pDoc.id,
+            vendorId: hotel.id,
+            vendorName: hotel.name,
+            name: p.name || 'Chumba Maalum',
+            price: Number(p.discountPrice || p.price) || hotel.price || 85000,
+            desc: p.roomAmenities || p.description || (p.capacity ? `Watu ${p.capacity}` : 'AC, WiFi & Bafu Ndani'),
+            imageUrl: resolvePublicImageUrl(rawImg)
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('[Meta Bot] Failed fetching hotel rooms:', err);
+    }
+  }
+
+  if (rooms.length === 0) {
+    const gallery = hotel.galleryPhotos || [];
+    const rp = hotel.roomPricing || {};
+    rooms.push(
+      {
+        id: `${hotel.id}-single`,
+        vendorId: hotel.id,
+        vendorName: hotel.name,
+        name: 'Standard Single Room',
+        price: Number(rp.single) || hotel.price || 65000,
+        desc: 'Kitanda 1 • AC, WiFi & TV',
+        imageUrl: gallery[0] || hotel.imageUrl || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: `${hotel.id}-double`,
+        vendorId: hotel.id,
+        vendorName: hotel.name,
+        name: 'Deluxe Double Room',
+        price: Number(rp.double) || Math.round((hotel.price || 85000) * 1.4),
+        desc: 'Watu 2 • Breakfast & Balcony',
+        imageUrl: gallery[1] || 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: `${hotel.id}-vip`,
+        vendorId: hotel.id,
+        vendorName: hotel.name,
+        name: 'Executive VIP Suite',
+        price: Number(rp.vip) || Math.round((hotel.price || 100000) * 2),
+        desc: 'Lounge, Breakfast & Airport Pickup',
+        imageUrl: gallery[2] || 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=800&q=80'
+      }
+    );
+  }
+  return rooms.slice(0, 6);
 }
 
 async function fetchAvailableRestaurantTables(
@@ -1480,6 +1797,20 @@ export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: str
 }
 
 /**
+ * Handles input from Meta channels (WhatsApp, Facebook, Instagram) and returns text + media cards
+ */
+export async function handleMetaInputWithMedia(
+  senderId: string,
+  textBody: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin: any
+): Promise<MetaBotResponse> {
+  const mediaCollector: MetaMediaAttachment[] = [];
+  const text = await handleMetaInputInternal(senderId, textBody, channel, dbAdmin, mediaCollector);
+  return { text, media: mediaCollector };
+}
+
+/**
  * Handles input from Meta channels (WhatsApp, Facebook, Instagram)
  */
 export async function handleMetaInput(
@@ -1487,6 +1818,17 @@ export async function handleMetaInput(
   textBody: string,
   channel: 'whatsapp' | 'messenger' | 'instagram',
   dbAdmin: any
+): Promise<string> {
+  const res = await handleMetaInputWithMedia(senderId, textBody, channel, dbAdmin);
+  return res.text;
+}
+
+async function handleMetaInputInternal(
+  senderId: string,
+  textBody: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin: any,
+  mediaCollector?: MetaMediaAttachment[]
 ): Promise<string> {
   const cleanInput = textBody.trim();
   const session = await getMetaSession(senderId, channel, dbAdmin);
@@ -1615,6 +1957,13 @@ export async function handleMetaInput(
       session.details.restaurantOptions = restaurants;
       session.step = 'FOOD_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
+      appendMediaItems(
+        mediaCollector,
+        restaurants.map((r, idx) => ({
+          url: r.imageUrl,
+          caption: `*${idx + 1}. ${r.name}*\n📍 ${r.address}`
+        }))
+      );
       let resp = `📍 Migahawa ya karibu na *${gpsLoc.name}*:\n\n`;
       restaurants.forEach((r, idx) => {
         const distPart = typeof r.distanceKm === 'number' ? ` • ~${r.distanceKm} km` : '';
@@ -1854,10 +2203,12 @@ export async function handleMetaInput(
             return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrv.maintenanceMessage}`;
           }
           session.service = intent as any;
-          return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
+          return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
         } else {
           return `⚠️ Samahani, huduma ya ${intent.toUpperCase()} haipatikani kwa sasa.`;
         }
+      } else {
+        // Ignore unused
       }
     }
     
@@ -1899,7 +2250,7 @@ export async function handleMetaInput(
       }
     }
     
-    return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
+    return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
   }
 
   // Active Flow handling
@@ -1913,7 +2264,7 @@ export async function handleMetaInput(
     return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
   }
 
-  return await routeToServiceFlow(session, cleanInput, dbAdmin, channel);
+  return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
 }
 
 /**
@@ -1923,7 +2274,8 @@ async function routeToServiceFlow(
   session: MetaSession,
   input: string,
   dbAdmin: any,
-  channel: 'whatsapp' | 'messenger' | 'instagram'
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  mediaCollector?: MetaMediaAttachment[]
 ): Promise<string> {
   const service = session.service;
   const cleaned = input.toUpperCase();
@@ -2371,13 +2723,21 @@ async function routeToServiceFlow(
     const lower = trimmed.toLowerCase();
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
 
-    // Helper to render numbered restaurant list
+    // Helper to render numbered restaurant list (with photos!)
     const promptRestaurantList = async (modeLabel: string, queryHint?: string) => {
       const restaurants = await fetchRestaurantsForMeta(dbAdmin);
       session.details.restaurantOptions = restaurants;
       if (queryHint) session.details.itemQuery = queryHint;
       session.step = 'FOOD_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
+
+      appendMediaItems(
+        mediaCollector,
+        restaurants.map((r, idx) => ({
+          url: r.imageUrl,
+          caption: `*${idx + 1}. ${r.name}*\n📍 ${r.address}`
+        }))
+      );
 
       let resp = `${modeLabel}\n\nChagua mgahawa unaotaka:\n\n`;
       restaurants.forEach((r, idx) => {
@@ -2388,12 +2748,20 @@ async function routeToServiceFlow(
       return resp;
     };
 
-    // Helper to render restaurant menu items
+    // Helper to render restaurant menu items (with food photos!)
     const promptMenuList = async (vendorId: string, vendorName: string, queryHint?: string) => {
       const menu = await fetchRestaurantMenu(dbAdmin, vendorId, queryHint);
       session.details.foodMenu = menu;
       session.step = 'FOOD_SELECT_ITEM';
       await saveMetaSession(session, dbAdmin);
+
+      appendMediaItems(
+        mediaCollector,
+        menu.map((item, idx) => ({
+          url: item.imageUrl,
+          caption: `*${idx + 1}. ${item.name}* — *TZS ${item.price.toLocaleString()}/=*${item.description ? `\n${item.description}` : ''}`
+        }))
+      );
 
       const currentCart = session.details.foodCart || [];
       let resp = `🍽️ *MENYU YA ${vendorName.toUpperCase()}*\n\n`;
@@ -2871,21 +3239,47 @@ async function routeToServiceFlow(
     if (!session.details.itemQuery) {
       session.details.itemQuery = cleaned;
       session.step = 'SELECTING_OPTION';
-      
-      const cars = [
-        { id: 'car-m1', name: 'Toyota Land Cruiser Prado (Silver)', price: 150000 },
-        { id: 'car-m2', name: 'Toyota Harrier New Model (Black)', price: 100000 },
-        { id: 'car-m3', name: 'Toyota Noah (Vibe / Safari)', price: 70000 }
-      ];
+
+      const cars = await fetchCatalogItemsForMeta(dbAdmin, 'car_rental', cleaned, [
+        {
+          id: 'car-m1',
+          name: 'Toyota Land Cruiser Prado (Silver)',
+          price: 150000,
+          desc: '4x4 Safari & Executive • AC',
+          imageUrl: 'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'car-m2',
+          name: 'Toyota Harrier New Model (Black)',
+          price: 100000,
+          desc: 'Luxury SUV • Automatic',
+          imageUrl: 'https://images.unsplash.com/photo-1549317661-bd82d8be0c21?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'car-m3',
+          name: 'Toyota Noah (Vibe / Safari)',
+          price: 70000,
+          desc: 'Watu 7 • Familia & Safari',
+          imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80'
+        }
+      ]);
       session.details.optionsList = cars;
       await saveMetaSession(session, dbAdmin);
+
+      appendMediaItems(
+        mediaCollector,
+        cars.map((car, idx) => ({
+          url: car.imageUrl,
+          caption: `*${idx + 1}. ${car.name}* — *TZS ${car.price.toLocaleString()}/siku*${car.desc ? `\n${car.desc}` : ''}`
+        }))
+      );
 
       let resp = `🚗 *Papo Hapo Car Rental Assist*:\n\n`;
       resp += `Magari yanayopatikana leo karibu nawe:\n\n`;
       cars.forEach((car, idx) => {
-        resp += `*${idx + 1}. ${car.name}*\n💰 Kodi kwa siku: *TSH ${car.price.toLocaleString()}*\n\n`;
+        resp += `*${idx + 1}. ${car.name}*\n${car.desc ? `📌 ${car.desc}\n` : ''}💰 Kodi kwa siku: *TSH ${car.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya gari unalotaka kukodi leo:`;
+      resp += `Andika namba ya gari unalotaka kukodi leo (*1–${cars.length}*):`;
       return resp;
     }
 
@@ -2893,16 +3287,17 @@ async function routeToServiceFlow(
       const idx = parseInt(input) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
-        return `⚠️ Namba si sahihi. Andika *1*, *2*, au *3* kukodi gari.`;
+        return `⚠️ Namba si sahihi. Andika namba sahihi ya gari (*1–${session.details.optionsList?.length || 3}*).`;
       }
 
       session.details.selectedId = selected.id;
+      session.details.selectedVendorId = selected.vendorId || 'car-rental-meta-vendor';
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `🔑 Umemiliki chaguo hili! Andika namba yako ya simu ya mkononi ya kukamilisha kukodisha (Mfano: *07XXXXXXXX*):`;
+      return `🔑 Umechagua *${selected.name}*! Andika namba yako ya simu ya mkononi ya kukamilisha kukodisha (Mfano: *07XXXXXXXX*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -2911,12 +3306,12 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        "car-rental-meta-vendor",
+        session.details.selectedVendorId || "car-rental-meta-vendor",
         "car_rental",
         [{ name: `Car Rental: ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 100000,
         input,
-        "Meta Car Rental Client",
+        session.details.customerName || "Meta Car Rental Client",
         `Renting vehicle ${session.details.selectedName}`,
         session.channel
       );
@@ -2935,20 +3330,46 @@ async function routeToServiceFlow(
       session.details.itemQuery = cleaned;
       session.step = 'SELECTING_OPTION';
 
-      const salons = [
-        { id: 'sal-m1', name: 'Shear Illusions Executive Salon', price: 20000, desc: 'Hair Treatment & Wash' },
-        { id: 'sal-m2', name: 'Glamour Nails & Makeup Lounge', price: 25000, desc: 'Manicure & Nails gel' },
-        { id: 'sal-m3', name: 'VIP Barber & Facial Scrub', price: 10000, desc: 'Premium Shaving & Scrub' }
-      ];
+      const salons = await fetchCatalogItemsForMeta(dbAdmin, 'salon', cleaned, [
+        {
+          id: 'sal-m1',
+          name: 'Shear Illusions Executive Salon',
+          price: 20000,
+          desc: 'Hair Treatment & Wash',
+          imageUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'sal-m2',
+          name: 'Glamour Nails & Makeup Lounge',
+          price: 25000,
+          desc: 'Manicure & Nails gel',
+          imageUrl: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'sal-m3',
+          name: 'VIP Barber & Facial Scrub',
+          price: 10000,
+          desc: 'Premium Shaving & Scrub',
+          imageUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80'
+        }
+      ]);
       session.details.optionsList = salons;
       await saveMetaSession(session, dbAdmin);
+
+      appendMediaItems(
+        mediaCollector,
+        salons.map((sal, idx) => ({
+          url: sal.imageUrl,
+          caption: `*${idx + 1}. ${sal.name}* — *TSH ${sal.price.toLocaleString()}*${sal.desc ? `\n📍 ${sal.desc}` : ''}`
+        }))
+      );
 
       let resp = `💇‍♀️ *Papo Hapo Salon Booking Lounge*:\n\n`;
       resp += `Umesema unatafuta: *"${cleaned}"*\n\n`;
       salons.forEach((sal, idx) => {
-        resp += `*${idx + 1}. ${sal.name}*\n📍 ${sal.desc}\n💰 Huduma: *TSH ${sal.price.toLocaleString()}*\n\n`;
+        resp += `*${idx + 1}. ${sal.name}*\n${sal.desc ? `📍 ${sal.desc}\n` : ''}💰 Huduma: *TSH ${sal.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya Saluni unayotaka kuweka miadi (Booking) sasa:`;
+      resp += `Andika namba ya Saluni unayotaka kuweka miadi (Booking) sasa (*1–${salons.length}*):`;
       return resp;
     }
 
@@ -2956,16 +3377,17 @@ async function routeToServiceFlow(
       const idx = parseInt(input) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
-        return `⚠️ Chaguo si sahihi. Tafadhali weka *1*, *2*, au *3*.`;
+        return `⚠️ Chaguo si sahihi. Tafadhali weka namba kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
       }
 
       session.details.selectedId = selected.id;
+      session.details.selectedVendorId = selected.vendorId || selected.id || 'salon-meta-vendor';
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `⏰ Tafadhali andika namba yako ya simu na muda unaopendelea kufika saluni leo (Mfano: *0712345678, Saa 11 Jioni*):`;
+      return `⏰ Umechagua *${selected.name}*! Tafadhali andika namba yako ya simu na muda unaopendelea kufika saluni leo (Mfano: *0712345678, Saa 11 Jioni*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -2974,12 +3396,12 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        session.details.selectedId || "salon-meta-vendor",
+        session.details.selectedVendorId || session.details.selectedId || "salon-meta-vendor",
         "salon",
         [{ name: `Salon Booking at ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 15000,
         input.split(',')[0].trim(),
-        "Meta Salon Client",
+        session.details.customerName || "Meta Salon Client",
         `Booking Details: ${input}`,
         session.channel
       );
@@ -2998,20 +3420,46 @@ async function routeToServiceFlow(
       session.details.itemQuery = cleaned;
       session.step = 'SELECTING_OPTION';
 
-      const items = [
-        { id: 'grc-m1', name: 'Nyanya Kiboksi (Safi)', price: 3500 },
-        { id: 'grc-m2', name: 'Vitunguu Fungo Kubwa (Sokoni)', price: 2000 },
-        { id: 'grc-m3', name: 'Mchele Grade I (Sumbawanga - 5KG)', price: 12500 }
-      ];
+      const items = await fetchCatalogItemsForMeta(dbAdmin, 'grocery', cleaned, [
+        {
+          id: 'grc-m1',
+          name: 'Nyanya Kiboksi (Safi)',
+          price: 3500,
+          desc: 'Sokoni Fresh',
+          imageUrl: 'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'grc-m2',
+          name: 'Vitunguu Fungo Kubwa (Sokoni)',
+          price: 2000,
+          desc: 'Vitunguu Maji Bora',
+          imageUrl: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'grc-m3',
+          name: 'Mchele Grade I (Sumbawanga - 5KG)',
+          price: 12500,
+          desc: 'Mchele Mzuri wa Mbeya/Sumbawanga',
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80'
+        }
+      ]);
       session.details.optionsList = items;
       await saveMetaSession(session, dbAdmin);
 
+      appendMediaItems(
+        mediaCollector,
+        items.map((item, idx) => ({
+          url: item.imageUrl,
+          caption: `*${idx + 1}. ${item.name}* — *TSH ${item.price.toLocaleString()}*${item.desc ? `\n${item.desc}` : ''}`
+        }))
+      );
+
       let resp = `🥦 *Papo Hapo Sokoni Assist*:\n\n`;
-      resp += `Tulivyopata kwa ajili ya: *"${cleaned}"*\n\n`;
+      resp += `Bidhaa zilizopo kwa ajili ya: *"${cleaned}"*\n\n`;
       items.forEach((item, idx) => {
-        resp += `*${idx + 1}. ${item.name}*\n💰 Bei: *TSH ${item.price.toLocaleString()}*\n\n`;
+        resp += `*${idx + 1}. ${item.name}*\n${item.desc ? `📌 ${item.desc}\n` : ''}💰 Bei: *TSH ${item.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya bidhaa unayotaka kuagiza sasa hivi:`;
+      resp += `Andika namba ya bidhaa unayotaka kuagiza sasa hivi (*1–${items.length}*):`;
       return resp;
     }
 
@@ -3019,16 +3467,17 @@ async function routeToServiceFlow(
       const idx = parseInt(input) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
-        return `⚠️ Weka namba sahihi ya orodha kuanzia *1* hadi *3*.`;
+        return `⚠️ Weka namba sahihi ya orodha kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
       }
 
       session.details.selectedId = selected.id;
+      session.details.selectedVendorId = selected.vendorId || 'sokoni-vendor-meta';
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `🏡 Tafadhali weka namba yako ya simu na anwani ya kuwasilisha mzigo wako (Mfano: *0712345678, Kinondoni Block B*):`;
+      return `🏡 Umechagua *${selected.name}*! Tafadhali weka namba yako ya simu na anwani ya kuwasilisha mzigo wako (Mfano: *0712345678, Kinondoni Block B*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -3037,12 +3486,12 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        "sokoni-vendor-meta",
+        session.details.selectedVendorId || "sokoni-vendor-meta",
         "grocery",
         [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 5000,
         input.split(',')[0].trim(),
-        "Meta Grocery Client",
+        session.details.customerName || "Meta Grocery Client",
         `Market Address: ${input}`,
         session.channel
       );
@@ -3061,20 +3510,46 @@ async function routeToServiceFlow(
       session.details.itemQuery = cleaned;
       session.step = 'SELECTING_OPTION';
 
-      const meds = [
-        { id: 'med-m1', name: 'Panadol Advance (Kopo 24)', price: 3000 },
-        { id: 'med-m2', name: 'Amoxicillin Caps (Pack 10)', price: 4500 },
-        { id: 'med-m3', name: 'Hedex Tablets (Strap)', price: 1500 }
-      ];
+      const meds = await fetchCatalogItemsForMeta(dbAdmin, 'pharmacy', cleaned, [
+        {
+          id: 'med-m1',
+          name: 'Panadol Advance (Kopo 24)',
+          price: 3000,
+          desc: 'Maumivu & Homa (OTC)',
+          imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'med-m2',
+          name: 'Vitamin C + Zinc Boosters',
+          price: 4500,
+          desc: 'Kinga ya Mwili',
+          imageUrl: 'https://images.unsplash.com/photo-1550572017-edd951b55104?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'med-m3',
+          name: 'First Aid & Bandage Kit',
+          price: 6500,
+          desc: 'Huduma ya Kwanza',
+          imageUrl: 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?auto=format&fit=crop&w=800&q=80'
+        }
+      ]);
       session.details.optionsList = meds;
       await saveMetaSession(session, dbAdmin);
 
+      appendMediaItems(
+        mediaCollector,
+        meds.map((med, idx) => ({
+          url: med.imageUrl,
+          caption: `*${idx + 1}. ${med.name}* — *TSH ${med.price.toLocaleString()}*${med.desc ? `\n${med.desc}` : ''}`
+        }))
+      );
+
       let resp = `💊 *Papo Hapo Pharmacy Assistant*:\n\n`;
-      resp += `Dawa zilizopo karibu kwa ajili ya: *"${cleaned}"*\n\n`;
+      resp += `Dawa/Vifaa vilivyopo karibu kwa ajili ya: *"${cleaned}"*\n\n`;
       meds.forEach((med, idx) => {
-        resp += `*${idx + 1}. ${med.name}*\n💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
+        resp += `*${idx + 1}. ${med.name}*\n${med.desc ? `📌 ${med.desc}\n` : ''}💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya dawa unayohitaji kuagiza:`;
+      resp += `Andika namba ya dawa unayohitaji kuagiza (*1–${meds.length}*):`;
       return resp;
     }
 
@@ -3082,16 +3557,17 @@ async function routeToServiceFlow(
       const idx = parseInt(input) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
-        return `⚠️ Weka namba sahihi. Chagua *1*, *2*, au *3*.`;
+        return `⚠️ Weka namba sahihi. Chagua *1* hadi *${session.details.optionsList?.length || 3}*.`;
       }
 
       session.details.selectedId = selected.id;
+      session.details.selectedVendorId = selected.vendorId || 'pharmacy-meta-vendor';
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `💊 Tafadhali andika namba yako ya simu kwa ajili ya kutumiwa push prompt ya malipo na duka (Mfano: *07XXXXXXXX*):`;
+      return `💊 Umechagua *${selected.name}*! Tafadhali andika namba yako ya simu na eneo ulipo (Mfano: *0712345678, Sinza*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -3100,60 +3576,96 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        "pharmacy-meta-vendor",
+        session.details.selectedVendorId || "pharmacy-meta-vendor",
         "pharmacy",
         [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 2500,
-        input,
-        "Meta Pharmacy Client",
-        `Requested medicine: ${session.details.selectedName}`,
+        input.split(',')[0].trim(),
+        session.details.customerName || "Meta Pharmacy Client",
+        `Requested medicine: ${session.details.selectedName} | Address: ${input}`,
         session.channel
       );
 
       return `✅ *Agizo la Dawa Limepokelewa!* 💊🚑\n\n` +
              `- Dawa: *${session.details.selectedName}*\n` +
              `- Bei ya kulipa: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n\n` +
-             `Tumetuma ujumbe wa kufanya malipo (Push Prompt) kwenye namba yako *${input}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`;
+             `Tumetuma ujumbe wa kufanya malipo (Push Prompt) kwenye namba yako *${input.split(',')[0].trim()}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`;
     }
   }
 
-  // HOTEL FLOW
+  // HOTEL & ROOMS FLOW
   if (service === 'hotel') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
-      session.step = 'SELECTING_OPTION';
+    const isInHotelStep = ['HOTEL_SELECT_VENDOR', 'HOTEL_SELECT_ROOM', 'COLLECTING_PHONE'].includes(session.step);
 
-      const hotels = [
-        { id: 'htl-m1', name: 'The Hyatt Regency Kilimanjaro', price: 280000, desc: 'Luxury Sea View Room' },
-        { id: 'htl-m2', name: 'Serena Luxury Hotel & Suites', price: 220000, desc: 'Deluxe Suite with Breakfast' },
-        { id: 'htl-m3', name: 'Transit Motel Airport', price: 65000, desc: 'Standard Room with AC' }
-      ];
+    if (!isInHotelStep) {
+      const hotels = await fetchHotelsForMeta(dbAdmin);
       session.details.optionsList = hotels;
+      session.step = 'HOTEL_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
 
-      let resp = `🏨 *Papo Hapo Hotel Room Finder*:\n\n`;
-      resp += `Vyumba vilivyo wazi karibu nawe:\n\n`;
+      appendMediaItems(
+        mediaCollector,
+        hotels.map((htl, idx) => ({
+          url: htl.imageUrl,
+          caption: `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc || 'Tanzania'} • Kuanzia *TZS ${htl.price.toLocaleString()}/usiku*`
+        }))
+      );
+
+      let resp = `🏨 *Papo Hapo Hotel & Vyumba Finder*:\n\n`;
+      resp += `Hoteli na nyumba za wageni zilizopo:\n\n`;
       hotels.forEach((htl, idx) => {
-        resp += `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc}\n💰 Chumba/Usiku: *TSH ${htl.price.toLocaleString()}*\n\n`;
+        resp += `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc}\n💰 Kuanzia: *TSH ${htl.price.toLocaleString()}/usiku*\n\n`;
       });
-      resp += `Andika namba ya hoteli unayotaka kuweka Booking sasa hivi:`;
+      resp += `Andika namba ya hoteli kuona *picha na bei za vyumba vyake* (*1–${hotels.length}*):`;
       return resp;
     }
 
-    if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
-      const selected = session.details.optionsList?.[idx];
-      if (!selected) {
-        return `⚠️ Namba uliyoweka haipo kwenye list yetu.`;
+    if (session.step === 'HOTEL_SELECT_VENDOR') {
+      const idx = parseInt(input, 10) - 1;
+      const hotelList: MetaCatalogOption[] = session.details.optionsList || [];
+      const selectedHotel = hotelList[idx];
+      if (!selectedHotel) {
+        return `⚠️ Namba uliyoweka haipo. Tafadhali chagua *1–${hotelList.length}*:`;
       }
 
-      session.details.selectedId = selected.id;
-      session.details.selectedName = selected.name;
-      session.details.selectedPrice = selected.price;
+      session.details.selectedHotelId = selectedHotel.id;
+      session.details.selectedHotelName = selectedHotel.name;
+      const rooms = await fetchHotelRoomsForMeta(dbAdmin, selectedHotel);
+      session.details.roomOptions = rooms;
+      session.step = 'HOTEL_SELECT_ROOM';
+      await saveMetaSession(session, dbAdmin);
+
+      appendMediaItems(
+        mediaCollector,
+        rooms.map((rm, rIdx) => ({
+          url: rm.imageUrl,
+          caption: `*${rIdx + 1}. ${rm.name}* (${selectedHotel.name})\n💰 *TZS ${rm.price.toLocaleString()}/usiku*${rm.desc ? `\n🛏️ ${rm.desc}` : ''}`
+        }))
+      );
+
+      let resp = `🛏️ *VYUMBA VYA ${selectedHotel.name.toUpperCase()}*\n\n`;
+      rooms.forEach((rm, rIdx) => {
+        resp += `*${rIdx + 1}. ${rm.name}*\n${rm.desc ? `✨ ${rm.desc}\n` : ''}💰 *TSH ${rm.price.toLocaleString()}/usiku*\n\n`;
+      });
+      resp += `Andika namba ya chumba unachotaka kuweka Booking (*1–${rooms.length}*):`;
+      return resp;
+    }
+
+    if (session.step === 'HOTEL_SELECT_ROOM') {
+      const idx = parseInt(input, 10) - 1;
+      const roomList: MetaCatalogOption[] = session.details.roomOptions || [];
+      const selectedRoom = roomList[idx];
+      if (!selectedRoom) {
+        return `⚠️ Chagua namba sahihi ya chumba (*1–${roomList.length}*):`;
+      }
+
+      session.details.selectedId = selectedRoom.id;
+      session.details.selectedName = `${session.details.selectedHotelName} — ${selectedRoom.name}`;
+      session.details.selectedPrice = selectedRoom.price;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `🏨 Umefanya chaguo makini! Sasa andika namba yako ya simu na tarehe unayotaka kuingia (Mfano: *0712345678, Tarehe 30 June*):`;
+      return `🏨 Umechagua *${selectedRoom.name}* (*TSH ${selectedRoom.price.toLocaleString()}/usiku*)!\n\nSasa andika namba yako ya simu na tarehe unayotaka kuingia (Mfano: *0712345678, Leo Usiku* au *Kesho*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -3162,20 +3674,21 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        session.details.selectedId || "hotel-meta-vendor",
+        session.details.selectedHotelId || session.details.selectedId || "hotel-meta-vendor",
         "hotel",
-        [{ name: `Hotel Booking at ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
+        [{ name: `Hotel Room: ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 100000,
         input.split(',')[0].trim(),
-        "Meta Hotel Client",
-        `Booking info: ${input}`,
+        session.details.customerName || "Meta Hotel Client",
+        `Room Booking info: ${input}`,
         session.channel
       );
 
       return `🏨 *Booking ya Chumba Imethibitishwa!* 🎉\n\n` +
-             `- Hoteli: *${session.details.selectedName}*\n` +
+             `- Chumba: *${session.details.selectedName}*\n` +
+             `- Bei/Usiku: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
              `- Maelezo ya kuingia: *${input}*\n\n` +
-             `Hoteli imepokea data zako na itatuma barua pepe/SMS ya kukukaribisha hivi punde. Karibu Tanzania! 🇹🇿`;
+             `Hoteli imepokea booking yako na itakupigia/kutuma uthibitisho punde. Karibu sana! 🇹🇿`;
     }
   }
 
@@ -3201,15 +3714,17 @@ async function routeToServiceFlow(
 }
 
 /**
- * Sends a real outbound reply via Meta Graph API (WhatsApp Cloud API / Messenger / Instagram)
+ * Sends a real outbound reply (optional image cards + text) via Meta Graph API
+ * (WhatsApp Cloud API / Messenger / Instagram)
  */
 export async function sendMetaOutboundMessage(params: {
   channel: 'whatsapp' | 'messenger' | 'instagram';
   recipientId: string;
   text: string;
   phoneNumberId?: string;
+  media?: MetaMediaAttachment[];
 }): Promise<{ sent: boolean; reason?: string }> {
-  const { channel, recipientId, text, phoneNumberId } = params;
+  const { channel, recipientId, text, phoneNumberId, media } = params;
   if (!recipientId || !text) {
     return { sent: false, reason: 'Missing recipientId or text' };
   }
@@ -3233,6 +3748,67 @@ export async function sendMetaOutboundMessage(params: {
       if (!accessToken || !resolvedPhoneId) {
         console.warn('[Meta Outbound] Skipping WhatsApp send: missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId');
         return { sent: false, reason: 'Missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId' };
+      }
+
+      // Send up to 4 image cards first so the customer sees real food/product/room photos above the numbered prompt
+      if (Array.isArray(media) && media.length > 0) {
+        for (const item of media.slice(0, 4)) {
+          try {
+            let imagePayload: Record<string, any> | null = null;
+            if (item.url.startsWith('data:image/')) {
+              const match = item.url.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+              if (match) {
+                const mimeType = match[1];
+                const buffer = Buffer.from(match[2], 'base64');
+                const ext = mimeType.split('/')[1] || 'jpg';
+                const form = new FormData();
+                form.append('messaging_product', 'whatsapp');
+                form.append('type', mimeType);
+                form.append('file', new Blob([buffer], { type: mimeType }), `item.${ext}`);
+                const uploadResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/media`, {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${accessToken}` },
+                  body: form,
+                });
+                const uploadData = await uploadResp.json().catch(() => ({}));
+                if (uploadResp.ok && uploadData?.id) {
+                  imagePayload = {
+                    id: uploadData.id,
+                    ...(item.caption ? { caption: item.caption.slice(0, 1024) } : {}),
+                  };
+                }
+              }
+            } else if (item.url.startsWith('https://') || item.url.startsWith('http://')) {
+              imagePayload = {
+                link: item.url,
+                ...(item.caption ? { caption: item.caption.slice(0, 1024) } : {}),
+              };
+            }
+
+            if (imagePayload) {
+              const imgResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  messaging_product: 'whatsapp',
+                  recipient_type: 'individual',
+                  to: recipientId,
+                  type: 'image',
+                  image: imagePayload,
+                }),
+              });
+              if (!imgResp.ok) {
+                const imgErr = await imgResp.json().catch(() => ({}));
+                console.warn('[Meta Outbound] WhatsApp image send skipped:', imgResp.status, JSON.stringify(imgErr));
+              }
+            }
+          } catch (mediaErr: any) {
+            console.warn('[Meta Outbound] Non-fatal error sending WhatsApp image:', mediaErr?.message || mediaErr);
+          }
+        }
       }
 
       const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
@@ -3276,6 +3852,30 @@ export async function sendMetaOutboundMessage(params: {
         ? `https://graph.instagram.com/v21.0/me/messages`
         : `https://graph.facebook.com/v21.0/me/messages`;
 
+      if (Array.isArray(media) && media.length > 0) {
+        for (const item of media.slice(0, 4)) {
+          if (!item.url.startsWith('http')) continue;
+          try {
+            await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                recipient: { id: recipientId },
+                message: {
+                  attachment: {
+                    type: 'image',
+                    payload: { url: item.url, is_reusable: true },
+                  },
+                },
+              }),
+            });
+          } catch {}
+        }
+      }
+
       const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -3301,6 +3901,28 @@ export async function sendMetaOutboundMessage(params: {
     const pageToken = (process.env.META_PAGE_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || '').trim();
     if (!pageToken) {
       return { sent: false, reason: 'Missing META_PAGE_ACCESS_TOKEN' };
+    }
+
+    if (Array.isArray(media) && media.length > 0) {
+      for (const item of media.slice(0, 4)) {
+        if (!item.url.startsWith('http')) continue;
+        try {
+          await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(pageToken)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipient: { id: recipientId },
+              messaging_type: 'RESPONSE',
+              message: {
+                attachment: {
+                  type: 'image',
+                  payload: { url: item.url, is_reusable: true },
+                },
+              },
+            }),
+          });
+        } catch {}
+      }
     }
 
     const resp = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(pageToken)}`, {
@@ -3489,4 +4111,166 @@ export async function notifyRideStatusToMeta(
     return { notified: false, reason: err?.message || String(err) };
   }
 }
+
+export interface ExtractedMetaWebhookMessage {
+  channel: 'whatsapp' | 'messenger' | 'instagram';
+  senderId: string;
+  textBody: string;
+  phoneNumberId: string;
+  messageId: string;
+}
+
+const processedMetaMessageIds = new Map<string, number>();
+const META_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
+const metaSenderQueues = new Map<string, Promise<void>>();
+
+/**
+ * Extracts all actionable incoming messages from a Meta webhook payload
+ * (WhatsApp Cloud API, Facebook Messenger, Instagram Messaging), skipping
+ * status callbacks, delivery receipts, and echo events.
+ */
+export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessage[] {
+  const results: ExtractedMetaWebhookMessage[] = [];
+  if (!body || typeof body !== 'object') return results;
+
+  const entries = Array.isArray(body.entry) ? body.entry : [];
+
+  if (body.object === 'whatsapp_business_account') {
+    for (const entry of entries) {
+      const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+      for (const change of changes) {
+        const value = change?.value;
+        if (!value || !Array.isArray(value.messages) || value.messages.length === 0) {
+          continue;
+        }
+        const phoneNumberId = String(value?.metadata?.phone_number_id || '');
+        for (const message of value.messages) {
+          const senderId = String(message?.from || '').trim();
+          const messageId = String(message?.id || '').trim();
+          const textBody = String(
+            message?.text?.body ||
+              message?.interactive?.button_reply?.title ||
+              message?.interactive?.list_reply?.title ||
+              message?.button?.text ||
+              (message?.location
+                ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}`
+                : '') ||
+              ''
+          ).trim();
+
+          if (senderId && textBody) {
+            results.push({
+              channel: 'whatsapp',
+              senderId,
+              textBody,
+              phoneNumberId,
+              messageId,
+            });
+          }
+        }
+      }
+    }
+  } else if (body.object === 'page' || body.object === 'instagram') {
+    const channel: 'messenger' | 'instagram' = body.object === 'instagram' ? 'instagram' : 'messenger';
+    for (const entry of entries) {
+      const messagingEvents = Array.isArray(entry?.messaging) ? entry.messaging : [];
+      for (const messaging of messagingEvents) {
+        const isEcho = Boolean(messaging?.message?.is_echo);
+        if (!messaging || isEcho) continue;
+        const senderId = String(messaging?.sender?.id || '').trim();
+        const messageId = String(messaging?.message?.mid || '').trim();
+        const textBody = String(
+          messaging?.message?.text ||
+            messaging?.message?.quick_reply?.payload ||
+            messaging?.postback?.title ||
+            messaging?.postback?.payload ||
+            ''
+        ).trim();
+
+        if (senderId && textBody) {
+          results.push({
+            channel,
+            senderId,
+            textBody,
+            phoneNumberId: '',
+            messageId,
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Claims a Meta webhook message ID synchronously in-memory and persistently in
+ * Firestore (`meta_sessions/dedup_*`) so webhook retries or duplicate deliveries
+ * never send a double reply. Returns `true` only the first time a message ID is seen.
+ */
+export async function claimMetaWebhookMessage(
+  messageId: string | undefined,
+  dbAdmin: any
+): Promise<boolean> {
+  const key = (messageId || '').trim();
+  if (!key) return true;
+
+  const now = Date.now();
+  if (processedMetaMessageIds.size > 5000) {
+    for (const [k, ts] of processedMetaMessageIds.entries()) {
+      if (now - ts > META_DEDUP_TTL_MS) {
+        processedMetaMessageIds.delete(k);
+      }
+    }
+  }
+
+  const prevTs = processedMetaMessageIds.get(key);
+  if (prevTs && now - prevTs < META_DEDUP_TTL_MS) {
+    return false;
+  }
+
+  // Synchronously claim BEFORE any await to stop concurrent duplicate deliveries
+  processedMetaMessageIds.set(key, now);
+
+  if (dbAdmin) {
+    const safeId = `dedup_${key.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 110)}`;
+    try {
+      const docRef = dbAdmin.collection('meta_sessions').doc(safeId);
+      const existing = await docRef.get();
+      if (existing?.exists) {
+        return false;
+      }
+      await docRef.set({
+        type: 'webhook_dedup',
+        messageId: key,
+        processedAt: now,
+      });
+    } catch (err) {
+      console.warn('[Meta Dedup] Firestore dedup check warning (continuing via memory lock):', err);
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Runs async webhook tasks for the same sender strictly sequentially so
+ * session reads/writes never race when messages arrive close together.
+ */
+export function enqueueMetaSenderTask(senderKey: string, task: () => Promise<void>): void {
+  const previous = metaSenderQueues.get(senderKey) || Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(task)
+    .catch((err) => {
+      console.error(`[Meta Queue] Error processing task for ${senderKey}:`, err);
+    })
+    .finally(() => {
+      if (metaSenderQueues.get(senderKey) === next) {
+        metaSenderQueues.delete(senderKey);
+      }
+    });
+  metaSenderQueues.set(senderKey, next);
+}
+
 

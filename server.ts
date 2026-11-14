@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInput, sendMetaOutboundMessage, notifyRideStatusToMeta } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -252,85 +252,53 @@ async function startServer() {
   });
 
   // POST Meta Webhook Event Handler (WhatsApp, Messenger, Instagram)
-  app.post("/api/meta/webhook", async (req, res) => {
-    console.log("[Meta Webhook] Received webhook POST event:", JSON.stringify(req.body));
-    
-    let senderId = "";
-    let textBody = "";
-    let phoneNumberId = "";
-    let channel: 'whatsapp' | 'messenger' | 'instagram' = 'whatsapp';
-    
-    // 1. WhatsApp Business Cloud API payload detection
-    if (req.body.object === "whatsapp_business_account") {
-      const entry = req.body.entry?.[0];
-      const change = entry?.changes?.[0];
-      const value = change?.value;
-      phoneNumberId = value?.metadata?.phone_number_id || "";
-      const message = value?.messages?.[0];
-      if (message) {
-        senderId = message.from || "";
-        textBody =
-          message.text?.body ||
-          message.interactive?.button_reply?.title ||
-          message.interactive?.list_reply?.title ||
-          message.button?.text ||
-          (message.location ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}` : "") ||
-          "";
-        channel = 'whatsapp';
-      }
-    } 
-    // 2. Facebook Messenger / Instagram Messaging payload detection
-    else if (req.body.object === "page" || req.body.object === "instagram") {
-      const entry = req.body.entry?.[0];
-      const messaging = entry?.messaging?.[0];
-      const isEcho = Boolean(messaging?.message?.is_echo);
-      if (messaging && !isEcho) {
-        senderId = messaging.sender?.id || "";
-        textBody =
-          messaging.message?.text ||
-          messaging.message?.quick_reply?.payload ||
-          messaging.postback?.title ||
-          messaging.postback?.payload ||
-          "";
-        channel = req.body.object === "instagram" ? 'instagram' : 'messenger';
-      }
-    }
-    
-    if (senderId && textBody) {
-      try {
-        console.log(`[Meta Webhook] Incoming message on ${channel} from ${senderId}: "${textBody}"`);
-        const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
-        console.log(`[Meta Webhook] Responding to ${channel}:${senderId} -> "${reply}"`);
+  app.post("/api/meta/webhook", (req, res) => {
+    const incomingMessages = extractMetaWebhookMessages(req.body);
+    console.log(`[Meta Webhook] Received webhook POST event (${incomingMessages.length} actionable message(s))`);
+
+    // Acknowledge Meta immediately (<10ms) so Meta Cloud API never times out or retries the webhook
+    res.status(200).send("EVENT_RECEIVED");
+
+    for (const msg of incomingMessages) {
+      enqueueMetaSenderTask(`${msg.channel}:${msg.senderId}`, async () => {
+        const claimed = await claimMetaWebhookMessage(msg.messageId, dbAdmin);
+        if (!claimed) {
+          console.log(`[Meta Webhook] Duplicate message ignored (${msg.channel}:${msg.senderId}, id=${msg.messageId})`);
+          return;
+        }
+
+        console.log(`[Meta Webhook] Incoming message on ${msg.channel} from ${msg.senderId} (id=${msg.messageId || 'none'}): "${msg.textBody}"`);
+        const { text: reply, media } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
+        console.log(`[Meta Webhook] Responding to ${msg.channel}:${msg.senderId} (${media.length} photo(s)) -> "${reply}"`);
 
         await sendMetaOutboundMessage({
-          channel,
-          recipientId: senderId,
+          channel: msg.channel,
+          recipientId: msg.senderId,
           text: reply,
-          phoneNumberId,
+          phoneNumberId: msg.phoneNumberId,
+          media,
         });
-        
-        recordMetaChatInMemory(channel, senderId, textBody, reply);
+
+        recordMetaChatInMemory(msg.channel, msg.senderId, msg.textBody, reply);
 
         // Log in Firestore for dashboard visibility if available
         if (dbAdmin) {
           try {
             await dbAdmin.collection('meta_chats').add({
-              channel,
-              senderId,
-              message: textBody,
+              channel: msg.channel,
+              senderId: msg.senderId,
+              messageId: msg.messageId || undefined,
+              message: msg.textBody,
               reply,
+              mediaCount: media.length,
               timestamp: new Date()
             });
           } catch (dbErr) {
             console.warn("[Meta Webhook] Notice: Firestore write skipped or failed, saved to memory.");
           }
         }
-      } catch (err: any) {
-        console.error(`[Meta Webhook] Error processing message:`, err);
-      }
+      });
     }
-    
-    return res.status(200).send("EVENT_RECEIVED");
   });
 
   // Notify Meta customer (WhatsApp / Messenger / Instagram) when driver updates ride status
@@ -361,7 +329,7 @@ async function startServer() {
     console.log(`[Meta Simulator] Received simulated message from ${channel}:${senderId}: "${message}"`);
     
     try {
-      const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
+      const { text: reply, media } = await handleMetaInputWithMedia(senderId, message, channel, dbAdmin);
       
       recordMetaChatInMemory(channel, senderId, message, reply);
 
@@ -373,6 +341,7 @@ async function startServer() {
             senderId,
             message,
             reply,
+            mediaCount: media.length,
             timestamp: new Date()
           });
         } catch (dbErr) {
@@ -380,7 +349,7 @@ async function startServer() {
         }
       }
       
-      res.json({ reply, status: "success" });
+      res.json({ reply, media, status: "success" });
     } catch (error: any) {
       console.error("[Meta Simulator] Failed to simulate:", error);
       res.status(500).json({ error: "Failed to simulate Meta response", details: error.message });

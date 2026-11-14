@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { handleMetaInput } from '../_lib/metaBot';
+import { handleMetaInputWithMedia } from '../_lib/metaBot';
 import { addMessageToHistory } from '../_lib/historyStore';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[Meta Simulator Vercel] Simulation from ${channel}:${senderId}: "${message}"`);
 
     const dbAdmin = getFirestoreDb();
-    const reply = await handleMetaInput(senderId, message, channel, dbAdmin);
+    const { text: reply, media } = await handleMetaInputWithMedia(senderId, message, channel, dbAdmin);
 
     // Persist log locally in history file
     addMessageToHistory(channel, senderId, message, reply);
@@ -43,6 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           senderId,
           message,
           reply,
+          mediaCount: media.length,
           timestamp: new Date()
         });
       } catch (err) {
@@ -50,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    return res.status(200).json({ reply, status: "success" });
+    return res.status(200).json({ reply, media, status: "success" });
   } catch (error: any) {
     console.error("[Meta Simulator Vercel] Processing error:", error);
     return res.status(500).json({ error: "Failed to simulate Meta response", details: error?.message || String(error) });

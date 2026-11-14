@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { handleMetaInput, sendMetaOutboundMessage } from '../_lib/metaBot';
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, extractMetaWebhookMessages, claimMetaWebhookMessage } from '../_lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -67,75 +67,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. POST METHOD: Meta Webhook Incoming Event Callbacks
     if (req.method === 'POST') {
       const body = req.body || {};
-      console.log("[Meta Webhook Vercel] Received webhook POST event:", JSON.stringify(body));
+      const incomingMessages = extractMetaWebhookMessages(body);
+      console.log(`[Meta Webhook Vercel] Received webhook POST event (${incomingMessages.length} actionable message(s))`);
 
-      let senderId = "";
-      let textBody = "";
-      let phoneNumberId = "";
-      let channel: 'whatsapp' | 'messenger' | 'instagram' = 'whatsapp';
+      if (incomingMessages.length > 0) {
+        const dbAdmin = getFirestoreDb();
+        for (const msg of incomingMessages) {
+          try {
+            const claimed = await claimMetaWebhookMessage(msg.messageId, dbAdmin);
+            if (!claimed) {
+              console.log(`[Meta Webhook Vercel] Duplicate message ignored (${msg.channel}:${msg.senderId}, id=${msg.messageId})`);
+              continue;
+            }
 
-      // WhatsApp Business Cloud API payload
-      if (body.object === "whatsapp_business_account") {
-        const entry = body.entry?.[0];
-        const change = entry?.changes?.[0];
-        const value = change?.value;
-        phoneNumberId = value?.metadata?.phone_number_id || "";
-        const message = value?.messages?.[0];
-        if (message) {
-          senderId = message.from || "";
-          textBody =
-            message.text?.body ||
-            message.interactive?.button_reply?.title ||
-            message.interactive?.list_reply?.title ||
-            message.button?.text ||
-            (message.location ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}` : "") ||
-            "";
-          channel = 'whatsapp';
-        }
-      } 
-      // Facebook Messenger / Instagram Messaging payload
-      else if (body.object === "page" || body.object === "instagram") {
-        const entry = body.entry?.[0];
-        const messaging = entry?.messaging?.[0];
-        const isEcho = Boolean(messaging?.message?.is_echo);
-        if (messaging && !isEcho) {
-          senderId = messaging.sender?.id || "";
-          textBody =
-            messaging.message?.text ||
-            messaging.message?.quick_reply?.payload ||
-            messaging.postback?.title ||
-            messaging.postback?.payload ||
-            "";
-          channel = body.object === "instagram" ? 'instagram' : 'messenger';
-        }
-      }
+            console.log(`[Meta Webhook Vercel] Processing message from ${msg.channel}:${msg.senderId} (id=${msg.messageId || 'none'}): "${msg.textBody}"`);
+            const { text: reply, media } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
+            console.log(`[Meta Webhook Vercel] Reply to ${msg.channel}:${msg.senderId} (${media.length} photo(s)) -> "${reply}"`);
 
-      if (senderId && textBody) {
-        try {
-          const dbAdmin = getFirestoreDb();
-
-          console.log(`[Meta Webhook Vercel] Processing message from ${channel}:${senderId}: "${textBody}"`);
-          const reply = await handleMetaInput(senderId, textBody, channel, dbAdmin);
-          console.log(`[Meta Webhook Vercel] Reply to ${channel}:${senderId} -> "${reply}"`);
-
-          await sendMetaOutboundMessage({
-            channel,
-            recipientId: senderId,
-            text: reply,
-            phoneNumberId,
-          });
-
-          if (dbAdmin) {
-            await dbAdmin.collection('meta_chats').add({
-              channel,
-              senderId,
-              message: textBody,
-              reply,
-              timestamp: new Date()
+            await sendMetaOutboundMessage({
+              channel: msg.channel,
+              recipientId: msg.senderId,
+              text: reply,
+              phoneNumberId: msg.phoneNumberId,
+              media,
             });
+
+            if (dbAdmin) {
+              await dbAdmin.collection('meta_chats').add({
+                channel: msg.channel,
+                senderId: msg.senderId,
+                messageId: msg.messageId || undefined,
+                message: msg.textBody,
+                reply,
+                mediaCount: media.length,
+                timestamp: new Date()
+              });
+            }
+          } catch (innerErr) {
+            console.error("[Meta Webhook Vercel] Error processing inner message logic:", innerErr);
           }
-        } catch (innerErr) {
-          console.error("[Meta Webhook Vercel] Error processing inner message logic:", innerErr);
         }
       }
 
