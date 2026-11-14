@@ -17,7 +17,16 @@ export interface MetaSession {
     | 'CONFIRMING'
     | 'SELECTING_VEHICLE'
     | 'CONFIRMING_TRIP'
-    | 'RATING_DRIVER';
+    | 'RATING_DRIVER'
+    | 'FOOD_CHOOSE_MODE'
+    | 'FOOD_SELECT_VENDOR'
+    | 'FOOD_SELECT_ITEM'
+    | 'FOOD_ITEM_QUANTITY'
+    | 'FOOD_CART_DECISION'
+    | 'FOOD_DELIVERY_ADDRESS'
+    | 'TABLE_SELECT_SEATS'
+    | 'TABLE_SELECT_TIME'
+    | 'TABLE_ASK_PREORDER';
   service?: 'taxi' | 'food' | 'grocery' | 'parcel' | 'salon' | 'hotel' | 'car_rental' | 'pharmacy' | 'bus_ticket';
   details: {
     route?: string;
@@ -437,11 +446,12 @@ async function triggerAutomatedOrder(
   customerPhone: string,
   customerName: string,
   notes: string,
-  source: 'whatsapp' | 'messenger' | 'instagram'
-) {
-  if (!dbAdmin) return;
+  source: 'whatsapp' | 'messenger' | 'instagram',
+  extraFields: Record<string, any> = {}
+): Promise<string | null> {
+  if (!dbAdmin) return null;
   try {
-    const orderData = {
+    const orderData = cleanUndefined({
       customerId: `${source}-client-${customerPhone.replace(/\D/g, '')}`,
       vendorId: vendorId || "papo-hapo-express",
       customerName: customerName,
@@ -449,21 +459,329 @@ async function triggerAutomatedOrder(
       items: items,
       totalAmount: total,
       subtotal: total,
-      status: "pending",
+      status: extraFields.status || "pending",
       type: category,
       orderSource: source,
-      orderType: "booking",
-      paymentMethod: "Mobile Money (Tanzania)",
-      paymentStatus: "pending",
+      orderType: extraFields.orderType || "booking",
+      paymentMethod: extraFields.paymentMethod || "Mobile Money (Tanzania)",
+      paymentStatus: extraFields.paymentStatus || "pending",
       notes: notes || `Order created automatically via Papo Hapo Meta ${source} Bot`,
       createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    await dbAdmin.collection('orders').add(orderData);
+      updatedAt: new Date(),
+      ...extraFields
+    });
+    const ref = await dbAdmin.collection('orders').add(orderData);
     console.log(`[Meta Bot] Automatic order created in DB for vendor: ${vendorId} from ${source}`);
+    return ref?.id || null;
   } catch (err) {
     console.error("[Meta Bot] Error creating order:", err);
+    return null;
   }
+}
+
+interface MetaRestaurantOption {
+  id: string;
+  name: string;
+  address: string;
+  lat?: number;
+  lng?: number;
+  distanceKm?: number;
+  openTablesCount?: number;
+}
+
+interface MetaFoodMenuItem {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+}
+
+interface MetaRestaurantTable {
+  id: string;
+  number: string;
+  capacity: number;
+  status: string;
+  section?: string;
+}
+
+const NON_TABLE_SHAPES = new Set([
+  'entrance',
+  'reception',
+  'kitchen_window',
+  'bar_counter',
+  'restroom',
+  'indoor_plant',
+  'structure_divider'
+]);
+
+async function fetchRestaurantsForMeta(
+  dbAdmin: any,
+  gpsCoords?: { lat: number; lng: number }
+): Promise<MetaRestaurantOption[]> {
+  const results: MetaRestaurantOption[] = [];
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('vendors').where('category', '==', 'restaurant').limit(20).get();
+      if (!snap.empty) {
+        for (const docSnap of snap.docs) {
+          const data = docSnap.data() || {};
+          if (data.status === 'suspended' || data.isApproved === false) continue;
+          let openTablesCount = 0;
+          try {
+            const secSnap = await dbAdmin.collection('vendors').doc(docSnap.id).collection('sections').get();
+            secSnap.docs.forEach((sDoc: any) => {
+              const s = sDoc.data() || {};
+              if (!NON_TABLE_SHAPES.has(s.shape || '') && (s.status || 'available') === 'available') {
+                openTablesCount += 1;
+              }
+            });
+          } catch {}
+
+          const vLat = typeof data.location?.lat === 'number' ? data.location.lat : undefined;
+          const vLng = typeof data.location?.lng === 'number' ? data.location.lng : undefined;
+          const dist =
+            gpsCoords && vLat !== undefined && vLng !== undefined
+              ? Math.round(calculateDistanceKm(gpsCoords.lat, gpsCoords.lng, vLat, vLng) * 10) / 10
+              : undefined;
+
+          results.push({
+            id: docSnap.id,
+            name: data.businessName || 'Mgahawa wa Papo Hapo',
+            address: data.address || 'Dar es Salaam',
+            lat: vLat,
+            lng: vLng,
+            distanceKm: dist,
+            openTablesCount
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[Meta Bot] Failed fetching restaurants:", err);
+    }
+  }
+
+  if (results.length === 0) {
+    return [
+      { id: 'papo-hapo-kitchen', name: 'Papo Hapo Kitchen & Grill', address: 'Mikocheni, Dar es Salaam', openTablesCount: 6 },
+      { id: 'masaki-bistro-pizza', name: 'Masaki Bistro & Pizza', address: 'Masaki, Dar es Salaam', openTablesCount: 5 },
+      { id: 'al-farouq-biryani', name: 'Al-Farouq Biryani House', address: 'Kariakoo, Dar es Salaam', openTablesCount: 8 }
+    ];
+  }
+
+  if (gpsCoords) {
+    results.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+  }
+  return results.slice(0, 6);
+}
+
+async function fetchRestaurantMenu(
+  dbAdmin: any,
+  vendorId: string,
+  searchQuery?: string
+): Promise<MetaFoodMenuItem[]> {
+  const items: MetaFoodMenuItem[] = [];
+  if (dbAdmin && vendorId) {
+    try {
+      const snap = await dbAdmin.collection('products').where('vendorId', '==', vendorId).limit(30).get();
+      if (!snap.empty) {
+        snap.docs.forEach((pDoc: any) => {
+          const p = pDoc.data() || {};
+          if (p.available === false) return;
+          items.push({
+            id: pDoc.id,
+            name: p.name || 'Chakula Maalum',
+            price: Number(p.price) || 5000,
+            category: p.category || ''
+          });
+        });
+      }
+    } catch (err) {
+      console.warn("[Meta Bot] Failed fetching restaurant menu:", err);
+    }
+  }
+
+  if (items.length === 0) {
+    items.push(
+      { id: 'f1', name: 'Chips Kuku Choma (Nusu)', price: 8500, category: 'Chakula' },
+      { id: 'f2', name: 'Pizza ya Kuku & Cheese (Classic)', price: 15000, category: 'Pizza' },
+      { id: 'f3', name: 'Biryani ya Nyama (Mlo Kamili)', price: 9000, category: 'Biryani' },
+      { id: 'f4', name: 'Beef Burger & Chips Combo', price: 12000, category: 'Burger' },
+      { id: 'f5', name: 'Juisi ya Embe / Passion (Fresh)', price: 3000, category: 'Vinywaji' }
+    );
+  }
+
+  if (searchQuery && searchQuery.length >= 3) {
+    const q = searchQuery.toLowerCase();
+    items.sort((a, b) => {
+      const aMatch = a.name.toLowerCase().includes(q) ? 0 : 1;
+      const bMatch = b.name.toLowerCase().includes(q) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }
+  return items.slice(0, 8);
+}
+
+async function fetchAvailableRestaurantTables(
+  dbAdmin: any,
+  vendorId: string,
+  minSeats?: number
+): Promise<MetaRestaurantTable[]> {
+  const tables: MetaRestaurantTable[] = [];
+  if (dbAdmin && vendorId) {
+    try {
+      const snap = await dbAdmin.collection('vendors').doc(vendorId).collection('sections').get();
+      if (!snap.empty) {
+        snap.docs.forEach((sDoc: any) => {
+          const s = sDoc.data() || {};
+          if (NON_TABLE_SHAPES.has(s.shape || '')) return;
+          tables.push({
+            id: sDoc.id,
+            number: String(s.number || sDoc.id.slice(-2)),
+            capacity: Number(s.capacity) || 4,
+            status: s.status || 'available',
+            section: s.section || 'Indoor'
+          });
+        });
+      }
+    } catch (err) {
+      console.warn("[Meta Bot] Failed fetching restaurant tables:", err);
+    }
+  }
+
+  const available = tables.filter((t) => t.status === 'available' && (!minSeats || t.capacity >= minSeats));
+  if (available.length > 0) {
+    return available.sort((a, b) => a.capacity - b.capacity);
+  }
+  return tables.filter((t) => t.status === 'available').sort((a, b) => b.capacity - a.capacity);
+}
+
+async function createTableReservationRecord(
+  dbAdmin: any,
+  params: {
+    vendorId: string;
+    vendorName: string;
+    vendorAddress: string;
+    customerName: string;
+    customerPhone: string;
+    seatsCount: number;
+    scheduledTime: string;
+    preferredTableId?: string;
+    preferredTableNumber?: string;
+    preOrderItems?: Array<{ id?: string; name: string; price: number; quantity: number }>;
+    paymentMethod: string;
+    paymentMethodLabel: string;
+    channel: 'whatsapp' | 'messenger' | 'instagram';
+  }
+): Promise<{ bookingCode: string; tableNumber: string; orderId?: string | null }> {
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  const bookingCode = `TBL-${rand}`;
+  let assignedTableId = params.preferredTableId || '';
+  let assignedTableNumber = params.preferredTableNumber || '';
+
+  if (dbAdmin && params.vendorId) {
+    try {
+      if (!assignedTableId) {
+        const availableTables = await fetchAvailableRestaurantTables(dbAdmin, params.vendorId, params.seatsCount);
+        if (availableTables.length > 0) {
+          assignedTableId = availableTables[0].id;
+          assignedTableNumber = availableTables[0].number;
+        }
+      }
+
+      if (!assignedTableNumber) {
+        assignedTableNumber = String(Math.floor(1 + Math.random() * 12));
+      }
+
+      const preItems = params.preOrderItems || [];
+      const preTotal = preItems.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+      if (assignedTableId) {
+        await dbAdmin
+          .collection('vendors')
+          .doc(params.vendorId)
+          .collection('sections')
+          .doc(assignedTableId)
+          .set(
+            cleanUndefined({
+              status: 'reserved',
+              reservation: {
+                bookingCode,
+                customerName: params.customerName,
+                customerPhone: params.customerPhone,
+                seatsCount: params.seatsCount,
+                scheduledTime: params.scheduledTime,
+                preOrderItems: preItems,
+                totalAmount: preTotal,
+                paymentMethod: params.paymentMethod,
+                channel: params.channel,
+                createdAt: Date.now()
+              }
+            }),
+            { merge: true }
+          );
+      }
+
+      await dbAdmin.collection('tables').doc(bookingCode).set(
+        cleanUndefined({
+          bookingCode,
+          vendorId: params.vendorId,
+          vendorName: params.vendorName,
+          vendorAddress: params.vendorAddress,
+          tableId: assignedTableId || null,
+          tableNumber: assignedTableNumber,
+          seatsCount: params.seatsCount,
+          scheduledTime: params.scheduledTime,
+          customerName: params.customerName,
+          customerPhone: params.customerPhone,
+          status: 'reserved',
+          preOrderItems: preItems,
+          totalAmount: preTotal,
+          paymentMethod: params.paymentMethod,
+          paymentMethodLabel: params.paymentMethodLabel,
+          channel: params.channel,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+      );
+
+      const orderItems =
+        preItems.length > 0
+          ? preItems
+          : [{ id: bookingCode, name: `Booking Meza #${assignedTableNumber} (Viti ${params.seatsCount})`, price: 0, quantity: 1 }];
+
+      const orderId = await triggerAutomatedOrder(
+        dbAdmin,
+        params.vendorId,
+        'restaurant',
+        orderItems,
+        preTotal,
+        params.customerPhone,
+        params.customerName,
+        `Table Booking #${bookingCode} | Meza #${assignedTableNumber} | Viti: ${params.seatsCount} | Muda: ${params.scheduledTime}`,
+        params.channel,
+        {
+          orderType: 'booking',
+          subType: 'table_booking',
+          isTableBooking: true,
+          bookingCode,
+          tableId: assignedTableId || null,
+          tableNumber: assignedTableNumber,
+          peopleCount: params.seatsCount,
+          reservationTime: params.scheduledTime,
+          vendorName: params.vendorName,
+          paymentMethod: params.paymentMethod,
+          paymentMethodLabel: params.paymentMethodLabel,
+          status: 'pending'
+        }
+      );
+
+      return { bookingCode, tableNumber: assignedTableNumber, orderId };
+    } catch (err) {
+      console.warn("[Meta Bot] Error saving table reservation:", err);
+    }
+  }
+
+  return { bookingCode, tableNumber: assignedTableNumber || '1', orderId: null };
 }
 
 /**
@@ -488,7 +806,7 @@ User message: "${message}"
 Available Intents:
 - 'greeting': When the user greets (hi, mambo, vipi, hello, habari, etc.)
 - 'taxi': Ordering taxi, ride, boda, bajaji, going to an address (posta, masaki, etc.)
-- 'food': Ordering pizza, burger, chips, chicken, biryani, or restaurants
+- 'food': Ordering pizza, burger, chips, chicken, biryani, restaurants, OR booking/reserving a restaurant table or seats (meza, kiti, viti, dine in)
 - 'grocery': Groceries, soko, fruits, onions, rice, vegetables
 - 'parcel': Sending packages, courier, delivery (mzigo, kutuma, etc.)
 - 'salon': Salon booking, shaving, makeup, nails, hair, massage, spa
@@ -532,8 +850,24 @@ Response Schema:
   if (cleaned.includes('taxi') || cleaned.includes('uber') || cleaned.includes('boda') || cleaned.includes('bajaji') || cleaned.includes('safari ya haraka') || cleaned.includes('ride') || cleaned.includes('dereva')) {
     return { intent: 'taxi', confidence: 0.95 };
   }
-  if (cleaned.includes('chips') || cleaned.includes('burger') || cleaned.includes('pizza') || cleaned.includes('kuku') || cleaned.includes('chakula') || cleaned.includes('biryani') || cleaned.includes('msosi') || cleaned.includes('wali')) {
-    return { intent: 'food', confidence: 0.95 };
+  if (
+    cleaned.includes('chips') ||
+    cleaned.includes('burger') ||
+    cleaned.includes('pizza') ||
+    cleaned.includes('kuku') ||
+    cleaned.includes('chakula') ||
+    cleaned.includes('biryani') ||
+    cleaned.includes('msosi') ||
+    cleaned.includes('wali') ||
+    cleaned.includes('meza') ||
+    cleaned.includes('kiti') ||
+    cleaned.includes('viti') ||
+    cleaned.includes('mgahawa') ||
+    cleaned.includes('restaurant') ||
+    cleaned.includes('dine') ||
+    cleaned.includes('table')
+  ) {
+    return { intent: 'food', confidence: 0.96 };
   }
   if (cleaned.includes('nyanya') || cleaned.includes('kitunguu') || cleaned.includes('soko') || cleaned.includes('mboga') || cleaned.includes('matunda') || cleaned.includes('mchele') || cleaned.includes('grocery')) {
     return { intent: 'grocery', confidence: 0.90 };
@@ -1268,6 +1602,28 @@ export async function handleMetaInput(
     if (!gpsLoc) {
       return `⚠️ Imeshindikana kusoma eneo la GPS. Tafadhali andika jina la mtaa uliopo (Mfano: *Mikocheni*):`;
     }
+    if (session.service === 'food' && session.step === 'FOOD_DELIVERY_ADDRESS') {
+      session.details.deliveryAddress = gpsLoc.name;
+      session.details.deliveryCoords = gpsLoc;
+      session.step = 'SELECTING_PAYMENT_METHOD';
+      await saveMetaSession(session, dbAdmin);
+      const cartTotal = (session.details.foodCart || []).reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
+      return `📍 Eneo la kuletewa chakula: *${gpsLoc.name}*\nJumla ya oda: *TZS ${cartTotal.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+    }
+    if (session.service === 'food' && (session.step === 'FOOD_SELECT_VENDOR' || session.step === 'FOOD_CHOOSE_MODE')) {
+      const restaurants = await fetchRestaurantsForMeta(dbAdmin, { lat: gpsLoc.lat, lng: gpsLoc.lng });
+      session.details.restaurantOptions = restaurants;
+      session.step = 'FOOD_SELECT_VENDOR';
+      await saveMetaSession(session, dbAdmin);
+      let resp = `📍 Migahawa ya karibu na *${gpsLoc.name}*:\n\n`;
+      restaurants.forEach((r, idx) => {
+        const distPart = typeof r.distanceKm === 'number' ? ` • ~${r.distanceKm} km` : '';
+        const tblPart = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
+        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${distPart}${tblPart}\n\n`;
+      });
+      resp += `Andika namba ya mgahawa (*1–${restaurants.length}*):`;
+      return resp;
+    }
     if (session.service === 'taxi' && session.details.awaitingDest && session.details.pickupName) {
       session.details.destCoordsOverride = gpsLoc;
       session.details.destinationName = gpsLoc.name;
@@ -1353,7 +1709,7 @@ export async function handleMetaInput(
   }
 
   // --- KNOWLEDGE BASE INTEGRATION FALLBACK / INTERCEPTOR ---
-  if (knowledgeBase && cleanInput.length > 3 && !['1','2','3','4','5','6','7','8','9'].includes(cleanInput)) {
+  if (knowledgeBase && !session.service && cleanInput.length > 3 && !['1','2','3','4','5','6','7','8','9'].includes(cleanInput)) {
     const isBasicGreeting = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'hodi', 'oje'].includes(cleanedLower);
     if (!isBasicGreeting) {
       const kbAnswer = await queryKnowledgeBase(cleanInput, knowledgeBase);
@@ -1377,14 +1733,21 @@ export async function handleMetaInput(
       cleanedLower === 'teksi' ||
       /\b(taxi|teksi|boda|bodaboda|bajaji|uber|bolt)\b/i.test(cleanedLower));
 
-  if (isTaxiSelectionOrIntent) {
+  const isFoodSelectionOrIntent =
+    atWorkflowMenuOrIdle &&
+    (cleanedLower === '2' ||
+      cleanedLower === 'chakula' ||
+      cleanedLower === 'food' ||
+      /\b(chakula|food|pizza|burger|chips|biryani|msosi|meza|kiti|viti|mgahawa|restaurant|book\s+meza|booking\s+meza|weka\s+meza)\b/i.test(cleanedLower));
+
+  if (isTaxiSelectionOrIntent || isFoodSelectionOrIntent) {
     delete session.details.currentNodeId;
     delete session.details.activeQuestionNodeId;
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
   }
 
-  if (useWorkflow && workflowNodes.length > 0 && !inActiveSmartService && !isTaxiSelectionOrIntent) {
+  if (useWorkflow && workflowNodes.length > 0 && !inActiveSmartService && !isTaxiSelectionOrIntent && !isFoodSelectionOrIntent) {
     const isReset = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'habari gani', 'anza', 'start', 'menu', 'ya', 'hodi', 'oje'].includes(cleanedLower);
     
     if (isReset || !session.details.currentNodeId) {
@@ -2002,68 +2365,467 @@ async function routeToServiceFlow(
     }
   }
 
-  // 3. FOOD FLOW
+  // 3. FOOD & TABLE/SEAT BOOKING FLOW
   if (service === 'food') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
-      session.step = 'SELECTING_OPTION';
+    const trimmed = input.trim();
+    const lower = trimmed.toLowerCase();
+    const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
 
-      const foods = [
-        { id: 'f1', name: 'Pizza ya Kuku & Cheese (Classic)', price: 15000, vendor: 'Pizza Hut Masaki' },
-        { id: 'f2', name: 'Chips Kuku Choma (Nusu)', price: 8500, vendor: 'Papo Hapo Kitchen' },
-        { id: 'f3', name: 'Biryani ya Nyama (Mlo Kamili)', price: 9000, vendor: 'Al-Farouq Biryani' }
-      ];
-      session.details.optionsList = foods;
+    // Helper to render numbered restaurant list
+    const promptRestaurantList = async (modeLabel: string, queryHint?: string) => {
+      const restaurants = await fetchRestaurantsForMeta(dbAdmin);
+      session.details.restaurantOptions = restaurants;
+      if (queryHint) session.details.itemQuery = queryHint;
+      session.step = 'FOOD_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
 
-      let resp = `🍔 *Papo Hapo Food Court Bot*:\n\n`;
-      resp += `Tulichopata kwa jina: *"${cleaned}"*\n\n`;
-      foods.forEach((fd, idx) => {
-        resp += `*${idx + 1}. ${fd.name}*\n📍 ${fd.vendor}\n💰 Bei: *TSH ${fd.price.toLocaleString()}*\n\n`;
+      let resp = `${modeLabel}\n\nChagua mgahawa unaotaka:\n\n`;
+      restaurants.forEach((r, idx) => {
+        const tblBadge = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
+        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${tblBadge}\n\n`;
       });
-      resp += `Andika namba ya chakula unachotaka kuagiza sasa hivi:`;
+      resp += `Andika namba ya mgahawa (*1–${restaurants.length}*) au tuma *📍 GPS Location* kupata wa karibu:`;
       return resp;
-    }
+    };
 
-    if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
-      const selected = session.details.optionsList?.[idx];
-      if (!selected) {
-        return `⚠️ Chaguo si sahihi. Andika *1*, *2*, au *3* kuchagua chakula chako!`;
+    // Helper to render restaurant menu items
+    const promptMenuList = async (vendorId: string, vendorName: string, queryHint?: string) => {
+      const menu = await fetchRestaurantMenu(dbAdmin, vendorId, queryHint);
+      session.details.foodMenu = menu;
+      session.step = 'FOOD_SELECT_ITEM';
+      await saveMetaSession(session, dbAdmin);
+
+      const currentCart = session.details.foodCart || [];
+      let resp = `🍽️ *MENYU YA ${vendorName.toUpperCase()}*\n\n`;
+      menu.forEach((item, idx) => {
+        resp += `*${idx + 1}. ${item.name}* — *TZS ${item.price.toLocaleString()}/=*\n`;
+      });
+      if (currentCart.length > 0) {
+        const sub = currentCart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
+        resp += `\n🧺 Kwenye kikapu: *${currentCart.length} vitu* (*TZS ${sub.toLocaleString()}/=*)\n`;
+        resp += `\nAndika namba ya chakula kuongeza, au *0* kuendelea kukamilisha:`;
+      } else {
+        resp += `\nAndika namba ya chakula unachotaka (*1–${menu.length}*):`;
+      }
+      return resp;
+    };
+
+    // Initial entry into Food service
+    const isInFoodSubStep = [
+      'FOOD_CHOOSE_MODE',
+      'FOOD_SELECT_VENDOR',
+      'FOOD_SELECT_ITEM',
+      'FOOD_ITEM_QUANTITY',
+      'FOOD_CART_DECISION',
+      'FOOD_DELIVERY_ADDRESS',
+      'TABLE_SELECT_SEATS',
+      'TABLE_SELECT_TIME',
+      'TABLE_ASK_PREORDER',
+      'SELECTING_PAYMENT_METHOD',
+      'COLLECTING_PHONE'
+    ].includes(session.step);
+
+    if (!isInFoodSubStep) {
+      session.details.foodCart = [];
+      // Direct shortcut if user explicitly mentioned table/seat booking
+      if (/\b(meza|kiti|viti|table|reserve|dine|booking meza|book meza)\b/i.test(lower)) {
+        session.details.foodMode = 'table_booking';
+        return await promptRestaurantList('🪑 *WEKA MEZA / VITI MGAHAWANI (Table Booking)*');
       }
 
-      session.details.selectedId = selected.id;
-      session.details.selectedName = selected.name;
-      session.details.selectedPrice = selected.price;
-      session.details.selectedVendor = selected.vendor;
+      // Direct shortcut if user named a dish like "naomba chips kuku"
+      if (trimmed.length > 3 && lower !== '2' && lower !== 'chakula' && lower !== 'food') {
+        session.details.itemQuery = trimmed;
+      }
+
+      session.step = 'FOOD_CHOOSE_MODE';
+      await saveMetaSession(session, dbAdmin);
+      return `🍔 *PAPO HAPO CHAKULA & MIGAHAWA*\n\nUngependa huduma ipi leo?\n\n` +
+             `1. 🛵 *Niletewe Chakula (Delivery)*\n` +
+             `2. 🥡 *Nitachukua Mwenyewe (Takeaway)*\n` +
+             `3. 🪑 *Weka Meza / Viti Mgahawani (Book Table)*`;
+    }
+
+    // Step 1: Choose Mode (Delivery, Takeaway, or Table Booking)
+    if (session.step === 'FOOD_CHOOSE_MODE') {
+      if (lower === '1' || lower.includes('delivery') || lower.includes('letew') || lower.includes('nyumbani')) {
+        session.details.foodMode = 'delivery';
+        return await promptRestaurantList('🛵 *AGIZA CHAKULA (DELIVERY)*', session.details.itemQuery);
+      } else if (lower === '2' || lower.includes('takeaway') || lower.includes('chukua') || lower.includes('pickup')) {
+        session.details.foodMode = 'takeaway';
+        return await promptRestaurantList('🥡 *AGIZA & CHUKUA MWENYEWE (TAKEAWAY)*', session.details.itemQuery);
+      } else if (lower === '3' || lower.includes('meza') || lower.includes('kiti') || lower.includes('viti') || lower.includes('table') || lower.includes('book')) {
+        session.details.foodMode = 'table_booking';
+        return await promptRestaurantList('🪑 *WEKA MEZA / VITI MGAHAWANI (Table Booking)*');
+      } else {
+        return `⚠️ Chaguo si sahihi. Tafadhali andika:\n*1.* Niletewe Chakula (Delivery)\n*2.* Nitachukua Mwenyewe (Takeaway)\n*3.* Weka Meza / Viti Mgahawani`;
+      }
+    }
+
+    // Step 2: Select Restaurant
+    if (session.step === 'FOOD_SELECT_VENDOR') {
+      const options: MetaRestaurantOption[] = session.details.restaurantOptions || [];
+      let chosen: MetaRestaurantOption | undefined;
+      const idx = parseInt(trimmed, 10) - 1;
+      if (!isNaN(idx) && options[idx]) {
+        chosen = options[idx];
+      } else {
+        chosen = options.find((r) => r.name.toLowerCase().includes(lower));
+      }
+      if (!chosen) {
+        return `⚠️ Tafadhali andika namba sahihi ya mgahawa (*1–${options.length}*) kutoka kwenye orodha:`;
+      }
+
+      session.details.selectedVendorId = chosen.id;
+      session.details.selectedVendorName = chosen.name;
+      session.details.selectedVendorAddress = chosen.address;
+
+      if (session.details.foodMode === 'table_booking') {
+        const availableTables = await fetchAvailableRestaurantTables(dbAdmin, chosen.id);
+        session.details.availableTables = availableTables;
+        session.step = 'TABLE_SELECT_SEATS';
+        await saveMetaSession(session, dbAdmin);
+
+        let resp = `🪑 *BOOKING YA MEZA — ${chosen.name.toUpperCase()}*\n📍 ${chosen.address}\n\n`;
+        if (availableTables.length > 0) {
+          resp += `Meza zilizo wazi sasa:\n`;
+          availableTables.slice(0, 5).forEach((tbl, i) => {
+            resp += `• Chaguo *M${i + 1}*: Meza *#${tbl.number}* (${tbl.capacity} Viti • ${tbl.section || 'Indoor'})\n`;
+          });
+          resp += `\n`;
+        }
+        resp += `Je, mnahitaji *viti / watu wangapi*? (Mfano andika: *1*, *2*, *4*, *6* — au andika *M1* kuchagua meza maalum):`;
+        return resp;
+      }
+
+      return await promptMenuList(chosen.id, chosen.name, session.details.itemQuery);
+    }
+
+    // TABLE BOOKING BRANCH A: Select Seats / Specific Table
+    if (session.step === 'TABLE_SELECT_SEATS') {
+      const availableTables: MetaRestaurantTable[] = session.details.availableTables || [];
+      let seatsCount = 0;
+      let preferredTable: MetaRestaurantTable | undefined;
+
+      const mMatch = trimmed.match(/^m(\d+)$/i);
+      if (mMatch) {
+        const tIdx = parseInt(mMatch[1], 10) - 1;
+        preferredTable = availableTables[tIdx];
+        if (preferredTable) {
+          seatsCount = preferredTable.capacity;
+        }
+      } else {
+        const numMatch = trimmed.match(/\d+/);
+        if (numMatch) {
+          seatsCount = parseInt(numMatch[0], 10);
+        }
+      }
+
+      if (!seatsCount || seatsCount < 1 || seatsCount > 50) {
+        return `⚠️ Tafadhali andika idadi sahihi ya viti/watu (Mfano: *1*, *2*, *4*, au *6*):`;
+      }
+
+      if (!preferredTable && availableTables.length > 0) {
+        preferredTable = availableTables.find((t) => t.capacity >= seatsCount) || availableTables[0];
+      }
+
+      session.details.seatsCount = seatsCount;
+      if (preferredTable) {
+        session.details.preferredTableId = preferredTable.id;
+        session.details.preferredTableNumber = preferredTable.number;
+      }
+      session.step = 'TABLE_SELECT_TIME';
+      await saveMetaSession(session, dbAdmin);
+
+      return `👥 Viti vilivyochaguliwa: *Watu ${seatsCount}*${preferredTable ? ` (Meza *#${preferredTable.number}*)` : ''}\n\n` +
+             `🕒 *CHAGUA SIKU NA MUDA WA KUFIKA:*\n` +
+             `1. ⚡ Sasa hivi (Ndani ya dakika 30)\n` +
+             `2. 🌆 Leo Jioni (Saa 1:00 Usiku)\n` +
+             `3. 🌙 Leo Usiku (Saa 2:30 Usiku)\n` +
+             `4. 📅 Kesho Mchana (Saa 7:00 Mchana)\n\n` +
+             `_Andika namba (*1–4*) au andika muda wako mwenyewe (Mfano: *Leo saa 11 jioni*):_`;
+    }
+
+    // TABLE BOOKING BRANCH B: Select Date & Time
+    if (session.step === 'TABLE_SELECT_TIME') {
+      let scheduledTime = '';
+      if (lower === '1') scheduledTime = 'Sasa hivi (Ndani ya dakika 30)';
+      else if (lower === '2') scheduledTime = 'Leo Saa 1:00 Usiku (19:00)';
+      else if (lower === '3') scheduledTime = 'Leo Saa 2:30 Usiku (20:30)';
+      else if (lower === '4') scheduledTime = 'Kesho Saa 7:00 Mchana (13:00)';
+      else if (trimmed.length >= 3) scheduledTime = trimmed;
+      else {
+        return `⚠️ Tafadhali chagua muda (*1–4*) au andika muda utakaofika (Mfano: *Leo saa 1:30 usiku*):`;
+      }
+
+      session.details.scheduledTime = scheduledTime;
+      session.step = 'TABLE_ASK_PREORDER';
+      await saveMetaSession(session, dbAdmin);
+
+      return `🕒 Muda wa kufika: *${scheduledTime}*\n\n` +
+             `🍽️ Je, ungependa *kuchagua chakula mapema (Pre-order)* ukute kimeandaliwa mezani, au utaagiza ukifika mgahawani?\n\n` +
+             `1. 🍔 *Ndio, Chagua Chakula Sasa (Pre-order)*\n` +
+             `2. 🪑 *Hapana, Nitaagiza Nikifika (Shikilia Meza Tu)*`;
+    }
+
+    // TABLE BOOKING BRANCH C: Ask Pre-order or Hold Table Only
+    if (session.step === 'TABLE_ASK_PREORDER') {
+      if (lower === '1' || lower.includes('ndio') || lower.includes('pre') || lower.includes('chagua') || lower.includes('yes')) {
+        session.details.isTablePreOrder = true;
+        session.details.foodCart = [];
+        return await promptMenuList(
+          session.details.selectedVendorId,
+          session.details.selectedVendorName || 'Mgahawa'
+        );
+      } else if (lower === '2' || lower.includes('hapana') || lower.includes('nikifika') || lower.includes('shikilia') || lower.includes('no')) {
+        session.details.isTablePreOrder = false;
+        session.details.foodCart = [];
+        session.details.paymentMethod = 'cash';
+        session.details.paymentMethodLabel = 'Lipa Mgahawani Ukifika 💵';
+        session.step = 'COLLECTING_PHONE';
+        await saveMetaSession(session, dbAdmin);
+
+        const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
+        if (waDigits.length >= 9) {
+          return `📞 Ili Mgahawa uthibitishe meza yako, tutumie namba yako ya WhatsApp (*+${waDigits}*)?\n\n1. Ndio, tumia *+${waDigits}*\nAu andika namba nyingine (Mfano: *0712345678*):`;
+        }
+        return `📞 Tafadhali andika namba yako ya simu ya kuthibitishia booking ya meza (Mfano: *0712345678*):`;
+      } else {
+        return `⚠️ Tafadhali andika *1* kuchagua chakula mapema au *2* kushikilia meza pekee.`;
+      }
+    }
+
+    // FOOD MENU ITEM SELECTION (Delivery, Takeaway, or Table Pre-Order)
+    if (session.step === 'FOOD_SELECT_ITEM') {
+      const cart: any[] = session.details.foodCart || [];
+      if (lower === '0' && cart.length > 0) {
+        if (session.details.foodMode === 'delivery') {
+          session.step = 'FOOD_DELIVERY_ADDRESS';
+          await saveMetaSession(session, dbAdmin);
+          return `📍 Tafadhali andika *eneo/mtaa wa kuletewa chakula* (au tuma *📍 Location yako ya GPS* kwa kubofya 📎 → Location):`;
+        }
+        session.step = 'SELECTING_PAYMENT_METHOD';
+        await saveMetaSession(session, dbAdmin);
+        const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+        return `💳 *CHAGUA NJIA YA MALIPO*\nJumla ya oda: *TZS ${total.toLocaleString()}/=*\n\n1. 💵 *Cash*\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+      }
+
+      const menu: MetaFoodMenuItem[] = session.details.foodMenu || [];
+      const xMatch = trimmed.match(/^(\d+)\s*[x*]\s*(\d+)$/i);
+      const itemIdx = parseInt(xMatch ? xMatch[1] : trimmed, 10) - 1;
+      const inlineQty = xMatch ? Math.max(1, parseInt(xMatch[2], 10)) : 0;
+
+      const selectedItem = menu[itemIdx];
+      if (!selectedItem) {
+        return `⚠️ Chaguo si sahihi. Tafadhali andika namba ya chakula (*1–${menu.length}*)${cart.length > 0 ? ' au *0* kuendelea' : ''}:`;
+      }
+
+      if (inlineQty > 0) {
+        cart.push({ id: selectedItem.id, name: selectedItem.name, price: selectedItem.price, quantity: inlineQty });
+        session.details.foodCart = cart;
+        session.step = 'FOOD_CART_DECISION';
+        await saveMetaSession(session, dbAdmin);
+        const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+        return `✅ Imeongezwa: *${selectedItem.name} x${inlineQty}*\n🧺 Jumla kwenye kikapu: *TZS ${total.toLocaleString()}/=*\n\n1. ➕ Ongeza chakula kingine\n2. ✅ Endelea kukamilisha oda`;
+      }
+
+      session.details.pendingFoodItem = selectedItem;
+      session.step = 'FOOD_ITEM_QUANTITY';
+      await saveMetaSession(session, dbAdmin);
+      return `🍔 Umechagua: *${selectedItem.name}* (*TZS ${selectedItem.price.toLocaleString()}/=*)\n\nUngependa sahani / idadi ngapi? (Andika mfano: *1*, *2*, *3*):`;
+    }
+
+    // Quantity selection
+    if (session.step === 'FOOD_ITEM_QUANTITY') {
+      const qty = parseInt(trimmed, 10);
+      const pending = session.details.pendingFoodItem;
+      if (!pending || isNaN(qty) || qty < 1 || qty > 50) {
+        return `⚠️ Tafadhali andika namba sahihi ya idadi (Mfano: *1*, *2*, *3*):`;
+      }
+      const cart: any[] = session.details.foodCart || [];
+      cart.push({ id: pending.id, name: pending.name, price: pending.price, quantity: qty });
+      session.details.foodCart = cart;
+      delete session.details.pendingFoodItem;
+      session.step = 'FOOD_CART_DECISION';
+      await saveMetaSession(session, dbAdmin);
+
+      const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+      return `✅ Imeongezwa: *${pending.name} x${qty}*\n🧺 Jumla ya sasa: *TZS ${total.toLocaleString()}/=*\n\n1. ➕ Ongeza chakula / kinywaji kingine\n2. ✅ Endelea kukamilisha`;
+    }
+
+    // Add more or proceed to checkout
+    if (session.step === 'FOOD_CART_DECISION') {
+      if (lower === '1' || lower.includes('ongeza') || lower.includes('add')) {
+        return await promptMenuList(
+          session.details.selectedVendorId,
+          session.details.selectedVendorName || 'Mgahawa'
+        );
+      } else if (lower === '2' || lower.includes('endelea') || lower.includes('maliza') || lower.includes('lipia') || lower.includes('checkout')) {
+        if (session.details.foodMode === 'delivery') {
+          session.step = 'FOOD_DELIVERY_ADDRESS';
+          await saveMetaSession(session, dbAdmin);
+          return `📍 Tafadhali andika *eneo/mtaa wa kuletewa chakula* (au tuma *📍 Location yako ya GPS*):`;
+        }
+        session.step = 'SELECTING_PAYMENT_METHOD';
+        await saveMetaSession(session, dbAdmin);
+        const cart = session.details.foodCart || [];
+        const total = cart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
+        return `💳 *CHAGUA NJIA YA MALIPO*\nJumla ya oda: *TZS ${total.toLocaleString()}/=*\n\n1. 💵 *Cash*\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+      } else {
+        return `⚠️ Tafadhali andika *1* kuongeza chakula kingine au *2* kuendelea kukamilisha.`;
+      }
+    }
+
+    // Delivery address text fallback (GPS pin handled globally in 0C too)
+    if (session.step === 'FOOD_DELIVERY_ADDRESS') {
+      if (trimmed.length < 3) {
+        return `📍 Tafadhali andika jina la eneo lako la kuletewa chakula (Mfano: *Mikocheni B, karibu na Shoppers*):`;
+      }
+      session.details.deliveryAddress = trimmed;
+      session.step = 'SELECTING_PAYMENT_METHOD';
+      await saveMetaSession(session, dbAdmin);
+      const cart = session.details.foodCart || [];
+      const total = cart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
+      return `📍 Eneo la kuletewa: *${trimmed}*\nJumla ya oda: *TZS ${total.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+    }
+
+    // Payment method selection for food / pre-order
+    if (session.step === 'SELECTING_PAYMENT_METHOD') {
+      let paymentMethod = '';
+      let paymentMethodLabel = '';
+      if (lower === '1' || lower.includes('cash') || lower.includes('taslimu')) {
+        paymentMethod = 'cash';
+        paymentMethodLabel = 'Cash (Pesa Taslimu) 💵';
+      } else if (lower === '2' || lower.includes('mpesa') || lower.includes('m-pesa') || lower.includes('voda')) {
+        paymentMethod = 'mpesa';
+        paymentMethodLabel = 'M-Pesa 📱';
+      } else if (lower === '3' || lower.includes('tigo') || lower.includes('yas') || lower.includes('mixx')) {
+        paymentMethod = 'tigopesa';
+        paymentMethodLabel = 'Tigo Pesa (Mixx by Yas) 📱';
+      } else if (lower === '4' || lower.includes('airtel')) {
+        paymentMethod = 'airtelmoney';
+        paymentMethodLabel = 'Airtel Money 📱';
+      } else {
+        return `⚠️ Chaguo la malipo si sahihi. Tafadhali andika *1* (Cash), *2* (M-Pesa), *3* (Tigo Pesa), au *4* (Airtel Money):`;
+      }
+
+      session.details.paymentMethod = paymentMethod;
+      session.details.paymentMethodLabel = paymentMethodLabel;
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `🛵 Tafadhali andika namba yako ya simu na sehemu unapoishi kwa ajili ya usafirishaji wa chakula chako (Mfano: *0712345678, Mbezi beach*):`;
+      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
+      if (waDigits.length >= 9) {
+        return `💳 Malipo: *${paymentMethodLabel}*\n\n📞 Tutumie namba yako ya WhatsApp (*+${waDigits}*) kwa uthibitisho?\n\n1. Ndio, tumia *+${waDigits}*\nAu andika namba nyingine (Mfano: *0712345678*):`;
+      }
+      return `💳 Malipo: *${paymentMethodLabel}*\n\n📞 Tafadhali andika namba yako ya simu (Mfano: *0712345678*):`;
     }
 
+    // Final confirmation & DB creation
     if (session.step === 'COLLECTING_PHONE') {
-      session.step = 'START'; // reset
+      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
+      let phoneNum = trimmed;
+      if ((cleaned === '1' || cleaned === 'NDIO' || cleaned === 'SAWA' || cleaned === 'YES') && waDigits.length >= 9) {
+        phoneNum = `+${waDigits}`;
+      } else {
+        const digitsOnly = phoneNum.replace(/\D/g, '');
+        if (digitsOnly.length < 9) {
+          return `⚠️ Namba ya simu si sahihi. Andika namba yenye tarakimu 10 (Mfano: *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
+        }
+      }
+
+      const customerName = session.details.customerName || 'Mteja wa WhatsApp';
+      const vendorId = session.details.selectedVendorId || 'papo-hapo-kitchen';
+      const vendorName = session.details.selectedVendorName || 'Papo Hapo Kitchen';
+      const vendorAddress = session.details.selectedVendorAddress || 'Dar es Salaam';
+      const foodMode = session.details.foodMode || 'delivery';
+      const cart: any[] = session.details.foodCart || [];
+      const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+      const paymentMethod = session.details.paymentMethod || 'cash';
+      const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
+      const deliveryAddress = session.details.deliveryAddress || '';
+      const seatsCount = session.details.seatsCount || 2;
+      const scheduledTime = session.details.scheduledTime || 'Leo';
+      const preferredTableId = session.details.preferredTableId;
+      const preferredTableNumber = session.details.preferredTableNumber;
+
+      // Reset session cleanly while preserving customer identity
+      session.step = 'COLLECTING_ROUTE';
+      delete session.service;
+      session.details = { customerName, phone: phoneNum };
       await saveMetaSession(session, dbAdmin);
 
+      if (foodMode === 'table_booking') {
+        const booking = await createTableReservationRecord(dbAdmin, {
+          vendorId,
+          vendorName,
+          vendorAddress,
+          customerName,
+          customerPhone: phoneNum,
+          seatsCount,
+          scheduledTime,
+          preferredTableId,
+          preferredTableNumber,
+          preOrderItems: cart,
+          paymentMethod,
+          paymentMethodLabel,
+          channel: session.channel
+        });
+
+        const preOrderText =
+          cart.length > 0
+            ? `\n🍽️ *Chakula cha Mapema (Pre-Order):*\n${cart.map((c) => `• ${c.name} x${c.quantity} (TZS ${(c.price * c.quantity).toLocaleString()})`).join('\n')}\n💰 *Jumla ya Pre-Order: TZS ${total.toLocaleString()}/=*`
+            : `\n🍽️ *Chakula:* Utaagiza ukifika mgahawani`;
+
+        return `🎉 *MEZA IMEHIFADHIWA KIKAMILIFU!* 🪑✨\n` +
+               `🔖 Namba ya Booking: *#${booking.bookingCode}*\n` +
+               `🏠 Mgahawa: *${vendorName}*\n` +
+               `📍 Eneo: *${vendorAddress}*\n` +
+               `🪑 Meza: *#${booking.tableNumber}* (Viti *${seatsCount}*)\n` +
+               `🕒 Muda wa Kufika: *${scheduledTime}*` +
+               preOrderText + `\n` +
+               `💳 Malipo: *${paymentMethodLabel}*\n` +
+               `📞 Simu: *${phoneNum}*\n\n` +
+               `🔗 *Tazama menyu ya mgahawa mtandaoni:*\n${publicBaseUrl}/vendor/${vendorId}\n\n` +
+               `Meza yako tayari imeoneshwa kama *RESERVED* kwenye mfumo wa mgahawa. Karibu sana! 🙏`;
+      }
+
+      // Delivery or Takeaway Order
+      const orderType = foodMode === 'takeaway' ? 'pickup' : 'delivery';
+      const randCode = `FD-${Math.floor(1000 + Math.random() * 9000)}`;
       await triggerAutomatedOrder(
         dbAdmin,
-        "vendor-food-meta",
-        "restaurant",
-        [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 10000,
-        input.split(',')[0].trim(),
-        "Meta Food Client",
-        `Delivery address: ${input}`,
-        session.channel
+        vendorId,
+        'restaurant',
+        cart,
+        total,
+        phoneNum,
+        customerName,
+        foodMode === 'takeaway'
+          ? `Takeaway Pickup #${randCode} via ${session.channel}`
+          : `Delivery #${randCode} to: ${deliveryAddress}`,
+        session.channel,
+        {
+          orderType,
+          bookingCode: randCode,
+          vendorName,
+          deliveryAddress: foodMode === 'takeaway' ? 'Pickup Mgahawani' : deliveryAddress,
+          paymentMethod,
+          paymentMethodLabel
+        }
       );
 
-      return `🎉 *Oda Yako ya Chakula Imepokelewa!* 🍔🛵\n\n` +
-             `- Chakula: *${session.details.selectedName}*\n` +
-             `- Mgahawa: *${session.details.selectedVendor}*\n` +
-             `- Bei ya kulipa: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Maelezo ya kufikishiwa: *${input}*\n\n` +
-             `Mtumishi wetu wa bodaboda ameanza kuandaa na kukuletea mzigo wako sasa hivi. Utawasiliana naye kwa namba hiyo. Karibu sana!`;
+      const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
+      return `🎉 *ODA YA CHAKULA IMEPOKELEWA!* ${foodMode === 'takeaway' ? '🥡' : '🍔🛵'}\n` +
+             `🔖 Namba ya Oda: *#${randCode}*\n` +
+             `🏠 Mgahawa: *${vendorName}*\n\n` +
+             `${itemsSummary}\n\n` +
+             `💰 *Jumla ya Kulipa: TZS ${total.toLocaleString()}/=*\n` +
+             `💳 Malipo: *${paymentMethodLabel}*\n` +
+             `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
+             `📞 Simu: *${phoneNum}*\n\n` +
+             `🔗 *Fuatilia / Agiza tena:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
+             `Jiko limeanza kuandaa oda yako sasa hivi! Ahsante kwa kutumia *Papo Hapo* 🙏✨`;
     }
   }
 

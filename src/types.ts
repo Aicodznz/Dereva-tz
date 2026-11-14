@@ -266,10 +266,16 @@ export interface Order {
   branchId?: string;
   status: OrderStatus;
   type: VendorCategory;
-  orderSource?: 'online' | 'pos' | 'reception';
+  orderSource?: 'online' | 'pos' | 'reception' | 'whatsapp' | 'messenger' | 'instagram';
   orderType?: 'walk_in' | 'pickup' | 'delivery' | 'booking';
+  subType?: string;
+  isTableBooking?: boolean;
+  bookingCode?: string;
+  tableId?: string | null;
   tableNumber?: string | null;
   peopleCount?: number;
+  reservationTime?: string;
+  vendorName?: string;
   customerName?: string;
   customerPhone?: string;
   prescriptionUrl?: string;
@@ -284,6 +290,7 @@ export interface Order {
   arrivalTime?: string;
   notes?: string;
   paymentMethod?: string;
+  paymentMethodLabel?: string;
   paymentStatus?: 'pending' | 'paid' | 'failed';
   billRequested?: boolean;
   createdAt: any;

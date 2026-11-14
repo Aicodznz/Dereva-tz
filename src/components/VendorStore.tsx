@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { storageService } from '../services/storageService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { VendorProfile, Product, Review, ReviewReply, Coupon } from '../types';
 import ReviewSection from './reviews/ReviewSection';
 import { CallWaiterModal } from './CallWaiterModal';
@@ -15,7 +15,8 @@ import {
   ThumbsUp, Share2, Trash2, Reply, ShoppingBasket, Store,
   Instagram, Facebook, MessageCircle, ShieldCheck, Undo2, Box,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin as MapPinIcon, Utensils, Beer, Dumbbell, Users,
-  Plane, Shirt, Bell, Umbrella, Tag, Sparkles, Zap, Percent, Award, Gift
+  Plane, Shirt, Bell, Umbrella, Tag, Sparkles, Zap, Percent, Award, Gift,
+  Armchair, Calendar, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -28,9 +29,9 @@ import { useBusinessConfig } from '../BusinessConfigContext';
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, cartItems, clearCart } = useCart();
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { config: businessConfig } = useBusinessConfig();
   const [searchParams] = useSearchParams();
   const tableNumber = searchParams.get('table');
@@ -42,6 +43,18 @@ export default function VendorStore() {
   const [isCallWaiterOpen, setIsCallWaiterOpen] = useState(false);
   const [isLoyaltyOpen, setIsLoyaltyOpen] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [restaurantTables, setRestaurantTables] = useState<any[]>([]);
+  const [isBookTableOpen, setIsBookTableOpen] = useState(false);
+  const [bookingSeats, setBookingSeats] = useState<number>(2);
+  const [selectedTableId, setSelectedTableId] = useState<string>('auto');
+  const [bookingDate, setBookingDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [bookingTime, setBookingTime] = useState<string>('19:30');
+  const [bookingName, setBookingName] = useState<string>('');
+  const [bookingPhone, setBookingPhone] = useState<string>('');
+  const [bookingPayment, setBookingPayment] = useState<'cash' | 'mpesa' | 'tigopesa' | 'airtelmoney'>('cash');
+  const [includeCartPreOrder, setIncludeCartPreOrder] = useState<boolean>(true);
+  const [bookingSubmitting, setBookingSubmitting] = useState<boolean>(false);
+  const [confirmedTableBooking, setConfirmedTableBooking] = useState<any>(null);
 
   // Synchronize table parameter or session
   const activeTableNumber = tableNumber || tableSession?.tableId || '';
@@ -90,6 +103,26 @@ export default function VendorStore() {
     });
     return () => unsub();
   }, [id]);
+
+  // Listen to Restaurant Dining Tables (sections)
+  useEffect(() => {
+    if (!id || vendor?.category !== 'restaurant') return;
+    const nonTables = new Set(['entrance', 'reception', 'kitchen_window', 'bar_counter', 'restroom', 'indoor_plant', 'structure_divider']);
+    const unsub = onSnapshot(collection(db, 'vendors', id, 'sections'), (snap) => {
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((s: any) => !nonTables.has(s.shape || ''));
+      setRestaurantTables(list);
+    }, (err) => {
+      console.warn("Restaurant tables listener warning:", err.message);
+    });
+    return () => unsub();
+  }, [id, vendor?.category]);
+
+  useEffect(() => {
+    if (profile?.displayName && !bookingName) setBookingName(profile.displayName);
+    if ((profile?.phone || user?.phoneNumber) && !bookingPhone) setBookingPhone(profile?.phone || user?.phoneNumber || '');
+  }, [profile, user]);
 
   // Check active Happy Hour
   const activeHappyHourPromo = React.useMemo(() => {
@@ -340,7 +373,7 @@ export default function VendorStore() {
             </div>
 
             {/* Action Bar */}
-            <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100 dark:border-white/5 grid grid-cols-3">
+            <div className={`mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100 dark:border-white/5 grid ${vendor.category === 'restaurant' ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <button 
                 onClick={() => {
                   const el = document.getElementById('store-content');
@@ -354,6 +387,22 @@ export default function VendorStore() {
                   <ShoppingBag className="w-4 h-4 text-orange-600" /> Bidhaa
                 </div>
               </button>
+
+              {vendor.category === 'restaurant' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmedTableBooking(null);
+                    setIsBookTableOpen(true);
+                  }}
+                  className="flex flex-col items-center justify-center gap-1.5 border-r border-neutral-100 dark:border-white/5 hover:bg-orange-50 dark:hover:bg-orange-950/20 transition-colors py-2 rounded-2xl group cursor-pointer"
+                >
+                  <span className="text-[8px] md:text-[10px] font-bold text-orange-500 uppercase tracking-widest">Book Seat</span>
+                  <div className="flex items-center gap-1.5 md:gap-2 text-xs md:text-base font-black text-orange-600">
+                    <Armchair className="w-4 h-4 text-orange-600" /> Weka Meza
+                  </div>
+                </button>
+              )}
               
               <Link 
                 to={vendor?.ownerUid ? `/chat?to=${vendor.ownerUid}` : '#'}
@@ -936,6 +985,380 @@ export default function VendorStore() {
           initialPhone={user?.phoneNumber || ''}
         />
       )}
+
+      {/* Restaurant Table & Seat Booking Modal */}
+      <AnimatePresence>
+        {isBookTableOpen && vendor && (
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.97 }}
+              className="w-full sm:max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              <div className="px-6 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-black/20 flex items-center justify-center">
+                    <Armchair className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black uppercase tracking-tight text-base">Weka Meza / Viti</h3>
+                    <p className="text-[11px] text-orange-100 font-medium">{vendor.businessName}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBookTableOpen(false)}
+                  className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/35 flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-5">
+                {confirmedTableBooking ? (
+                  <div className="text-center space-y-4 py-4">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-9 h-9" />
+                    </div>
+                    <div>
+                      <Badge className="bg-emerald-500/15 text-emerald-600 border-none font-black uppercase text-[10px] mb-2">
+                        Imethibitishwa • Reserved
+                      </Badge>
+                      <h4 className="text-xl font-black text-neutral-900 dark:text-white">
+                        Namba ya Booking: #{confirmedTableBooking.bookingCode}
+                      </h4>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Meza #{confirmedTableBooking.tableNumber} • Viti {confirmedTableBooking.seatsCount} • {confirmedTableBooking.scheduledTime}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-neutral-100 dark:bg-neutral-800/70 text-left space-y-1.5 text-xs">
+                      <p><strong>Mgahawa:</strong> {vendor.businessName}</p>
+                      <p><strong>Mteja:</strong> {confirmedTableBooking.customerName} ({confirmedTableBooking.customerPhone})</p>
+                      <p><strong>Malipo:</strong> {confirmedTableBooking.paymentMethodLabel}</p>
+                      {confirmedTableBooking.preOrderCount > 0 && (
+                        <p><strong>Pre-Order:</strong> Vyakula {confirmedTableBooking.preOrderCount} (TZS {confirmedTableBooking.totalAmount.toLocaleString()})</p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => setIsBookTableOpen(false)}
+                      className="w-full h-12 rounded-2xl bg-orange-600 hover:bg-orange-500 text-white font-black uppercase tracking-wider cursor-pointer"
+                    >
+                      Sawa, Nimemaliza
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Seats count */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-orange-600" /> Idadi ya Viti / Watu
+                      </label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {[1, 2, 4, 6, 8].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setBookingSeats(n)}
+                            className={`h-11 rounded-xl font-black text-sm transition-all cursor-pointer border ${
+                              bookingSeats === n
+                                ? 'bg-orange-600 text-white border-orange-600 shadow-md'
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border-transparent hover:border-orange-400'
+                            }`}
+                          >
+                            {n} {n === 1 ? 'Kiti' : 'Viti'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Specific Table selector if restaurant has configured tables */}
+                    {restaurantTables.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                          Chagua Meza (Hiari — Au Acha Auto)
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTableId('auto')}
+                            className={`p-2.5 rounded-xl text-left border text-xs font-bold cursor-pointer ${
+                              selectedTableId === 'auto'
+                                ? 'bg-orange-600/15 border-orange-500 text-orange-600'
+                                : 'bg-neutral-100 dark:bg-neutral-800 border-transparent text-neutral-600 dark:text-neutral-300'
+                            }`}
+                          >
+                            ✨ Chagua Bora (Auto)
+                          </button>
+                          {restaurantTables.map((tbl) => {
+                            const isOpen = (tbl.status || 'available') === 'available';
+                            return (
+                              <button
+                                key={tbl.id}
+                                type="button"
+                                disabled={!isOpen}
+                                onClick={() => setSelectedTableId(tbl.id)}
+                                className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                                  !isOpen
+                                    ? 'opacity-45 cursor-not-allowed bg-neutral-100 dark:bg-neutral-800 border-transparent'
+                                    : selectedTableId === tbl.id
+                                    ? 'bg-orange-600/15 border-orange-500 text-orange-600 font-black cursor-pointer'
+                                    : 'bg-neutral-100 dark:bg-neutral-800 border-transparent text-neutral-700 dark:text-neutral-200 font-bold cursor-pointer hover:border-orange-400'
+                                }`}
+                              >
+                                <div>Meza #{tbl.number}</div>
+                                <div className="text-[10px] opacity-75">
+                                  {tbl.capacity || 4} Viti • {isOpen ? 'Wazi' : tbl.status}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Date & Time */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-orange-600" /> Tarehe
+                        </label>
+                        <input
+                          type="date"
+                          value={bookingDate}
+                          onChange={(e) => setBookingDate(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-orange-600" /> Muda wa Kufika
+                        </label>
+                        <input
+                          type="time"
+                          value={bookingTime}
+                          onChange={(e) => setBookingTime(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Optional Cart Pre-order */}
+                    {cartItems.filter((it) => it.vendorId === vendor.id).length > 0 && (
+                      <label className="flex items-start gap-3 p-3.5 rounded-2xl bg-orange-50 dark:bg-orange-950/25 border border-orange-200 dark:border-orange-500/30 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={includeCartPreOrder}
+                          onChange={(e) => setIncludeCartPreOrder(e.target.checked)}
+                          className="mt-1 accent-orange-600 w-4 h-4"
+                        />
+                        <div className="text-xs">
+                          <p className="font-black text-neutral-900 dark:text-white">
+                            Agiza mapema (Pre-Order) vyakula vilivyo kwenye kikapu chako (
+                            {cartItems.filter((it) => it.vendorId === vendor.id).length})
+                          </p>
+                          <p className="text-neutral-500 mt-0.5">
+                            Utakuta vimeanza kuandaliwa ukifika mezani!
+                          </p>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Customer Contact */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-500">Jina Lako *</label>
+                        <input
+                          type="text"
+                          placeholder="Mfano: Juma Hassan"
+                          value={bookingName}
+                          onChange={(e) => setBookingName(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-neutral-500">Namba ya Simu *</label>
+                        <input
+                          type="tel"
+                          placeholder="Mfano: 0712345678"
+                          value={bookingPhone}
+                          onChange={(e) => setBookingPhone(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-bold text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Payment preference */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-wider text-neutral-500">Njia ya Malipo</label>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {[
+                          { id: 'cash', label: '💵 Lipa Mgahawani (Cash)' },
+                          { id: 'mpesa', label: '📱 M-Pesa' },
+                          { id: 'tigopesa', label: '📱 Tigo Pesa' },
+                          { id: 'airtelmoney', label: '📱 Airtel Money' }
+                        ].map((pm) => (
+                          <button
+                            key={pm.id}
+                            type="button"
+                            onClick={() => setBookingPayment(pm.id as any)}
+                            className={`h-10 px-3 rounded-xl font-bold border text-left transition-all cursor-pointer ${
+                              bookingPayment === pm.id
+                                ? 'bg-orange-600/15 border-orange-500 text-orange-600'
+                                : 'bg-neutral-100 dark:bg-neutral-800 border-transparent text-neutral-700 dark:text-neutral-300'
+                            }`}
+                          >
+                            {pm.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      disabled={bookingSubmitting}
+                      onClick={async () => {
+                        if (!bookingName.trim() || bookingPhone.replace(/\D/g, '').length < 9) {
+                          toast.error('Tafadhali jaza jina lako na namba sahihi ya simu.');
+                          return;
+                        }
+                        setBookingSubmitting(true);
+                        try {
+                          const code = `TBL-${Math.floor(1000 + Math.random() * 9000)}`;
+                          const openTables = restaurantTables.filter((t) => (t.status || 'available') === 'available');
+                          const chosenTable =
+                            selectedTableId !== 'auto'
+                              ? restaurantTables.find((t) => t.id === selectedTableId)
+                              : openTables.find((t) => (Number(t.capacity) || 4) >= bookingSeats) || openTables[0];
+                          const tableNum = chosenTable?.number ? String(chosenTable.number) : String(Math.floor(1 + Math.random() * 12));
+                          const vendorPreItems = includeCartPreOrder
+                            ? cartItems.filter((it) => it.vendorId === vendor.id).map((it) => ({
+                                id: it.id,
+                                name: it.name,
+                                price: Number(it.price) || 0,
+                                quantity: Number(it.quantity) || 1
+                              }))
+                            : [];
+                          const preTotal = vendorPreItems.reduce((s, it) => s + it.price * it.quantity, 0);
+                          const scheduledTime = `${bookingDate} saa ${bookingTime}`;
+                          const pmLabel =
+                            bookingPayment === 'mpesa'
+                              ? 'M-Pesa'
+                              : bookingPayment === 'tigopesa'
+                              ? 'Tigo Pesa'
+                              : bookingPayment === 'airtelmoney'
+                              ? 'Airtel Money'
+                              : 'Lipa Mgahawani (Cash)';
+
+                          if (chosenTable?.id) {
+                            await setDoc(
+                              doc(db, 'vendors', vendor.id!, 'sections', chosenTable.id),
+                              {
+                                status: 'reserved',
+                                reservation: {
+                                  bookingCode: code,
+                                  customerName: bookingName.trim(),
+                                  customerPhone: bookingPhone.trim(),
+                                  seatsCount: bookingSeats,
+                                  scheduledTime,
+                                  preOrderItems: vendorPreItems,
+                                  totalAmount: preTotal,
+                                  paymentMethod: bookingPayment,
+                                  channel: 'app',
+                                  createdAt: Date.now()
+                                }
+                              },
+                              { merge: true }
+                            );
+                          }
+
+                          await setDoc(doc(db, 'tables', code), {
+                            bookingCode: code,
+                            vendorId: vendor.id,
+                            vendorName: vendor.businessName,
+                            vendorAddress: vendor.address || '',
+                            tableId: chosenTable?.id || null,
+                            tableNumber: tableNum,
+                            seatsCount: bookingSeats,
+                            scheduledTime,
+                            customerName: bookingName.trim(),
+                            customerPhone: bookingPhone.trim(),
+                            status: 'reserved',
+                            preOrderItems: vendorPreItems,
+                            totalAmount: preTotal,
+                            paymentMethod: bookingPayment,
+                            paymentMethodLabel: pmLabel,
+                            channel: 'app',
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp()
+                          });
+
+                          await addDoc(collection(db, 'orders'), {
+                            customerId: user?.uid || `app-guest-${bookingPhone.replace(/\D/g, '')}`,
+                            vendorId: vendor.id,
+                            vendorName: vendor.businessName,
+                            customerName: bookingName.trim(),
+                            customerPhone: bookingPhone.trim(),
+                            items:
+                              vendorPreItems.length > 0
+                                ? vendorPreItems
+                                : [{ id: code, name: `Booking Meza #${tableNum} (Viti ${bookingSeats})`, price: 0, quantity: 1 }],
+                            totalAmount: preTotal,
+                            subtotal: preTotal,
+                            status: 'pending',
+                            type: 'restaurant',
+                            orderSource: 'online',
+                            orderType: 'booking',
+                            subType: 'table_booking',
+                            isTableBooking: true,
+                            bookingCode: code,
+                            tableId: chosenTable?.id || null,
+                            tableNumber: tableNum,
+                            peopleCount: bookingSeats,
+                            reservationTime: scheduledTime,
+                            paymentMethod: bookingPayment,
+                            paymentMethodLabel: pmLabel,
+                            paymentStatus: 'pending',
+                            notes: `Table Booking #${code} | Meza #${tableNum} | Viti: ${bookingSeats} | Muda: ${scheduledTime}`,
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp()
+                          });
+
+                          if (vendorPreItems.length > 0) {
+                            clearCart();
+                          }
+
+                          setConfirmedTableBooking({
+                            bookingCode: code,
+                            tableNumber: tableNum,
+                            seatsCount: bookingSeats,
+                            scheduledTime,
+                            customerName: bookingName.trim(),
+                            customerPhone: bookingPhone.trim(),
+                            paymentMethodLabel: pmLabel,
+                            preOrderCount: vendorPreItems.length,
+                            totalAmount: preTotal
+                          });
+                          toast.success(`Meza #${tableNum} imehifadhiwa kikamilifu!`);
+                        } catch (err) {
+                          console.error('Table booking error:', err);
+                          toast.error('Imeshindikana kuhifadhi meza. Tafadhali jaribu tena.');
+                        } finally {
+                          setBookingSubmitting(false);
+                        }
+                      }}
+                      className="w-full h-12 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:brightness-110 text-white font-black uppercase tracking-wider shadow-lg cursor-pointer"
+                    >
+                      {bookingSubmitting ? 'Inahifadhi Meza...' : `Thibitisha Meza (${bookingSeats} Viti)`}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
