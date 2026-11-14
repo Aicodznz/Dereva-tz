@@ -75,7 +75,7 @@ function buildClientPhoneVariants(raw?: string): string[] {
 
 function isLikelyOrderCode(input: string): boolean {
   const trimmed = input.trim().replace(/^#/, '').toUpperCase();
-  return /^(FD|TBL|PH|PR|CR|SL|SK|HT|RX|BS|TR)-[A-Z0-9]+$/i.test(trimmed) || (/^[A-Z]{2,4}-[A-Z0-9]{2,}$/i.test(trimmed));
+  return /^(FD|TBL|PH|PR|CR|SL|SK|HT|RX|BS|TR|PFX|ML|TK|PP)-[A-Z0-9]+$/i.test(trimmed) || (/^[A-Z]{2,4}-[A-Z0-9]{2,}$/i.test(trimmed));
 }
 
 const getSafeDate = (val: any): Date => {
