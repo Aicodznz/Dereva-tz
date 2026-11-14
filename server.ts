@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables } from "./src/lib/metaBot";
 import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -397,6 +397,26 @@ async function startServer() {
     } catch (err: any) {
       console.warn("[Meta History API] Soft warning loading chat history:", err?.message || err);
       res.json({ chats: [] });
+    }
+  });
+
+  // Unified customer order/booking/ride/parcel tracking endpoint (publicly searchable by phone, code, or uid)
+  app.get("/api/orders/track", async (req, res) => {
+    try {
+      const phone = typeof req.query.phone === 'string' ? req.query.phone : '';
+      const uid = typeof req.query.uid === 'string' ? req.query.uid : '';
+      const code = typeof req.query.code === 'string' ? req.query.code : '';
+      const senderId = typeof req.query.senderId === 'string' ? req.query.senderId : '';
+
+      if (!phone && !uid && !code && !senderId) {
+        return res.json({ items: [] });
+      }
+
+      const items = await lookupCustomerAllTrackables(dbAdmin, { phone, uid, code, senderId });
+      return res.json({ items });
+    } catch (err: any) {
+      console.error("[Orders Track API] Error:", err);
+      return res.status(500).json({ error: "Failed to track orders", items: [] });
     }
   });
 

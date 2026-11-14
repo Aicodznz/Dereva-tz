@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, limit } from 'firebase/firestore';
 import { Order } from '../types';
 import { useLanguage } from '../LanguageContext';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -26,10 +27,56 @@ import {
   Bus,
   MapPin,
   Ticket,
-  X
+  X,
+  Search,
+  Utensils,
+  Armchair,
+  Car,
+  Phone,
+  RefreshCw,
+  MessageCircle,
+  ExternalLink,
+  Calendar
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import OrderTracker from './OrderTracker';
+
+interface TrackedCustomerOrder {
+  id: string;
+  collection: 'orders' | 'tables' | 'rides' | 'parcels';
+  code: string;
+  kind: 'food' | 'table' | 'ride' | 'parcel' | 'shop';
+  title: string;
+  subtitle: string;
+  status: string;
+  statusLabel: string;
+  totalAmount: number;
+  channel?: string;
+  vendorId?: string;
+  createdAtMs: number;
+  raw: any;
+}
+
+const STORAGE_PHONE_KEY = 'papo_tracking_phone';
+
+function buildClientPhoneVariants(raw?: string): string[] {
+  const cleaned = String(raw || '').replace(/[^\d+]/g, '');
+  const digits = cleaned.replace(/\D/g, '');
+  if (!digits) return [];
+  let normalized255 = digits;
+  if (digits.startsWith('0') && digits.length >= 9) {
+    normalized255 = `255${digits.slice(1)}`;
+  } else if (digits.length === 9 && (digits.startsWith('7') || digits.startsWith('6'))) {
+    normalized255 = `255${digits}`;
+  }
+  const local0 = normalized255.startsWith('255') ? `0${normalized255.slice(3)}` : digits;
+  const bare = normalized255.startsWith('255') ? normalized255.slice(3) : digits;
+  return Array.from(new Set([normalized255, `+${normalized255}`, local0, bare, digits].filter(Boolean))).slice(0, 10);
+}
+
+function isLikelyOrderCode(input: string): boolean {
+  const trimmed = input.trim().replace(/^#/, '').toUpperCase();
+  return /^(FD|TBL|PH|PR|CR|SL|SK|HT|RX|BS|TR)-[A-Z0-9]+$/i.test(trimmed) || (/^[A-Z]{2,4}-[A-Z0-9]{2,}$/i.test(trimmed));
+}
 
 const getSafeDate = (val: any): Date => {
   try {
@@ -71,9 +118,29 @@ interface MyOrdersProps {
 export default function MyOrders({ onBack }: MyOrdersProps) {
   const { user, profile } = useAuth();
   const { t } = useLanguage();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const urlPhone = searchParams.get('phone') || '';
+  const urlCode = searchParams.get('code') || '';
+
+  const [activePhone, setActivePhone] = useState<string>(() => {
+    if (urlPhone) return urlPhone;
+    try {
+      return localStorage.getItem(STORAGE_PHONE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [activeCode, setActiveCode] = useState<string>(urlCode);
+  const [searchInput, setSearchInput] = useState<string>(urlCode || urlPhone || '');
+  const [kindFilter, setKindFilter] = useState<'all' | 'food' | 'table' | 'ride' | 'parcel'>('all');
+
+  const [trackedItems, setTrackedItems] = useState<TrackedCustomerOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedTableItem, setSelectedTableItem] = useState<TrackedCustomerOrder | null>(null);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -84,6 +151,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
   const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
   const [cashOrderRefForPay, setCashOrderRefForPay] = useState<Order | null>(null);
   const [alternativePhoneNumber, setAlternativePhoneNumber] = useState('');
+  const refreshTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (!selectedOrder || !selectedOrder.vendorId) {
@@ -249,71 +317,219 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
     }
   };
 
+  // Sync URL query params and user profile phone
   useEffect(() => {
-    if (!user) return;
-
-    const fetchOrders = async () => {
-      try {
-        const ordersRef = collection(db, 'orders');
-        const q = query(
-          ordersRef, 
-          where('customerId', '==', user.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        const ordersList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-        
-        // Client-side sorting
-        ordersList.sort((a, b) => {
-          const dateA = getSafeDate(a.createdAt);
-          const dateB = getSafeDate(b.createdAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-
-        setOrders(ordersList);
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-      } finally {
-        setLoading(false);
+    if (urlPhone) {
+      setActivePhone(urlPhone);
+      try { localStorage.setItem(STORAGE_PHONE_KEY, urlPhone); } catch {}
+    } else if (!activePhone) {
+      const userPhone = (profile as any)?.phoneNumber || (profile as any)?.phone || user?.phoneNumber || '';
+      if (userPhone) {
+        setActivePhone(userPhone);
       }
+    }
+    if (urlCode) {
+      setActiveCode(urlCode.replace(/^#/, '').toUpperCase());
+      setSearchInput(urlCode);
+    } else if (urlPhone && !searchInput) {
+      setSearchInput(urlPhone);
+    }
+  }, [urlPhone, urlCode, (profile as any)?.phoneNumber, (profile as any)?.phone, user?.phoneNumber]);
+
+  const effectivePhone = activePhone || (profile as any)?.phoneNumber || (profile as any)?.phone || user?.phoneNumber || '';
+
+  const fetchTrackedItems = useCallback(async (showSpinner = false) => {
+    if (!effectivePhone && !user?.uid && !activeCode) {
+      setTrackedItems([]);
+      setLoading(false);
+      return;
+    }
+
+    if (showSpinner) setRefreshing(true);
+    try {
+      const params = new URLSearchParams();
+      if (effectivePhone) params.set('phone', effectivePhone);
+      if (user?.uid) params.set('uid', user.uid);
+      if (activeCode) params.set('code', activeCode);
+
+      const resp = await fetch(`/api/orders/track?${params.toString()}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const items: TrackedCustomerOrder[] = Array.isArray(data?.items) ? data.items : [];
+        setTrackedItems(items);
+      }
+    } catch (error) {
+      console.error('Error fetching tracked orders:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [effectivePhone, user?.uid, activeCode]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchTrackedItems(false);
+  }, [fetchTrackedItems]);
+
+  // Real-time Firestore snapshot listeners so kitchen/driver/table status updates appear instantly
+  useEffect(() => {
+    const phoneVariants = buildClientPhoneVariants(effectivePhone);
+    if (!user?.uid && phoneVariants.length === 0 && !activeCode) return;
+
+    const triggerLiveRefresh = () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        fetchTrackedItems(false);
+      }, 350);
     };
 
-    fetchOrders();
+    const unsubs: (() => void)[] = [];
 
-    const q = query(
-      collection(db, 'orders'), 
-      where('customerId', '==', user.uid)
-    );
-    
-    const unsub = onSnapshot(q, (snapshot) => {
-      const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      
-      // Client-side sorting
-      ordersList.sort((a, b) => {
-        const dateA = getSafeDate(a.createdAt);
-        const dateB = getSafeDate(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
+    try {
+      if (user?.uid) {
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'orders'), where('customerId', '==', user.uid), limit(25)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Orders UID snapshot warning:', err?.message)
+          )
+        );
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'rides'), where('passengerId', '==', user.uid), limit(15)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Rides UID snapshot warning:', err?.message)
+          )
+        );
+      }
+
+      if (phoneVariants.length > 0) {
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'orders'), where('customerPhone', 'in', phoneVariants), limit(25)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Orders phone snapshot warning:', err?.message)
+          )
+        );
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'tables'), where('customerPhone', 'in', phoneVariants), limit(25)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Tables phone snapshot warning:', err?.message)
+          )
+        );
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'rides'), where('customerInfo.phone', 'in', phoneVariants), limit(15)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Rides phone snapshot warning:', err?.message)
+          )
+        );
+        unsubs.push(
+          onSnapshot(
+            query(collection(db, 'parcels'), where('senderPhone', 'in', phoneVariants), limit(15)),
+            () => triggerLiveRefresh(),
+            (err) => console.warn('Parcels phone snapshot warning:', err?.message)
+          )
+        );
+      }
+    } catch (err) {
+      console.warn('Snapshot listener setup warning:', err);
+    }
+
+    return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      unsubs.forEach((u) => {
+        try { u(); } catch {}
       });
+    };
+  }, [user?.uid, effectivePhone, activeCode, fetchTrackedItems]);
 
-      setOrders(ordersList);
-    }, (error: any) => {
-      console.error('Error in orders snapshot:', error);
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = searchInput.trim();
+    if (!cleaned) {
+      setActiveCode('');
+      const fallbackPhone = (profile as any)?.phoneNumber || (profile as any)?.phone || user?.phoneNumber || '';
+      setActivePhone(fallbackPhone);
+      setSearchParams(fallbackPhone ? { phone: fallbackPhone } : {});
+      return;
+    }
+
+    if (isLikelyOrderCode(cleaned)) {
+      const normalizedCode = cleaned.replace(/^#/, '').toUpperCase();
+      setActiveCode(normalizedCode);
+      const nextParams: Record<string, string> = { code: normalizedCode };
+      if (effectivePhone) nextParams.phone = effectivePhone;
+      setSearchParams(nextParams);
+    } else {
+      const digitsOnly = cleaned.replace(/\D/g, '');
+      const normalizedPhone = digitsOnly.startsWith('0') && digitsOnly.length >= 9
+        ? `255${digitsOnly.slice(1)}`
+        : digitsOnly.length === 9 && (digitsOnly.startsWith('7') || digitsOnly.startsWith('6'))
+          ? `255${digitsOnly}`
+          : digitsOnly || cleaned;
+      setActiveCode('');
+      setActivePhone(normalizedPhone);
+      try { localStorage.setItem(STORAGE_PHONE_KEY, normalizedPhone); } catch {}
+      setSearchParams({ phone: normalizedPhone });
+    }
+  };
+
+  const handleShowAllForPhone = () => {
+    setActiveCode('');
+    setSearchInput(effectivePhone || '');
+    if (effectivePhone) {
+      setSearchParams({ phone: effectivePhone });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    return trackedItems.filter((item) => {
+      if (kindFilter === 'all') return true;
+      if (kindFilter === 'food') return item.kind === 'food' || item.kind === 'shop';
+      return item.kind === kindFilter;
     });
+  }, [trackedItems, kindFilter]);
 
-    return () => unsub();
-  }, [user?.uid]);
-
-  const activeOrders = orders.filter(o => ['pending', 'preparing', 'out_for_delivery', 'accepted'].includes(o.status));
-  const previousOrders = orders.filter(o => ['delivered', 'cancelled', 'completed'].includes(o.status));
+  const COMPLETED_STATUSES = ['delivered', 'completed', 'cancelled', 'rejected', 'expired', 'used'];
+  const activeItems = filteredItems.filter((item) => !COMPLETED_STATUSES.includes(String(item.status || '').toLowerCase()));
+  const previousItems = filteredItems.filter((item) => COMPLETED_STATUSES.includes(String(item.status || '').toLowerCase()));
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
-      case 'preparing': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
-      case 'out_for_delivery': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400';
+    const s = String(status || '').toLowerCase();
+    switch (s) {
+      case 'pending':
+      case 'requested':
+      case 'reserved':
+        return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300';
+      case 'accepted':
+      case 'confirmed':
+      case 'driver_assigned':
+      case 'seated':
+        return 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300';
+      case 'preparing':
+      case 'prepared':
+      case 'ready':
+      case 'arriving':
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
+      case 'out_for_delivery':
+      case 'picked_up':
+      case 'in_transit':
+      case 'in_progress':
+        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
       case 'delivered':
-      case 'completed': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-      case 'cancelled': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-      default: return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-400';
+      case 'completed':
+      case 'used':
+        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+      case 'cancelled':
+      case 'rejected':
+      case 'expired':
+        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+      default:
+        return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300';
     }
   };
 
@@ -341,20 +557,155 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
       }
     }
 
-    switch (status) {
-      case 'pending': return 'Pending';
-      case 'preparing': return 'Preparing';
-      case 'out_for_delivery': return 'Out For Delivery';
-      case 'delivered': return 'Delivered';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      case 'accepted': return 'Accepted';
-      default: return status;
+    switch (String(status || '').toLowerCase()) {
+      case 'pending': return 'Inasubiri';
+      case 'reserved': return 'Meza Imehifadhiwa';
+      case 'seated': return 'Umeketi Mezani';
+      case 'accepted':
+      case 'confirmed': return 'Imekubaliwa';
+      case 'preparing': return 'Inaandaliwa';
+      case 'prepared':
+      case 'ready': return 'Iko Tayari';
+      case 'driver_assigned': return 'Dereva Amepatikana';
+      case 'arriving': return 'Dereva Anafika';
+      case 'in_progress': return 'Safarini';
+      case 'out_for_delivery':
+      case 'picked_up':
+      case 'in_transit': return 'Njiani Inakuja';
+      case 'delivered': return 'Imefikishwa';
+      case 'completed': return 'Imekamilika';
+      case 'cancelled': return 'Imeghairiwa';
+      default: return status || 'Inasubiri';
     }
+  };
+
+  const handleOpenTrackedItem = (item: TrackedCustomerOrder) => {
+    if (item.collection === 'rides') {
+      navigate(`/taxi/track?rideId=${encodeURIComponent(item.id)}`);
+      return;
+    }
+    if (item.collection === 'tables') {
+      setSelectedTableItem(item);
+      return;
+    }
+    if (item.collection === 'parcels') {
+      toast.info(`Mzigo #${item.code}: ${item.statusLabel}`);
+      return;
+    }
+    const rawOrder: Order = {
+      ...(item.raw || {}),
+      id: item.id,
+      items: Array.isArray(item.raw?.items) ? item.raw.items : [],
+      totalAmount: Number(item.raw?.totalAmount ?? item.totalAmount ?? 0),
+      status: item.status as any,
+      createdAt: item.raw?.createdAt || item.createdAtMs,
+    };
+    setSelectedOrder(rawOrder);
+  };
+
+  const handleBack = () => {
+    if (onBack) onBack();
+    else navigate('/');
   };
 
   if (trackingOrder) {
     return <OrderTracker order={trackingOrder} onBack={() => setTrackingOrder(null)} />;
+  }
+
+  if (selectedTableItem) {
+    const tbl = selectedTableItem.raw || {};
+    const preItems = Array.isArray(tbl.preOrderItems) ? tbl.preOrderItems : [];
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <button
+          onClick={() => setSelectedTableItem(null)}
+          className="flex items-center gap-2 text-orange-600 font-bold hover:underline"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          Rudi kwenye Oda Zangu
+        </button>
+
+        <Card className="border-none shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-neutral-900">
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 dark:bg-orange-950/30 text-orange-600 text-xs font-black uppercase tracking-wider mb-2">
+                  <Armchair className="w-3.5 h-3.5" /> Booking ya Meza
+                </div>
+                <h2 className="text-2xl font-black text-neutral-900 dark:text-white">
+                  {selectedTableItem.title}
+                </h2>
+                <p className="text-sm font-mono font-bold text-orange-600 mt-1">
+                  #{selectedTableItem.code}
+                </p>
+              </div>
+              <Badge className={`${getStatusColor(selectedTableItem.status)} border-none px-4 py-1.5 rounded-full font-bold`}>
+                {selectedTableItem.statusLabel}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60">
+                <p className="text-[11px] font-bold uppercase text-neutral-500">Meza & Viti</p>
+                <p className="text-sm font-black text-neutral-900 dark:text-white mt-1">
+                  Meza #{tbl.tableNumber || '-'} • Viti {tbl.seatsCount || tbl.guests || 2}
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60">
+                <p className="text-[11px] font-bold uppercase text-neutral-500">Muda wa Kufika</p>
+                <p className="text-sm font-black text-neutral-900 dark:text-white mt-1">
+                  {tbl.scheduledTime || tbl.reservationTime || 'Sasa hivi'}
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60">
+                <p className="text-[11px] font-bold uppercase text-neutral-500">Namba ya Simu</p>
+                <p className="text-sm font-black text-neutral-900 dark:text-white mt-1">
+                  {tbl.customerPhone || effectivePhone || '-'}
+                </p>
+              </div>
+            </div>
+
+            {preItems.length > 0 && (
+              <div className="space-y-3 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                  Chakula cha Mapema (Pre-Order)
+                </h4>
+                <div className="space-y-2">
+                  {preItems.map((it: any, i: number) => (
+                    <div key={i} className="flex justify-between text-sm font-medium p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/40">
+                      <span>{it.quantity || 1}x {it.name}</span>
+                      <span className="font-bold">TZS {Number((it.price || 0) * (it.quantity || 1)).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between items-center pt-2 font-black text-base">
+                  <span>Jumla</span>
+                  <span className="text-orange-600">TZS {Number(selectedTableItem.totalAmount || 0).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              {selectedTableItem.vendorId && (
+                <Link
+                  to={`/vendor/${selectedTableItem.vendorId}`}
+                  className="inline-flex items-center justify-center gap-2 px-5 h-12 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm transition-colors"
+                >
+                  <Utensils className="w-4 h-4" /> Tazama Menyu ya Mgahawa
+                </Link>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => fetchTrackedItems(true)}
+                className="h-12 rounded-2xl px-5 font-bold gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Sasisha Hali
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (selectedOrder) {
@@ -606,7 +957,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   <div className="flex justify-between items-start mb-8">
                     <div>
                       <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                        {t('order_id')}: <span className="text-orange-600">#{selectedOrder.id?.slice(-8).toUpperCase()}</span>
+                        {t('order_id')}: <span className="text-orange-600">#{order.bookingCode || selectedOrder.id?.slice(-8).toUpperCase()}</span>
                       </h2>
                       <p className="text-neutral-500 mt-1">
                         {selectedOrder.createdAt ? getSafeDate(selectedOrder.createdAt).toLocaleString() : ''}
@@ -766,7 +1117,7 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                 {/* Metadata details */}
                 <div className="grid grid-cols-2 gap-y-1.5 text-[11px] font-mono text-neutral-600 pb-4">
                   <div>RISITI NA:</div>
-                  <div className="text-right font-black text-neutral-900">#{selectedOrder.id?.slice(-8).toUpperCase()}</div>
+                  <div className="text-right font-black text-neutral-900">#{order.bookingCode || selectedOrder.id?.slice(-8).toUpperCase()}</div>
                   
                   <div>TAREHE:</div>
                   <div className="text-right">
@@ -797,17 +1148,25 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
 
                 {/* Items breakdown */}
                 <div className="space-y-2.5 pb-4">
-                  {selectedOrder.items.map((item: any, idx: number) => (
-                    <div key={`receipt-item-${idx}`} className="flex justify-between items-start text-xs font-mono text-neutral-800">
-                      <div className="flex-1 pr-4">
-                        <span className="font-bold text-neutral-950">{item.quantity}x</span> {item.name}
-                        {item.variation && item.variation.name && <p className="text-[9px] text-neutral-400 mt-0.5">({item.variation.name})</p>}
+                  {(selectedOrder.items && selectedOrder.items.length > 0) ? (
+                    selectedOrder.items.map((item: any, idx: number) => (
+                      <div key={`receipt-item-${idx}`} className="flex justify-between items-start text-xs font-mono text-neutral-800">
+                        <div className="flex-1 pr-4">
+                          <span className="font-bold text-neutral-950">{item.quantity || 1}x</span> {item.name}
+                          {item.variation && item.variation.name && <p className="text-[9px] text-neutral-400 mt-0.5">({item.variation.name})</p>}
+                        </div>
+                        <span className="font-black text-neutral-955 text-right">
+                          {Number((item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                        </span>
                       </div>
-                      <span className="font-black text-neutral-955 text-right">
-                        {(item.price * item.quantity).toLocaleString()}
-                      </span>
+                    ))
+                  ) : (
+                    <div className="text-xs font-mono text-neutral-600 py-1">
+                      {order.isTableBooking
+                        ? `Booking ya Meza #${order.tableNumber || '-'} (${order.reservationTime || 'Sasa'})`
+                        : (order.notes || 'Huduma ya Papo Hapo')}
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 <div className="border-t border-dashed border-neutral-300 my-4" />
@@ -817,10 +1176,10 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
                     <span>
-                      TZS {(
+                      TZS {Number(
                         selectedOrder.subtotal !== undefined 
                           ? selectedOrder.subtotal 
-                          : (selectedOrder.totalAmount - (selectedOrder.deliveryFee || 0))
+                          : ((selectedOrder.totalAmount || 0) - (selectedOrder.deliveryFee || 0))
                       ).toLocaleString()}
                     </span>
                   </div>
@@ -830,13 +1189,13 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
                   </div>
                   <div className="flex justify-between text-neutral-500">
                     <span>Usafiri:</span>
-                    <span>TZS {(selectedOrder.deliveryFee || 0).toLocaleString()}</span>
+                    <span>TZS {Number(selectedOrder.deliveryFee || 0).toLocaleString()}</span>
                   </div>
                 </div>
 
                 <div className="border-t border-double border-neutral-200 pt-3 flex justify-between items-center text-sm font-black text-neutral-900 uppercase">
                   <span>Jumla / Total:</span>
-                  <span className="text-base font-black">TZS {selectedOrder.totalAmount.toLocaleString()}</span>
+                  <span className="text-base font-black">TZS {Number(selectedOrder.totalAmount || 0).toLocaleString()}</span>
                 </div>
 
                 <div className="border-t border-dashed border-neutral-300 my-5" />
@@ -921,127 +1280,266 @@ export default function MyOrders({ onBack }: MyOrdersProps) {
     );
   }
 
+  const renderKindIcon = (item: TrackedCustomerOrder, muted = false) => {
+    const colorClass = muted ? 'text-neutral-400' : 'text-orange-600';
+    if (item.collection === 'orders' && isBusOrder(item.raw)) {
+      return <Bus className={`w-7 h-7 ${colorClass} ${muted ? '' : 'animate-pulse'}`} />;
+    }
+    switch (item.kind) {
+      case 'table':
+        return <Armchair className={`w-7 h-7 ${colorClass}`} />;
+      case 'food':
+        return <Utensils className={`w-7 h-7 ${colorClass}`} />;
+      case 'ride':
+        return <Car className={`w-7 h-7 ${colorClass}`} />;
+      case 'parcel':
+        return <Package className={`w-7 h-7 ${colorClass}`} />;
+      default:
+        return <ShoppingBag className={`w-7 h-7 ${colorClass}`} />;
+    }
+  };
+
+  const renderOrderCard = (item: TrackedCustomerOrder, idx: number, isPast = false) => {
+    const isWhatsApp = String(item.channel || '').toLowerCase() === 'whatsapp' || String(item.channel || '').toLowerCase() === 'messenger';
+    return (
+      <Card
+        key={`${item.collection}-${item.id}-${idx}`}
+        className={`border border-neutral-100 dark:border-neutral-800 shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-all cursor-pointer group bg-white dark:bg-neutral-900 ${isPast ? 'opacity-85 hover:opacity-100' : ''}`}
+        onClick={() => handleOpenTrackedItem(item)}
+      >
+        <CardContent className="p-5 sm:p-6 flex items-start sm:items-center gap-4 sm:gap-5">
+          <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 ${isPast ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-orange-50 dark:bg-orange-950/30'}`}>
+            {renderKindIcon(item, isPast)}
+          </div>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-xs font-black text-orange-600 bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 rounded-lg">
+                  #{item.code}
+                </span>
+                {isWhatsApp && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-lg">
+                    <MessageCircle className="w-3 h-3" /> WhatsApp
+                  </span>
+                )}
+              </div>
+              <Badge className={`${getStatusColor(item.status)} border-none text-[11px] font-bold rounded-full px-3 py-0.5`}>
+                {item.statusLabel}
+              </Badge>
+            </div>
+
+            <h4 className="font-black text-base text-neutral-900 dark:text-white truncate">
+              {item.title}
+            </h4>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 truncate">
+              {item.subtitle}
+            </p>
+            <p className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" />
+              {item.createdAtMs ? new Date(item.createdAtMs).toLocaleString('sw-TZ') : ''}
+            </p>
+
+            <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
+              <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">
+                {item.totalAmount > 0 ? (
+                  <>Jumla: <span className="text-orange-600">TZS {Number(item.totalAmount).toLocaleString()}</span></>
+                ) : (
+                  <span className="text-xs font-bold text-neutral-500">Hifadhi ya Meza / Huduma</span>
+                )}
+              </p>
+
+              <div className="flex items-center gap-2">
+                {item.collection === 'rides' ? (
+                  <span className="text-xs font-bold text-orange-600 flex items-center gap-1">
+                    <Navigation className="w-3.5 h-3.5" /> Ramani Live <ExternalLink className="w-3 h-3" />
+                  </span>
+                ) : item.collection === 'orders' && !isPast ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rawOrder: Order = {
+                        ...(item.raw || {}),
+                        id: item.id,
+                        items: Array.isArray(item.raw?.items) ? item.raw.items : [],
+                        totalAmount: Number(item.raw?.totalAmount ?? item.totalAmount ?? 0),
+                        status: item.status as any,
+                        createdAt: item.raw?.createdAt || item.createdAtMs,
+                      };
+                      setTrackingOrder(rawOrder);
+                    }}
+                    className="text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <Navigation className="w-3 h-3" /> Fuatilia Live
+                  </button>
+                ) : (
+                  <span className="text-xs font-bold text-orange-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    {t('see_details')} <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button 
-          onClick={onBack}
+          onClick={handleBack}
           className="flex items-center gap-2 text-orange-600 font-bold hover:underline"
         >
           <ChevronLeft className="w-5 h-5" />
           {t('back_to_home')}
         </button>
+
+        {(effectivePhone || user?.uid || activeCode) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchTrackedItems(true)}
+            disabled={refreshing}
+            className="rounded-xl font-bold gap-2 text-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Sasisha Oda
+          </Button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Active Orders */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-3 italic uppercase tracking-tighter transition-colors">
-            <Clock className="w-6 h-6 text-orange-600" />
-            {t('active_orders')}
-          </h2>
-          <div className="space-y-4">
-            {activeOrders.map((order, idx) => (
-              <Card 
-                key={`active-order-${order.id}-${idx}`} 
-                className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer group bg-white dark:bg-neutral-900"
-                onClick={() => setSelectedOrder(order)}
-              >
-                <CardContent className="p-6 flex items-center gap-6">
-                  <div className="w-16 h-16 bg-orange-50 dark:bg-orange-950/20 rounded-2xl flex items-center justify-center text-orange-600 shrink-0">
-                    {isBusOrder(order) ? (
-                      <Bus className="w-8 h-8 text-orange-600 animate-pulse" />
-                    ) : (
-                      <ShoppingBag className="w-8 h-8" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-bold text-neutral-900 dark:text-white truncate">
-                        {t('order_id')}: #{order.id?.slice(-8).toUpperCase()}
-                      </h4>
-                      <Badge className={`${getStatusColor(order.status)} border-none text-[10px] font-bold`}>
-                        {getStatusLabel(order.status, order)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt ? getSafeDate(order.createdAt).toLocaleString() : ''}
-                    </p>
-                    <div className="flex justify-between items-center mt-3">
-                      <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">
-                        {t('total')}: <span className="text-orange-600">TZS {order.totalAmount.toLocaleString()}</span>
-                      </p>
-                      <span className="text-xs font-bold text-orange-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        {t('see_details')} <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {activeOrders.length === 0 && (
-              <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 transition-colors">
-                <Package className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
-                <p className="text-neutral-500 dark:text-neutral-400 font-medium">No active orders</p>
-              </div>
-            )}
+      {/* Unified Search & Tracking Banner */}
+      <div className="bg-gradient-to-br from-orange-50 via-amber-50/70 to-white dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-950 border border-orange-200/70 dark:border-neutral-800 rounded-3xl p-5 sm:p-7 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">
+              Fuatilia Oda & Booking Zako Zote
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+              Angalia oda za chakula, meza za mgahawa, safari za taxi, vifurushi na manunuzi yote ya App au WhatsApp kwa wakati mmoja.
+            </p>
           </div>
+          {effectivePhone && (
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-neutral-800 border border-orange-200 dark:border-neutral-700 text-xs font-bold text-neutral-800 dark:text-neutral-200 shrink-0">
+              <Phone className="w-3.5 h-3.5 text-orange-600" />
+              <span>{effectivePhone}</span>
+            </div>
+          )}
         </div>
 
-        {/* Previous Orders */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-3 italic uppercase tracking-tighter transition-colors">
-            <CheckCircle2 className="w-6 h-6 text-green-600" />
-            {t('previous_orders')}
-          </h2>
-          <div className="space-y-4">
-            {previousOrders.map((order, idx) => (
-              <Card 
-                key={`past-order-${order.id}-${idx}`} 
-                className="border-none shadow-sm rounded-3xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer group opacity-80 hover:opacity-100 bg-white dark:bg-neutral-900 transition-all"
-                onClick={() => setSelectedOrder(order)}
-              >
-                <CardContent className="p-6 flex items-center gap-6">
-                  <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-neutral-400 shrink-0">
-                    {isBusOrder(order) ? (
-                      <Bus className="w-8 h-8 text-neutral-400" />
-                    ) : (
-                      <ShoppingBag className="w-8 h-8" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-bold text-neutral-900 dark:text-white truncate">
-                        {t('order_id')}: #{order.id?.slice(-8).toUpperCase()}
-                      </h4>
-                      <Badge className={`${getStatusColor(order.status)} border-none text-[10px] font-bold`}>
-                        {getStatusLabel(order.status, order)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {order.createdAt ? getSafeDate(order.createdAt).toLocaleString() : ''}
-                    </p>
-                    <div className="flex justify-between items-center mt-3">
-                      <p className="text-sm font-black text-neutral-900 dark:text-neutral-200">
-                        {t('total')}: <span className="text-orange-600">TZS {order.totalAmount.toLocaleString()}</span>
-                      </p>
-                      <span className="text-xs font-bold text-orange-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        {t('see_details')} <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {previousOrders.length === 0 && (
-              <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 transition-colors">
-                <Package className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
-                <p className="text-neutral-500 dark:text-neutral-400 font-medium">No previous orders</p>
-              </div>
-            )}
+        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Weka namba yako ya simu (mf. 0782542520) au namba ya oda (mf. FD-3441, TBL-3947)"
+              className="w-full h-12 pl-11 pr-4 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm font-medium text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+            />
           </div>
+          <Button
+            type="submit"
+            className="h-12 px-6 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-black text-sm shrink-0"
+          >
+            Tafuta Oda
+          </Button>
+        </form>
+
+        {activeCode && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <p className="text-xs font-bold text-orange-700 dark:text-orange-300">
+              Unatazama oda yenye namba: <span className="font-mono">#{activeCode}</span>
+            </p>
+            <button
+              type="button"
+              onClick={handleShowAllForPhone}
+              className="text-xs font-black text-orange-600 hover:underline"
+            >
+              Onyesha Oda Zote {effectivePhone ? `(${effectivePhone})` : ''} →
+            </button>
+          </div>
+        )}
+
+        {/* Service Category Filter */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {[
+            { id: 'all', label: 'Zote' },
+            { id: 'food', label: 'Chakula & Duka' },
+            { id: 'table', label: 'Meza (Booking)' },
+            { id: 'ride', label: 'Safari / Taxi' },
+            { id: 'parcel', label: 'Vifurushi' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setKindFilter(tab.id as any)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                kindFilter === tab.id
+                  ? 'bg-orange-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:border-orange-400'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {!effectivePhone && !user?.uid && !activeCode ? (
+        <div className="py-14 px-6 text-center bg-white dark:bg-neutral-900 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 space-y-3">
+          <Phone className="w-12 h-12 text-orange-500 mx-auto" />
+          <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+            Ingiza Namba ya Simu au Kadi ya Oda
+          </h3>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+            Kama uliagiza kupitia WhatsApp au App bila kuingia, andika namba yako ya simu (mfano 0782542520) au namba ya oda (mfano FD-3441) hapo juu kuona oda zako zote.
+          </p>
+        </div>
+      ) : loading ? (
+        <div className="py-16 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
+          <p className="text-sm font-bold text-neutral-500">Inapakia oda na booking zako...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Active Orders */}
+          <div className="space-y-5">
+            <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-3 italic uppercase tracking-tighter transition-colors">
+              <Clock className="w-6 h-6 text-orange-600" />
+              Oda Zinazoendelea ({activeItems.length})
+            </h2>
+            <div className="space-y-4">
+              {activeItems.map((item, idx) => renderOrderCard(item, idx, false))}
+              {activeItems.length === 0 && (
+                <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 transition-colors">
+                  <Package className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
+                  <p className="text-neutral-500 dark:text-neutral-400 font-medium">Hakuna oda inayoendelea kwa sasa</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Previous Orders */}
+          <div className="space-y-5">
+            <h2 className="text-2xl font-black text-neutral-900 dark:text-white flex items-center gap-3 italic uppercase tracking-tighter transition-colors">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
+              Oda Zilizopita ({previousItems.length})
+            </h2>
+            <div className="space-y-4">
+              {previousItems.map((item, idx) => renderOrderCard(item, idx, true))}
+              {previousItems.length === 0 && (
+                <div className="py-12 text-center bg-neutral-50 dark:bg-neutral-900/50 rounded-3xl border-2 border-dashed border-neutral-200 dark:border-neutral-800 transition-colors">
+                  <Package className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
+                  <p className="text-neutral-500 dark:text-neutral-400 font-medium">Hakuna historia ya oda zilizokamilika</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ORIENTATION SELECTION & PREVIEW MODAL */}
       {orientationModalOpen && (

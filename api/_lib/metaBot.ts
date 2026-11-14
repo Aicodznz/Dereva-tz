@@ -28,7 +28,8 @@ export interface MetaSession {
     | 'TABLE_SELECT_TIME'
     | 'TABLE_ASK_PREORDER'
     | 'HOTEL_SELECT_VENDOR'
-    | 'HOTEL_SELECT_ROOM';
+    | 'HOTEL_SELECT_ROOM'
+    | 'TRACKING_LOOKUP_PHONE';
   service?: 'taxi' | 'food' | 'grocery' | 'parcel' | 'salon' | 'hotel' | 'car_rental' | 'pharmacy' | 'bus_ticket';
   details: {
     route?: string;
@@ -523,6 +524,339 @@ function appendMediaItems(
     });
     added++;
   }
+}
+
+export function buildPhoneVariants(rawPhone?: string): { digits: string; phoneVariants: string[]; customerIdVariants: string[] } {
+  const digits = String(rawPhone || '').replace(/\D/g, '');
+  if (!digits || digits.length < 7) {
+    return { digits: '', phoneVariants: [], customerIdVariants: [] };
+  }
+  const last9 = digits.length >= 9 ? digits.slice(-9) : digits;
+  const phoneVariants = Array.from(
+    new Set([
+      digits,
+      `+${digits}`,
+      `0${last9}`,
+      `255${last9}`,
+      `+255${last9}`,
+    ])
+  ).slice(0, 10);
+
+  const customerIdVariants = Array.from(
+    new Set([
+      `whatsapp-client-255${last9}`,
+      `whatsapp-client-0${last9}`,
+      `whatsapp-client-${digits}`,
+      `app-guest-0${last9}`,
+      `app-guest-255${last9}`,
+      `app-guest-${digits}`,
+    ])
+  ).slice(0, 10);
+
+  return { digits, phoneVariants, customerIdVariants };
+}
+
+export function buildOrdersTrackingUrl(rawPhone?: string, bookingCode?: string): string {
+  const base = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
+  const digits = String(rawPhone || '').replace(/\D/g, '');
+  const qs = new URLSearchParams();
+  if (digits.length >= 7) {
+    qs.set('phone', digits);
+  }
+  if (bookingCode) {
+    qs.set('code', bookingCode.replace(/^#/, ''));
+  }
+  const qStr = qs.toString();
+  return `${base}/my-orders${qStr ? `?${qStr}` : ''}`;
+}
+
+function normalizeEpochMs(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'object') {
+    if (typeof val.toMillis === 'function') {
+      try { return val.toMillis(); } catch {}
+    }
+    if (typeof val.seconds === 'number') {
+      return val.seconds * 1000;
+    }
+  }
+  const parsed = new Date(val).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function formatSwahiliTrackStatus(status: string, kind: string): string {
+  const s = (status || 'pending').toLowerCase();
+  if (kind === 'table' || s === 'reserved') {
+    if (s === 'reserved') return '🪑 Imeshikiliwa (Reserved)';
+    if (s === 'seated' || s === 'occupied') return '🍽️ Umeketi Mezani';
+    if (s === 'completed') return '✅ Imekamilika';
+    if (s === 'cancelled') return '❌ Imeghairiwa';
+  }
+  if (kind === 'ride') {
+    if (s === 'pending' || s === 'searching') return '⏳ Inatafuta Dereva';
+    if (s === 'accepted' || s === 'driver_assigned') return '🚖 Dereva Amekubali';
+    if (s === 'arrived') return '📍 Dereva Amefika';
+    if (s === 'in_progress' || s === 'started') return '🛣️ Safarini';
+    if (s === 'completed') return '✅ Safari Imekamilika';
+    if (s === 'cancelled') return '❌ Imeghairiwa';
+  }
+  switch (s) {
+    case 'pending': return '⏳ Imepokelewa (Inasubiri)';
+    case 'accepted': return '👍 Imethibitishwa';
+    case 'preparing': return '👨‍🍳 Inaandaliwa Jikoni';
+    case 'prepared':
+    case 'ready': return '🍲 Tayari';
+    case 'out_for_delivery':
+    case 'picked_up':
+    case 'in_transit': return '🛵 Njiani Inakuja';
+    case 'delivered':
+    case 'completed': return '✅ Imekamilika / Imefika';
+    case 'cancelled': return '❌ Imeghairiwa';
+    default: return status || 'Pending';
+  }
+}
+
+export interface TrackedCustomerOrder {
+  id: string;
+  collection: 'orders' | 'tables' | 'rides' | 'parcels';
+  code: string;
+  kind: 'food' | 'table' | 'ride' | 'parcel' | 'shop';
+  title: string;
+  subtitle: string;
+  status: string;
+  statusLabel: string;
+  totalAmount: number;
+  channel?: string;
+  vendorId?: string;
+  createdAtMs: number;
+  raw: any;
+}
+
+export async function lookupCustomerAllTrackables(
+  dbAdmin: any,
+  params: { phone?: string; uid?: string; code?: string; senderId?: string }
+): Promise<TrackedCustomerOrder[]> {
+  if (!dbAdmin) return [];
+  const { digits, phoneVariants, customerIdVariants } = buildPhoneVariants(params.phone);
+  const cleanCode = params.code ? params.code.trim().replace(/^#/, '').toUpperCase() : '';
+  const sender = (params.senderId || '').trim();
+
+  const allCustomerIds = Array.from(
+    new Set([
+      ...(params.uid ? [params.uid] : []),
+      ...customerIdVariants,
+      ...(sender ? [`whatsapp-client-${sender}`, `messenger-client-${sender}`, `instagram-client-${sender}`, `meta-client-${sender}`] : [])
+    ])
+  ).slice(0, 10);
+
+  const ordersMap = new Map<string, any>();
+  const tablesMap = new Map<string, any>();
+  const ridesMap = new Map<string, any>();
+  const parcelsMap = new Map<string, any>();
+
+  const runSafeQuery = async (colName: string, field: string, op: '==' | 'in', val: any, target: Map<string, any>) => {
+    try {
+      if (op === 'in' && (!Array.isArray(val) || val.length === 0)) return;
+      if (op === '==' && !val) return;
+      const snap = await dbAdmin.collection(colName).where(field, op, val).limit(25).get();
+      snap.forEach((d: any) => target.set(d.id, { id: d.id, ...d.data() }));
+    } catch (err) {
+      console.warn(`[Order Tracker] Query warning ${colName}.${field}:`, err);
+    }
+  };
+
+  const tasks: Promise<void>[] = [];
+
+  if (phoneVariants.length > 0) {
+    tasks.push(runSafeQuery('orders', 'customerPhone', 'in', phoneVariants, ordersMap));
+    tasks.push(runSafeQuery('tables', 'customerPhone', 'in', phoneVariants, tablesMap));
+    tasks.push(runSafeQuery('rides', 'customerInfo.phone', 'in', phoneVariants, ridesMap));
+    tasks.push(runSafeQuery('parcels', 'senderPhone', 'in', phoneVariants, parcelsMap));
+  }
+
+  if (allCustomerIds.length > 0) {
+    tasks.push(runSafeQuery('orders', 'customerId', 'in', allCustomerIds, ordersMap));
+    tasks.push(runSafeQuery('rides', 'customerId', 'in', allCustomerIds, ridesMap));
+  }
+
+  if (params.uid) {
+    tasks.push(runSafeQuery('rides', 'passengerId', '==', params.uid, ridesMap));
+    tasks.push(runSafeQuery('parcels', 'senderId', '==', params.uid, parcelsMap));
+  }
+
+  if (sender) {
+    tasks.push(runSafeQuery('rides', 'metaSenderId', '==', sender, ridesMap));
+  }
+
+  if (cleanCode) {
+    tasks.push(runSafeQuery('orders', 'bookingCode', '==', cleanCode, ordersMap));
+    tasks.push(runSafeQuery('tables', 'bookingCode', '==', cleanCode, tablesMap));
+    tasks.push(runSafeQuery('rides', 'bookingId', '==', cleanCode, ridesMap));
+    tasks.push(runSafeQuery('parcels', 'trackingNumber', '==', cleanCode, parcelsMap));
+    // Direct document ID lookup for tables/rides/orders
+    tasks.push(
+      (async () => {
+        for (const col of ['tables', 'orders', 'rides', 'parcels']) {
+          try {
+            const docSnap = await dbAdmin.collection(col).doc(cleanCode).get();
+            if (docSnap.exists) {
+              const target = col === 'tables' ? tablesMap : col === 'rides' ? ridesMap : col === 'parcels' ? parcelsMap : ordersMap;
+              target.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+            }
+          } catch {}
+        }
+      })()
+    );
+  }
+
+  await Promise.all(tasks);
+
+  const results: TrackedCustomerOrder[] = [];
+  const seenTableCodes = new Set<string>();
+
+  for (const [id, ord] of ordersMap.entries()) {
+    const code = String(ord.bookingCode || id.slice(-6)).toUpperCase();
+    if (ord.isTableBooking && ord.bookingCode) {
+      seenTableCodes.add(ord.bookingCode.toUpperCase());
+    }
+    const isTable = Boolean(ord.isTableBooking || ord.subType === 'table_booking');
+    const isFood = ord.type === 'restaurant' || ord.type === 'food' || String(code).startsWith('FD-');
+    const kind: TrackedCustomerOrder['kind'] = isTable ? 'table' : isFood ? 'food' : ord.type === 'parcel' ? 'parcel' : 'shop';
+
+    const itemsArr = Array.isArray(ord.items) ? ord.items : [];
+    const itemsDesc = itemsArr.map((it: any) => `${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ''}`).filter(Boolean).slice(0, 3).join(', ');
+    const tableInfo = isTable && ord.tableNumber ? `Meza #${ord.tableNumber} • ${ord.reservationTime || ''}` : '';
+
+    // Enrich with linked table doc status if present
+    const linkedTable = ord.bookingCode ? tablesMap.get(ord.bookingCode) : null;
+    const effectiveStatus = linkedTable?.status && ord.status === 'pending' ? linkedTable.status : (ord.status || 'pending');
+
+    results.push({
+      id,
+      collection: 'orders',
+      code,
+      kind,
+      title: ord.vendorName || (isTable ? 'Booking ya Meza' : isFood ? 'Oda ya Chakula' : 'Oda ya Papo Hapo'),
+      subtitle: tableInfo || itemsDesc || ord.deliveryAddress || ord.notes || 'Oda',
+      status: effectiveStatus,
+      statusLabel: formatSwahiliTrackStatus(effectiveStatus, kind),
+      totalAmount: Number(ord.totalAmount || 0),
+      channel: ord.orderSource || ord.channel,
+      vendorId: ord.vendorId,
+      createdAtMs: normalizeEpochMs(ord.createdAt),
+      raw: { ...ord, id, bookingCode: code, createdAtMs: normalizeEpochMs(ord.createdAt) }
+    });
+  }
+
+  for (const [id, tbl] of tablesMap.entries()) {
+    const code = String(tbl.bookingCode || id).toUpperCase();
+    if (seenTableCodes.has(code)) continue;
+    results.push({
+      id,
+      collection: 'tables',
+      code,
+      kind: 'table',
+      title: tbl.vendorName || 'Booking ya Meza',
+      subtitle: `Meza #${tbl.tableNumber || '-'} • Viti ${tbl.seatsCount || 2} • ${tbl.scheduledTime || ''}`,
+      status: tbl.status || 'reserved',
+      statusLabel: formatSwahiliTrackStatus(tbl.status || 'reserved', 'table'),
+      totalAmount: Number(tbl.totalAmount || 0),
+      channel: tbl.channel,
+      vendorId: tbl.vendorId,
+      createdAtMs: normalizeEpochMs(tbl.createdAt),
+      raw: { ...tbl, id, bookingCode: code, createdAtMs: normalizeEpochMs(tbl.createdAt) }
+    });
+  }
+
+  for (const [id, ride] of ridesMap.entries()) {
+    const code = String(ride.bookingId || `TR-${id.slice(-4)}`).toUpperCase();
+    const fromAddr = ride.pickup?.address || ride.pickupAddress || 'Kuchukuliwa';
+    const toAddr = ride.destination?.address || ride.dropoffAddress || 'Kwenda';
+    results.push({
+      id,
+      collection: 'rides',
+      code,
+      kind: 'ride',
+      title: `Safari ya ${(ride.vehicleType || 'Taxi').toUpperCase()}`,
+      subtitle: `${fromAddr} ➔ ${toAddr}`,
+      status: ride.status || 'pending',
+      statusLabel: formatSwahiliTrackStatus(ride.status || 'pending', 'ride'),
+      totalAmount: Number(ride.fare || ride.estimatedFare || 0),
+      channel: ride.channel || ride.metaChannel,
+      createdAtMs: normalizeEpochMs(ride.createdAt),
+      raw: { ...ride, id, bookingId: code, createdAtMs: normalizeEpochMs(ride.createdAt) }
+    });
+  }
+
+  for (const [id, parcel] of parcelsMap.entries()) {
+    const code = String(parcel.trackingNumber || `PR-${id.slice(-4)}`).toUpperCase();
+    results.push({
+      id,
+      collection: 'parcels',
+      code,
+      kind: 'parcel',
+      title: `Mzigo / Parcel (${parcel.category || 'Express'})`,
+      subtitle: `${parcel.pickupAddress || ''} ➔ ${parcel.dropoffAddress || ''}`,
+      status: parcel.status || 'pending',
+      statusLabel: formatSwahiliTrackStatus(parcel.status || 'pending', 'parcel'),
+      totalAmount: Number(parcel.fare || parcel.price || 0),
+      channel: parcel.channel || 'app',
+      createdAtMs: normalizeEpochMs(parcel.createdAt),
+      raw: { ...parcel, id, trackingNumber: code, createdAtMs: normalizeEpochMs(parcel.createdAt) }
+    });
+  }
+
+  results.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  if (cleanCode) {
+    const matched = results.filter(
+      (r) =>
+        r.code.toUpperCase() === cleanCode ||
+        r.id.toUpperCase() === cleanCode ||
+        r.id.slice(-6).toUpperCase() === cleanCode
+    );
+    return matched;
+  }
+  return digits || params.uid ? results : [];
+}
+
+function formatTrackedOrdersWhatsAppMessage(items: TrackedCustomerOrder[], phone?: string, filterCode?: string): string {
+  const trackLink = buildOrdersTrackingUrl(phone, filterCode);
+  if (!items || items.length === 0) {
+    return `📦 *UFUATILIAJI WA ODA ZAKO*\n\n` +
+           `Hatujapata oda au booking yoyote ${filterCode ? `ya namba *#${filterCode}* ` : ''}kwa namba hii bado.\n\n` +
+           `🔗 *Fungua ukurasa wa kufuatilia:* ${trackLink}\n` +
+           `_(Andika *Hi* au *Menu* kuanza oda mpya)_`;
+  }
+
+  const topItems = items.slice(0, 8);
+  let msg = filterCode
+    ? `🔍 *HALI YA ODA #${filterCode.replace(/^#/, '').toUpperCase()}*\n\n`
+    : `📋 *ODA & BOOKING ZAKO ZOTE (${items.length})*\n\n`;
+
+  topItems.forEach((item, idx) => {
+    const icon =
+      item.kind === 'table' ? '🪑' :
+      item.kind === 'food' ? '🍔' :
+      item.kind === 'ride' ? '🚖' :
+      item.kind === 'parcel' ? '📦' : '🛍️';
+    const priceText = item.totalAmount > 0 ? ` — *TZS ${item.totalAmount.toLocaleString()}*` : '';
+    const dateStr = item.createdAtMs
+      ? new Date(item.createdAtMs).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : '';
+    msg += `*${idx + 1}. ${icon} #${item.code}* — *${item.title}*\n` +
+           `   📌 Hali: *${item.statusLabel}*${priceText}\n` +
+           `   📝 ${item.subtitle}${dateStr ? `\n   🕒 ${dateStr}` : ''}\n\n`;
+  });
+
+  if (items.length > 8) {
+    msg += `_...na oda nyingine ${items.length - 8} zaidi._\n\n`;
+  }
+
+  msg += `🔗 *Fuatilia Live kwenye Simu/Mtandao (Oda Zote):*\n${trackLink}\n\n` +
+         `_(Unaweza pia kuandika namba ya oda mfano *FD-3441* au *Hi* kurudi kwenye Menu)_`;
+  return msg;
 }
 
 interface MetaRestaurantOption {
@@ -1485,7 +1819,7 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
       const randId = Math.floor(1000 + Math.random() * 9000);
 
       session.details.variables['booking_id'] = `PH-${randId}`;
-      session.details.variables['tracking_link'] = `https://ais-pre-ehp7pgjsv6filel5husmda-79810319892.europe-west2.run.app/orders`;
+      session.details.variables['tracking_link'] = buildOrdersTrackingUrl(phone, `PH-${randId}`);
 
       // Trigger automatic DB record so it appears in Admin Dashboard in real-time!
       await triggerAutomatedOrder(
@@ -1791,8 +2125,9 @@ export function generateDynamicWelcomeMessage(servicesConfig: any, chSymbol: str
     const maintTag = srv.isMaintenance ? " *(MABORESHO ⚠️)*" : "";
     welcome += `${srv.emoji} *${srv.displayNum}. ${srv.title}* (${srv.desc})${maintTag}\n`;
   });
+  welcome += `📋 *10. ODA ZANGU* (Fuatilia oda, meza & safari zako zote)\n`;
   
-  welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta")* ✨`;
+  welcome += `\n*Andika namba au taja unachohitaji moja kwa moja! (Mfano: "Naomba taxi kwenda Posta" au "Oda zangu")* ✨`;
   return welcome;
 }
 
@@ -1928,7 +2263,7 @@ async function handleMetaInputInternal(
       delete session.service;
       await saveMetaSession(session, dbAdmin);
 
-      return `✅ Asante *${cleanName}*! Akaunti yako imesajiliwa kikamilifu kwenye *Papo Hapo* (${chSymbol}).\n\nSasa chagua huduma unayohitaji leo:\n\n🚖 *1. TAXI* (Agiza boda, bajaji au gari)\n🍔 *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n🛍️ *3. SOKONI* (Groceries, Nyanya, Vitunguu)\n📦 *4. PARCEL* (Tuma au wasilisha mzigo)\n💇‍♀️ *5. SALUNI* (Hair cut, Nails, Spa)\n🏨 *6. HOTELI* (Weka chumba cha hoteli)\n🚗 *7. KODI GARI* (Kodisha gari)\n💊 *8. PHARMACY* (Agiza Dawa)\n🚌 *9. MABASI* (Tiketi za mabasi)\n\n_Andika namba au tuma 📍 Location yako ya GPS moja kwa moja!_`;
+      return `✅ Asante *${cleanName}*! Akaunti yako imesajiliwa kikamilifu kwenye *Papo Hapo* (${chSymbol}).\n\nSasa chagua huduma unayohitaji leo:\n\n🚖 *1. TAXI* (Agiza boda, bajaji au gari)\n🍔 *2. CHAKULA* (Chips, Pizza, Burger, Biryani)\n🛍️ *3. SOKONI* (Groceries, Nyanya, Vitunguu)\n📦 *4. PARCEL* (Tuma au wasilisha mzigo)\n💇‍♀️ *5. SALUNI* (Hair cut, Nails, Spa)\n🏨 *6. HOTELI* (Weka chumba cha hoteli)\n🚗 *7. KODI GARI* (Kodisha gari)\n💊 *8. PHARMACY* (Agiza Dawa)\n🚌 *9. MABASI* (Tiketi za mabasi)\n📋 *10. ODA ZANGU* (Fuatilia oda & booking zako zote)\n\n_Andika namba au tuma 📍 Location yako ya GPS moja kwa moja!_`;
     } else {
       session.step = 'REGISTERING_CUSTOMER';
       await saveMetaSession(session, dbAdmin);
@@ -1992,6 +2327,50 @@ async function handleMetaInputInternal(
     session.details.awaitingDest = true;
     await saveMetaSession(session, dbAdmin);
     return `📍 Tumetambua eneo lako la GPS: *${gpsLoc.name}*\n\nSasa andika eneo *unapokwenda* (au tuma 📍 GPS Location ya unapoenda), mfano: *Posta*, *Kariakoo*, au *Airport*:`;
+  }
+
+  // --- 0D. GLOBAL ORDER & BOOKING TRACKING ("ODA ZANGU" / #FD-3441 / #TBL-3947 / 10) ---
+  const codeMatch = cleanInput.match(/^#?((?:FD|TBL|PH|PR|CR|SL|SK|HT|RX|BS|TR)-[A-Z0-9]{3,10})$/i);
+  const isTrackKeyword = /^(oda\s*zangu|fuatilia(\s+oda(\s+zangu)?)?|my\s*orders?|orders?|track(\s+orders?)?|booking\s*zangu|meza\s*zangu|safari\s*zangu|hali\s+ya\s+oda|status\s+ya\s+oda)$/i.test(cleanInput);
+  const isMenuTenAtIdle = cleanInput === '10' && !session.service;
+
+  if (session.step === 'TRACKING_LOOKUP_PHONE') {
+    const typedDigits = cleanInput.replace(/\D/g, '');
+    if (typedDigits.length >= 9) {
+      session.details.phone = cleanInput;
+      session.step = 'COLLECTING_ROUTE';
+      delete session.service;
+      await saveMetaSession(session, dbAdmin);
+      const tracked = await lookupCustomerAllTrackables(dbAdmin, { phone: cleanInput, senderId });
+      return formatTrackedOrdersWhatsAppMessage(tracked, cleanInput);
+    }
+    if (!['hi', 'menu', 'anza', 'start'].includes(cleanedLower)) {
+      return `⚠️ Tafadhali andika namba sahihi ya simu uliyoagizia (Mfano: *0782542520*), au andika *Hi* kurudi kwenye Menu.`;
+    }
+  }
+
+  if (codeMatch || isTrackKeyword || isMenuTenAtIdle) {
+    delete session.details.currentNodeId;
+    delete session.details.activeQuestionNodeId;
+    const lookupPhone = session.details.phone || defaultWaPhone;
+    const matchedCode = codeMatch ? codeMatch[1].toUpperCase() : undefined;
+
+    if (!lookupPhone && !matchedCode) {
+      session.step = 'TRACKING_LOOKUP_PHONE';
+      delete session.service;
+      await saveMetaSession(session, dbAdmin);
+      return `📋 *Fuatilia Oda Zako Zote*\n\nTafadhali andika *namba yako ya simu* uliyoagizia ili tukuonyeshe oda zako zote (Mfano: *0782542520*):`;
+    }
+
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    await saveMetaSession(session, dbAdmin);
+    const tracked = await lookupCustomerAllTrackables(dbAdmin, {
+      phone: lookupPhone,
+      code: matchedCode,
+      senderId
+    });
+    return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode);
   }
 
   // Load custom meta config from local JSON or Firebase if database is available
@@ -2645,9 +3024,10 @@ async function routeToServiceFlow(
              `- Nauli: *TZS ${fare?.toLocaleString()}/=*\n` +
              `- Malipo: *${paymentMethodLabel}*\n` +
              `- Simu yako: *${phoneNum}*\n\n` +
-             `🗺️ *Fuatilia safari kwenye ramani mubashara:*\n${trackingUrl}\n\n` +
+             `🗺️ *Fuatilia safari kwenye ramani mubashara:*\n${trackingUrl}\n` +
+             `📋 *Oda zako zote:* ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
              `Utapokea taarifa hapa hapa dereva akishakubali oda (na jina lake, namba ya gari, na muda wa kufika)! 🙏✨\n\n` +
-             `_(Andika *Menu* au namba *1-9* kuagiza huduma nyingine)_`;
+             `_(Andika *Oda zangu*, *Menu* au namba *1-10* kuendelea)_`;
     }
   }
 
@@ -2696,6 +3076,7 @@ async function routeToServiceFlow(
       session.step = 'START'; // reset
       await saveMetaSession(session, dbAdmin);
 
+      const busCode = `BS-${Math.floor(1000 + Math.random() * 9000)}`;
       await triggerAutomatedOrder(
         dbAdmin,
         session.details.selectedId || "bus-op",
@@ -2703,17 +3084,20 @@ async function routeToServiceFlow(
         [{ name: `Bus Seat A5 (${session.details.route})`, price: session.details.selectedPrice || 45000, quantity: 1 }],
         session.details.selectedPrice || 45000,
         input,
-        "Meta Bus Client",
-        `Automatic bus booking for ${session.details.route} via ${session.channel}`,
-        session.channel
+        session.details.customerName || "Meta Bus Client",
+        `Automatic bus booking #${busCode} for ${session.details.route} via ${session.channel}`,
+        session.channel,
+        { bookingCode: busCode }
       );
 
-      return `🎉 *Tiketi Imesajiliwa Kikamilifu!* 🚌\n\n` +
+      return `🎉 *Tiketi Imesajiliwa Kikamilifu!* 🚌\n` +
+             `🔖 Namba ya Tiketi: *#${busCode}*\n\n` +
              `- Safari: *${session.details.route}*\n` +
              `- Basi: *${session.details.selectedName}*\n` +
              `- Kiti: *A5 (Dirishani)*\n` +
              `- Nauli: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n\n` +
-             `Tumekutumia ujumbe wa muamala wa malipo kwenye simu yako *${input}*. Ukishalipia, tiketi yako kamili na namba ya siti vitatuma kwa SMS punde. Ahsante sana! 🌟`;
+             `🔗 *Fuatilia tiketi & oda zako zote:*\n${buildOrdersTrackingUrl(input, busCode)}\n\n` +
+             `Tumekutumia ujumbe wa muamala wa malipo kwenye simu yako *${input}*. Ukishalipia, tiketi yako kamili na namba ya siti vitatumwa punde. Ahsante sana! 🌟`;
     }
   }
 
@@ -3154,7 +3538,8 @@ async function routeToServiceFlow(
                preOrderText + `\n` +
                `💳 Malipo: *${paymentMethodLabel}*\n` +
                `📞 Simu: *${phoneNum}*\n\n` +
-               `🔗 *Tazama menyu ya mgahawa mtandaoni:*\n${publicBaseUrl}/vendor/${vendorId}\n\n` +
+               `🔗 *Fuatilia booking hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, booking.bookingCode)}\n` +
+               `🍽️ *Menyu ya mgahawa:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
                `Meza yako tayari imeoneshwa kama *RESERVED* kwenye mfumo wa mgahawa. Karibu sana! 🙏`;
       }
 
@@ -3192,7 +3577,8 @@ async function routeToServiceFlow(
              `💳 Malipo: *${paymentMethodLabel}*\n` +
              `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
              `📞 Simu: *${phoneNum}*\n\n` +
-             `🔗 *Fuatilia / Agiza tena:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
+             `🔗 *Fuatilia oda hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, randCode)}\n` +
+             `🍽️ *Agiza tena:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
              `Jiko limeanza kuandaa oda yako sasa hivi! Ahsante kwa kutumia *Papo Hapo* 🙏✨`;
     }
   }
@@ -3211,6 +3597,8 @@ async function routeToServiceFlow(
              `Tafadhali andika namba yako ya simu na maelekezo ya kupokea (Mfano: *0712345678, Kutoka Kariakoo kwenda Tegeta*):`;
     }
     if (session.step === 'COLLECTING_PHONE') {
+      const parcelPhone = input.split(',')[0].trim();
+      const prCode = `PR-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3220,16 +3608,19 @@ async function routeToServiceFlow(
         "parcel",
         [{ name: `Courier Delivery: ${session.details.route}`, price: 5000, quantity: 1 }],
         5000,
-        input.split(',')[0].trim(),
-        "Meta Courier Client",
-        `Route: ${input}`,
-        session.channel
+        parcelPhone,
+        session.details.customerName || "Meta Courier Client",
+        `Parcel #${prCode} | Route: ${input}`,
+        session.channel,
+        { bookingCode: prCode, orderType: 'delivery', deliveryAddress: input }
       );
 
-      return `✅ *Ombi la Kusafirisha Mzigo Limesajiliwa!* 📦\n\n` +
+      return `✅ *Ombi la Kusafirisha Mzigo Limesajiliwa!* 📦\n` +
+             `🔖 Namba ya Mzigo: *#${prCode}*\n\n` +
              `- Aina ya Mzigo: *${session.details.route}*\n` +
              `- Maelekezo: *${input}*\n` +
              `- Gharama ya Kuanzia: *TSH 5,000*\n\n` +
+             `🔗 *Fuatilia mzigo & oda zako zote:*\n${buildOrdersTrackingUrl(parcelPhone, prCode)}\n\n` +
              `Dereva wetu wa Baiskeli au Bodaboda atafika eneo la kupokea mzigo sasa hivi. Tutawasiliana nawe hivi punde! Ahsante!`;
     }
   }
@@ -3301,6 +3692,7 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
+      const crCode = `CR-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3312,14 +3704,17 @@ async function routeToServiceFlow(
         session.details.selectedPrice || 100000,
         input,
         session.details.customerName || "Meta Car Rental Client",
-        `Renting vehicle ${session.details.selectedName}`,
-        session.channel
+        `Car Rental #${crCode} | ${session.details.selectedName}`,
+        session.channel,
+        { bookingCode: crCode }
       );
 
-      return `🎉 *Kuhifadhi Gari Limefanikiwa!* 🚗🔑\n\n` +
+      return `🎉 *Kuhifadhi Gari Limefanikiwa!* 🚗🔑\n` +
+             `🔖 Namba ya Booking: *#${crCode}*\n\n` +
              `- Gari: *${session.details.selectedName}*\n` +
              `- Gharama/Siku: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
              `- Simu Yako: *${input}*\n\n` +
+             `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(input, crCode)}\n\n` +
              `Mwakilishi wetu atawasiliana nawe hivi punde kuleta gari na funguo mahali ulipo au kukuelekeza ofisini. Ahsante na karibu sana!`;
     }
   }
@@ -3391,6 +3786,8 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
+      const salonPhone = input.split(',')[0].trim();
+      const slCode = `SL-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3400,16 +3797,19 @@ async function routeToServiceFlow(
         "salon",
         [{ name: `Salon Booking at ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 15000,
-        input.split(',')[0].trim(),
+        salonPhone,
         session.details.customerName || "Meta Salon Client",
-        `Booking Details: ${input}`,
-        session.channel
+        `Salon #${slCode} | Details: ${input}`,
+        session.channel,
+        { bookingCode: slCode }
       );
 
-      return `✨ *Wazo la Miadi Limethibitishwa!* 💇‍♀️💅\n\n` +
+      return `✨ *Miadi ya Saluni Imethibitishwa!* 💇‍♀️💅\n` +
+             `🔖 Namba ya Miadi: *#${slCode}*\n\n` +
              `- Saluni: *${session.details.selectedName}*\n` +
              `- Bei: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
              `- Maelezo ya kufika: *${input}*\n\n` +
+             `🔗 *Fuatilia miadi & oda zako zote:*\n${buildOrdersTrackingUrl(salonPhone, slCode)}\n\n` +
              `Saluni imepokea ombi lako na itakupigia simu kuthibitisha muda sahihi. Ahsante kwa kutumia Papo Hapo Super App Bot!`;
     }
   }
@@ -3481,6 +3881,8 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
+      const groceryPhone = input.split(',')[0].trim();
+      const skCode = `SK-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3490,16 +3892,19 @@ async function routeToServiceFlow(
         "grocery",
         [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 5000,
-        input.split(',')[0].trim(),
+        groceryPhone,
         session.details.customerName || "Meta Grocery Client",
-        `Market Address: ${input}`,
-        session.channel
+        `Sokoni #${skCode} | Market Address: ${input}`,
+        session.channel,
+        { bookingCode: skCode, orderType: 'delivery', deliveryAddress: input }
       );
 
-      return `🎉 *Oda Yako Sokoni Imesajiliwa!* 🥦🛍️\n\n` +
+      return `🎉 *Oda Yako Sokoni Imesajiliwa!* 🥦🛍️\n` +
+             `🔖 Namba ya Oda: *#${skCode}*\n\n` +
              `- Bidhaa: *${session.details.selectedName}*\n` +
              `- Jumla ya Bei: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
              `- Maelezo ya Nyumbani: *${input}*\n\n` +
+             `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(groceryPhone, skCode)}\n\n` +
              `Mjumbe wetu anafunga bidhaa zako na ataondoka sokoni kukuletea hapo punde. Utapokea simu ya malipo (Push prompt) sasa! Ahsante sana!`;
     }
   }
@@ -3571,6 +3976,8 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
+      const rxPhone = input.split(',')[0].trim();
+      const rxCode = `RX-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3580,16 +3987,19 @@ async function routeToServiceFlow(
         "pharmacy",
         [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 2500,
-        input.split(',')[0].trim(),
+        rxPhone,
         session.details.customerName || "Meta Pharmacy Client",
-        `Requested medicine: ${session.details.selectedName} | Address: ${input}`,
-        session.channel
+        `Pharmacy #${rxCode} | ${session.details.selectedName} | Address: ${input}`,
+        session.channel,
+        { bookingCode: rxCode, orderType: 'delivery', deliveryAddress: input }
       );
 
-      return `✅ *Agizo la Dawa Limepokelewa!* 💊🚑\n\n` +
+      return `✅ *Agizo la Dawa Limepokelewa!* 💊🚑\n` +
+             `🔖 Namba ya Oda: *#${rxCode}*\n\n` +
              `- Dawa: *${session.details.selectedName}*\n` +
              `- Bei ya kulipa: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n\n` +
-             `Tumetuma ujumbe wa kufanya malipo (Push Prompt) kwenye namba yako *${input.split(',')[0].trim()}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`;
+             `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(rxPhone, rxCode)}\n\n` +
+             `Tumetuma ujumbe wa kufanya malipo (Push Prompt) kwenye namba yako *${rxPhone}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`;
     }
   }
 
@@ -3669,6 +4079,8 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
+      const hotelPhone = input.split(',')[0].trim();
+      const htCode = `HT-${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'START';
       await saveMetaSession(session, dbAdmin);
 
@@ -3678,16 +4090,19 @@ async function routeToServiceFlow(
         "hotel",
         [{ name: `Hotel Room: ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
         session.details.selectedPrice || 100000,
-        input.split(',')[0].trim(),
+        hotelPhone,
         session.details.customerName || "Meta Hotel Client",
-        `Room Booking info: ${input}`,
-        session.channel
+        `Hotel Booking #${htCode} | Room Booking info: ${input}`,
+        session.channel,
+        { bookingCode: htCode, orderType: 'booking' }
       );
 
-      return `🏨 *Booking ya Chumba Imethibitishwa!* 🎉\n\n` +
+      return `🏨 *Booking ya Chumba Imethibitishwa!* 🎉\n` +
+             `🔖 Namba ya Booking: *#${htCode}*\n\n` +
              `- Chumba: *${session.details.selectedName}*\n` +
              `- Bei/Usiku: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
              `- Maelezo ya kuingia: *${input}*\n\n` +
+             `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(hotelPhone, htCode)}\n\n` +
              `Hoteli imepokea booking yako na itakupigia/kutuma uthibitisho punde. Karibu sana! 🇹🇿`;
     }
   }

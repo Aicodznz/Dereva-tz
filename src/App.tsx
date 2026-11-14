@@ -157,7 +157,9 @@ function AppContent() {
           <Route path="/parcel-request/:category" element={<PrivateRoute><ParcelRequestFlow /></PrivateRoute>} />
           <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-          <Route path="/my-orders" element={<PrivateRoute><MyOrders /></PrivateRoute>} />
+          <Route path="/my-orders" element={<MyOrders />} />
+          <Route path="/orders" element={<MyOrders />} />
+          <Route path="/track-orders" element={<MyOrders />} />
           <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/role-selection" element={<PrivateRoute><RoleSelection /></PrivateRoute>} />

@@ -326,6 +326,16 @@ export default function Header() {
             <span className="hidden md:inline">WhatsApp AI</span>
           </button>
 
+          {/* Track All Orders (Public + Auth) */}
+          <Link
+            to="/my-orders"
+            className="hidden sm:flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-600 dark:text-orange-400 font-black text-[9.5px] sm:text-[11px] uppercase tracking-wider transition-all shadow-xs active:scale-95 shrink-0"
+            title="Fuatilia Oda Zako Zote (Chakula, Meza, Taxi, Vifurushi)"
+          >
+            <Receipt className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+            <span className="hidden md:inline">Oda Zangu</span>
+          </Link>
+
           {/* PapoCredit - One Credit. All Services */}
           <button
             onClick={() => setIsPapoCreditOpen(true)}
