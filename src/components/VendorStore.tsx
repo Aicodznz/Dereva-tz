@@ -26,6 +26,76 @@ import { useLanguage } from '../LanguageContext';
 import { useAuth } from '../AuthContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
 
+function StoreProductImage({
+  product,
+  vendorCategory,
+}: {
+  product: Product;
+  vendorCategory?: string;
+}) {
+  const categoryDefault =
+    vendorCategory === 'restaurant'
+      ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80'
+      : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
+
+  const candidates = React.useMemo(() => {
+    const rawList = [
+      ...(Array.isArray(product.imageUrls) ? product.imageUrls.filter((u) => typeof u === 'string' && u.includes('res.cloudinary.com')) : []),
+      product.imageUrl,
+      ...(Array.isArray(product.imageUrls) ? product.imageUrls : []),
+      categoryDefault,
+    ];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of rawList) {
+      if (typeof item !== 'string') continue;
+      const trimmed = item.trim();
+      if (!trimmed || (!trimmed.startsWith('http') && !trimmed.startsWith('data:image') && !trimmed.startsWith('/'))) continue;
+      const normalized = trimmed.includes(' ') ? encodeURI(trimmed) : trimmed;
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        out.push(normalized);
+      }
+    }
+    return out;
+  }, [product.imageUrl, product.imageUrls, categoryDefault]);
+
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    setIdx(0);
+  }, [product.id, product.imageUrl]);
+
+  const currentSrc = candidates[idx];
+
+  if (!currentSrc) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-orange-100 via-amber-50 to-orange-100 dark:from-neutral-800 dark:via-neutral-900 dark:to-neutral-800 text-orange-500">
+        {vendorCategory === 'restaurant' ? (
+          <Utensils className="w-9 h-9 opacity-80" />
+        ) : (
+          <ShoppingBag className="w-9 h-9 opacity-80" />
+        )}
+        <span className="mt-1.5 text-[10px] font-black uppercase tracking-wider text-orange-700/70 dark:text-orange-300/70 px-2 text-center line-clamp-1">
+          {product.name}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={currentSrc}
+      alt={product.name}
+      loading="lazy"
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+      onError={() => {
+        setIdx((prev) => prev + 1);
+      }}
+    />
+  );
+}
+
 export default function VendorStore() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -57,9 +127,14 @@ export default function VendorStore() {
   const [confirmedTableBooking, setConfirmedTableBooking] = useState<any>(null);
   const [menuSearch, setMenuSearch] = useState<string>('');
   const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>('Zote');
+  const [bannerErrored, setBannerErrored] = useState<boolean>(false);
 
   // Synchronize table parameter or session
   const activeTableNumber = tableNumber || tableSession?.tableId || '';
+
+  useEffect(() => {
+    setBannerErrored(false);
+  }, [id, vendor?.bannerUrl]);
 
   const [location] = useState(() => {
     const saved = localStorage.getItem('omniserve_user_location');
@@ -261,17 +336,30 @@ export default function VendorStore() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 pb-28 transition-colors duration-500">
       {/* Compact Editorial Hero Banner */}
-      <div className="h-44 sm:h-52 md:h-64 w-full relative overflow-hidden bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800">
-        <img
-          src={heroBannerSrc}
-          alt={vendor.businessName}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = fallbackBannerUrl;
-          }}
-          referrerPolicy="no-referrer"
+      <div className="h-44 sm:h-52 md:h-64 w-full relative overflow-hidden bg-gradient-to-br from-orange-600 via-amber-600 to-rose-700 border-b border-orange-500/20">
+        {!bannerErrored && heroBannerSrc ? (
+          <img
+            src={heroBannerSrc}
+            alt={vendor.businessName}
+            className="w-full h-full object-cover"
+            onError={() => setBannerErrored(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+            {vendor.category === 'restaurant' ? (
+              <Utensils className="w-24 h-24 text-white" />
+            ) : (
+              <Store className="w-24 h-24 text-white" />
+            )}
+          </div>
+        )}
+        <div
+          className={`absolute inset-0 ${
+            !bannerErrored && heroBannerSrc
+              ? 'bg-gradient-to-t from-black/65 via-black/20 to-black/25'
+              : 'bg-gradient-to-t from-black/30 via-transparent to-black/10'
+          }`}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/30" />
 
         <div className="absolute top-4 left-4 md:top-6 md:left-6 z-30">
           <button
@@ -674,16 +762,8 @@ export default function VendorStore() {
                         >
                           <div className="relative h-full bg-white dark:bg-neutral-900 rounded-2xl md:rounded-3xl border border-neutral-100 dark:border-white/10 shadow-sm hover:shadow-xl hover:border-orange-200 dark:hover:border-orange-900/50 transition-all duration-300 overflow-hidden group/card flex flex-col justify-between">
                             <div>
-                              <div className="aspect-[4/3] relative overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                                <img 
-                                  src={product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80'} 
-                                  alt={product.name} 
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80';
-                                  }}
-                                  referrerPolicy="no-referrer"
-                                />
+                              <div className="aspect-[4/3] relative overflow-hidden bg-orange-50 dark:bg-neutral-800">
+                                <StoreProductImage product={product} vendorCategory={vendor.category} />
                                 
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                 
@@ -1025,8 +1105,8 @@ export default function VendorStore() {
             </div>
           </div>
 
-      {/* Floating Call Waiter Button */}
-      {vendor && (
+      {/* Floating Call Waiter Button — shown only when seated at a restaurant table */}
+      {vendor && vendor.category === 'restaurant' && activeTableNumber && (
         <div className="fixed bottom-6 right-6 z-40">
           <motion.button
             whileHover={{ scale: 1.08 }}
@@ -1035,7 +1115,7 @@ export default function VendorStore() {
             className="flex items-center gap-2.5 px-5 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-wider shadow-2xl shadow-orange-950/60 border border-amber-300/40 cursor-pointer"
           >
             <Bell className="w-4 h-4 animate-bounce" />
-            <span>Muite Mhudumu {activeTableNumber ? `#${activeTableNumber}` : ''}</span>
+            <span>Muite Mhudumu #{activeTableNumber}</span>
           </motion.button>
         </div>
       )}

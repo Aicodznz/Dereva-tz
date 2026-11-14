@@ -31,6 +31,48 @@ interface Message {
   actionSuccess?: boolean;
 }
 
+const resolveAIRole = (pathname: string, currentUser: any, currentProfile: any): AIRole => {
+  // Never expose Vendor or Driver AI to unauthenticated visitors
+  if (!currentUser || !currentProfile) {
+    return 'mteja';
+  }
+
+  const path = pathname.toLowerCase();
+  const isCustomerFacingRoute =
+    path.startsWith('/vendor/') ||
+    path.startsWith('/table/') ||
+    path.startsWith('/product/') ||
+    path.startsWith('/instant-ride/') ||
+    path.startsWith('/ride/qr/') ||
+    path.startsWith('/register/') ||
+    path.startsWith('/events') ||
+    path.startsWith('/mabasi') ||
+    path.startsWith('/hotel') ||
+    path === '/login';
+
+  if (isCustomerFacingRoute) {
+    return 'mteja';
+  }
+
+  if (currentProfile.role === 'rider' || currentProfile.role === 'driver') {
+    return 'dereva';
+  }
+  if (currentProfile.role === 'vendor') {
+    return 'vendor';
+  }
+  return 'mteja';
+};
+
+const buildWelcomeMessage = (role: AIRole, userName: string, currentLoc: string) => {
+  if (role === 'dereva') {
+    return `Habari Dereva ${userName}! 🚖 Mimi ni **SAFARI Dereva AI**.\n\nUpo eneo la **${currentLoc}**. Msaidizi wako wa safari kutoa maelezo ya maeneo yenye maombi mengi ya usafiri (hotspots), ushauri wa kuokoa mafuta, na mahesabu ya mapato!`;
+  }
+  if (role === 'vendor') {
+    return `Habari Mfanyabiashara ${userName}! 🏪 Mimi ni **BIASHARA Vendor AI**.\n\nUpo tayari kukuza mauzo yako? Ninaweza kukusaidia kuchanganua oda, kuweka ofa za discounts, na kusimamia stoki ya mgahawa/duka lako!`;
+  }
+  return `Habari ${userName}! 👋 Mimi ni **MAYA Mteja AI** ya Papo Hapo Super App 🇹🇿.\n\nNinaona upo karibu na **${currentLoc}**. Ninaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Taxi, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?`;
+};
+
 export default function MayaAIChat() {
   const { user, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -52,12 +94,10 @@ export default function MayaAIChat() {
     return true;
   });
 
-  // Active AI Role state (Customer / Driver / Vendor) automatically set
-  const [activeRole, setActiveRole] = useState<AIRole>(() => {
-    if (profile?.role === 'rider' || profile?.role === 'driver') return 'dereva';
-    if (profile?.role === 'vendor') return 'vendor';
-    return 'mteja';
-  });
+  // Active AI Role state (Customer / Driver / Vendor) automatically set with strict auth guard
+  const [activeRole, setActiveRole] = useState<AIRole>(() =>
+    resolveAIRole(typeof window !== 'undefined' ? window.location.pathname : '/', user, profile)
+  );
 
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -73,39 +113,38 @@ export default function MayaAIChat() {
     return () => window.removeEventListener('whatsapp_modal_state', handler);
   }, []);
 
-  // Automatic AI Role Detection (Updates strictly based on route & profile)
+  // Automatic AI Role Detection (Strict auth check + route-aware customer storefront guard)
   useEffect(() => {
-    const path = location.pathname.toLowerCase();
-    let detectedRole: AIRole = 'mteja';
-
-    if (
-      path.includes('rider') || 
-      path.includes('driver') || 
-      path.includes('delivery') || 
-      path.includes('parcel-partner') ||
-      profile?.role === 'rider' || 
-      profile?.role === 'driver'
-    ) {
-      detectedRole = 'dereva';
-    } else if (
-      path.includes('vendor') || 
-      path.includes('restaurant') || 
-      path.includes('merchant') || 
-      profile?.role === 'vendor'
-    ) {
-      detectedRole = 'vendor';
-    } else {
-      detectedRole = 'mteja';
-    }
+    const detectedRole = resolveAIRole(location.pathname, user, profile);
 
     setActiveRole(prevRole => {
       if (prevRole !== detectedRole) {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          setCurrentlySpeakingId(null);
+        }
         setHasGreeted(false);
+        const firstName =
+          profile?.displayName?.split(' ')[0] ||
+          profile?.fullName?.split(' ')[0] ||
+          user?.displayName?.split(' ')[0] ||
+          'Mpendwa';
+        setMessages(prev => {
+          if (prev.length <= 1 && prev[0]?.id?.startsWith('welcome-')) {
+            return [{
+              id: 'welcome-1',
+              sender: 'maya',
+              text: buildWelcomeMessage(detectedRole, firstName, userLocation),
+              timestamp: new Date()
+            }];
+          }
+          return prev;
+        });
         return detectedRole;
       }
       return prevRole;
     });
-  }, [location.pathname, profile?.role]);
+  }, [location.pathname, user?.uid, profile?.role]);
 
   const toggleFabHidden = (hidden: boolean) => {
     setIsFabHidden(hidden);
@@ -274,15 +313,7 @@ export default function MayaAIChat() {
     if (isOpen && !hasGreeted) {
       const userName = getUserFirstName();
       const currentLoc = userLocation;
-      
-      let greetingText = '';
-      if (activeRole === 'dereva') {
-        greetingText = `Habari Dereva ${userName}! 🚖 Mimi ni **SAFARI Dereva AI**.\n\nUpo eneo la **${currentLoc}**. Msaidizi wako wa safari kutoa maelezo ya maeneo yenye maombi mengi ya usafiri (hotspots), ushauri wa kuokoa mafuta, na mahesabu ya mapato!`;
-      } else if (activeRole === 'vendor') {
-        greetingText = `Habari Mfanyabiashara ${userName}! 🏪 Mimi ni **BIASHARA Vendor AI**.\n\nUpo tayari kukuza mauzo yako? Ninaweza kukusaidia kuchanganua oda, kuweka ofa za discounts, na kusimamia stoki ya mgahawa/duka lako!`;
-      } else {
-        greetingText = `Habari ${userName}! 👋 Mimi ni **MAYA Mteja AI** ya Papo Hapo Super App 🇹🇿.\n\nNinaona upo karibu na **${currentLoc}**. Ninaweza kukusaidia kuitisha Usafiri (Boda, Bajaji, Taxi, Ambulansi, Zimamoto), kuagiza Chakula, au kufanya Malipo salama. Nikupe msaada gani leo?`;
-      }
+      const greetingText = buildWelcomeMessage(activeRole, userName, currentLoc);
 
       setMessages(prev => {
         if (prev.length === 1 && prev[0].id.startsWith('welcome-')) {
