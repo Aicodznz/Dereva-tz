@@ -4,12 +4,29 @@ import path from 'path';
 import { resolvePlace, getRoadDistanceAndDuration, SEED_PLACES } from './geocoder.js';
 import { cleanUndefined } from './getFirestoreDb.js';
 
+export interface MetaHistoryEntry {
+  step: MetaSession['step'];
+  service?: MetaSession['service'];
+  details: Record<string, any>;
+  prompt: string;
+}
+
+export interface MetaSavedLocation {
+  placeId?: string;
+  name: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  updatedAt?: number;
+}
+
 export interface MetaSession {
   senderId: string;
   channel: 'whatsapp' | 'messenger' | 'instagram';
   step:
     | 'START'
     | 'CHOOSING_LANGUAGE'
+    | 'CHANGING_PHONE'
     | 'REGISTERING_CUSTOMER'
     | 'COLLECTING_ROUTE'
     | 'SELECTING_OPTION'
@@ -64,9 +81,12 @@ export interface MetaSession {
     selectedName?: string;
     selectedPrice?: number;
     phone?: string;
+    lastLocation?: MetaSavedLocation;
     optionsList?: any[];
     [key: string]: any;
   };
+  history?: MetaHistoryEntry[];
+  lastPrompt?: string;
   lastUpdated: number;
 }
 
@@ -86,6 +106,7 @@ export interface MetaCustomerProfile {
   name: string;
   phone: string;
   lang?: 'sw' | 'en';
+  lastLocation?: MetaSavedLocation;
   createdAt: number;
 }
 
@@ -2326,6 +2347,55 @@ export async function handleMetaInput(
   return res.text;
 }
 
+function cloneSessionDetails(details: Record<string, any> | undefined): Record<string, any> {
+  if (!details) return {};
+  try {
+    return JSON.parse(JSON.stringify(details));
+  } catch {
+    return { ...details };
+  }
+}
+
+function preserveCustomerFields(
+  details: Record<string, any> | undefined,
+  langOverride?: 'sw' | 'en',
+  profile?: MetaCustomerProfile | null
+): Record<string, any> {
+  const next: Record<string, any> = {};
+  const cName = details?.customerName || profile?.name;
+  const cPhone = details?.phone || profile?.phone;
+  const cLang = langOverride || details?.lang || profile?.lang;
+  const cLoc = details?.lastLocation || profile?.lastLocation;
+  if (cName) next.customerName = cName;
+  if (cPhone) next.phone = cPhone;
+  if (cLang) next.lang = cLang;
+  if (cLoc) next.lastLocation = cLoc;
+  return next;
+}
+
+function isValidationErrorReply(reply: string): boolean {
+  const stripped = (reply || '').replace(/^\[\[EN_NATIVE\]\]/, '').trim();
+  return stripped.startsWith('⚠️');
+}
+
+function withActiveStepNavHint(replyText: string, lang: 'sw' | 'en', session: MetaSession): string {
+  if (!replyText || isValidationErrorReply(replyText)) return replyText;
+  const inFoodCheckoutCart =
+    session.service === 'food' &&
+    session.step === 'FOOD_SELECT_ITEM' &&
+    Array.isArray(session.details?.foodCart) &&
+    session.details.foodCart.length > 0;
+  const hint =
+    lang === 'en'
+      ? inFoodCheckoutCart
+        ? `\n\n_(Reply *Back* to go back • *Restart* for Main Menu)_`
+        : `\n\n_(0. Back • 00. Start over)_`
+      : inFoodCheckoutCart
+      ? `\n\n_(Andika *Rudi* kurudi • *Anza upya* mwanzo)_`
+      : `\n\n_(0. Rudi nyuma • 00. Anza upya)_`;
+  return `${replyText}${hint}`;
+}
+
 async function handleMetaInputInternal(
   senderId: string,
   textBody: string,
@@ -2333,8 +2403,98 @@ async function handleMetaInputInternal(
   dbAdmin: any,
   mediaCollector?: MetaMediaAttachment[]
 ): Promise<string> {
-  const cleanInput = textBody.trim();
   const session = await getMetaSession(senderId, channel, dbAdmin);
+  const beforeSnapshot: MetaHistoryEntry = {
+    step: session.step,
+    service: session.service,
+    details: cloneSessionDetails(session.details),
+    prompt: session.lastPrompt || ''
+  };
+  const beforeSerialized = JSON.stringify(beforeSnapshot.details);
+
+  let skipHistoryUpdate = false;
+  const markSkipHistory = () => {
+    skipHistoryUpdate = true;
+  };
+
+  const reply = await processMetaInputCore(
+    senderId,
+    textBody,
+    channel,
+    dbAdmin,
+    session,
+    mediaCollector,
+    markSkipHistory
+  );
+
+  const lang: 'sw' | 'en' = session.details?.lang === 'en' ? 'en' : 'sw';
+
+  if (skipHistoryUpdate) {
+    return reply;
+  }
+
+  if (isValidationErrorReply(reply)) {
+    return reply;
+  }
+
+  const inInteractiveFlow =
+    (Boolean(session.service) && session.step !== 'START') ||
+    session.step === 'CHOOSING_LANGUAGE' ||
+    session.step === 'TRACKING_LOOKUP_PHONE' ||
+    session.step === 'CHANGING_PHONE';
+
+  if (inInteractiveFlow) {
+    const stateProgressed =
+      beforeSnapshot.step !== session.step ||
+      beforeSnapshot.service !== session.service ||
+      beforeSerialized !== JSON.stringify(session.details || {});
+
+    if (
+      stateProgressed &&
+      beforeSnapshot.step !== 'START' &&
+      beforeSnapshot.step !== 'REGISTERING_CUSTOMER' &&
+      (beforeSnapshot.prompt || (beforeSnapshot.step === 'COLLECTING_ROUTE' && !beforeSnapshot.service))
+    ) {
+      const nextHistory = Array.isArray(session.history) ? [...session.history] : [];
+      nextHistory.push(beforeSnapshot);
+      session.history = nextHistory.slice(-10);
+    }
+    session.lastPrompt = reply;
+    await saveMetaSession(session, dbAdmin);
+    return withActiveStepNavHint(reply, lang, session);
+  }
+
+  // Idle / completed / Main Menu state
+  session.history = [];
+  const stripped = (reply || '').replace(/^\[\[EN_NATIVE\]\]/, '').trim();
+  const isCompletionOrTracking =
+    stripped.startsWith('✅') ||
+    stripped.startsWith('🎉') ||
+    stripped.startsWith('📋') ||
+    stripped.startsWith('📲') ||
+    stripped.startsWith('🎟️') ||
+    stripped.startsWith('🏨') ||
+    stripped.startsWith('🛠️') ||
+    stripped.startsWith('✨');
+  if (!session.service && session.step === 'COLLECTING_ROUTE' && !isCompletionOrTracking) {
+    session.lastPrompt = reply;
+  } else {
+    delete session.lastPrompt;
+  }
+  await saveMetaSession(session, dbAdmin);
+  return reply;
+}
+
+async function processMetaInputCore(
+  senderId: string,
+  textBody: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin: any,
+  session: MetaSession,
+  mediaCollector: MetaMediaAttachment[] | undefined,
+  markSkipHistory: () => void
+): Promise<string> {
+  const cleanInput = textBody.trim();
   const cleanedLower = cleanInput.toLowerCase();
   
   // Quick channel-specific visual prefixes for beautiful formatting
@@ -2383,7 +2543,7 @@ async function handleMetaInputInternal(
       return `🙏 Asante sana *${cName}* kwa kumpa dereva *${driverName}* tathmini ya ${starEmoji} (*${stars}/5*)!\n\nMaoni yako yanatusaidia kuboresha huduma zetu. Andika *Menu* kuagiza huduma nyingine wakati wowote! 🚖✨`;
     }
 
-    if (['skip', 'ruka', 'baadae', 'menu', 'hi', 'habari', 'mambo', 'hello'].includes(cleanedLower)) {
+    if (['skip', 'ruka', 'baadae', 'menu', 'hi', 'habari', 'mambo', 'hello', '00', 'anza upya', 'restart'].includes(cleanedLower)) {
       delete session.details.ratingRideId;
       delete session.details.ratingDriverId;
       delete session.details.ratingDriverName;
@@ -2404,9 +2564,49 @@ async function handleMetaInputInternal(
     if (customerProfile.lang && !session.details.lang) {
       session.details.lang = customerProfile.lang;
     }
+    if (customerProfile.lastLocation && !session.details.lastLocation) {
+      session.details.lastLocation = customerProfile.lastLocation;
+    }
   }
 
   let lang: 'sw' | 'en' = session.details.lang || customerProfile?.lang || 'sw';
+
+  const getKnownPhone = (): string => {
+    for (const cand of [session.details?.phone, customerProfile?.phone, defaultWaPhone]) {
+      if (!cand) continue;
+      const digits = String(cand).replace(/\D/g, '');
+      if (digits.length >= 9) return String(cand).trim();
+    }
+    return '';
+  };
+
+  const persistPhonePreference = async (phoneVal: string) => {
+    const cleanP = (phoneVal || '').trim();
+    if (!cleanP || cleanP.replace(/\D/g, '').length < 9) return;
+    session.details.phone = cleanP;
+    if (customerProfile) {
+      customerProfile = { ...customerProfile, phone: cleanP };
+      await saveMetaCustomerProfile(customerProfile, dbAdmin);
+    }
+  };
+
+  const persistLocationPreference = async (loc: MetaSavedLocation) => {
+    if (!loc?.name) return;
+    const saved: MetaSavedLocation = {
+      placeId: loc.placeId,
+      name: loc.name,
+      address: loc.address || loc.name,
+      lat: loc.lat,
+      lng: loc.lng,
+      updatedAt: Date.now()
+    };
+    session.details.lastLocation = saved;
+    if (customerProfile) {
+      customerProfile = { ...customerProfile, lastLocation: saved };
+      await saveMetaCustomerProfile(customerProfile, dbAdmin);
+    }
+  };
+
   const loadServicesConfigQuick = async () => {
     let cfg: any = {};
     if (dbAdmin) {
@@ -2428,24 +2628,29 @@ async function handleMetaInputInternal(
     lang = nextLang;
     session.details.lang = nextLang;
     if (customerProfile) {
-      await saveMetaCustomerProfile({ ...customerProfile, lang: nextLang }, dbAdmin);
+      customerProfile = { ...customerProfile, lang: nextLang };
+      await saveMetaCustomerProfile(customerProfile, dbAdmin);
     }
     if (!customerProfile && !session.details.customerName) {
       session.step = 'REGISTERING_CUSTOMER';
+      markSkipHistory();
       await saveMetaSession(session, dbAdmin);
       return nextLang === 'en'
         ? `[[EN_NATIVE]]🇬🇧 *Language set to English!*\n\n👋 Welcome to *Papo Hapo* (${chSymbol})!\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
         : `🇹🇿 *Lugha imebadilishwa kuwa Kiswahili!*\n\n👋 Karibu *Papo Hapo* (${chSymbol})!\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
     }
     const cName = customerProfile?.name || session.details.customerName;
-    const cPhone = customerProfile?.phone || session.details.phone;
+    session.history = [];
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
-    session.details = { customerName: cName, ...(cPhone ? { phone: cPhone } : {}), lang: nextLang };
-    await saveMetaSession(session, dbAdmin);
+    session.details = preserveCustomerFields(session.details, nextLang, customerProfile);
     const servicesCfg = await loadServicesConfigQuick();
     const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, nextLang);
-    return nextLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    const wrappedMenu = nextLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    session.lastPrompt = wrappedMenu;
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+    return wrappedMenu;
   }
 
   if (isLanguagePickerCmd) {
@@ -2466,31 +2671,36 @@ async function handleMetaInputInternal(
     lang = pickedLang;
     session.details.lang = pickedLang;
     if (customerProfile) {
-      await saveMetaCustomerProfile({ ...customerProfile, lang: pickedLang }, dbAdmin);
+      customerProfile = { ...customerProfile, lang: pickedLang };
+      await saveMetaCustomerProfile(customerProfile, dbAdmin);
     }
     if (!customerProfile && !session.details.customerName) {
       session.step = 'REGISTERING_CUSTOMER';
+      markSkipHistory();
       await saveMetaSession(session, dbAdmin);
       return pickedLang === 'en'
         ? `[[EN_NATIVE]]🇬🇧 *English selected!*\n\n👋 Welcome to *Papo Hapo*!\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
         : `🇹🇿 *Kiswahili kimechaguliwa!*\n\n👋 Karibu *Papo Hapo* (${chSymbol})!\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
     }
     const cName = customerProfile?.name || session.details.customerName;
-    const cPhone = customerProfile?.phone || session.details.phone;
+    session.history = [];
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
-    session.details = { customerName: cName, ...(cPhone ? { phone: cPhone } : {}), lang: pickedLang };
-    await saveMetaSession(session, dbAdmin);
+    session.details = preserveCustomerFields(session.details, pickedLang, customerProfile);
     const servicesCfg = await loadServicesConfigQuick();
     const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, pickedLang);
-    return pickedLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    const wrappedMenu = pickedLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    session.lastPrompt = wrappedMenu;
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+    return wrappedMenu;
   }
 
   if (!customerProfile && !session.details.customerName) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
-      const isGreetingWord = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'anza', 'start', 'menu'].includes(cleanedLower);
+      const isGreetingWord = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'anza', 'start', 'menu', '0', '00', 'rudi', 'back'].includes(cleanedLower);
       if (isGps || isDigitOnly || isGreetingWord || cleanInput.length < 2) {
         return lang === 'en'
           ? `[[EN_NATIVE]]👋 Please enter your *full name* to finish quick registration (e.g. *Juma Hassan*):`
@@ -2517,18 +2727,134 @@ async function handleMetaInputInternal(
       if (newProfile.phone) session.details.phone = newProfile.phone;
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
-      await saveMetaSession(session, dbAdmin);
 
       const servicesCfg = await loadServicesConfigQuick();
       const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cleanName, lang);
-      return lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+      const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+      session.lastPrompt = wrappedMenu;
+      markSkipHistory();
+      await saveMetaSession(session, dbAdmin);
+      return wrappedMenu;
     } else {
       session.step = 'REGISTERING_CUSTOMER';
+      markSkipHistory();
       await saveMetaSession(session, dbAdmin);
       return lang === 'en'
         ? `[[EN_NATIVE]]👋 Welcome to *Papo Hapo* (${chSymbol})!\n\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
         : `👋 Karibu *Papo Hapo* (${chSymbol})!\n\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
     }
+  }
+
+  // --- 0B2. GLOBAL CHANGE PHONE COMMAND ---
+  const isChangePhoneCmd = /^(badili\s*(?:namba|simu)|change\s*(?:phone|number)|weka\s*namba\s*mpya)$/i.test(cleanInput);
+  if (isChangePhoneCmd) {
+    session.step = 'CHANGING_PHONE';
+    await saveMetaSession(session, dbAdmin);
+    return lang === 'en'
+      ? `[[EN_NATIVE]]📞 Enter your new phone number (e.g. *0712345678*):`
+      : `📞 Andika namba yako mpya ya simu (mf. *0712345678*):`;
+  }
+
+  // --- 0B3. GLOBAL "ANZA UPYA" (START OVER) & "RUDI NYUMA" (GO BACK) ---
+  const isRestartCmd = /^(anza\s*upya|anza\s*tena|mwanzo|kurudi\s*mwanzo|restart|start\s*over|reset|home|menu|menyu|00)$/i.test(cleanInput);
+  const allowZeroAsBack = !(
+    session.service === 'food' &&
+    session.step === 'FOOD_SELECT_ITEM' &&
+    Array.isArray(session.details?.foodCart) &&
+    session.details.foodCart.length > 0
+  );
+  const isBackCmd =
+    /^(rudi|rudi\s*nyuma|nyuma|back|go\s*back|previous|prev)$/i.test(cleanInput) ||
+    (allowZeroAsBack && cleanInput === '0');
+
+  if (isRestartCmd) {
+    const cName = customerProfile?.name || session.details?.customerName;
+    session.history = [];
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = preserveCustomerFields(session.details, lang, customerProfile);
+    const servicesCfg = await loadServicesConfigQuick();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    session.lastPrompt = wrappedMenu;
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+    return wrappedMenu;
+  }
+
+  if (isBackCmd) {
+    markSkipHistory();
+    const historyList = Array.isArray(session.history) ? [...session.history] : [];
+    const cName = customerProfile?.name || session.details?.customerName;
+
+    if (historyList.length > 0) {
+      const prev = historyList.pop()!;
+      session.history = historyList;
+      session.step = prev.step;
+      if (prev.service) {
+        session.service = prev.service;
+      } else {
+        delete session.service;
+      }
+      session.details = {
+        ...(prev.details || {}),
+        ...preserveCustomerFields(session.details, lang, customerProfile)
+      };
+
+      if (!session.service && (session.step === 'COLLECTING_ROUTE' || session.step === 'START')) {
+        session.step = 'COLLECTING_ROUTE';
+        session.history = [];
+        const servicesCfg = await loadServicesConfigQuick();
+        const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+        const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+        session.lastPrompt = wrappedMenu;
+        await saveMetaSession(session, dbAdmin);
+        return wrappedMenu;
+      }
+
+      session.lastPrompt = prev.prompt || '';
+      await saveMetaSession(session, dbAdmin);
+      return withActiveStepNavHint(prev.prompt, lang, session);
+    }
+
+    // No history remaining => cleanly return to Main Menu
+    session.history = [];
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = preserveCustomerFields(session.details, lang, customerProfile);
+    const servicesCfg = await loadServicesConfigQuick();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+    session.lastPrompt = wrappedMenu;
+    await saveMetaSession(session, dbAdmin);
+    return wrappedMenu;
+  }
+
+  if (session.step === 'CHANGING_PHONE') {
+    const digitsOnly = cleanInput.replace(/\D/g, '');
+    if (digitsOnly.length < 9) {
+      return lang === 'en'
+        ? `[[EN_NATIVE]]⚠️ Enter a valid phone number (e.g. *0712345678*):`
+        : `⚠️ Andika namba sahihi ya simu (mf. *0712345678*):`;
+    }
+    await persistPhonePreference(cleanInput);
+    const cName = customerProfile?.name || session.details?.customerName;
+    session.history = [];
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = preserveCustomerFields(session.details, lang, customerProfile);
+    const servicesCfg = await loadServicesConfigQuick();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const confirmPrefix =
+      lang === 'en'
+        ? `✅ Phone number updated to *${cleanInput}*!\n\n`
+        : `✅ Namba ya simu imehifadhiwa: *${cleanInput}*!\n\n`;
+    const full = `${confirmPrefix}${menuText}`;
+    const wrapped = lang === 'en' ? `[[EN_NATIVE]]${full}` : full;
+    session.lastPrompt = wrapped;
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+    return wrapped;
   }
 
   // --- 0C. GLOBAL GPS LOCATION PIN HANDLER ---
@@ -2541,13 +2867,24 @@ async function handleMetaInputInternal(
         ? `[[EN_NATIVE]]⚠️ Could not read your GPS pin. Please type your area name (e.g. *Mikocheni*):`
         : `⚠️ Imeshindikana kusoma eneo la GPS. Tafadhali andika jina la mtaa uliopo (Mfano: *Mikocheni*):`;
     }
+    await persistLocationPreference(gpsLoc);
+
     if (session.service === 'food' && session.step === 'FOOD_DELIVERY_ADDRESS') {
       session.details.deliveryAddress = gpsLoc.name;
       session.details.deliveryCoords = gpsLoc;
       session.step = 'SELECTING_PAYMENT_METHOD';
       await saveMetaSession(session, dbAdmin);
       const cartTotal = (session.details.foodCart || []).reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
-      return `📍 Eneo la kuletewa chakula: *${gpsLoc.name}*\nJumla ya oda: *TZS ${cartTotal.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+      return lang === 'en'
+        ? `[[EN_NATIVE]]📍 Delivery: *${gpsLoc.name}*\nTotal: *TZS ${cartTotal.toLocaleString()}*\n\n💳 *Payment Method:*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
+        : `📍 Eneo la kuletewa chakula: *${gpsLoc.name}*\nJumla ya oda: *TZS ${cartTotal.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+    }
+    if (session.service === 'ecommerce' && session.step === 'MALL_DELIVERY_ADDRESS') {
+      session.details.deliveryAddress = gpsLoc.name;
+      session.step = 'SELECTING_PAYMENT_METHOD';
+      await saveMetaSession(session, dbAdmin);
+      const total = session.details.mallTotal || session.details.selectedPrice || 0;
+      return `📍 Eneo la kuletewa: *${gpsLoc.name}*\nJumla: *TZS ${total.toLocaleString()}*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
     }
     if (session.service === 'food' && (session.step === 'FOOD_SELECT_VENDOR' || session.step === 'FOOD_CHOOSE_MODE')) {
       const restaurants = await fetchRestaurantsForMeta(dbAdmin, { lat: gpsLoc.lat, lng: gpsLoc.lng });
@@ -2569,6 +2906,13 @@ async function handleMetaInputInternal(
       });
       resp += `Andika namba ya mgahawa (*1–${restaurants.length}*):`;
       return resp;
+    }
+    if ((session.service === 'grocery' || session.service === 'pharmacy') && session.step === 'COLLECTING_PHONE') {
+      return await routeToServiceFlow(session, gpsLoc.name, dbAdmin, channel, mediaCollector, {
+        getKnownPhone,
+        persistPhonePreference,
+        persistLocationPreference
+      });
     }
     if (session.service === 'taxi' && session.details.awaitingDest && session.details.pickupName) {
       session.details.destCoordsOverride = gpsLoc;
@@ -2602,7 +2946,7 @@ async function handleMetaInputInternal(
   if (session.step === 'TRACKING_LOOKUP_PHONE') {
     const typedDigits = cleanInput.replace(/\D/g, '');
     if (typedDigits.length >= 9) {
-      session.details.phone = cleanInput;
+      await persistPhonePreference(cleanInput);
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
       await saveMetaSession(session, dbAdmin);
@@ -2619,7 +2963,7 @@ async function handleMetaInputInternal(
   if (codeMatch || isTrackKeyword) {
     delete session.details.currentNodeId;
     delete session.details.activeQuestionNodeId;
-    const lookupPhone = session.details.phone || defaultWaPhone;
+    const lookupPhone = getKnownPhone();
     const matchedCode = codeMatch ? codeMatch[1].toUpperCase() : undefined;
 
     if (!lookupPhone && !matchedCode) {
@@ -2853,7 +3197,11 @@ async function handleMetaInputInternal(
               : `⚠️ *${matchedSrv.title}* ipo kwenye matengenezo kwa sasa.`;
           }
           session.service = intent as any;
-          return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
+          return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
+            getKnownPhone,
+            persistPhonePreference,
+            persistLocationPreference
+          });
         } else {
           return lang === 'en'
             ? `[[EN_NATIVE]]⚠️ Sorry, *${intent.toUpperCase()}* is currently unavailable.`
@@ -2870,7 +3218,7 @@ async function handleMetaInputInternal(
   // If we are collecting initial selection
   if (session.step === 'COLLECTING_ROUTE' && !session.service) {
     if (cleanInput === trackMenuNumber) {
-      const lookupPhone = session.details.phone || defaultWaPhone;
+      const lookupPhone = getKnownPhone();
       if (!lookupPhone) {
         session.step = 'TRACKING_LOOKUP_PHONE';
         await saveMetaSession(session, dbAdmin);
@@ -2915,7 +3263,11 @@ async function handleMetaInputInternal(
       }
     }
     
-    return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
+    return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
+      getKnownPhone,
+      persistPhonePreference,
+      persistLocationPreference
+    });
   }
 
   // Allow seamless switching if user types an exact Papo* brand command mid-flow (e.g., "PapoTicket", "PapoPay", "PapoFix")
@@ -2941,32 +3293,33 @@ async function handleMetaInputInternal(
       if (matchedBrandSrv.isMaintenance) {
         return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedBrandSrv.maintenanceMessage}`;
       }
-      const preservedName = session.details?.customerName;
-      const preservedPhone = session.details?.phone;
-      const preservedLang = session.details?.lang || lang;
-      session.details = {};
-      if (preservedName) session.details.customerName = preservedName;
-      if (preservedPhone) session.details.phone = preservedPhone;
-      if (preservedLang) session.details.lang = preservedLang;
+      session.details = preserveCustomerFields(session.details, lang, customerProfile);
       session.service = requestedBrandService;
       session.step = 'COLLECTING_ROUTE';
       await saveMetaSession(session, dbAdmin);
-      return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
+      return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
+        getKnownPhone,
+        persistPhonePreference,
+        persistLocationPreference
+      });
     }
   }
 
   // Active Flow handling
   const activeSrv = activeServices.find(srv => srv.key === session.service);
   if (activeSrv && activeSrv.isMaintenance) {
-    const preservedLang = session.details?.lang || lang;
     session.step = 'START';
     delete session.service;
-    session.details = preservedLang ? { lang: preservedLang } : {};
+    session.details = preserveCustomerFields(session.details, lang, customerProfile);
     await saveMetaSession(session, dbAdmin);
     return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
   }
 
-  return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
+  return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
+    getKnownPhone,
+    persistPhonePreference,
+    persistLocationPreference
+  });
 }
 
 type VehicleBucket = 'bike' | 'bajaj' | 'mini';
@@ -3096,17 +3449,42 @@ function formatVehicleChoiceMessage(
 /**
  * Route input to specific module flow states
  */
+interface RouteFlowHelpers {
+  getKnownPhone?: () => string;
+  persistPhonePreference?: (phone: string) => Promise<void>;
+  persistLocationPreference?: (loc: MetaSavedLocation) => Promise<void>;
+}
+
 async function routeToServiceFlow(
   session: MetaSession,
   input: string,
   dbAdmin: any,
   channel: 'whatsapp' | 'messenger' | 'instagram',
-  mediaCollector?: MetaMediaAttachment[]
+  mediaCollector?: MetaMediaAttachment[],
+  helpers?: RouteFlowHelpers
 ): Promise<string> {
   const service = session.service;
   const cleaned = input.toUpperCase();
   const lang: 'sw' | 'en' = session.details?.lang === 'en' ? 'en' : 'sw';
   const isEn = lang === 'en';
+  const waDigitsFallback = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
+  const knownPhone =
+    helpers?.getKnownPhone?.() ||
+    (session.details?.phone && String(session.details.phone).replace(/\D/g, '').length >= 9
+      ? String(session.details.phone).trim()
+      : waDigitsFallback.length >= 9
+      ? `+${waDigitsFallback}`
+      : '');
+  const savedLoc: MetaSavedLocation | undefined = session.details?.lastLocation;
+  const savePhonePref = async (p: string) => {
+    if (helpers?.persistPhonePreference) await helpers.persistPhonePreference(p);
+    else if (p && p.replace(/\D/g, '').length >= 9) session.details.phone = p.trim();
+  };
+  const saveLocPref = async (loc: MetaSavedLocation) => {
+    if (!loc?.name) return;
+    if (helpers?.persistLocationPreference) await helpers.persistLocationPreference(loc);
+    else session.details.lastLocation = loc;
+  };
 
   // 1. TAXI FLOW
   if (service === 'taxi') {
@@ -3126,9 +3504,26 @@ async function routeToServiceFlow(
         session.details.awaitingPickup = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
+        if (savedLoc?.name) {
+          return isEn
+            ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\n1. 📍 Use *${savedLoc.name}*\n_Or type another area / send 📍 Location pin:_`
+            : `🚖 *PapoRide — Unatoka wapi?*\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo lingine / tuma 📍 Location:_`;
+        }
         return isEn
           ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\nType your pickup area or send 📍 *Location pin*:`
           : `🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:`;
+      }
+
+      if (session.details.awaitingPickup && input.trim() === '1' && savedLoc?.name) {
+        session.details.pickupName = savedLoc.name;
+        session.details.pickupCoordsOverride = savedLoc;
+        delete session.details.awaitingPickup;
+        session.details.awaitingDest = true;
+        session.step = 'COLLECTING_ROUTE';
+        await saveMetaSession(session, dbAdmin);
+        return isEn
+          ? `[[EN_NATIVE]]📍 *Pickup:* ${savedLoc.name}\n\n*Where are you going?* _(Type destination or send 📍 Location)_:`
+          : `📍 *Kutoka:* ${savedLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
       }
 
       if (session.details.awaitingDest && session.details.pickupName) {
@@ -3395,11 +3790,9 @@ async function routeToServiceFlow(
             ? `[[EN_NATIVE]]💳 *Payment — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
             : `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
         } else if (cleaned === '3' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('cancel')) {
-          const preservedName = session.details?.customerName;
-          const preservedLang = session.details?.lang || lang;
           session.step = 'COLLECTING_ROUTE';
           delete session.service;
-          session.details = { ...(preservedName ? { customerName: preservedName } : {}), lang: preservedLang };
+          session.details = preserveCustomerFields(session.details, lang);
           await saveMetaSession(session, dbAdmin);
           return isEn
             ? `[[EN_NATIVE]]❌ Ride cancelled. Reply *Menu* anytime.`
@@ -3419,11 +3812,9 @@ async function routeToServiceFlow(
           ? `[[EN_NATIVE]]💳 *Payment — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
           : `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
       } else if (cleaned === '2' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('no') || cleaned.includes('cancel')) {
-        const preservedName = session.details?.customerName;
-        const preservedLang = session.details?.lang || lang;
         session.step = 'COLLECTING_ROUTE';
         delete session.service;
-        session.details = { ...(preservedName ? { customerName: preservedName } : {}), lang: preservedLang };
+        session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
         return isEn
           ? `[[EN_NATIVE]]❌ Ride cancelled. Reply *Menu* anytime.`
@@ -3435,59 +3826,8 @@ async function routeToServiceFlow(
       }
     }
 
-    if (session.step === 'SELECTING_PAYMENT_METHOD') {
-      const pLower = cleaned.toLowerCase();
-      let paymentMethod = '';
-      let paymentMethodLabel = '';
-
-      if (pLower === '1' || pLower.includes('cash') || pLower.includes('taslimu') || pLower.includes('pesa mkononi')) {
-        paymentMethod = 'cash';
-        paymentMethodLabel = 'Cash 💵';
-      } else if (pLower === '2' || pLower.includes('mpesa') || pLower.includes('m-pesa') || pLower.includes('voda')) {
-        paymentMethod = 'mpesa';
-        paymentMethodLabel = 'M-Pesa 📱';
-      } else if (pLower === '3' || pLower.includes('tigo') || pLower.includes('yas') || pLower.includes('mixx')) {
-        paymentMethod = 'tigopesa';
-        paymentMethodLabel = 'Tigo Pesa 📱';
-      } else if (pLower === '4' || pLower.includes('airtel')) {
-        paymentMethod = 'airtelmoney';
-        paymentMethodLabel = 'Airtel Money 📱';
-      } else {
-        return isEn
-          ? `[[EN_NATIVE]]⚠️ Choose *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
-          : `⚠️ Chagua *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
-      }
-
-      session.details.paymentMethod = paymentMethod;
-      session.details.paymentMethodLabel = paymentMethodLabel;
-      session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
-
-      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      if (waDigits.length >= 9) {
-        return isEn
-          ? `[[EN_NATIVE]]📞 *Contact number?*\n1. ✅ Use *+${waDigits}*\n_Or type another number:_`
-          : `📞 *Namba ya mawasiliano?*\n1. ✅ Tumia *+${waDigits}*\n_Au andika namba nyingine:_`;
-      }
-      return isEn
-        ? `[[EN_NATIVE]]📞 Enter your phone number (e.g. *0712345678*):`
-        : `📞 Andika namba yako ya simu (mf. *0712345678*):`;
-    }
-
-    if (session.step === 'COLLECTING_PHONE') {
-      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      let phoneNum = input.trim();
-      if ((cleaned === '1' || cleaned === 'NDIO' || cleaned === 'SAWA' || cleaned === 'YES') && waDigits.length >= 9) {
-        phoneNum = `+${waDigits}`;
-      } else {
-        const digitsOnly = phoneNum.replace(/\D/g, '');
-        if (digitsOnly.length < 9) {
-          return isEn
-            ? `[[EN_NATIVE]]⚠️ Enter a valid phone number (e.g. *0712345678*)${waDigits.length >= 9 ? ` or *1* to use *+${waDigits}*` : ''}:`
-            : `⚠️ Weka namba sahihi (mf. *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
-        }
-      }
-
+    const finalizeTaxiOrder = async (phoneNum: string): Promise<string> => {
+      await savePhonePref(phoneNum);
       const customerName = session.details.customerName || "Mteja wa WhatsApp";
       const pickupName = session.details.pickupName || "Mwenge";
       const destName = session.details.destinationName || "Posta";
@@ -3501,11 +3841,13 @@ async function routeToServiceFlow(
       const paymentMethod = session.details.paymentMethod || 'cash';
       const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
       const availState = session.details.availabilityState || 'available';
-      const preservedLang = session.details?.lang || lang;
+
+      if (pLoc?.name) await saveLocPref(pLoc);
 
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
-      session.details = { customerName, phone: phoneNum, lang: preservedLang };
+      session.details = preserveCustomerFields(session.details, lang);
+      session.details.phone = phoneNum;
       await saveMetaSession(session, dbAdmin);
 
       const randId = Math.floor(100000 + Math.random() * 900000);
@@ -3592,6 +3934,55 @@ async function routeToServiceFlow(
              `🗺️ Ramani: ${trackingUrl}\n` +
              `📋 Oda zako: ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
              `_Andika *Menu* au *Oda zangu* muda wowote._`;
+    };
+
+    if (session.step === 'SELECTING_PAYMENT_METHOD') {
+      const pLower = cleaned.toLowerCase();
+      let paymentMethod = '';
+      let paymentMethodLabel = '';
+
+      if (pLower === '1' || pLower.includes('cash') || pLower.includes('taslimu') || pLower.includes('pesa mkononi')) {
+        paymentMethod = 'cash';
+        paymentMethodLabel = 'Cash 💵';
+      } else if (pLower === '2' || pLower.includes('mpesa') || pLower.includes('m-pesa') || pLower.includes('voda')) {
+        paymentMethod = 'mpesa';
+        paymentMethodLabel = 'M-Pesa 📱';
+      } else if (pLower === '3' || pLower.includes('tigo') || pLower.includes('yas') || pLower.includes('mixx')) {
+        paymentMethod = 'tigopesa';
+        paymentMethodLabel = 'Tigo Pesa 📱';
+      } else if (pLower === '4' || pLower.includes('airtel')) {
+        paymentMethod = 'airtelmoney';
+        paymentMethodLabel = 'Airtel Money 📱';
+      } else {
+        return isEn
+          ? `[[EN_NATIVE]]⚠️ Choose *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
+          : `⚠️ Chagua *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
+      }
+
+      session.details.paymentMethod = paymentMethod;
+      session.details.paymentMethodLabel = paymentMethodLabel;
+
+      if (knownPhone) {
+        return await finalizeTaxiOrder(knownPhone);
+      }
+
+      session.step = 'COLLECTING_PHONE';
+      await saveMetaSession(session, dbAdmin);
+
+      return isEn
+        ? `[[EN_NATIVE]]📞 Enter your phone number (e.g. *0712345678*):`
+        : `📞 Andika namba yako ya simu (mf. *0712345678*):`;
+    }
+
+    if (session.step === 'COLLECTING_PHONE') {
+      const phoneNum = input.trim();
+      const digitsOnly = phoneNum.replace(/\D/g, '');
+      if (digitsOnly.length < 9) {
+        return isEn
+          ? `[[EN_NATIVE]]⚠️ Enter a valid phone number (e.g. *0712345678*):`
+          : `⚠️ Weka namba sahihi ya simu (mf. *0712345678*):`;
+      }
+      return await finalizeTaxiOrder(phoneNum);
     }
   }
 
@@ -3624,6 +4015,44 @@ async function routeToServiceFlow(
       return resp;
     }
 
+    const finalizeBusOrder = async (phoneNum: string): Promise<string> => {
+      await savePhonePref(phoneNum);
+      const busRoute = session.details.route || 'Dar - Arusha';
+      const busName = session.details.selectedName || 'Bus Express';
+      const busPrice = session.details.selectedPrice || 45000;
+      const busVendorId = session.details.selectedId || 'bus-op';
+      const busCustomer = session.details.customerName || 'Meta Bus Client';
+      const busCode = `BS-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      session.details.phone = phoneNum;
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        busVendorId,
+        "bus_ticket",
+        [{ name: `Bus Seat A5 (${busRoute})`, price: busPrice, quantity: 1 }],
+        busPrice,
+        phoneNum,
+        busCustomer,
+        `Automatic bus booking #${busCode} for ${busRoute} via ${session.channel}`,
+        session.channel,
+        { bookingCode: busCode }
+      );
+
+      return `🎉 *Tiketi Imesajiliwa Kikamilifu!* 🚌\n` +
+             `🔖 Namba ya Tiketi: *#${busCode}*\n\n` +
+             `- Safari: *${busRoute}*\n` +
+             `- Basi: *${busName}*\n` +
+             `- Kiti: *A5 (Dirishani)*\n` +
+             `- Nauli: *TSH ${busPrice.toLocaleString()}*\n\n` +
+             `🔗 *Fuatilia tiketi & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, busCode)}\n\n` +
+             `Tumekutumia ujumbe wa muamala wa malipo kwenye simu yako *${phoneNum}*. Ukishalipia, tiketi yako kamili na namba ya siti vitatumwa punde. Ahsante sana! 🌟`;
+    };
+
     if (session.step === 'SELECTING_OPTION') {
       const idx = parseInt(input) - 1;
       const selected = session.details.optionsList?.[idx];
@@ -3634,6 +4063,9 @@ async function routeToServiceFlow(
       session.details.selectedId = selected.id;
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
+      if (knownPhone) {
+        return await finalizeBusOrder(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
@@ -3641,32 +4073,10 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      session.details.phone = input;
-      session.step = 'START'; // reset
-      await saveMetaSession(session, dbAdmin);
-
-      const busCode = `BS-${Math.floor(1000 + Math.random() * 9000)}`;
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedId || "bus-op",
-        "bus_ticket",
-        [{ name: `Bus Seat A5 (${session.details.route})`, price: session.details.selectedPrice || 45000, quantity: 1 }],
-        session.details.selectedPrice || 45000,
-        input,
-        session.details.customerName || "Meta Bus Client",
-        `Automatic bus booking #${busCode} for ${session.details.route} via ${session.channel}`,
-        session.channel,
-        { bookingCode: busCode }
-      );
-
-      return `🎉 *Tiketi Imesajiliwa Kikamilifu!* 🚌\n` +
-             `🔖 Namba ya Tiketi: *#${busCode}*\n\n` +
-             `- Safari: *${session.details.route}*\n` +
-             `- Basi: *${session.details.selectedName}*\n` +
-             `- Kiti: *A5 (Dirishani)*\n` +
-             `- Nauli: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n\n` +
-             `🔗 *Fuatilia tiketi & oda zako zote:*\n${buildOrdersTrackingUrl(input, busCode)}\n\n` +
-             `Tumekutumia ujumbe wa muamala wa malipo kwenye simu yako *${input}*. Ukishalipia, tiketi yako kamili na namba ya siti vitatumwa punde. Ahsante sana! 🌟`;
+      if (input.replace(/\D/g, '').length < 9) {
+        return `⚠️ Weka namba sahihi ya simu (mf. *0712345678*):`;
+      }
+      return await finalizeBusOrder(input.trim());
     }
   }
 
@@ -3678,7 +4088,9 @@ async function routeToServiceFlow(
 
     // Helper to render numbered restaurant list (with photos!)
     const promptRestaurantList = async (modeLabel: string, queryHint?: string) => {
-      const restaurants = await fetchRestaurantsForMeta(dbAdmin);
+      const gpsFilter =
+        savedLoc?.lat && savedLoc?.lng ? { lat: savedLoc.lat, lng: savedLoc.lng } : undefined;
+      const restaurants = await fetchRestaurantsForMeta(dbAdmin, gpsFilter);
       session.details.restaurantOptions = restaurants;
       if (queryHint) session.details.itemQuery = queryHint;
       session.step = 'FOOD_SELECT_VENDOR';
@@ -3692,13 +4104,122 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `${modeLabel}\n\nChagua mgahawa unaotaka:\n\n`;
+      let resp = `${modeLabel}\n\n${gpsFilter && savedLoc?.name ? `📍 Migahawa ya karibu na *${savedLoc.name}*:` : 'Chagua mgahawa unaotaka:'}\n\n`;
       restaurants.forEach((r, idx) => {
-        const tblBadge = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
-        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${tblBadge}\n\n`;
+        const distPart = typeof r.distanceKm === 'number' ? ` • ~${r.distanceKm} km` : '';
+        const tblPart = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
+        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${distPart}${tblPart}\n\n`;
       });
       resp += `Andika namba ya mgahawa (*1–${restaurants.length}*) au tuma *📍 GPS Location* kupata wa karibu:`;
       return resp;
+    };
+
+    const promptFoodDeliveryAddress = async (): Promise<string> => {
+      session.step = 'FOOD_DELIVERY_ADDRESS';
+      await saveMetaSession(session, dbAdmin);
+      if (savedLoc?.name) {
+        return `📍 *Eneo la kuletewa chakula?*\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika mtaa mwingine / tuma 📍 Location yako:_`;
+      }
+      return `📍 Tafadhali andika *eneo/mtaa wa kuletewa chakula* (au tuma *📍 Location yako ya GPS* kwa kubofya 📎 → Location):`;
+    };
+
+    const finalizeFoodOrTable = async (phoneNum: string): Promise<string> => {
+      await savePhonePref(phoneNum);
+      const customerName = session.details.customerName || 'Mteja wa WhatsApp';
+      const vendorId = session.details.selectedVendorId || 'papo-hapo-kitchen';
+      const vendorName = session.details.selectedVendorName || 'Papo Hapo Kitchen';
+      const vendorAddress = session.details.selectedVendorAddress || 'Dar es Salaam';
+      const foodMode = session.details.foodMode || 'delivery';
+      const cart: any[] = session.details.foodCart || [];
+      const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+      const paymentMethod = session.details.paymentMethod || 'cash';
+      const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
+      const deliveryAddress = session.details.deliveryAddress || '';
+      const seatsCount = session.details.seatsCount || 2;
+      const scheduledTime = session.details.scheduledTime || 'Leo';
+      const preferredTableId = session.details.preferredTableId;
+      const preferredTableNumber = session.details.preferredTableNumber;
+
+      // Reset session cleanly while preserving customer identity, saved location & language
+      session.step = 'COLLECTING_ROUTE';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      session.details.phone = phoneNum;
+      await saveMetaSession(session, dbAdmin);
+
+      if (foodMode === 'table_booking') {
+        const booking = await createTableReservationRecord(dbAdmin, {
+          vendorId,
+          vendorName,
+          vendorAddress,
+          customerName,
+          customerPhone: phoneNum,
+          seatsCount,
+          scheduledTime,
+          preferredTableId,
+          preferredTableNumber,
+          preOrderItems: cart,
+          paymentMethod,
+          paymentMethodLabel,
+          channel: session.channel
+        });
+
+        const preOrderText =
+          cart.length > 0
+            ? `\n🍽️ *Chakula cha Mapema (Pre-Order):*\n${cart.map((c) => `• ${c.name} x${c.quantity} (TZS ${(c.price * c.quantity).toLocaleString()})`).join('\n')}\n💰 *Jumla ya Pre-Order: TZS ${total.toLocaleString()}/=*`
+            : `\n🍽️ *Chakula:* Utaagiza ukifika mgahawani`;
+
+        return `🎉 *MEZA IMEHIFADHIWA KIKAMILIFU!* 🪑✨\n` +
+               `🔖 Namba ya Booking: *#${booking.bookingCode}*\n` +
+               `🏠 Mgahawa: *${vendorName}*\n` +
+               `📍 Eneo: *${vendorAddress}*\n` +
+               `🪑 Meza: *#${booking.tableNumber}* (Viti *${seatsCount}*)\n` +
+               `🕒 Muda wa Kufika: *${scheduledTime}*` +
+               preOrderText + `\n` +
+               `💳 Malipo: *${paymentMethodLabel}*\n` +
+               `📞 Simu: *${phoneNum}*\n\n` +
+               `🔗 *Fuatilia booking hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, booking.bookingCode)}\n` +
+               `🍽️ *Menyu ya mgahawa:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
+               `Meza yako tayari imeoneshwa kama *RESERVED* kwenye mfumo wa mgahawa. Karibu sana! 🙏`;
+      }
+
+      // Delivery or Takeaway Order
+      const orderType = foodMode === 'takeaway' ? 'pickup' : 'delivery';
+      const randCode = `FD-${Math.floor(1000 + Math.random() * 9000)}`;
+      await triggerAutomatedOrder(
+        dbAdmin,
+        vendorId,
+        'restaurant',
+        cart,
+        total,
+        phoneNum,
+        customerName,
+        foodMode === 'takeaway'
+          ? `Takeaway Pickup #${randCode} via ${session.channel}`
+          : `Delivery #${randCode} to: ${deliveryAddress}`,
+        session.channel,
+        {
+          orderType,
+          bookingCode: randCode,
+          vendorName,
+          deliveryAddress: foodMode === 'takeaway' ? 'Pickup Mgahawani' : deliveryAddress,
+          paymentMethod,
+          paymentMethodLabel
+        }
+      );
+
+      const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
+      return `🎉 *ODA YA CHAKULA IMEPOKELEWA!* ${foodMode === 'takeaway' ? '🥡' : '🍔🛵'}\n` +
+             `🔖 Namba ya Oda: *#${randCode}*\n` +
+             `🏠 Mgahawa: *${vendorName}*\n\n` +
+             `${itemsSummary}\n\n` +
+             `💰 *Jumla ya Kulipa: TZS ${total.toLocaleString()}/=*\n` +
+             `💳 Malipo: *${paymentMethodLabel}*\n` +
+             `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
+             `📞 Simu: *${phoneNum}*\n\n` +
+             `🔗 *Fuatilia oda hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, randCode)}\n` +
+             `🍽️ *Agiza tena:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
+             `Jiko limeanza kuandaa oda yako sasa hivi! Ahsante kwa kutumia *Papo Hapo* 🙏✨`;
     };
 
     // Helper to render restaurant menu items (with food photos!)
@@ -3903,13 +4424,13 @@ async function routeToServiceFlow(
         session.details.foodCart = [];
         session.details.paymentMethod = 'cash';
         session.details.paymentMethodLabel = 'Lipa Mgahawani Ukifika 💵';
+
+        if (knownPhone) {
+          return await finalizeFoodOrTable(knownPhone);
+        }
+
         session.step = 'COLLECTING_PHONE';
         await saveMetaSession(session, dbAdmin);
-
-        const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-        if (waDigits.length >= 9) {
-          return `📞 Ili Mgahawa uthibitishe meza yako, tutumie namba yako ya WhatsApp (*+${waDigits}*)?\n\n1. Ndio, tumia *+${waDigits}*\nAu andika namba nyingine (Mfano: *0712345678*):`;
-        }
         return `📞 Tafadhali andika namba yako ya simu ya kuthibitishia booking ya meza (Mfano: *0712345678*):`;
       } else {
         return `⚠️ Tafadhali andika *1* kuchagua chakula mapema au *2* kushikilia meza pekee.`;
@@ -3921,9 +4442,7 @@ async function routeToServiceFlow(
       const cart: any[] = session.details.foodCart || [];
       if (lower === '0' && cart.length > 0) {
         if (session.details.foodMode === 'delivery') {
-          session.step = 'FOOD_DELIVERY_ADDRESS';
-          await saveMetaSession(session, dbAdmin);
-          return `📍 Tafadhali andika *eneo/mtaa wa kuletewa chakula* (au tuma *📍 Location yako ya GPS* kwa kubofya 📎 → Location):`;
+          return await promptFoodDeliveryAddress();
         }
         session.step = 'SELECTING_PAYMENT_METHOD';
         await saveMetaSession(session, dbAdmin);
@@ -3983,9 +4502,7 @@ async function routeToServiceFlow(
         );
       } else if (lower === '2' || lower.includes('endelea') || lower.includes('maliza') || lower.includes('lipia') || lower.includes('checkout')) {
         if (session.details.foodMode === 'delivery') {
-          session.step = 'FOOD_DELIVERY_ADDRESS';
-          await saveMetaSession(session, dbAdmin);
-          return `📍 Tafadhali andika *eneo/mtaa wa kuletewa chakula* (au tuma *📍 Location yako ya GPS*):`;
+          return await promptFoodDeliveryAddress();
         }
         session.step = 'SELECTING_PAYMENT_METHOD';
         await saveMetaSession(session, dbAdmin);
@@ -3999,15 +4516,21 @@ async function routeToServiceFlow(
 
     // Delivery address text fallback (GPS pin handled globally in 0C too)
     if (session.step === 'FOOD_DELIVERY_ADDRESS') {
-      if (trimmed.length < 3) {
-        return `📍 Tafadhali andika jina la eneo lako la kuletewa chakula (Mfano: *Mikocheni B, karibu na Shoppers*):`;
+      let deliveryPlace = trimmed;
+      if (trimmed === '1' && savedLoc?.name) {
+        deliveryPlace = savedLoc.name;
+        session.details.deliveryCoords = savedLoc;
+      } else if (trimmed.length < 3) {
+        return `⚠️ Tafadhali andika jina la eneo lako la kuletewa chakula (Mfano: *Mikocheni B, karibu na Shoppers*):`;
+      } else {
+        await saveLocPref({ name: trimmed, address: trimmed });
       }
-      session.details.deliveryAddress = trimmed;
+      session.details.deliveryAddress = deliveryPlace;
       session.step = 'SELECTING_PAYMENT_METHOD';
       await saveMetaSession(session, dbAdmin);
       const cart = session.details.foodCart || [];
       const total = cart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
-      return `📍 Eneo la kuletewa: *${trimmed}*\nJumla ya oda: *TZS ${total.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+      return `📍 Eneo la kuletewa: *${deliveryPlace}*\nJumla ya oda: *TZS ${total.toLocaleString()}/=*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
     }
 
     // Payment method selection for food / pre-order
@@ -4032,124 +4555,24 @@ async function routeToServiceFlow(
 
       session.details.paymentMethod = paymentMethod;
       session.details.paymentMethodLabel = paymentMethodLabel;
+
+      if (knownPhone) {
+        return await finalizeFoodOrTable(knownPhone);
+      }
+
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-
-      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      if (waDigits.length >= 9) {
-        return `💳 Malipo: *${paymentMethodLabel}*\n\n📞 Tutumie namba yako ya WhatsApp (*+${waDigits}*) kwa uthibitisho?\n\n1. Ndio, tumia *+${waDigits}*\nAu andika namba nyingine (Mfano: *0712345678*):`;
-      }
       return `💳 Malipo: *${paymentMethodLabel}*\n\n📞 Tafadhali andika namba yako ya simu (Mfano: *0712345678*):`;
     }
 
     // Final confirmation & DB creation
     if (session.step === 'COLLECTING_PHONE') {
-      const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      let phoneNum = trimmed;
-      if ((cleaned === '1' || cleaned === 'NDIO' || cleaned === 'SAWA' || cleaned === 'YES') && waDigits.length >= 9) {
-        phoneNum = `+${waDigits}`;
-      } else {
-        const digitsOnly = phoneNum.replace(/\D/g, '');
-        if (digitsOnly.length < 9) {
-          return `⚠️ Namba ya simu si sahihi. Andika namba yenye tarakimu 10 (Mfano: *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
-        }
+      const phoneNum = trimmed;
+      const digitsOnly = phoneNum.replace(/\D/g, '');
+      if (digitsOnly.length < 9) {
+        return `⚠️ Namba ya simu si sahihi. Andika namba yenye tarakimu 10 (Mfano: *0712345678*):`;
       }
-
-      const customerName = session.details.customerName || 'Mteja wa WhatsApp';
-      const vendorId = session.details.selectedVendorId || 'papo-hapo-kitchen';
-      const vendorName = session.details.selectedVendorName || 'Papo Hapo Kitchen';
-      const vendorAddress = session.details.selectedVendorAddress || 'Dar es Salaam';
-      const foodMode = session.details.foodMode || 'delivery';
-      const cart: any[] = session.details.foodCart || [];
-      const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
-      const paymentMethod = session.details.paymentMethod || 'cash';
-      const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
-      const deliveryAddress = session.details.deliveryAddress || '';
-      const seatsCount = session.details.seatsCount || 2;
-      const scheduledTime = session.details.scheduledTime || 'Leo';
-      const preferredTableId = session.details.preferredTableId;
-      const preferredTableNumber = session.details.preferredTableNumber;
-
-      // Reset session cleanly while preserving customer identity & language
-      const preservedLang = session.details?.lang || lang;
-      session.step = 'COLLECTING_ROUTE';
-      delete session.service;
-      session.details = { customerName, phone: phoneNum, lang: preservedLang };
-      await saveMetaSession(session, dbAdmin);
-
-      if (foodMode === 'table_booking') {
-        const booking = await createTableReservationRecord(dbAdmin, {
-          vendorId,
-          vendorName,
-          vendorAddress,
-          customerName,
-          customerPhone: phoneNum,
-          seatsCount,
-          scheduledTime,
-          preferredTableId,
-          preferredTableNumber,
-          preOrderItems: cart,
-          paymentMethod,
-          paymentMethodLabel,
-          channel: session.channel
-        });
-
-        const preOrderText =
-          cart.length > 0
-            ? `\n🍽️ *Chakula cha Mapema (Pre-Order):*\n${cart.map((c) => `• ${c.name} x${c.quantity} (TZS ${(c.price * c.quantity).toLocaleString()})`).join('\n')}\n💰 *Jumla ya Pre-Order: TZS ${total.toLocaleString()}/=*`
-            : `\n🍽️ *Chakula:* Utaagiza ukifika mgahawani`;
-
-        return `🎉 *MEZA IMEHIFADHIWA KIKAMILIFU!* 🪑✨\n` +
-               `🔖 Namba ya Booking: *#${booking.bookingCode}*\n` +
-               `🏠 Mgahawa: *${vendorName}*\n` +
-               `📍 Eneo: *${vendorAddress}*\n` +
-               `🪑 Meza: *#${booking.tableNumber}* (Viti *${seatsCount}*)\n` +
-               `🕒 Muda wa Kufika: *${scheduledTime}*` +
-               preOrderText + `\n` +
-               `💳 Malipo: *${paymentMethodLabel}*\n` +
-               `📞 Simu: *${phoneNum}*\n\n` +
-               `🔗 *Fuatilia booking hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, booking.bookingCode)}\n` +
-               `🍽️ *Menyu ya mgahawa:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
-               `Meza yako tayari imeoneshwa kama *RESERVED* kwenye mfumo wa mgahawa. Karibu sana! 🙏`;
-      }
-
-      // Delivery or Takeaway Order
-      const orderType = foodMode === 'takeaway' ? 'pickup' : 'delivery';
-      const randCode = `FD-${Math.floor(1000 + Math.random() * 9000)}`;
-      await triggerAutomatedOrder(
-        dbAdmin,
-        vendorId,
-        'restaurant',
-        cart,
-        total,
-        phoneNum,
-        customerName,
-        foodMode === 'takeaway'
-          ? `Takeaway Pickup #${randCode} via ${session.channel}`
-          : `Delivery #${randCode} to: ${deliveryAddress}`,
-        session.channel,
-        {
-          orderType,
-          bookingCode: randCode,
-          vendorName,
-          deliveryAddress: foodMode === 'takeaway' ? 'Pickup Mgahawani' : deliveryAddress,
-          paymentMethod,
-          paymentMethodLabel
-        }
-      );
-
-      const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
-      return `🎉 *ODA YA CHAKULA IMEPOKELEWA!* ${foodMode === 'takeaway' ? '🥡' : '🍔🛵'}\n` +
-             `🔖 Namba ya Oda: *#${randCode}*\n` +
-             `🏠 Mgahawa: *${vendorName}*\n\n` +
-             `${itemsSummary}\n\n` +
-             `💰 *Jumla ya Kulipa: TZS ${total.toLocaleString()}/=*\n` +
-             `💳 Malipo: *${paymentMethodLabel}*\n` +
-             `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
-             `📞 Simu: *${phoneNum}*\n\n` +
-             `🔗 *Fuatilia oda hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, randCode)}\n` +
-             `🍽️ *Agiza tena:* ${publicBaseUrl}/vendor/${vendorId}\n\n` +
-             `Jiko limeanza kuandaa oda yako sasa hivi! Ahsante kwa kutumia *Papo Hapo* 🙏✨`;
+      return await finalizeFoodOrTable(phoneNum);
     }
   }
 
@@ -4158,16 +4581,17 @@ async function routeToServiceFlow(
   
   // PARCEL FLOW
   if (service === 'parcel') {
-    if (!session.details.route) {
-      session.details.route = cleaned;
-      session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
-      return `📦 *PapoSend — Tuma Mzigo*\nAndika *namba yako ya simu* na *njia ya mzigo* (mf. *0712345678, Kariakoo - Tegeta*):`;
-    }
-    if (session.step === 'COLLECTING_PHONE') {
-      const parcelPhone = input.split(',')[0].trim();
+    const isMenuPick =
+      /^\d{1,2}$/.test(input.trim()) ||
+      /^(paposend|parcel|mzigo|mizigo|tuma\s*mzigo|delivery)$/i.test(input.trim());
+
+    const finalizeParcel = async (parcelPhone: string, routeText: string) => {
       const prCode = `PR-${Math.floor(1000 + Math.random() * 9000)}`;
+      const cleanRoute = routeText || session.details.route || input.trim();
+      const custName = session.details.customerName || 'Meta Courier Client';
       session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
       await saveMetaSession(session, dbAdmin);
 
       const avail = await getLiveDriverAvailability(dbAdmin);
@@ -4180,32 +4604,127 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        "papo-hapo-courier",
-        "parcel",
-        [{ name: `Courier Delivery: ${session.details.route}`, price: 5000, quantity: 1 }],
+        'papo-hapo-courier',
+        'parcel',
+        [{ name: `Courier Delivery: ${cleanRoute}`, price: 5000, quantity: 1 }],
         5000,
         parcelPhone,
-        session.details.customerName || "Meta Courier Client",
-        `Parcel #${prCode} | Route: ${input}`,
+        custName,
+        `Parcel #${prCode} | Route: ${cleanRoute}`,
         session.channel,
-        { bookingCode: prCode, orderType: 'delivery', deliveryAddress: input }
+        { bookingCode: prCode, orderType: 'delivery', deliveryAddress: cleanRoute }
       );
 
-      return `✅ *Oda ya PapoSend Imepokelewa!*\n` +
-             `🔖 *#${prCode}* • *TZS 5,000*\n` +
-             `📦 ${session.details.route} • ${input}\n\n` +
-             `${courierStatusNote}\n\n` +
-             `📋 Oda zako: ${buildOrdersTrackingUrl(parcelPhone, prCode)}`;
+      return (
+        `✅ *Oda ya PapoSend Imepokelewa!*\n` +
+        `🔖 *#${prCode}* • *TZS 5,000*\n` +
+        `📦 ${cleanRoute}\n` +
+        `📞 Simu: *${parcelPhone}*\n\n` +
+        `${courierStatusNote}\n\n` +
+        `📋 Oda zako: ${buildOrdersTrackingUrl(parcelPhone, prCode)}`
+      );
+    };
+
+    const inParcelStep =
+      (session.step === 'COLLECTING_ROUTE' && Boolean(session.details.awaitingParcelRoute)) ||
+      session.step === 'COLLECTING_PHONE';
+    if (!inParcelStep) {
+      const hasInlineRoute = !isMenuPick && /(-|kwenda|mpaka|hadi|\bto\b)/i.test(input.trim()) && input.trim().length >= 5;
+      if (!hasInlineRoute) {
+        session.step = 'COLLECTING_ROUTE';
+        session.details.awaitingParcelRoute = true;
+        await saveMetaSession(session, dbAdmin);
+        return isEn
+          ? `[[EN_NATIVE]]📦 *PapoSend — Send a Parcel*\nType pickup & dropoff route (e.g. *Kariakoo - Tegeta*):`
+          : `📦 *PapoSend — Tuma Mzigo*\nAndika *njia ya mzigo* — unatoka wapi kwenda wapi (Mfano: *Kariakoo - Tegeta*):`;
+      }
+      if (knownPhone) {
+        return await finalizeParcel(knownPhone, input.trim());
+      }
+      session.details.route = input.trim();
+      delete session.details.awaitingParcelRoute;
+      session.step = 'COLLECTING_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      return `📦 Njia: *${input.trim()}*\n\n📞 Andika *namba yako ya simu* kwa uthibitisho (Mfano: *0712345678*):`;
+    }
+
+    if (session.step === 'COLLECTING_ROUTE') {
+      const routeVal = input.trim();
+      if (routeVal.length < 3 || /^\d{1,2}$/.test(routeVal)) {
+        return `⚠️ Tafadhali andika njia ya mzigo (Mfano: *Kariakoo - Tegeta*):`;
+      }
+      if (knownPhone) {
+        return await finalizeParcel(knownPhone, routeVal);
+      }
+      session.details.route = routeVal;
+      session.step = 'COLLECTING_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      return `📦 Njia: *${routeVal}*\n\n📞 Andika *namba yako ya simu* kwa uthibitisho (Mfano: *0712345678*):`;
+    }
+
+    if (session.step === 'COLLECTING_PHONE') {
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const phoneDigits = rawPhone.replace(/\D/g, '');
+      const parcelPhone = phoneDigits.length >= 9 ? rawPhone : knownPhone;
+      if (!parcelPhone || parcelPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(parcelPhone);
+      const routeFromInput = parts.length > 1 ? parts.slice(1).join(', ') : '';
+      return await finalizeParcel(parcelPhone, routeFromInput || session.details.route || '');
     }
   }
 
   // CAR RENTAL FLOW
   if (service === 'car_rental') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
+    const isMenuPick =
+      /^\d{1,2}$/.test(input.trim()) ||
+      /^(paporent|kodi(\s*gari)?|car\s*rental|rent(\s*car)?)$/i.test(input.trim());
+
+    const finalizeCarRental = async (rentalPhone: string) => {
+      const crCode = `CR-${Math.floor(1000 + Math.random() * 9000)}`;
+      const selectedVendorId = session.details.selectedVendorId || 'car-rental-meta-vendor';
+      const selectedName = session.details.selectedName || 'Rental Car';
+      const selectedPrice = session.details.selectedPrice || 100000;
+      const custName = session.details.customerName || 'Meta Car Rental Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        selectedVendorId,
+        'car_rental',
+        [{ name: `Car Rental: ${selectedName}`, price: selectedPrice, quantity: 1 }],
+        selectedPrice,
+        rentalPhone,
+        custName,
+        `Car Rental #${crCode} | ${selectedName}`,
+        session.channel,
+        { bookingCode: crCode }
+      );
+
+      return (
+        `🎉 *Kuhifadhi Gari Limefanikiwa!* 🚗🔑\n` +
+        `🔖 Namba ya Booking: *#${crCode}*\n\n` +
+        `- Gari: *${selectedName}*\n` +
+        `- Gharama/Siku: *TSH ${selectedPrice.toLocaleString()}*\n` +
+        `- Simu Yako: *${rentalPhone}*\n\n` +
+        `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(rentalPhone, crCode)}\n\n` +
+        `Mwakilishi wetu atawasiliana nawe hivi punde kuleta gari na funguo mahali ulipo au kukuelekeza ofisini. Ahsante na karibu sana!`
+      );
+    };
+
+    const inRentalStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
+    if (!inRentalStep) {
+      const searchQ = isMenuPick ? undefined : cleaned;
+      session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const cars = await fetchCatalogItemsForMeta(dbAdmin, 'car_rental', cleaned, [
+      const cars = await fetchCatalogItemsForMeta(dbAdmin, 'car_rental', searchQ, [
         {
           id: 'car-m1',
           name: 'Toyota Land Cruiser Prado (Silver)',
@@ -4239,7 +4758,7 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `🚗 *Papo Hapo Car Rental Assist*:\n\n`;
+      let resp = `🚗 *PapoRent — Kodisha Gari*\n\n`;
       resp += `Magari yanayopatikana leo karibu nawe:\n\n`;
       cars.forEach((car, idx) => {
         resp += `*${idx + 1}. ${car.name}*\n${car.desc ? `📌 ${car.desc}\n` : ''}💰 Kodi kwa siku: *TSH ${car.price.toLocaleString()}*\n\n`;
@@ -4249,7 +4768,7 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
+      const idx = parseInt(input, 10) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Namba si sahihi. Andika namba sahihi ya gari (*1–${session.details.optionsList?.length || 3}*).`;
@@ -4259,47 +4778,75 @@ async function routeToServiceFlow(
       session.details.selectedVendorId = selected.vendorId || 'car-rental-meta-vendor';
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
+      if (knownPhone) {
+        return await finalizeCarRental(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
 
-      return `🔑 Umechagua *${selected.name}*! Andika namba yako ya simu ya mkononi ya kukamilisha kukodisha (Mfano: *07XXXXXXXX*):`;
+      return `🔑 Umechagua *${selected.name}*! Andika namba yako ya simu ya mkononi ya kukamilisha kukodisha (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const crCode = `CR-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || "car-rental-meta-vendor",
-        "car_rental",
-        [{ name: `Car Rental: ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 100000,
-        input,
-        session.details.customerName || "Meta Car Rental Client",
-        `Car Rental #${crCode} | ${session.details.selectedName}`,
-        session.channel,
-        { bookingCode: crCode }
-      );
-
-      return `🎉 *Kuhifadhi Gari Limefanikiwa!* 🚗🔑\n` +
-             `🔖 Namba ya Booking: *#${crCode}*\n\n` +
-             `- Gari: *${session.details.selectedName}*\n` +
-             `- Gharama/Siku: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Simu Yako: *${input}*\n\n` +
-             `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(input, crCode)}\n\n` +
-             `Mwakilishi wetu atawasiliana nawe hivi punde kuleta gari na funguo mahali ulipo au kukuelekeza ofisini. Ahsante na karibu sana!`;
+      const rentalPhone = input.trim();
+      if (rentalPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(rentalPhone);
+      return await finalizeCarRental(rentalPhone);
     }
   }
 
   // SALON FLOW
   if (service === 'salon') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
+    const isMenuPick =
+      /^\d{1,2}$/.test(input.trim()) ||
+      /^(papostyle|saluni|salon|spa|nywele|kucha|makeup)$/i.test(input.trim());
+
+    const finalizeSalon = async (salonPhone: string, arrivalDetails: string) => {
+      const slCode = `SL-${Math.floor(1000 + Math.random() * 9000)}`;
+      const selectedVendorId = session.details.selectedVendorId || session.details.selectedId || 'salon-meta-vendor';
+      const selectedName = session.details.selectedName || 'Salon Booking';
+      const selectedPrice = session.details.selectedPrice || 15000;
+      const custName = session.details.customerName || 'Meta Salon Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        selectedVendorId,
+        'salon',
+        [{ name: `Salon Booking at ${selectedName}`, price: selectedPrice, quantity: 1 }],
+        selectedPrice,
+        salonPhone,
+        custName,
+        `Salon #${slCode} | Details: ${arrivalDetails}`,
+        session.channel,
+        { bookingCode: slCode }
+      );
+
+      return (
+        `✨ *Miadi ya Saluni Imethibitishwa!* 💇‍♀️💅\n` +
+        `🔖 Namba ya Miadi: *#${slCode}*\n\n` +
+        `- Saluni: *${selectedName}*\n` +
+        `- Bei: *TSH ${selectedPrice.toLocaleString()}*\n` +
+        `- Muda wa kufika: *${arrivalDetails}*\n` +
+        `- Simu: *${salonPhone}*\n\n` +
+        `🔗 *Fuatilia miadi & oda zako zote:*\n${buildOrdersTrackingUrl(salonPhone, slCode)}\n\n` +
+        `Saluni imepokea ombi lako na itakupigia simu kuthibitisha muda sahihi. Ahsante kwa kutumia Papo Hapo!`
+      );
+    };
+
+    const inSalonStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
+    if (!inSalonStep) {
+      const searchQ = isMenuPick ? undefined : cleaned;
+      session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const salons = await fetchCatalogItemsForMeta(dbAdmin, 'salon', cleaned, [
+      const salons = await fetchCatalogItemsForMeta(dbAdmin, 'salon', searchQ, [
         {
           id: 'sal-m1',
           name: 'Shear Illusions Executive Salon',
@@ -4333,17 +4880,17 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `💇‍♀️ *Papo Hapo Salon Booking Lounge*:\n\n`;
-      resp += `Umesema unatafuta: *"${cleaned}"*\n\n`;
+      let resp = `💇‍♀️ *PapoStyle — Saluni & Spa*\n\n`;
+      if (searchQ) resp += `Umesema unatafuta: *"${searchQ}"*\n\n`;
       salons.forEach((sal, idx) => {
         resp += `*${idx + 1}. ${sal.name}*\n${sal.desc ? `📍 ${sal.desc}\n` : ''}💰 Huduma: *TSH ${sal.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya Saluni unayotaka kuweka miadi (Booking) sasa (*1–${salons.length}*):`;
+      resp += `Andika namba ya Saluni unayotaka kuweka miadi (*1–${salons.length}*):`;
       return resp;
     }
 
     if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
+      const idx = parseInt(input, 10) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Chaguo si sahihi. Tafadhali weka namba kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
@@ -4354,47 +4901,84 @@ async function routeToServiceFlow(
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
 
-      return `⏰ Umechagua *${selected.name}*! Tafadhali andika namba yako ya simu na muda unaopendelea kufika saluni leo (Mfano: *0712345678, Saa 11 Jioni*):`;
+      if (knownPhone) {
+        session.details.skipPhoneAsk = true;
+        await saveMetaSession(session, dbAdmin);
+        return `⏰ Umechagua *${selected.name}*!\nUngependa kufika *muda gani* saluni? (Mfano: *Leo Saa 11 Jioni* au *Kesho Saa 4 Asubuhi*):`;
+      }
+
+      delete session.details.skipPhoneAsk;
+      await saveMetaSession(session, dbAdmin);
+      return `⏰ Umechagua *${selected.name}*! Tafadhali andika *namba yako ya simu* na *muda* unaopendelea kufika (Mfano: *0712345678, Saa 11 Jioni*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const salonPhone = input.split(',')[0].trim();
-      const slCode = `SL-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || session.details.selectedId || "salon-meta-vendor",
-        "salon",
-        [{ name: `Salon Booking at ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 15000,
-        salonPhone,
-        session.details.customerName || "Meta Salon Client",
-        `Salon #${slCode} | Details: ${input}`,
-        session.channel,
-        { bookingCode: slCode }
-      );
-
-      return `✨ *Miadi ya Saluni Imethibitishwa!* 💇‍♀️💅\n` +
-             `🔖 Namba ya Miadi: *#${slCode}*\n\n` +
-             `- Saluni: *${session.details.selectedName}*\n` +
-             `- Bei: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Maelezo ya kufika: *${input}*\n\n` +
-             `🔗 *Fuatilia miadi & oda zako zote:*\n${buildOrdersTrackingUrl(salonPhone, slCode)}\n\n` +
-             `Saluni imepokea ombi lako na itakupigia simu kuthibitisha muda sahihi. Ahsante kwa kutumia Papo Hapo Super App Bot!`;
+      if (knownPhone && session.details.skipPhoneAsk) {
+        return await finalizeSalon(knownPhone, input.trim());
+      }
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const salonPhone = rawPhone.replace(/\D/g, '').length >= 9 ? rawPhone : knownPhone;
+      if (!salonPhone || salonPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu na muda (Mfano: *0712345678, Saa 11 Jioni*):`;
+      }
+      await savePhonePref(salonPhone);
+      const arrivalDetails = parts.length > 1 ? parts.slice(1).join(', ') : input.trim();
+      return await finalizeSalon(salonPhone, arrivalDetails);
     }
   }
 
   // SOKONI / GROCERY FLOW
   if (service === 'grocery') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
+    const isMenuPick =
+      /^\d{1,2}$/.test(input.trim()) ||
+      /^(papomart|sokoni|soko|grocery|groceries|mboga)$/i.test(input.trim());
+
+    const finalizeGrocery = async (groceryPhone: string, deliveryAddr: string) => {
+      const skCode = `SK-${Math.floor(1000 + Math.random() * 9000)}`;
+      const selectedVendorId = session.details.selectedVendorId || 'sokoni-vendor-meta';
+      const selectedName = session.details.selectedName || 'Grocery Item';
+      const selectedPrice = session.details.selectedPrice || 5000;
+      const custName = session.details.customerName || 'Meta Grocery Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        selectedVendorId,
+        'grocery',
+        [{ name: selectedName, price: selectedPrice, quantity: 1 }],
+        selectedPrice,
+        groceryPhone,
+        custName,
+        `Sokoni #${skCode} | Market Address: ${deliveryAddr}`,
+        session.channel,
+        { bookingCode: skCode, orderType: 'delivery', deliveryAddress: deliveryAddr }
+      );
+
+      return (
+        `🎉 *Oda Yako Sokoni Imesajiliwa!* 🥦🛍️\n` +
+        `🔖 Namba ya Oda: *#${skCode}*\n\n` +
+        `- Bidhaa: *${selectedName}*\n` +
+        `- Jumla ya Bei: *TSH ${selectedPrice.toLocaleString()}*\n` +
+        `- Eneo la Kuletewa: *${deliveryAddr}*\n` +
+        `- Simu: *${groceryPhone}*\n\n` +
+        `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(groceryPhone, skCode)}\n\n` +
+        `Mjumbe wetu anafunga bidhaa zako na ataondoka sokoni kukuletea hapo punde. Ahsante sana!`
+      );
+    };
+
+    const inGroceryStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
+    if (!inGroceryStep) {
+      const searchQ = isMenuPick ? undefined : cleaned;
+      session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const items = await fetchCatalogItemsForMeta(dbAdmin, 'grocery', cleaned, [
+      const items = await fetchCatalogItemsForMeta(dbAdmin, 'grocery', searchQ, [
         {
           id: 'grc-m1',
           name: 'Nyanya Kiboksi (Safi)',
@@ -4428,8 +5012,8 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `🥦 *Papo Hapo Sokoni Assist*:\n\n`;
-      resp += `Bidhaa zilizopo kwa ajili ya: *"${cleaned}"*\n\n`;
+      let resp = `🥦 *PapoMart — Mahitaji ya Sokoni*\n\n`;
+      if (searchQ) resp += `Bidhaa zilizopo kwa ajili ya: *"${searchQ}"*\n\n`;
       items.forEach((item, idx) => {
         resp += `*${idx + 1}. ${item.name}*\n${item.desc ? `📌 ${item.desc}\n` : ''}💰 Bei: *TSH ${item.price.toLocaleString()}*\n\n`;
       });
@@ -4438,7 +5022,7 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
+      const idx = parseInt(input, 10) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Weka namba sahihi ya orodha kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
@@ -4449,47 +5033,97 @@ async function routeToServiceFlow(
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
 
-      return `🏡 Umechagua *${selected.name}*! Tafadhali weka namba yako ya simu na anwani ya kuwasilisha mzigo wako (Mfano: *0712345678, Kinondoni Block B*):`;
+      if (knownPhone) {
+        session.details.skipPhoneAsk = true;
+        await saveMetaSession(session, dbAdmin);
+        if (savedLoc?.name) {
+          return `🏡 Umechagua *${selected.name}*!\n📍 Tukuletée *eneo gani*?\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo jingine / tuma 📍 Location:_`;
+        }
+        return `🏡 Umechagua *${selected.name}*!\n📍 Tafadhali andika *anwani/eneo* la kuletewa mzigo (Mfano: *Kinondoni Block B* au tuma 📍 *Location*):`;
+      }
+
+      delete session.details.skipPhoneAsk;
+      await saveMetaSession(session, dbAdmin);
+      return `🏡 Umechagua *${selected.name}*! Tafadhali weka *namba yako ya simu* na *anwani ya kuwasilisha* (Mfano: *0712345678, Kinondoni Block B*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const groceryPhone = input.split(',')[0].trim();
-      const skCode = `SK-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      await saveMetaSession(session, dbAdmin);
+      if (knownPhone && session.details.skipPhoneAsk) {
+        let addr = input.trim();
+        if (addr === '1' && savedLoc?.name) {
+          addr = savedLoc.name;
+        } else if (addr.length >= 2) {
+          await saveLocPref({ name: addr, address: addr });
+        }
+        return await finalizeGrocery(knownPhone, addr);
+      }
 
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || "sokoni-vendor-meta",
-        "grocery",
-        [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 5000,
-        groceryPhone,
-        session.details.customerName || "Meta Grocery Client",
-        `Sokoni #${skCode} | Market Address: ${input}`,
-        session.channel,
-        { bookingCode: skCode, orderType: 'delivery', deliveryAddress: input }
-      );
-
-      return `🎉 *Oda Yako Sokoni Imesajiliwa!* 🥦🛍️\n` +
-             `🔖 Namba ya Oda: *#${skCode}*\n\n` +
-             `- Bidhaa: *${session.details.selectedName}*\n` +
-             `- Jumla ya Bei: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Maelezo ya Nyumbani: *${input}*\n\n` +
-             `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(groceryPhone, skCode)}\n\n` +
-             `Mjumbe wetu anafunga bidhaa zako na ataondoka sokoni kukuletea hapo punde. Utapokea simu ya malipo (Push prompt) sasa! Ahsante sana!`;
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const groceryPhone = rawPhone.replace(/\D/g, '').length >= 9 ? rawPhone : knownPhone;
+      if (!groceryPhone || groceryPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu na anwani (Mfano: *0712345678, Kinondoni*):`;
+      }
+      await savePhonePref(groceryPhone);
+      const addrPart = parts.length > 1 ? parts.slice(1).join(', ') : input.trim();
+      if (addrPart.length >= 2 && addrPart !== groceryPhone) {
+        await saveLocPref({ name: addrPart, address: addrPart });
+      }
+      return await finalizeGrocery(groceryPhone, addrPart);
     }
   }
 
   // PHARMACY FLOW
   if (service === 'pharmacy') {
-    if (!session.details.itemQuery) {
-      session.details.itemQuery = cleaned;
+    const isMenuPick =
+      /^\d{1,2}$/.test(input.trim()) ||
+      /^(papomed|dawa|pharmacy|afya)$/i.test(input.trim());
+
+    const finalizePharmacy = async (rxPhone: string, deliveryAddr: string) => {
+      const rxCode = `RX-${Math.floor(1000 + Math.random() * 9000)}`;
+      const selectedVendorId = session.details.selectedVendorId || 'pharmacy-meta-vendor';
+      const selectedName = session.details.selectedName || 'Pharmacy Order';
+      const selectedPrice = session.details.selectedPrice || 2500;
+      const custName = session.details.customerName || 'Meta Pharmacy Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        selectedVendorId,
+        'pharmacy',
+        [{ name: selectedName, price: selectedPrice, quantity: 1 }],
+        selectedPrice,
+        rxPhone,
+        custName,
+        `Pharmacy #${rxCode} | ${selectedName} | Address: ${deliveryAddr}`,
+        session.channel,
+        { bookingCode: rxCode, orderType: 'delivery', deliveryAddress: deliveryAddr }
+      );
+
+      return (
+        `✅ *Agizo la Dawa Limepokelewa!* 💊🚑\n` +
+        `🔖 Namba ya Oda: *#${rxCode}*\n\n` +
+        `- Dawa: *${selectedName}*\n` +
+        `- Bei ya kulipa: *TSH ${selectedPrice.toLocaleString()}*\n` +
+        `- Eneo: *${deliveryAddr}*\n` +
+        `- Simu: *${rxPhone}*\n\n` +
+        `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(rxPhone, rxCode)}\n\n` +
+        `Tumetuma ujumbe wa malipo (Push Prompt) kwenye namba yako *${rxPhone}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`
+      );
+    };
+
+    const inPharmacyStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
+    if (!inPharmacyStep) {
+      const searchQ = isMenuPick ? undefined : cleaned;
+      session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const meds = await fetchCatalogItemsForMeta(dbAdmin, 'pharmacy', cleaned, [
+      const meds = await fetchCatalogItemsForMeta(dbAdmin, 'pharmacy', searchQ, [
         {
           id: 'med-m1',
           name: 'Panadol Advance (Kopo 24)',
@@ -4523,8 +5157,8 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `💊 *Papo Hapo Pharmacy Assistant*:\n\n`;
-      resp += `Dawa/Vifaa vilivyopo karibu kwa ajili ya: *"${cleaned}"*\n\n`;
+      let resp = `💊 *PapoMed — Dawa na Afya*\n\n`;
+      if (searchQ) resp += `Dawa/Vifaa vilivyopo karibu kwa ajili ya: *"${searchQ}"*\n\n`;
       meds.forEach((med, idx) => {
         resp += `*${idx + 1}. ${med.name}*\n${med.desc ? `📌 ${med.desc}\n` : ''}💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
       });
@@ -4533,7 +5167,7 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'SELECTING_OPTION') {
-      const idx = parseInt(input) - 1;
+      const idx = parseInt(input, 10) - 1;
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Weka namba sahihi. Chagua *1* hadi *${session.details.optionsList?.length || 3}*.`;
@@ -4544,41 +5178,86 @@ async function routeToServiceFlow(
       session.details.selectedName = selected.name;
       session.details.selectedPrice = selected.price;
       session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
 
-      return `💊 Umechagua *${selected.name}*! Tafadhali andika namba yako ya simu na eneo ulipo (Mfano: *0712345678, Sinza*):`;
+      if (knownPhone) {
+        session.details.skipPhoneAsk = true;
+        await saveMetaSession(session, dbAdmin);
+        if (savedLoc?.name) {
+          return `💊 Umechagua *${selected.name}*!\n📍 Tukuletée *eneo gani*?\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo jingine / tuma 📍 Location:_`;
+        }
+        return `💊 Umechagua *${selected.name}*!\n📍 Tafadhali andika *eneo ulipo* (Mfano: *Sinza* au tuma 📍 *Location*):`;
+      }
+
+      delete session.details.skipPhoneAsk;
+      await saveMetaSession(session, dbAdmin);
+      return `💊 Umechagua *${selected.name}*! Tafadhali andika *namba yako ya simu* na *eneo ulipo* (Mfano: *0712345678, Sinza*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const rxPhone = input.split(',')[0].trim();
-      const rxCode = `RX-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      await saveMetaSession(session, dbAdmin);
+      if (knownPhone && session.details.skipPhoneAsk) {
+        let addr = input.trim();
+        if (addr === '1' && savedLoc?.name) {
+          addr = savedLoc.name;
+        } else if (addr.length >= 2) {
+          await saveLocPref({ name: addr, address: addr });
+        }
+        return await finalizePharmacy(knownPhone, addr);
+      }
 
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || "pharmacy-meta-vendor",
-        "pharmacy",
-        [{ name: session.details.selectedName, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 2500,
-        rxPhone,
-        session.details.customerName || "Meta Pharmacy Client",
-        `Pharmacy #${rxCode} | ${session.details.selectedName} | Address: ${input}`,
-        session.channel,
-        { bookingCode: rxCode, orderType: 'delivery', deliveryAddress: input }
-      );
-
-      return `✅ *Agizo la Dawa Limepokelewa!* 💊🚑\n` +
-             `🔖 Namba ya Oda: *#${rxCode}*\n\n` +
-             `- Dawa: *${session.details.selectedName}*\n` +
-             `- Bei ya kulipa: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n\n` +
-             `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(rxPhone, rxCode)}\n\n` +
-             `Tumetuma ujumbe wa kufanya malipo (Push Prompt) kwenye namba yako *${rxPhone}*. Muamala ukikamilika duka litatuma dawa zako mara moja!`;
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const rxPhone = rawPhone.replace(/\D/g, '').length >= 9 ? rawPhone : knownPhone;
+      if (!rxPhone || rxPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu na eneo (Mfano: *0712345678, Sinza*):`;
+      }
+      await savePhonePref(rxPhone);
+      const addrPart = parts.length > 1 ? parts.slice(1).join(', ') : input.trim();
+      if (addrPart.length >= 2 && addrPart !== rxPhone) {
+        await saveLocPref({ name: addrPart, address: addrPart });
+      }
+      return await finalizePharmacy(rxPhone, addrPart);
     }
   }
 
   // HOTEL & ROOMS FLOW
   if (service === 'hotel') {
+    const finalizeHotel = async (hotelPhone: string, checkInInfo: string) => {
+      const htCode = `HT-${Math.floor(1000 + Math.random() * 9000)}`;
+      const vendorId = session.details.selectedHotelId || session.details.selectedId || 'hotel-meta-vendor';
+      const selectedName = session.details.selectedName || 'Hotel Room';
+      const selectedPrice = session.details.selectedPrice || 100000;
+      const custName = session.details.customerName || 'Meta Hotel Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        vendorId,
+        'hotel',
+        [{ name: `Hotel Room: ${selectedName}`, price: selectedPrice, quantity: 1 }],
+        selectedPrice,
+        hotelPhone,
+        custName,
+        `Hotel Booking #${htCode} | Room Booking info: ${checkInInfo}`,
+        session.channel,
+        { bookingCode: htCode, orderType: 'booking' }
+      );
+
+      return (
+        `🏨 *Booking ya Chumba Imethibitishwa!* 🎉\n` +
+        `🔖 Namba ya Booking: *#${htCode}*\n\n` +
+        `- Chumba: *${selectedName}*\n` +
+        `- Bei/Usiku: *TSH ${selectedPrice.toLocaleString()}*\n` +
+        `- Tarehe ya Kuingia: *${checkInInfo}*\n` +
+        `- Simu: *${hotelPhone}*\n\n` +
+        `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(hotelPhone, htCode)}\n\n` +
+        `Hoteli imepokea booking yako na itakupigia/kutuma uthibitisho punde. Karibu sana! 🇹🇿`
+      );
+    };
+
     const isInHotelStep = ['HOTEL_SELECT_VENDOR', 'HOTEL_SELECT_ROOM', 'COLLECTING_PHONE'].includes(session.step);
 
     if (!isInHotelStep) {
@@ -4595,7 +5274,7 @@ async function routeToServiceFlow(
         }))
       );
 
-      let resp = `🏨 *Papo Hapo Hotel & Vyumba Finder*:\n\n`;
+      let resp = `🏨 *PapoStay — Hoteli & Malazi*\n\n`;
       resp += `Hoteli na nyumba za wageni zilizopo:\n\n`;
       hotels.forEach((htl, idx) => {
         resp += `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc}\n💰 Kuanzia: *TSH ${htl.price.toLocaleString()}/usiku*\n\n`;
@@ -4647,37 +5326,31 @@ async function routeToServiceFlow(
       session.details.selectedName = `${session.details.selectedHotelName} — ${selectedRoom.name}`;
       session.details.selectedPrice = selectedRoom.price;
       session.step = 'COLLECTING_PHONE';
-      await saveMetaSession(session, dbAdmin);
 
-      return `🏨 Umechagua *${selectedRoom.name}* (*TSH ${selectedRoom.price.toLocaleString()}/usiku*)!\n\nSasa andika namba yako ya simu na tarehe unayotaka kuingia (Mfano: *0712345678, Leo Usiku* au *Kesho*):`;
+      if (knownPhone) {
+        session.details.skipPhoneAsk = true;
+        await saveMetaSession(session, dbAdmin);
+        return `🏨 Umechagua *${selectedRoom.name}* (*TSH ${selectedRoom.price.toLocaleString()}/usiku*)!\n\n🗓️ Unataka kuingia *lini*? (Mfano: *Leo Usiku* au *Kesho*):`;
+      }
+
+      delete session.details.skipPhoneAsk;
+      await saveMetaSession(session, dbAdmin);
+      return `🏨 Umechagua *${selectedRoom.name}* (*TSH ${selectedRoom.price.toLocaleString()}/usiku*)!\n\nSasa andika *namba yako ya simu* na *tarehe ya kuingia* (Mfano: *0712345678, Leo Usiku* au *Kesho*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const hotelPhone = input.split(',')[0].trim();
-      const htCode = `HT-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedHotelId || session.details.selectedId || "hotel-meta-vendor",
-        "hotel",
-        [{ name: `Hotel Room: ${session.details.selectedName}`, price: session.details.selectedPrice, quantity: 1 }],
-        session.details.selectedPrice || 100000,
-        hotelPhone,
-        session.details.customerName || "Meta Hotel Client",
-        `Hotel Booking #${htCode} | Room Booking info: ${input}`,
-        session.channel,
-        { bookingCode: htCode, orderType: 'booking' }
-      );
-
-      return `🏨 *Booking ya Chumba Imethibitishwa!* 🎉\n` +
-             `🔖 Namba ya Booking: *#${htCode}*\n\n` +
-             `- Chumba: *${session.details.selectedName}*\n` +
-             `- Bei/Usiku: *TSH ${session.details.selectedPrice?.toLocaleString()}*\n` +
-             `- Maelezo ya kuingia: *${input}*\n\n` +
-             `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(hotelPhone, htCode)}\n\n` +
-             `Hoteli imepokea booking yako na itakupigia/kutuma uthibitisho punde. Karibu sana! 🇹🇿`;
+      if (knownPhone && session.details.skipPhoneAsk) {
+        return await finalizeHotel(knownPhone, input.trim());
+      }
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const hotelPhone = rawPhone.replace(/\D/g, '').length >= 9 ? rawPhone : knownPhone;
+      if (!hotelPhone || hotelPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu na tarehe (Mfano: *0712345678, Leo Usiku*):`;
+      }
+      await savePhonePref(hotelPhone);
+      const checkInInfo = parts.length > 1 ? parts.slice(1).join(', ') : input.trim();
+      return await finalizeHotel(hotelPhone, checkInInfo);
     }
   }
 
@@ -4692,10 +5365,62 @@ async function routeToServiceFlow(
       { id: 'painting', label: 'Fundi Rangi & Ujenzi', price: 12000 },
       { id: 'electronics', label: 'TV, Solar & Electronics', price: 10000 }
     ];
+    const finalizeHandyman = async (fixPhone: string) => {
+      const pfxCode = `PFX-${Math.floor(1000 + Math.random() * 9000)}`;
+      const vendorId = session.details.selectedVendorId || 'papo-fix-express-team';
+      const fixCat = session.details.fixCategory || 'Home Service';
+      const selectedName = session.details.selectedName || 'Fundi';
+      const selectedPrice = session.details.selectedPrice || 10000;
+      const fixDesc = session.details.fixDescription || '';
+      const custName = session.details.customerName || 'Meta PapoFix Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        vendorId,
+        'handyman',
+        [{
+          name: `${fixCat}: ${selectedName}`,
+          price: selectedPrice,
+          quantity: 1
+        }],
+        selectedPrice,
+        fixPhone,
+        custName,
+        `PapoFix #${pfxCode} | ${fixDesc}`,
+        session.channel,
+        {
+          bookingCode: pfxCode,
+          service: 'PapoFix',
+          vendorCategory: 'handyman',
+          vendorName: selectedName,
+          subCategory: fixCat,
+          description: fixDesc,
+          deliveryAddress: fixDesc,
+          orderType: 'booking'
+        }
+      );
+
+      return (
+        `🛠️ *OMBI LA PAPOFIX LIMETHIBITISHWA!*\n` +
+        `🔖 Namba ya Booking: *#${pfxCode}*\n\n` +
+        `- Huduma: *${fixCat}*\n` +
+        `- Fundi: *${selectedName}*\n` +
+        `- Maelezo: *${fixDesc}*\n` +
+        `- Ada ya Ukaguzi: *TZS ${selectedPrice.toLocaleString()}*\n` +
+        `- Simu: *${fixPhone}*\n\n` +
+        `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(fixPhone, pfxCode)}\n\n` +
+        `Fundi atakupigia hivi punde kuanza kazi! Ahsante kwa kutumia PapoFix. ✨`
+      );
+    };
+
     const inFixFlow = ['FIX_SELECT_CAT', 'FIX_SELECT_VENDOR', 'FIX_DESCRIBE_PROBLEM', 'COLLECTING_PHONE'].includes(session.step);
 
     if (!inFixFlow) {
-      // Check if user directly mentioned a specialty like "fundi umeme" or "bomba"
       const directCat = FIX_CATEGORIES.find((c) => {
         const lower = input.toLowerCase();
         return (
@@ -4789,59 +5514,29 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'FIX_DESCRIBE_PROBLEM') {
-      session.details.fixDescription = input;
+      const descVal = input.trim();
+      if (descVal.length < 3) {
+        return `⚠️ Tafadhali eleza tatizo na eneo ulipo (Mfano: *Bomba linavuja, Sinza*):`;
+      }
+      session.details.fixDescription = descVal;
+      if (knownPhone) {
+        return await finalizeHandyman(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      return `📞 Tutumie namba gani Fundi awasiliane nawe?\n\n${waDigitsLocal.length >= 9 ? `1. Ndio, tumia *+${waDigitsLocal}*\n` : ''}Andika namba yako ya simu (Mfano: *0712345678*):`;
+      return `📞 Tutumie namba gani Fundi awasiliane nawe?\nAndika namba yako ya simu (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       let fixPhone = input.trim();
-      if ((fixPhone === '1' || fixPhone.toUpperCase() === 'NDIO') && waDigitsLocal.length >= 9) {
-        fixPhone = `+${waDigitsLocal}`;
+      if ((fixPhone === '1' || fixPhone.toUpperCase() === 'NDIO') && waDigitsFallback.length >= 9) {
+        fixPhone = `+${waDigitsFallback}`;
       }
-      const pfxCode = `PFX-${Math.floor(1000 + Math.random() * 9000)}`;
-      session.step = 'START';
-      delete session.service;
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || 'papo-fix-express-team',
-        'handyman',
-        [{
-          name: `${session.details.fixCategory || 'PapoFix'}: ${session.details.selectedName}`,
-          price: session.details.selectedPrice || 10000,
-          quantity: 1
-        }],
-        session.details.selectedPrice || 10000,
-        fixPhone,
-        session.details.customerName || 'Meta PapoFix Client',
-        `PapoFix #${pfxCode} | ${session.details.fixDescription || ''}`,
-        session.channel,
-        {
-          bookingCode: pfxCode,
-          service: 'PapoFix',
-          vendorCategory: 'handyman',
-          vendorName: session.details.selectedName,
-          subCategory: session.details.fixCategory,
-          description: session.details.fixDescription,
-          deliveryAddress: session.details.fixDescription,
-          orderType: 'booking'
-        }
-      );
-
-      return `🛠️ *OMBI LA PAPOFIX LIMETHIBITISHWA!*\n` +
-             `🔖 Namba ya Booking: *#${pfxCode}*\n\n` +
-             `- Huduma: *${session.details.fixCategory || 'Home Service'}*\n` +
-             `- Fundi: *${session.details.selectedName}*\n` +
-             `- Maelezo: *${session.details.fixDescription}*\n` +
-             `- Ada ya Ukaguzi: *TZS ${(session.details.selectedPrice || 10000).toLocaleString()}*\n` +
-             `- Simu: *${fixPhone}*\n\n` +
-             `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(fixPhone, pfxCode)}\n\n` +
-             `Fundi atakupigia hivi punde kuanza kazi! Ahsante kwa kutumia PapoFix. ✨`;
+      if (fixPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(fixPhone);
+      return await finalizeHandyman(fixPhone);
     }
   }
 
@@ -4849,6 +5544,58 @@ async function routeToServiceFlow(
   if (service === 'ecommerce') {
     const inMallStep = ['MALL_SELECT_ITEM', 'MALL_QUANTITY', 'MALL_DELIVERY_ADDRESS', 'SELECTING_PAYMENT_METHOD', 'COLLECTING_PHONE'].includes(session.step);
     const isMenuPick = /^\d{1,2}$/.test(input.trim()) || /^(papomall|maduka|duka|mall|shopping)$/i.test(input.trim());
+
+    const finalizeMall = async (mallPhone: string) => {
+      const mlCode = `ML-${Math.floor(1000 + Math.random() * 9000)}`;
+      const qty = session.details.mallQty || 1;
+      const totalAmt = session.details.mallTotal || session.details.selectedPrice || 0;
+      const vendorId = session.details.selectedVendorId || 'papo-mall-official';
+      const vendorName = session.details.selectedVendorName || 'PapoMall Store';
+      const selectedId = session.details.selectedId;
+      const selectedName = session.details.selectedName || 'Bidhaa';
+      const selectedPrice = session.details.selectedPrice || 0;
+      const deliveryAddr = session.details.deliveryAddress || '';
+      const payMethod = session.details.paymentMethod || 'cash';
+      const payMethodLabel = session.details.paymentMethodLabel || 'Cash';
+      const custName = session.details.customerName || 'Meta PapoMall Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        vendorId,
+        'ecommerce',
+        [{ id: selectedId, name: selectedName, price: selectedPrice, quantity: qty }],
+        totalAmt,
+        mallPhone,
+        custName,
+        `PapoMall #${mlCode} | To: ${deliveryAddr}`,
+        session.channel,
+        {
+          bookingCode: mlCode,
+          vendorName,
+          deliveryAddress: deliveryAddr,
+          paymentMethod: payMethod,
+          paymentMethodLabel: payMethodLabel,
+          orderType: 'delivery'
+        }
+      );
+
+      return (
+        `🎉 *ODA YA PAPOMALL IMEPOKELEWA!* 🛒\n` +
+        `🔖 Namba ya Oda: *#${mlCode}*\n\n` +
+        `- Bidhaa: *${selectedName}* x${qty}\n` +
+        `- Jumla: *TZS ${totalAmt.toLocaleString()}*\n` +
+        `- Malipo: *${payMethodLabel}*\n` +
+        `- Eneo: *${deliveryAddr}*\n` +
+        `- Simu: *${mallPhone}*\n\n` +
+        `🔗 *Fuatilia oda yako & oda zako zote:*\n${buildOrdersTrackingUrl(mallPhone, mlCode)}\n\n` +
+        `Duka limepokea oda yako na linaandaa usafirishaji sasa! 🙏`
+      );
+    };
 
     if (!inMallStep) {
       const searchQ = isMenuPick ? undefined : cleaned;
@@ -4921,14 +5668,23 @@ async function routeToServiceFlow(
       session.details.mallTotal = (session.details.selectedPrice || 0) * qty;
       session.step = 'MALL_DELIVERY_ADDRESS';
       await saveMetaSession(session, dbAdmin);
-      return `✅ Idadi: *${qty}* — Jumla: *TZS ${session.details.mallTotal.toLocaleString()}*\n\n📍 Tafadhali andika *eneo/mtaa wa kuletewa* mzigo wako (Mfano: *Sinza Kumekucha* au *Posta*):`;
+      if (savedLoc?.name) {
+        return `✅ Idadi: *${qty}* — Jumla: *TZS ${session.details.mallTotal.toLocaleString()}*\n\n📍 Tukuletée *eneo gani*?\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo jingine / tuma 📍 Location:_`;
+      }
+      return `✅ Idadi: *${qty}* — Jumla: *TZS ${session.details.mallTotal.toLocaleString()}*\n\n📍 Tafadhali andika *eneo/mtaa wa kuletewa* mzigo (Mfano: *Sinza Kumekucha* au tuma 📍 *Location*):`;
     }
 
     if (session.step === 'MALL_DELIVERY_ADDRESS') {
-      session.details.deliveryAddress = input;
+      let addr = input.trim();
+      if (addr === '1' && savedLoc?.name) {
+        addr = savedLoc.name;
+      } else if (addr.length >= 2) {
+        await saveLocPref({ name: addr, address: addr });
+      }
+      session.details.deliveryAddress = addr;
       session.step = 'SELECTING_PAYMENT_METHOD';
       await saveMetaSession(session, dbAdmin);
-      return `📍 Eneo la kuletewa: *${input}*\nJumla: *TZS ${(session.details.mallTotal || session.details.selectedPrice || 0).toLocaleString()}*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
+      return `📍 Eneo la kuletewa: *${addr}*\nJumla: *TZS ${(session.details.mallTotal || session.details.selectedPrice || 0).toLocaleString()}*\n\n💳 *CHAGUA NJIA YA MALIPO:*\n1. 💵 *Cash* (Lipa ukipokea)\n2. 📱 *M-Pesa*\n3. 📱 *Tigo Pesa (Mixx by Yas)*\n4. 📱 *Airtel Money*`;
     }
 
     if (session.step === 'SELECTING_PAYMENT_METHOD') {
@@ -4940,54 +5696,24 @@ async function routeToServiceFlow(
       else if (pChoice === '4' || pChoice.toLowerCase().includes('airtel')) { payLabel = 'Airtel Money 📱'; payMethod = 'airtel'; }
       session.details.paymentMethod = payMethod;
       session.details.paymentMethodLabel = payLabel;
+      if (knownPhone) {
+        return await finalizeMall(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      return `💳 Malipo: *${payLabel}*\n\n📞 Tutumie namba yako kwa uthibitisho?\n${waDigitsLocal.length >= 9 ? `1. Ndio, tumia *+${waDigitsLocal}*\n` : ''}Au andika namba yako ya simu:`;
+      return `💳 Malipo: *${payLabel}*\n\n📞 Andika *namba yako ya simu* kwa uthibitisho (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       let mallPhone = input.trim();
-      if ((mallPhone === '1' || mallPhone.toUpperCase() === 'NDIO') && waDigitsLocal.length >= 9) {
-        mallPhone = `+${waDigitsLocal}`;
+      if ((mallPhone === '1' || mallPhone.toUpperCase() === 'NDIO') && waDigitsFallback.length >= 9) {
+        mallPhone = `+${waDigitsFallback}`;
       }
-      const mlCode = `ML-${Math.floor(1000 + Math.random() * 9000)}`;
-      const qty = session.details.mallQty || 1;
-      const totalAmt = session.details.mallTotal || session.details.selectedPrice || 0;
-      session.step = 'START';
-      delete session.service;
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        session.details.selectedVendorId || 'papo-mall-official',
-        'ecommerce',
-        [{ id: session.details.selectedId, name: session.details.selectedName, price: session.details.selectedPrice, quantity: qty }],
-        totalAmt,
-        mallPhone,
-        session.details.customerName || 'Meta PapoMall Client',
-        `PapoMall #${mlCode} | To: ${session.details.deliveryAddress || ''}`,
-        session.channel,
-        {
-          bookingCode: mlCode,
-          vendorName: session.details.selectedVendorName || 'PapoMall Store',
-          deliveryAddress: session.details.deliveryAddress,
-          paymentMethod: session.details.paymentMethod || 'cash',
-          paymentMethodLabel: session.details.paymentMethodLabel || 'Cash',
-          orderType: 'delivery'
-        }
-      );
-
-      return `🎉 *ODA YA PAPOMALL IMEPOKELEWA!* 🛒\n` +
-             `🔖 Namba ya Oda: *#${mlCode}*\n\n` +
-             `- Bidhaa: *${session.details.selectedName}* x${qty}\n` +
-             `- Jumla: *TZS ${totalAmt.toLocaleString()}*\n` +
-             `- Malipo: *${session.details.paymentMethodLabel || 'Cash'}*\n` +
-             `- Eneo: *${session.details.deliveryAddress}*\n` +
-             `- Simu: *${mallPhone}*\n\n` +
-             `🔗 *Fuatilia oda yako & oda zako zote:*\n${buildOrdersTrackingUrl(mallPhone, mlCode)}\n\n` +
-             `Duka limepokea oda yako na linaandaa usafirishaji sasa! 🙏`;
+      if (mallPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(mallPhone);
+      return await finalizeMall(mallPhone);
     }
   }
 
@@ -5030,6 +5756,51 @@ async function routeToServiceFlow(
         ]
       }
     ];
+
+    const finalizeEventTicket = async (tkPhone: string) => {
+      const tkCode = `TK-${Math.floor(1000 + Math.random() * 9000)}`;
+      const ev = session.details.selectedEvent || {};
+      const tier = session.details.selectedTier || {};
+      const count = session.details.ticketCount || 1;
+      const total = session.details.ticketTotal || Number(tier.price || 10000) * count;
+      const custName = session.details.customerName || 'Meta PapoTicket Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        'papo-ticket-events',
+        'events',
+        [{ name: `${ev.title || 'Event'} (${tier.name || 'Pass'})`, price: Number(tier.price || total), quantity: count }],
+        total,
+        tkPhone,
+        custName,
+        `PapoTicket #${tkCode} | ${ev.title} | ${ev.venue}`,
+        session.channel,
+        {
+          bookingCode: tkCode,
+          vendorName: 'PapoTicket Events',
+          service: 'PapoTicket',
+          deliveryAddress: ev.venue || 'Venue',
+          orderType: 'booking'
+        }
+      );
+
+      return (
+        `🎟️ *TIKETI YAKO YA PAPOTICKET IMETOLEWA!*\n` +
+        `🔖 Namba ya Tiketi: *#${tkCode}*\n\n` +
+        `- Tukio: *${ev.title}*\n` +
+        `- Ukumbi: *${ev.venue}* (${ev.date || ''})\n` +
+        `- Daraja: *${tier.name}* x${count}\n` +
+        `- Jumla: *TZS ${total.toLocaleString()}*\n` +
+        `- Simu: *${tkPhone}*\n\n` +
+        `🔗 *Pakua / Fuatilia Tiketi & Oda Zako Zote:*\n${buildOrdersTrackingUrl(tkPhone, tkCode)}\n\n` +
+        `Tumetuma ombi la malipo kwenye simu yako *${tkPhone}*. Ukithibitisha, tiketi yako ya QR itafunguka papo hapo! 🎉`
+      );
+    };
 
     const inEventStep = ['EVENT_SELECT', 'EVENT_SELECT_TIER', 'EVENT_QUANTITY', 'COLLECTING_PHONE'].includes(session.step);
     if (!inEventStep) {
@@ -5113,56 +5884,24 @@ async function routeToServiceFlow(
       const unitPrice = Number(session.details.selectedTier?.price || 10000);
       session.details.ticketCount = count;
       session.details.ticketTotal = count * unitPrice;
+      if (knownPhone) {
+        return await finalizeEventTicket(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      return `🎟️ Tiketi *${count}* x *${session.details.selectedTier?.name}*\nJumla: *TZS ${session.details.ticketTotal.toLocaleString()}*\n\n📞 Tutumie namba gani kwa malipo (Push Prompt) & kutuma tiketi?\n${waDigitsLocal.length >= 9 ? `1. Ndio, tumia *+${waDigitsLocal}*\n` : ''}Andika namba yako ya simu:`;
+      return `🎟️ Tiketi *${count}* x *${session.details.selectedTier?.name}*\nJumla: *TZS ${session.details.ticketTotal.toLocaleString()}*\n\n📞 Andika *namba yako ya simu* kwa malipo & kutuma tiketi (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       let tkPhone = input.trim();
-      if ((tkPhone === '1' || tkPhone.toUpperCase() === 'NDIO') && waDigitsLocal.length >= 9) {
-        tkPhone = `+${waDigitsLocal}`;
+      if ((tkPhone === '1' || tkPhone.toUpperCase() === 'NDIO') && waDigitsFallback.length >= 9) {
+        tkPhone = `+${waDigitsFallback}`;
       }
-      const tkCode = `TK-${Math.floor(1000 + Math.random() * 9000)}`;
-      const ev = session.details.selectedEvent || {};
-      const tier = session.details.selectedTier || {};
-      const count = session.details.ticketCount || 1;
-      const total = session.details.ticketTotal || Number(tier.price || 10000) * count;
-
-      session.step = 'START';
-      delete session.service;
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        'papo-ticket-events',
-        'events',
-        [{ name: `${ev.title || 'Event'} (${tier.name || 'Pass'})`, price: Number(tier.price || total), quantity: count }],
-        total,
-        tkPhone,
-        session.details.customerName || 'Meta PapoTicket Client',
-        `PapoTicket #${tkCode} | ${ev.title} | ${ev.venue}`,
-        session.channel,
-        {
-          bookingCode: tkCode,
-          vendorName: 'PapoTicket Events',
-          service: 'PapoTicket',
-          deliveryAddress: ev.venue || 'Venue',
-          orderType: 'booking'
-        }
-      );
-
-      return `🎟️ *TIKETI YAKO YA PAPOTICKET IMETOLEWA!*\n` +
-             `🔖 Namba ya Tiketi: *#${tkCode}*\n\n` +
-             `- Tukio: *${ev.title}*\n` +
-             `- Ukumbi: *${ev.venue}* (${ev.date || ''})\n` +
-             `- Daraja: *${tier.name}* x${count}\n` +
-             `- Jumla: *TZS ${total.toLocaleString()}*\n` +
-             `- Simu: *${tkPhone}*\n\n` +
-             `🔗 *Pakua / Fuatilia Tiketi & Oda Zako Zote:*\n${buildOrdersTrackingUrl(tkPhone, tkCode)}\n\n` +
-             `Tumetuma ombi la malipo kwenye simu yako *${tkPhone}*. Ukithibitisha, tiketi yako ya QR itafunguka papo hapo! 🎉`;
+      if (tkPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(tkPhone);
+      return await finalizeEventTicket(tkPhone);
     }
   }
 
@@ -5171,22 +5910,64 @@ async function routeToServiceFlow(
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
     const inPayStep = ['PAPOPAY_MENU', 'PAPOPAY_PAY_TARGET', 'PAPOPAY_PAY_AMOUNT', 'COLLECTING_PHONE'].includes(session.step);
 
+    const finalizePapoPay = async (payPhone: string) => {
+      const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
+      const amt = session.details.payAmount || 5000;
+      const target = session.details.payTarget || 'PapoPay Merchant';
+      const custName = session.details.customerName || 'Meta PapoPay Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        'papopay-express',
+        'papopay',
+        [{ name: `PapoPay Payment: ${target}`, price: amt, quantity: 1 }],
+        amt,
+        payPhone,
+        custName,
+        `PapoPay #${ppCode} | Target: ${target}`,
+        session.channel,
+        {
+          bookingCode: ppCode,
+          vendorName: 'PapoPay Express',
+          service: 'PapoPay',
+          deliveryAddress: target,
+          orderType: 'payment'
+        }
+      );
+
+      return (
+        `📲 *OMBI LA MALIPO LA PAPOPAY LIMETUMWA!*\n` +
+        `🔖 Rejea: *#${ppCode}*\n\n` +
+        `- Mpokeaji / Bili: *${target}*\n` +
+        `- Kiasi: *TZS ${amt.toLocaleString()}*\n` +
+        `- Simu ya Malipo: *${payPhone}*\n\n` +
+        `🔗 *Fuatilia Muamala & Risiti Zako:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}\n\n` +
+        `Ingiza PIN yako kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}* kukamilisha malipo. 🔐`
+      );
+    };
+
     if (!inPayStep) {
       session.step = 'PAPOPAY_MENU';
       await saveMetaSession(session, dbAdmin);
-      return `💳 *PapoPay — Lipa Papo & PapoWallet*\n\nChagua huduma ya malipo unayohitaji:\n\n` +
-             `1. 💰 *Angalia Salio la PapoWallet & Pointi*\n` +
-             `2. 📲 *Lipa Dereva / Mgahawa / Bili (PapoPay)*\n` +
-             `3. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
-             `4. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
-             `Andika namba (*1–4*):`;
+      return (
+        `💳 *PapoPay — Lipa Papo & PapoWallet*\n\nChagua huduma ya malipo unayohitaji:\n\n` +
+        `1. 💰 *Angalia Salio la PapoWallet & Pointi*\n` +
+        `2. 📲 *Lipa Dereva / Mgahawa / Bili (PapoPay)*\n` +
+        `3. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
+        `4. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
+        `Andika namba (*1–4*):`
+      );
     }
 
     if (session.step === 'PAPOPAY_MENU') {
       const choice = input.trim();
       if (choice === '1') {
-        const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-        const lookupPhone = session.details.phone || (waDigitsLocal.length >= 9 ? `+${waDigitsLocal}` : '');
+        const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
         let walletBalance = 0;
         let points = 0;
         let foundUser = false;
@@ -5207,14 +5988,17 @@ async function routeToServiceFlow(
         }
         session.step = 'START';
         delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
 
-        return `💰 *SALIO LA PAPOWALLET*\n\n` +
-               `- Simu: *${lookupPhone || 'Bila namba'}*\n` +
-               `- Salio la PapoWallet: *TZS ${walletBalance.toLocaleString()}*\n` +
-               `- PapoPoints: *${points.toLocaleString()} pts*\n` +
-               `${!foundUser ? `\n_Kumbuka: Unaweza kuweka pesa kupitia Wakala wa PapoPay au app kuongeza salio lako._\n` : ''}` +
-               `\n🔗 *Dhibiti Wallet yako:* ${publicBaseUrl}/papopay\n\n_(Andika *Hi* kurudi kwenye Menu)_`;
+        return (
+          `💰 *SALIO LA PAPOWALLET*\n\n` +
+          `- Simu: *${lookupPhone || 'Bila namba'}*\n` +
+          `- Salio la PapoWallet: *TZS ${walletBalance.toLocaleString()}*\n` +
+          `- PapoPoints: *${points.toLocaleString()} pts*\n` +
+          `${!foundUser ? `\n_Kumbuka: Unaweza kuweka pesa kupitia Wakala wa PapoPay au app kuongeza salio lako._\n` : ''}` +
+          `\n🔗 *Dhibiti Wallet yako:* ${publicBaseUrl}/papopay\n\n_(Andika *00* au *Hi* kurudi kwenye Menu)_`
+        );
       }
 
       if (choice === '2') {
@@ -5243,6 +6027,7 @@ async function routeToServiceFlow(
         }
         session.step = 'START';
         delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
         return `${wakalaMsg}🔗 *Tafuta Wakala & Lipa Mtandaoni:* ${publicBaseUrl}/papopay`;
       }
@@ -5250,6 +6035,7 @@ async function routeToServiceFlow(
       if (choice === '4') {
         session.step = 'START';
         delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
         return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na kuhamisha pesa:\n👉 ${publicBaseUrl}/papopay`;
       }
@@ -5270,61 +6056,33 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka kiasi sahihi kwa tarakimu (Mfano: *5000*):`;
       }
       session.details.payAmount = amt;
+      if (knownPhone) {
+        return await finalizePapoPay(knownPhone);
+      }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
-      return `💳 Kiasi: *TZS ${amt.toLocaleString()}* kwenda *${session.details.payTarget}*\n\n📞 Tutumie namba gani ombi la malipo (M-Pesa/Tigo/Airtel Push)?\n${waDigitsLocal.length >= 9 ? `1. Ndio, tumia *+${waDigitsLocal}*\n` : ''}Andika namba yako ya simu:`;
+      return `💳 Kiasi: *TZS ${amt.toLocaleString()}* kwenda *${session.details.payTarget}*\n\n📞 Andika *namba yako ya simu* kupokea ombi la malipo (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
-      const waDigitsLocal = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       let payPhone = input.trim();
-      if ((payPhone === '1' || payPhone.toUpperCase() === 'NDIO') && waDigitsLocal.length >= 9) {
-        payPhone = `+${waDigitsLocal}`;
+      if ((payPhone === '1' || payPhone.toUpperCase() === 'NDIO') && waDigitsFallback.length >= 9) {
+        payPhone = `+${waDigitsFallback}`;
       }
-      const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
-      const amt = session.details.payAmount || 5000;
-      const target = session.details.payTarget || 'PapoPay Merchant';
-
-      session.step = 'START';
-      delete session.service;
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
-        dbAdmin,
-        'papopay-express',
-        'papopay',
-        [{ name: `PapoPay Payment: ${target}`, price: amt, quantity: 1 }],
-        amt,
-        payPhone,
-        session.details.customerName || 'Meta PapoPay Client',
-        `PapoPay #${ppCode} | Target: ${target}`,
-        session.channel,
-        {
-          bookingCode: ppCode,
-          vendorName: 'PapoPay Express',
-          service: 'PapoPay',
-          deliveryAddress: target,
-          orderType: 'payment'
-        }
-      );
-
-      return `📲 *OMBI LA MALIPO LA PAPOPAY LIMETUMWA!*\n` +
-             `🔖 Rejea: *#${ppCode}*\n\n` +
-             `- Mpokeaji / Bili: *${target}*\n` +
-             `- Kiasi: *TZS ${amt.toLocaleString()}*\n` +
-             `- Simu ya Malipo: *${payPhone}*\n\n` +
-             `🔗 *Fuatilia Muamala & Risiti Zako:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}\n\n` +
-             `Ingiza PIN yako kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}* kukamilisha malipo. 🔐`;
+      if (payPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(payPhone);
+      return await finalizePapoPay(payPhone);
     }
   }
 
   // Reset to default
   session.step = 'START';
   delete session.service;
-  session.details = {};
+  session.details = preserveCustomerFields(session.details, lang);
   await saveMetaSession(session, dbAdmin);
-  
+
   let servicesConfig: any = {};
   if (dbAdmin) {
     try {
@@ -5333,11 +6091,11 @@ async function routeToServiceFlow(
         servicesConfig = bizSnap.data().services || {};
       }
     } catch (bizErr) {
-      console.warn("[Meta Bot] Failed to fetch services config in routeToServiceFlow:", bizErr);
+      console.warn('[Meta Bot] Failed to fetch services config in routeToServiceFlow:', bizErr);
     }
   }
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
-  return generateDynamicWelcomeMessage(servicesConfig, chSymbol);
+  return generateDynamicWelcomeMessage(servicesConfig, chSymbol, undefined, session.details.customerName, lang);
 }
 
 /**
