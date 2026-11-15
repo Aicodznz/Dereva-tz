@@ -151,11 +151,11 @@ export default function Header() {
           <Link to="/" className="flex items-center shrink-0 group touch-manipulation" title="Papo Hapo Express">
             {/* Official Papo Hapo Super App Icon */}
             <div className="relative group shrink-0">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl sm:rounded-2xl bg-white p-0.5 shadow-[0_4px_16px_rgba(234,88,12,0.3)] border border-orange-200/80 dark:border-orange-500/40 transform group-hover:scale-105 transition-all duration-300 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-xl sm:rounded-2xl transform group-hover:scale-105 transition-all duration-300 flex items-center justify-center">
                 <img
-                  src="/brand/app-icon.png"
+                  src="/brand/app-icon.png?v=2"
                   alt="Papo Hapo"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(234,88,12,0.28)]"
                 />
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 shadow-sm flex items-center justify-center">
@@ -177,7 +177,7 @@ export default function Header() {
                 EXPRESS
               </span>
               <span className="inline-block w-1 h-1 rounded-full bg-orange-500" />
-              <span className="text-[7px] sm:text-[7.5px] text-neutral-400 font-bold uppercase tracking-wider hidden xs:inline">Dakika 15–30</span>
+              <span className="text-[7px] sm:text-[7.5px] text-neutral-600 dark:text-neutral-300 font-bold uppercase tracking-wider hidden sm:inline">Dakika 15–30</span>
             </div>
 
             {/* DESKTOP / TABLET ONLY: Location Directly Under Express */}
