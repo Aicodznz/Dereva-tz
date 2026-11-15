@@ -184,7 +184,38 @@ export type WhatsAppInteractivePayload =
           product_items: Array<{ product_retailer_id: string }>;
         }>;
       };
+    }
+  | {
+      type: 'carousel';
+      body: { text: string };
+      action: {
+        cards: Array<WhatsAppCarouselCard>;
+      };
+      fallbackInteractive?: WhatsAppInteractivePayload;
     };
+
+export interface WhatsAppCarouselCard {
+  card_index: number;
+  header: {
+    type: 'image';
+    image: { link?: string; id?: string };
+  };
+  body: { text: string };
+  action:
+    | {
+        buttons: Array<{
+          type: 'quick_reply';
+          quick_reply: { id: string; title: string };
+        }>;
+      }
+    | {
+        name: 'cta_url';
+        parameters: {
+          display_text: string;
+          url: string;
+        };
+      };
+}
 
 export interface MetaMediaAttachment {
   url: string;
@@ -2597,6 +2628,97 @@ function sanitizeWhatsAppInteractivePayload(
     };
   }
 
+  if (payload.type === 'carousel') {
+    const cleanFallback =
+      payload.fallbackInteractive && payload.fallbackInteractive.type !== 'carousel'
+        ? sanitizeWhatsAppInteractivePayload(payload.fallbackInteractive)
+        : undefined;
+
+    const rawCards = Array.isArray(payload.action?.cards) ? payload.action.cards : [];
+    const seenQrIds = new Set<string>();
+
+    // Determine uniform action mode from first valid card
+    let expectedMode: 'cta_url' | 'quick_reply' | null = null;
+    let expectedBtnCount = 0;
+    const cleanedCards: WhatsAppCarouselCard[] = [];
+
+    for (const rawCard of rawCards) {
+      if (cleanedCards.length >= 10) break;
+      const imgLink = String(rawCard?.header?.image?.link || '').trim();
+      const imgId = String(rawCard?.header?.image?.id || '').trim();
+      if (!imgLink && !imgId) continue;
+
+      const cardBodyText = clampMetaBodyText(rawCard?.body?.text || '', 160);
+      if (!cardBodyText) continue;
+
+      const rawAction = rawCard?.action as any;
+      if (rawAction && rawAction.name === 'cta_url') {
+        const url = String(rawAction?.parameters?.url || '').trim();
+        if (!/^https:\/\//i.test(url)) continue;
+        if (expectedMode && expectedMode !== 'cta_url') continue;
+        expectedMode = 'cta_url';
+        cleanedCards.push({
+          card_index: cleanedCards.length,
+          header: {
+            type: 'image',
+            image: imgId ? { id: imgId } : { link: imgLink },
+          },
+          body: { text: cardBodyText },
+          action: {
+            name: 'cta_url',
+            parameters: {
+              display_text: clampMetaPlainStr(rawAction?.parameters?.display_text || 'Fungua', 20) || 'Fungua',
+              url,
+            },
+          },
+        });
+      } else if (rawAction && Array.isArray(rawAction.buttons) && rawAction.buttons.length > 0) {
+        if (expectedMode && expectedMode !== 'quick_reply') continue;
+        const buttons = rawAction.buttons.slice(0, 2).map((btn: any, bIdx: number) => {
+          const qr = btn?.quick_reply || btn?.reply || {};
+          let qrId = clampMetaPlainStr(qr.id || `CMD:${cleanedCards.length + 1}#c${cleanedCards.length}`, 256, false);
+          if (seenQrIds.has(qrId)) {
+            qrId = `${qrId}#c${cleanedCards.length}_${bIdx}`;
+          }
+          seenQrIds.add(qrId);
+          const qrTitle = clampMetaPlainStr(qr.title || `Chaguo ${bIdx + 1}`, 20) || `Chaguo ${bIdx + 1}`;
+          return {
+            type: 'quick_reply' as const,
+            quick_reply: { id: qrId, title: qrTitle },
+          };
+        });
+        if (buttons.length === 0) continue;
+        if (!expectedMode) {
+          expectedMode = 'quick_reply';
+          expectedBtnCount = buttons.length;
+        } else if (buttons.length !== expectedBtnCount) {
+          continue;
+        }
+        cleanedCards.push({
+          card_index: cleanedCards.length,
+          header: {
+            type: 'image',
+            image: imgId ? { id: imgId } : { link: imgLink },
+          },
+          body: { text: cardBodyText },
+          action: { buttons },
+        });
+      }
+    }
+
+    // Meta strictly requires 2..10 cards for interactive carousels
+    if (cleanedCards.length < 2) {
+      return cleanFallback;
+    }
+
+    return {
+      type: 'carousel',
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      action: { cards: cleanedCards },
+      ...(cleanFallback ? { fallbackInteractive: cleanFallback } : {}),
+    };
+  }
+
   return payload;
 }
 
@@ -2694,6 +2816,115 @@ function parseNumberedOptionsFromText(rawText: string): Array<{ id: string; titl
   return results;
 }
 
+export const PAPO_PROMO_OFFERS = [
+  {
+    cmd: 'PapoRide',
+    keywords: /taxi|teksi|ride|boda|bajaji|usafiri|paporide|dereva/i,
+    swTitle: '🚖 PapoRide — 20% Off',
+    enTitle: '🚖 PapoRide — 20% Off',
+    swDesc: 'Agiza Teksi, Bajaji au Boda karibu nawe haraka! Lipa Cash au Simu.',
+    enDesc: 'Fast Taxi, Bajaji & Boda pickups near you! Pay Cash or Mobile.',
+    imageUrl: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    cmd: 'PapoFood',
+    keywords: /food|chakula|pizza|burger|biryani|mgahawa|restaurant|meza|papofood/i,
+    swTitle: '🍔 PapoFood Combos',
+    enTitle: '🍔 PapoFood Combos',
+    swDesc: 'Agiza chakula moto au weka meza migahawani papo hapo!',
+    enDesc: 'Order hot meals delivered fast or reserve a restaurant table!',
+    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    cmd: 'PapoMall',
+    keywords: /mall|duka|maduka|shop|simu|watch|electronics|papomall|bidhaa/i,
+    swTitle: '🛒 PapoMall Flash Deals',
+    enTitle: '🛒 PapoMall Flash Deals',
+    swDesc: 'Simu, Saa, Electronics & Mitindo bei poa! Tunakuletea mlangoni.',
+    enDesc: 'Phones, Smartwatches & Gadgets at flash prices! Doorstep delivery.',
+    imageUrl: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    cmd: 'PapoTicket',
+    keywords: /ticket|tiketi|mechi|simba|yanga|tamasha|concert|event|papoticket/i,
+    swTitle: '🎟️ PapoTicket Events',
+    enTitle: '🎟️ PapoTicket Events',
+    swDesc: 'Tiketi za Mechi, Tamasha & Comedy papo hapo na QR Code yako!',
+    enDesc: 'Instant Match, Concert & Comedy passes with QR e-ticket!',
+    imageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+  },
+];
+
+function buildMediaCarouselInteractive(params: {
+  bodyText: string;
+  items: Array<{
+    id: string;
+    title: string;
+    subtitle?: string;
+    imageUrl?: string;
+    primaryButtonTitle?: string;
+  }>;
+  defaultPrimaryTitle: string;
+  secondaryButton?: { id: string; title: string };
+  fallbackInteractive?: WhatsAppInteractivePayload;
+}): WhatsAppInteractivePayload | undefined {
+  const withImages = (params.items || [])
+    .map((item) => ({
+      ...item,
+      resolvedImg: resolvePublicImageUrl(item.imageUrl),
+    }))
+    .filter((item) => Boolean(item.resolvedImg))
+    .slice(0, 10);
+
+  if (withImages.length < 2) {
+    return params.fallbackInteractive;
+  }
+
+  const cards: WhatsAppCarouselCard[] = withImages.map((item, idx) => {
+    const cleanTitle = clampMetaPlainStr(item.title, 58) || `Chaguo ${idx + 1}`;
+    const cleanSub = item.subtitle ? clampMetaPlainStr(item.subtitle, 96) : '';
+    const cardText = cleanSub ? `*${cleanTitle}*\n${cleanSub}` : `*${cleanTitle}*`;
+    const primaryTitle = clampMetaPlainStr(item.primaryButtonTitle || params.defaultPrimaryTitle, 20) || '✅ Chagua';
+
+    const buttons: Array<{ type: 'quick_reply'; quick_reply: { id: string; title: string } }> = [
+      {
+        type: 'quick_reply',
+        quick_reply: {
+          id: `CMD:${item.id}#c${idx}`,
+          title: primaryTitle,
+        },
+      },
+    ];
+
+    if (params.secondaryButton?.id && params.secondaryButton?.title) {
+      buttons.push({
+        type: 'quick_reply',
+        quick_reply: {
+          id: `CMD:${params.secondaryButton.id}#c${idx}`,
+          title: clampMetaPlainStr(params.secondaryButton.title, 20) || 'Menyu',
+        },
+      });
+    }
+
+    return {
+      card_index: idx,
+      header: {
+        type: 'image',
+        image: { link: item.resolvedImg },
+      },
+      body: { text: clampMetaBodyText(cardText, 160) },
+      action: { buttons },
+    };
+  });
+
+  return sanitizeWhatsAppInteractivePayload({
+    type: 'carousel',
+    body: { text: clampMetaBodyText(params.bodyText, 1024) },
+    action: { cards },
+    ...(params.fallbackInteractive ? { fallbackInteractive: params.fallbackInteractive } : {}),
+  });
+}
+
 export function buildWhatsAppInteractive(
   replyText: string,
   session: MetaSession,
@@ -2705,6 +2936,47 @@ export function buildWhatsAppInteractive(
   const { catalogId, flowIds } = getWhatsAppFlowAndCatalogConfig();
   const savedLoc: MetaSavedLocation | undefined = session?.details?.lastLocation;
   const listPage = Number(session?.details?.listPage || 0);
+
+  // 0. Business Promotion Cards / Click-to-WhatsApp Ad Referral Carousel
+  if (session?.details?.promoCarousel) {
+    const leadCmd = String(session?.details?.promoLeadCmd || '').trim().toLowerCase();
+    const orderedOffers = [...PAPO_PROMO_OFFERS].sort((a, b) => {
+      if (a.cmd.toLowerCase() === leadCmd) return -1;
+      if (b.cmd.toLowerCase() === leadCmd) return 1;
+      return 0;
+    });
+    const fallbackList = buildPaginatedListInteractive({
+      header: isEn ? '🔥 Papo Hapo Hot Deals' : '🔥 Ofa za Papo Hapo',
+      bodyText: rawStripped,
+      footer: isEn ? 'Tap below to grab an offer' : 'Bonyeza chini kuchagua ofa',
+      buttonLabel: isEn ? '🔥 View Offers' : '🔥 Chagua Ofa',
+      sectionTitle: isEn ? 'Featured Promotions' : 'Ofa Maalum Leo',
+      items: orderedOffers.map((o) => ({
+        id: `CMD:${o.cmd}`,
+        title: isEn ? o.enTitle : o.swTitle,
+        description: isEn ? o.enDesc : o.swDesc,
+      })),
+      extraRows: [
+        {
+          sectionTitle: isEn ? 'Explore More' : 'Menyu',
+          rows: [{ id: '00', title: isEn ? '📋 All 14 Services' : '📋 Huduma Zote (1–14)' }],
+        },
+      ],
+      isEn,
+    });
+    return buildMediaCarouselInteractive({
+      bodyText: rawStripped,
+      items: orderedOffers.map((o) => ({
+        id: o.cmd,
+        title: isEn ? o.enTitle : o.swTitle,
+        subtitle: isEn ? o.enDesc : o.swDesc,
+        imageUrl: o.imageUrl,
+      })),
+      defaultPrimaryTitle: isEn ? '🔥 Grab Offer' : '🔥 Agiza Sasa',
+      secondaryButton: { id: '00', title: isEn ? '📋 All Services' : '📋 Menyu Kuu' },
+      fallbackInteractive: fallbackList,
+    });
+  }
 
   // 1. Explicit "Ask GPS Pin" button click
   if (session?.details?.forceAskGpsPin) {
@@ -3109,10 +3381,11 @@ export function buildWhatsAppInteractive(
           id: String(idx + 1),
           title: `🍽️ ${r.name}`,
           description: desc || 'Mgahawa wa PapoFood',
+          imageUrl: r.imageUrl,
         };
       });
       const shortHeader = rawStripped.split('\n')[0] || (isEn ? 'Choose Restaurant' : 'Chagua Mgahawa');
-      return buildPaginatedListInteractive({
+      const fallbackList = buildPaginatedListInteractive({
         header: isEn ? '🍽️ Choose Restaurant' : '🍽️ Chagua Mgahawa',
         bodyText: `${shortHeader}\n${isEn ? 'Tap the button below to pick a restaurant or send GPS for closest places.' : 'Bonyeza kitufe hapo chini kuchagua mgahawa au tuma GPS kupata wa karibu.'}`,
         footer: isEn ? 'Or send 📍 Location pin' : 'Au tuma 📍 Location yako',
@@ -3134,6 +3407,21 @@ export function buildWhatsAppInteractive(
         ],
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: `${shortHeader}\n${isEn ? 'Swipe cards below to pick a restaurant, or tap GPS to find closest kitchens:' : 'Sogeza kadi kuchagua mgahawa, au bonyeza GPS kupata wa karibu:'}`,
+          items: items.map((it) => ({
+            id: it.id,
+            title: it.title,
+            subtitle: it.description,
+            imageUrl: it.imageUrl,
+          })),
+          defaultPrimaryTitle: isEn ? '🍽️ View Menu' : '🍽️ Chagua',
+          secondaryButton: { id: '__ASK_GPS_PIN__', title: isEn ? '📍 Near Me GPS' : '📍 Karibu (GPS)' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
@@ -3145,6 +3433,7 @@ export function buildWhatsAppInteractive(
         id: String(idx + 1),
         title: item.name,
         description: `TZS ${Number(item.price || 0).toLocaleString()}${item.description ? ` • ${item.description}` : ''}`,
+        imageUrl: item.imageUrl,
       }));
       const sub = cart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
       const extraRows =
@@ -3165,16 +3454,18 @@ export function buildWhatsAppInteractive(
             ]
           : [];
       const vendorLabel = session?.details?.selectedVendorName || 'Mgahawa';
-      return buildPaginatedListInteractive({
+      const bodyStr =
+        cart.length > 0
+          ? isEn
+            ? `Menu for *${vendorLabel}*.\n🧺 Basket: *${cart.length} item(s)* (*TZS ${sub.toLocaleString()}*)\nSwipe dishes to add more or tap Checkout:`
+            : `Menyu ya *${vendorLabel}*.\n🧺 Kikapu: *${cart.length} vitu* (*TZS ${sub.toLocaleString()}/=*)\nSogeza kadi kuongeza au bonyeza Maliza Oda:`
+          : isEn
+          ? `Menu for *${vendorLabel}*. Swipe cards below to select a dish:`
+          : `Menyu ya *${vendorLabel}*. Sogeza kadi hapo chini kuchagua chakula:`;
+
+      const fallbackList = buildPaginatedListInteractive({
         header: `🍽️ ${vendorLabel}`,
-        bodyText:
-          cart.length > 0
-            ? isEn
-              ? `Menu for *${vendorLabel}*.\n🧺 Basket: *${cart.length} item(s)* (*TZS ${sub.toLocaleString()}*)\nTap below to add more or checkout:`
-              : `Menyu ya *${vendorLabel}*.\n🧺 Kikapu: *${cart.length} vitu* (*TZS ${sub.toLocaleString()}/=*)\nBonyeza chini kuongeza au kumaliza oda:`
-            : isEn
-            ? `Menu for *${vendorLabel}*. Tap below to select a dish:`
-            : `Menyu ya *${vendorLabel}*. Bonyeza kitufe hapo chini kuchagua chakula:`,
+        bodyText: bodyStr,
         footer: isEn ? 'Tap button to open menu' : 'Bonyeza kitufe kufungua menyu',
         buttonLabel: isEn ? '🍔 Open Menu' : '🍔 Chagua Chakula',
         sectionTitle: isEn ? 'Dishes & Drinks' : 'Vyakula & Vinywaji',
@@ -3183,6 +3474,24 @@ export function buildWhatsAppInteractive(
         extraRows,
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: bodyStr,
+          items: items.map((it) => ({
+            id: it.id,
+            title: it.title,
+            subtitle: it.description,
+            imageUrl: it.imageUrl,
+          })),
+          defaultPrimaryTitle: cart.length > 0 ? (isEn ? '➕ Add Dish' : '➕ Ongeza') : isEn ? '🍔 Order Dish' : '🍔 Agiza',
+          secondaryButton:
+            cart.length > 0
+              ? { id: '0', title: isEn ? '✅ Checkout' : '✅ Maliza Oda' }
+              : { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
@@ -3293,35 +3602,50 @@ export function buildWhatsAppInteractive(
   if (session?.step === 'HOTEL_SELECT_VENDOR') {
     const hotels: any[] = session?.details?.optionsList || [];
     if (hotels.length > 0) {
-      return buildPaginatedListInteractive({
+      const items = hotels.map((h, i) => ({
+        id: String(i + 1),
+        title: `🏨 ${h.name}`,
+        description: `${h.desc || 'Tanzania'} • TZS ${Number(h.price || 0).toLocaleString()}/usiku`,
+        imageUrl: h.imageUrl,
+      }));
+      const fallbackList = buildPaginatedListInteractive({
         header: isEn ? '🏨 PapoStay — Hotels' : '🏨 PapoStay — Hoteli',
         bodyText: isEn ? 'Tap below to view hotels and pick one to see rooms:' : 'Bonyeza kitufe hapo chini kuchagua hoteli na kuona vyumba:',
         buttonLabel: isEn ? '🏨 Pick Hotel' : '🏨 Chagua Hoteli',
         sectionTitle: isEn ? 'Hotels & Lodges' : 'Hoteli Zilizopo',
-        items: hotels.map((h, i) => ({
-          id: String(i + 1),
-          title: `🏨 ${h.name}`,
-          description: `${h.desc || 'Tanzania'} • TZS ${Number(h.price || 0).toLocaleString()}/usiku`,
-        })),
+        items,
         page: listPage,
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: isEn ? '🏨 *PapoStay Hotels* — Swipe to compare hotels and view rooms:' : '🏨 *PapoStay Hoteli* — Sogeza kadi kutazama hoteli na kuona vyumba:',
+          items: items.map((it) => ({ id: it.id, title: it.title, subtitle: it.description, imageUrl: it.imageUrl })),
+          defaultPrimaryTitle: isEn ? '🏨 View Rooms' : '🏨 Ona Vyumba',
+          secondaryButton: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
   if (session?.step === 'HOTEL_SELECT_ROOM') {
     const rooms: any[] = session?.details?.roomOptions || [];
     if (rooms.length > 0) {
-      return buildPaginatedListInteractive({
-        header: `🛏️ ${session?.details?.selectedHotelName || 'Rooms'}`,
+      const items = rooms.map((r, i) => ({
+        id: String(i + 1),
+        title: r.name,
+        description: `TZS ${Number(r.price || 0).toLocaleString()}/usiku${r.desc ? ` • ${r.desc}` : ''}`,
+        imageUrl: r.imageUrl,
+      }));
+      const hotelLabel = session?.details?.selectedHotelName || 'Rooms';
+      const fallbackList = buildPaginatedListInteractive({
+        header: `🛏️ ${hotelLabel}`,
         bodyText: isEn ? 'Select a room below to book:' : 'Chagua chumba unachotaka kuweka booking:',
         buttonLabel: isEn ? '🛏️ Pick Room' : '🛏️ Chagua Chumba',
         sectionTitle: isEn ? 'Available Rooms' : 'Vyumba Vilivyopo',
-        items: rooms.map((r, i) => ({
-          id: String(i + 1),
-          title: r.name,
-          description: `TZS ${Number(r.price || 0).toLocaleString()}/usiku${r.desc ? ` • ${r.desc}` : ''}`,
-        })),
+        items,
         page: listPage,
         extraRows: [
           {
@@ -3331,6 +3655,16 @@ export function buildWhatsAppInteractive(
         ],
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: isEn ? `🛏️ *${hotelLabel}* — Swipe room photos and tap to book:` : `🛏️ *${hotelLabel}* — Sogeza picha za vyumba na bonyeza kuchagua:`,
+          items: items.map((it) => ({ id: it.id, title: it.title, subtitle: it.description, imageUrl: it.imageUrl })),
+          defaultPrimaryTitle: isEn ? '🛏️ Book Room' : '🛏️ Chagua Chumba',
+          secondaryButton: { id: '0', title: isEn ? '⬅️ Hotels' : '⬅️ Hoteli Nyingine' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
@@ -3352,24 +3686,36 @@ export function buildWhatsAppInteractive(
   if (session?.step === 'EVENT_SELECT') {
     const events: any[] = session?.details?.eventOptions || [];
     if (events.length > 0) {
-      return buildPaginatedListInteractive({
+      const items = events.map((ev, i) => {
+        const minP = Array.isArray(ev.tiers) && ev.tiers.length > 0
+          ? Math.min(...ev.tiers.map((t: any) => Number(t.price) || 10000))
+          : 10000;
+        return {
+          id: String(i + 1),
+          title: ev.title,
+          description: `${ev.venue} • Kuanzia TZS ${minP.toLocaleString()}`,
+          imageUrl: ev.imageUrl,
+        };
+      });
+      const fallbackList = buildPaginatedListInteractive({
         header: isEn ? '🎟️ PapoTicket Events' : '🎟️ PapoTicket — Matukio',
         bodyText: isEn ? 'Select an event below to book tickets:' : 'Chagua tukio au mechi unayotaka kukata tiketi:',
         buttonLabel: isEn ? '🎟️ Pick Event' : '🎟️ Chagua Tukio',
         sectionTitle: isEn ? 'Upcoming Events' : 'Matukio Yajayo',
-        items: events.map((ev, i) => {
-          const minP = Array.isArray(ev.tiers) && ev.tiers.length > 0
-            ? Math.min(...ev.tiers.map((t: any) => Number(t.price) || 10000))
-            : 10000;
-          return {
-            id: String(i + 1),
-            title: ev.title,
-            description: `${ev.venue} • Kuanzia TZS ${minP.toLocaleString()}`,
-          };
-        }),
+        items,
         page: listPage,
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: isEn ? '🎟️ *PapoTicket Events* — Swipe upcoming matches & concerts:' : '🎟️ *PapoTicket* — Sogeza kadi za mechi na matamasha yajayo:',
+          items: items.map((it) => ({ id: it.id, title: it.title, subtitle: it.description, imageUrl: it.imageUrl })),
+          defaultPrimaryTitle: isEn ? '🎟️ Get Tickets' : '🎟️ Kata Tiketi',
+          secondaryButton: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
@@ -3452,17 +3798,20 @@ export function buildWhatsAppInteractive(
         ecommerce: '🛒 PapoMall',
       };
       const srvKey = session?.service || 'ecommerce';
-      return buildPaginatedListInteractive({
+      const mappedItems = itemsList.map((it, idx) => ({
+        id: String(idx + 1),
+        title: it.name || it.label || `#${idx + 1}`,
+        description: `${it.price ? `TZS ${Number(it.price).toLocaleString()}` : ''}${it.desc ? `${it.price ? ' • ' : ''}${it.desc}` : ''}`,
+        imageUrl: it.imageUrl,
+      }));
+      const introBody = rawStripped.split('\n')[0] || (isEn ? 'Select an option below:' : 'Chagua chaguo hapa chini:');
+      const fallbackList = buildPaginatedListInteractive({
         header: hdrMap[srvKey] || '📋 Papo Hapo',
-        bodyText: rawStripped.split('\n')[0] || (isEn ? 'Select an option below:' : 'Chagua chaguo hapa chini:'),
+        bodyText: introBody,
         footer: isEn ? 'Tap button below to choose' : 'Bonyeza kitufe hapo chini kuchagua',
         buttonLabel: btnMap[srvKey] || (isEn ? '📋 Choose' : '📋 Chagua'),
         sectionTitle: isEn ? 'Options' : 'Machaguo',
-        items: itemsList.map((it, idx) => ({
-          id: String(idx + 1),
-          title: it.name || it.label || `#${idx + 1}`,
-          description: `${it.price ? `TZS ${Number(it.price).toLocaleString()}` : ''}${it.desc ? `${it.price ? ' • ' : ''}${it.desc}` : ''}`,
-        })),
+        items: mappedItems,
         page: listPage,
         extraRows: [
           {
@@ -3472,6 +3821,21 @@ export function buildWhatsAppInteractive(
         ],
         isEn,
       });
+      if (listPage === 0) {
+        return buildMediaCarouselInteractive({
+          bodyText: `${hdrMap[srvKey] || '📋 Papo Hapo'} — ${isEn ? 'Swipe cards below to select:' : 'Sogeza kadi kuchagua unachotaka:'}`,
+          items: mappedItems.map((it) => ({
+            id: it.id,
+            title: it.title,
+            subtitle: it.description,
+            imageUrl: it.imageUrl,
+          })),
+          defaultPrimaryTitle: btnMap[srvKey] || (isEn ? '✅ Select' : '✅ Chagua'),
+          secondaryButton: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+          fallbackInteractive: fallbackList,
+        });
+      }
+      return fallbackList;
     }
   }
 
@@ -3553,8 +3917,10 @@ export async function handleMetaInputWithMedia(
       } catch {}
     }
     interactive = buildWhatsAppInteractive(text, session, { servicesConfig });
-    if (session.details?.forceAskGpsPin) {
+    if (session.details?.forceAskGpsPin || session.details?.promoCarousel || session.details?.promoLeadCmd) {
       delete session.details.forceAskGpsPin;
+      delete session.details.promoCarousel;
+      delete session.details.promoLeadCmd;
       await saveMetaSession(session, dbAdmin);
     }
   }
@@ -3598,6 +3964,7 @@ function preserveCustomerFields(
   if (cPhone) next.phone = cPhone;
   if (cLang) next.lang = cLang;
   if (cLoc) next.lastLocation = cLoc;
+  if (details?.adVisitor) next.adVisitor = true;
   return next;
 }
 
@@ -4022,7 +4389,45 @@ async function processMetaInputCore(
     return wrappedMenu;
   }
 
-  if (!customerProfile && !session.details.customerName) {
+  // --- 0B1. CLICK-TO-WHATSAPP AD REFERRAL & BUSINESS PROMO CAROUSEL HANDLER ---
+  const isAdReferral = cleanInput.startsWith('__AD_REFERRAL__:');
+  const isPromoRequest = /^(ofa|ofa\s*zote|promo|promotions?|offers?|deals?|matangazo|punguzo|business\s*card|kadi\s*ya\s*biashara)$/i.test(cleanInput);
+  if (isAdReferral || isPromoRequest) {
+    let adHeadline = '';
+    let adBody = '';
+    let adUserText = '';
+    if (isAdReferral) {
+      const parts = cleanInput.slice('__AD_REFERRAL__:'.length).split('|');
+      adHeadline = (parts[0] || '').trim();
+      adBody = (parts[1] || '').trim();
+      adUserText = parts.slice(2).join('|').trim();
+    }
+    const combinedAdSignal = `${adHeadline} ${adBody} ${adUserText}`.trim();
+    const matchedLeadOffer = PAPO_PROMO_OFFERS.find((o) => o.keywords.test(combinedAdSignal));
+
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = {
+      ...preserveCustomerFields(session.details, lang, customerProfile),
+      adVisitor: true,
+      promoCarousel: true,
+      ...(matchedLeadOffer ? { promoLeadCmd: matchedLeadOffer.cmd } : {}),
+    };
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+
+    const cName = customerProfile?.name || session.details?.customerName;
+    if (lang === 'en') {
+      const headlinePart = adHeadline ? `🎉 *${adHeadline}*\n\n` : `🔥 *PAPO HAPO SPECIAL PROMOTIONS*\n\n`;
+      const bodyPart = adBody ? `${adBody}\n\n` : '';
+      return `[[EN_NATIVE]]${headlinePart}${bodyPart}Hi${cName ? ` *${cName}*` : ''}! Swipe our promo cards below and tap *🔥 Grab Offer* to order directly on WhatsApp:`;
+    }
+    const headlinePart = adHeadline ? `🎉 *${adHeadline}*\n\n` : `🔥 *OFA MAALUM ZA PAPO HAPO*\n\n`;
+    const bodyPart = adBody ? `${adBody}\n\n` : '';
+    return `${headlinePart}${bodyPart}Karibu${cName ? ` *${cName}*` : ''}! Sogeza kadi zetu za ofa hapo chini na ubonyeze *🔥 Agiza Sasa* kupata huduma moja kwa moja WhatsApp:`;
+  }
+
+  if (!customerProfile && !session.details.customerName && !session.details.adVisitor) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
@@ -7482,8 +7887,8 @@ export async function sendMetaOutboundMessage(params: {
         return { sent: false, reason: 'Missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId' };
       }
 
-      // Send up to 4 image cards first so the customer sees real food/product/room photos above the interactive prompt
-      if (Array.isArray(media) && media.length > 0) {
+      const sendStandaloneMedia = async () => {
+        if (!Array.isArray(media) || media.length === 0) return;
         for (const item of media.slice(0, 4)) {
           try {
             let imagePayload: Record<string, any> | null = null;
@@ -7541,7 +7946,7 @@ export async function sendMetaOutboundMessage(params: {
             console.warn('[Meta Outbound] Non-fatal error sending WhatsApp image:', mediaErr?.message || mediaErr);
           }
         }
-      }
+      };
 
       const sendWaPlainText = async (bodyStr: string) => {
         const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
@@ -7565,18 +7970,8 @@ export async function sendMetaOutboundMessage(params: {
         return { ok: resp.ok, status: resp.status, data: respData };
       };
 
-      const sanitizedInteractive = sanitizeWhatsAppInteractivePayload(interactive);
-      if (sanitizedInteractive) {
-        // If full details on a CTA URL message exceed 1024 chars, send full text first then attach the CTA URL card
-        if (sanitizedInteractive.type === 'cta_url' && text.length > 1024) {
-          await sendWaPlainText(text);
-          sanitizedInteractive.body.text = clampMetaBodyText(
-            '👇 Bonyeza kitufe hapo chini kufungua kiungo:',
-            1024
-          );
-        }
-
-        const intResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+      const postWaInteractive = async (wirePayload: any) => {
+        const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -7587,15 +7982,102 @@ export async function sendMetaOutboundMessage(params: {
             recipient_type: 'individual',
             to: recipientId,
             type: 'interactive',
-            interactive: sanitizedInteractive,
+            interactive: wirePayload,
           }),
         });
-        const intData = await intResp.json().catch(() => ({}));
-        if (intResp.ok) {
-          console.log(`[Meta Outbound] WhatsApp interactive (${sanitizedInteractive.type}) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
-          return { sent: true };
+        const respData = await resp.json().catch(() => ({}));
+        return { ok: resp.ok, status: resp.status, data: respData };
+      };
+
+      const sanitizedInteractive = sanitizeWhatsAppInteractivePayload(interactive);
+
+      if (sanitizedInteractive?.type === 'carousel') {
+        const { fallbackInteractive, ...wireCarousel } = sanitizedInteractive;
+        const resolvedCards: WhatsAppCarouselCard[] = [];
+
+        for (const card of wireCarousel.action.cards) {
+          const linkVal = card?.header?.image?.link || '';
+          const idVal = card?.header?.image?.id || '';
+          if (idVal) {
+            resolvedCards.push({ ...card, card_index: resolvedCards.length });
+          } else if (linkVal.startsWith('data:image/')) {
+            try {
+              const match = linkVal.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+              if (match) {
+                const mimeType = match[1];
+                const buffer = Buffer.from(match[2], 'base64');
+                const ext = mimeType.split('/')[1] || 'jpg';
+                const form = new FormData();
+                form.append('messaging_product', 'whatsapp');
+                form.append('type', mimeType);
+                form.append('file', new Blob([buffer], { type: mimeType }), `card.${ext}`);
+                const uploadResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/media`, {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${accessToken}` },
+                  body: form,
+                });
+                const uploadData = await uploadResp.json().catch(() => ({}));
+                if (uploadResp.ok && uploadData?.id) {
+                  resolvedCards.push({
+                    ...card,
+                    card_index: resolvedCards.length,
+                    header: { type: 'image', image: { id: uploadData.id } },
+                  });
+                }
+              }
+            } catch (cardUploadErr: any) {
+              console.warn('[Meta Outbound] Carousel card image upload skipped:', cardUploadErr?.message || cardUploadErr);
+            }
+          } else if (/^https?:\/\//i.test(linkVal)) {
+            resolvedCards.push({ ...card, card_index: resolvedCards.length });
+          }
         }
-        console.warn('[Meta Outbound] WhatsApp interactive send rejected, falling back to plain text:', intResp.status, JSON.stringify(intData));
+
+        if (resolvedCards.length >= 2) {
+          const carouselWire = {
+            ...wireCarousel,
+            action: { cards: resolvedCards },
+          };
+          const carouselRes = await postWaInteractive(carouselWire);
+          if (carouselRes.ok) {
+            console.log(`[Meta Outbound] WhatsApp carousel (${resolvedCards.length} cards) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
+            return { sent: true };
+          }
+          console.warn('[Meta Outbound] WhatsApp carousel rejected, falling back to media + list/text:', carouselRes.status, JSON.stringify(carouselRes.data));
+        }
+
+        // Seamless fallback when carousel fails or <2 valid cards remain: send standalone photos + list fallback (or plain text)
+        await sendStandaloneMedia();
+        if (fallbackInteractive) {
+          const { fallbackInteractive: _nested, ...wireFallback } = fallbackInteractive as any;
+          const fbRes = await postWaInteractive(wireFallback);
+          if (fbRes.ok) {
+            console.log(`[Meta Outbound] WhatsApp carousel fallback (${wireFallback.type}) sent to ${recipientId}`);
+            return { sent: true };
+          }
+          console.warn('[Meta Outbound] WhatsApp fallback interactive rejected:', fbRes.status, JSON.stringify(fbRes.data));
+        }
+      } else {
+        // Non-carousel flow: send up to 4 image attachments first, then interactive message or plain text
+        await sendStandaloneMedia();
+        if (sanitizedInteractive) {
+          const { fallbackInteractive: _unused, ...wireInteractive } = sanitizedInteractive as any;
+          // If full details on a CTA URL message exceed 1024 chars, send full text first then attach the CTA URL card
+          if (wireInteractive.type === 'cta_url' && text.length > 1024) {
+            await sendWaPlainText(text);
+            wireInteractive.body.text = clampMetaBodyText(
+              '👇 Bonyeza kitufe hapo chini kufungua kiungo:',
+              1024
+            );
+          }
+
+          const intRes = await postWaInteractive(wireInteractive);
+          if (intRes.ok) {
+            console.log(`[Meta Outbound] WhatsApp interactive (${wireInteractive.type}) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
+            return { sent: true };
+          }
+          console.warn('[Meta Outbound] WhatsApp interactive send rejected, falling back to plain text:', intRes.status, JSON.stringify(intRes.data));
+        }
       }
 
       const plainRes = await sendWaPlainText(text);
@@ -8109,26 +8591,37 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             if (!replyObj) return '';
             const rid = String(replyObj.id || '').trim();
             const rtitle = String(replyObj.title || '').trim();
-            if (rid && (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(rid) || rid.startsWith('CMD:'))) {
-              return rid.startsWith('CMD:') ? rid.slice(4) : rid;
+            const normalizedRid = rid.replace(/#c\d+(?:_\d+)?$/i, '');
+            if (
+              normalizedRid &&
+              (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(normalizedRid) || normalizedRid.startsWith('CMD:'))
+            ) {
+              return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;
             }
-            return rtitle || rid;
+            return rtitle || normalizedRid;
           };
 
           const nfmRaw = message?.interactive?.nfm_reply?.response_json;
           const nfmText = typeof nfmRaw === 'string' && nfmRaw.trim() ? `__FLOW_DATA__:${nfmRaw.trim()}` : '';
 
-          const textBody = String(
+          const rawTextOrInteractive = String(
             message?.text?.body ||
               pickInteractiveReply(message?.interactive?.button_reply) ||
               pickInteractiveReply(message?.interactive?.list_reply) ||
               nfmText ||
-              message?.button?.text ||
+              pickInteractiveReply({ id: message?.button?.payload, title: message?.button?.text }) ||
               (message?.location
                 ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}`
                 : '') ||
               ''
           ).trim();
+
+          let textBody = rawTextOrInteractive;
+          if (message?.referral && typeof message.referral === 'object') {
+            const refHeadline = String(message.referral.headline || '').replace(/\|/g, ' ').trim();
+            const refBody = String(message.referral.body || '').replace(/\|/g, ' ').trim();
+            textBody = `__AD_REFERRAL__:${refHeadline}|${refBody}|${rawTextOrInteractive}`;
+          }
 
           if (senderId && textBody) {
             results.push({
