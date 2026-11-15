@@ -1,5 +1,85 @@
 [
   {
+    "id": "m-mem-1794703643955-49kz",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "Hi",
+    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
+    "timestamp": "2026-11-15T00:47:23.955Z"
+  },
+  {
+    "id": "m-mem-1794703643000-e4ze",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "1",
+    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
+    "timestamp": "2026-11-15T00:47:23.000Z"
+  },
+  {
+    "id": "m-mem-1794703641978-2goi",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "Lugha",
+    "reply": "🌐 *Chagua Lugha / Choose Language:*\n\n1. 🇹🇿 *Kiswahili*\n2. 🇬🇧 *English*",
+    "timestamp": "2026-11-15T00:47:21.978Z"
+  },
+  {
+    "id": "m-mem-1794703641364-qk1c",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "PapoFix",
+    "reply": "🛠️ *PapoFix — Handyman & Repair Services*\n\nWhat type of technician do you need today?\n\n*1. Electrician* (Inspection from TZS 10,000)\n*2. Plumber (Plumbing)* (Inspection from TZS 10,000)\n*3. AC & Fridge Repair* (Inspection from TZS 15,000)\n*4. Carpentry & Locks* (Inspection from TZS 10,000)\n*5. Cleaning & Pest Control* (Inspection from TZS 15,000)\n*6. Painting & Construction* (Inspection from TZS 12,000)\n*7. TV, Solar & Electronics* (Inspection from TZS 10,000)\n\nType the number (*1–7*):",
+    "timestamp": "2026-11-15T00:47:21.364Z"
+  },
+  {
+    "id": "m-mem-1794703635176-x5wb",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "1",
+    "reply": "🧾 *Mabibo* ➜ *Posta*\n• *Boda Boda 🏍️* • *9 km* (~9 min)\n• Fare: *TZS 3,500*\n• Status: 🔴 No *Boda Boda* drivers are *Online* right now.\n\n1. 🔄 *Change Ride Type*\n2. ⏳ *Request Anyway (Wait)*\n3. ❌ *Cancel*",
+    "timestamp": "2026-11-15T00:47:15.176Z"
+  },
+  {
+    "id": "m-mem-1794703633792-9f7e",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "Mabibo - Posta",
+    "reply": "🗺️ *Mabibo* ➜ *Posta*\n\nChoose ride type:\n1. 🏍️ *Boda Boda* _(🔴 Offline)_\n2. 🛺 *Bajaji* _(🔴 Offline)_\n3. 🚕 *Cab / Taxi* _(🔴 Offline)_",
+    "timestamp": "2026-11-15T00:47:13.792Z"
+  },
+  {
+    "id": "m-mem-1794703632677-iq1o",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "1",
+    "reply": "🚖 *PapoRide — Pickup Location?*\nType your pickup area or send 📍 *Location pin*:",
+    "timestamp": "2026-11-15T00:47:12.677Z"
+  },
+  {
+    "id": "m-mem-1794703631731-h4xa",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "Hi",
+    "reply": "Hello *Juma Test* 👋\n\n👋 *WELCOME TO PAPO HAPO SUPER APP!* 🟢\n\nI'm *Papo Hapo Assistant* 🤖. Order multiple services with ease!\n\n*CHOOSE YOUR SERVICE:*\n\n🚖 1. PapoRide – Rides\n🍔 2. PapoFood – Food & Tables\n🛍️ 3. PapoMart – Groceries\n📦 4. PapoSend – Parcel Delivery\n💊 5. PapoMed – Pharmacy & Health\n💇 6. PapoStyle – Salon & Spa\n🛠️ 7. PapoFix – Repairs & Handyman\n🏨 8. PapoStay – Hotels & Stays\n🎟️ 9. PapoTicket – Event Tickets\n🚌 10. PapoBus – Bus Tickets\n🚗 11. PapoRent – Car Rental\n🛒 12. PapoMall – Online Shopping\n💳 13. PapoPay – Wallet & Payments\n📋 14. My Orders – Track Your Orders\n\n✨ *Reply with a number (1–14), service name, or describe what you need.*\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_",
+    "timestamp": "2026-11-15T00:47:11.731Z"
+  },
+  {
+    "id": "m-mem-1794703630875-17ea",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "EN",
+    "reply": "Hello *Juma Test* 👋\n\n👋 *WELCOME TO PAPO HAPO SUPER APP!* 🟢\n\nI'm *Papo Hapo Assistant* 🤖. Order multiple services with ease!\n\n*CHOOSE YOUR SERVICE:*\n\n🚖 1. PapoRide – Rides\n🍔 2. PapoFood – Food & Tables\n🛍️ 3. PapoMart – Groceries\n📦 4. PapoSend – Parcel Delivery\n💊 5. PapoMed – Pharmacy & Health\n💇 6. PapoStyle – Salon & Spa\n🛠️ 7. PapoFix – Repairs & Handyman\n🏨 8. PapoStay – Hotels & Stays\n🎟️ 9. PapoTicket – Event Tickets\n🚌 10. PapoBus – Bus Tickets\n🚗 11. PapoRent – Car Rental\n🛒 12. PapoMall – Online Shopping\n💳 13. PapoPay – Wallet & Payments\n📋 14. My Orders – Track Your Orders\n\n✨ *Reply with a number (1–14), service name, or describe what you need.*\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_",
+    "timestamp": "2026-11-15T00:47:10.875Z"
+  },
+  {
+    "id": "m-mem-1794703629671-ncls",
+    "channel": "whatsapp",
+    "senderId": "255700999777",
+    "message": "Hi",
+    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
+    "timestamp": "2026-11-15T00:47:09.671Z"
+  },
+  {
     "id": "m-mem-1794697346988-9b6n",
     "channel": "whatsapp",
     "senderId": "255700999777",

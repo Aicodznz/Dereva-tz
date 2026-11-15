@@ -9,6 +9,7 @@ export interface MetaSession {
   channel: 'whatsapp' | 'messenger' | 'instagram';
   step:
     | 'START'
+    | 'CHOOSING_LANGUAGE'
     | 'REGISTERING_CUSTOMER'
     | 'COLLECTING_ROUTE'
     | 'SELECTING_OPTION'
@@ -84,6 +85,7 @@ export interface MetaCustomerProfile {
   channel: 'whatsapp' | 'messenger' | 'instagram';
   name: string;
   phone: string;
+  lang?: 'sw' | 'en';
   createdAt: number;
 }
 
@@ -846,9 +848,21 @@ export async function lookupCustomerAllTrackables(
   return digits || params.uid ? results : [];
 }
 
-function formatTrackedOrdersWhatsAppMessage(items: TrackedCustomerOrder[], phone?: string, filterCode?: string): string {
+function formatTrackedOrdersWhatsAppMessage(
+  items: TrackedCustomerOrder[],
+  phone?: string,
+  filterCode?: string,
+  lang: 'sw' | 'en' = 'sw'
+): string {
   const trackLink = buildOrdersTrackingUrl(phone, filterCode);
+  const isEn = lang === 'en';
   if (!items || items.length === 0) {
+    if (isEn) {
+      return `[[EN_NATIVE]]📦 *YOUR ORDERS & BOOKINGS*\n\n` +
+             `No orders or bookings found ${filterCode ? `for code *#${filterCode}* ` : ''}on this number yet.\n\n` +
+             `🔗 *Track online:* ${trackLink}\n` +
+             `_(Reply *Hi* or *Menu* to place a new order)_`;
+    }
     return `📦 *UFUATILIAJI WA ODA ZAKO*\n\n` +
            `Hatujapata oda au booking yoyote ${filterCode ? `ya namba *#${filterCode}* ` : ''}kwa namba hii bado.\n\n` +
            `🔗 *Fungua ukurasa wa kufuatilia:* ${trackLink}\n` +
@@ -857,8 +871,8 @@ function formatTrackedOrdersWhatsAppMessage(items: TrackedCustomerOrder[], phone
 
   const topItems = items.slice(0, 8);
   let msg = filterCode
-    ? `🔍 *HALI YA ODA #${filterCode.replace(/^#/, '').toUpperCase()}*\n\n`
-    : `📋 *ODA & BOOKING ZAKO ZOTE (${items.length})*\n\n`;
+    ? `${isEn ? '[[EN_NATIVE]]' : ''}🔍 *${isEn ? 'ORDER STATUS' : 'HALI YA ODA'} #${filterCode.replace(/^#/, '').toUpperCase()}*\n\n`
+    : `${isEn ? '[[EN_NATIVE]]' : ''}📋 *${isEn ? `ALL YOUR ORDERS & BOOKINGS (${items.length})` : `ODA & BOOKING ZAKO ZOTE (${items.length})`}*\n\n`;
 
   topItems.forEach((item, idx) => {
     const codeUpper = String(item.code || '').toUpperCase();
@@ -875,16 +889,19 @@ function formatTrackedOrdersWhatsAppMessage(items: TrackedCustomerOrder[], phone
       ? new Date(item.createdAtMs).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       : '';
     msg += `*${idx + 1}. ${icon} #${item.code}* — *${item.title}*\n` +
-           `   📌 Hali: *${item.statusLabel}*${priceText}\n` +
+           `   📌 ${isEn ? 'Status' : 'Hali'}: *${item.statusLabel}*${priceText}\n` +
            `   📝 ${item.subtitle}${dateStr ? `\n   🕒 ${dateStr}` : ''}\n\n`;
   });
 
   if (items.length > 8) {
-    msg += `_...na oda nyingine ${items.length - 8} zaidi._\n\n`;
+    msg += isEn
+      ? `_...and ${items.length - 8} more orders._\n\n`
+      : `_...na oda nyingine ${items.length - 8} zaidi._\n\n`;
   }
 
-  msg += `🔗 *Fuatilia Live kwenye Simu/Mtandao (Oda Zote):*\n${trackLink}\n\n` +
-         `_(Unaweza pia kuandika namba ya oda mfano *FD-3441* au *Hi* kurudi kwenye Menu)_`;
+  msg += isEn
+    ? `🔗 *Live Order Tracker:*\n${trackLink}\n\n_(Reply with an order code like *FD-3441* or *Menu*)_`
+    : `🔗 *Fuatilia Live kwenye Simu/Mtandao (Oda Zote):*\n${trackLink}\n\n_(Unaweza pia kuandika namba ya oda mfano *FD-3441* au *Hi* kurudi kwenye Menu)_`;
   return msg;
 }
 
@@ -2100,26 +2117,26 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
  * to any custom welcome message or node text that contains the services list.
  */
 export const META_DEFAULT_SERVICES = [
-  { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'PapoRide', desc: 'Usafiri' },
-  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PapoFood', desc: 'Chakula' },
-  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PapoMart', desc: 'Mahitaji ya Sokoni' },
-  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PapoSend', desc: 'Usafirishaji wa Mizigo' },
-  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PapoMed', desc: 'Dawa na Afya' },
-  { key: 'salon', id: 'saluni', emoji: '💇', title: 'PapoStyle', desc: 'Saluni na Spa' },
-  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PapoFix', desc: 'Mafundi na Matengenezo' },
-  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PapoStay', desc: 'Hoteli na Malazi' },
-  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PapoTicket', desc: 'Tiketi za Matukio' },
-  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PapoBus', desc: 'Tiketi za Mabasi' },
-  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PapoRent', desc: 'Kukodisha Magari' },
-  { key: 'ecommerce', id: 'maduka', emoji: '🛒', title: 'PapoMall', desc: 'Maduka' },
-  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Malipo na Wakala' }
+  { key: 'taxi', id: 'teksi', emoji: '🚖', title: 'PapoRide', desc: 'Usafiri', enDesc: 'Rides' },
+  { key: 'food', id: 'chakula', emoji: '🍔', title: 'PapoFood', desc: 'Chakula', enDesc: 'Food & Tables' },
+  { key: 'grocery', id: 'sokoni', emoji: '🛍️', title: 'PapoMart', desc: 'Mahitaji ya Sokoni', enDesc: 'Groceries' },
+  { key: 'parcel', id: 'vifurushi', emoji: '📦', title: 'PapoSend', desc: 'Usafirishaji wa Mizigo', enDesc: 'Parcel Delivery' },
+  { key: 'pharmacy', id: 'dawa', emoji: '💊', title: 'PapoMed', desc: 'Dawa na Afya', enDesc: 'Pharmacy & Health' },
+  { key: 'salon', id: 'saluni', emoji: '💇', title: 'PapoStyle', desc: 'Saluni na Spa', enDesc: 'Salon & Spa' },
+  { key: 'handyman', id: 'fundi', emoji: '🛠️', title: 'PapoFix', desc: 'Mafundi na Matengenezo', enDesc: 'Repairs & Handyman' },
+  { key: 'hotel', id: 'hoteli', emoji: '🏨', title: 'PapoStay', desc: 'Hoteli na Malazi', enDesc: 'Hotels & Stays' },
+  { key: 'events', id: 'matukio', emoji: '🎟️', title: 'PapoTicket', desc: 'Tiketi za Matukio', enDesc: 'Event Tickets' },
+  { key: 'bus_ticket', id: 'bus_ticket', emoji: '🚌', title: 'PapoBus', desc: 'Tiketi za Mabasi', enDesc: 'Bus Tickets' },
+  { key: 'car_rental', id: 'car_rental', emoji: '🚗', title: 'PapoRent', desc: 'Kukodisha Magari', enDesc: 'Car Rental' },
+  { key: 'ecommerce', id: 'maduka', emoji: '🛒', title: 'PapoMall', desc: 'Maduka', enDesc: 'Online Shopping' },
+  { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Malipo na Wakala', enDesc: 'Wallet & Payments' }
 ];
 
 /**
  * Helper to dynamically apply current business services configuration (enabled/disabled/maintenance)
  * to any custom welcome message or node text that contains the services list.
  */
-export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: any): string {
+export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: any, lang: 'sw' | 'en' = 'sw'): string {
   if (!text) return text;
   if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
 
@@ -2133,6 +2150,7 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
     text.includes("SOKONI");
   if (!hasServiceList) return text;
 
+  const isEn = lang === 'en';
   const active = META_DEFAULT_SERVICES.filter(item => {
     const sData = servicesConfig[item.id];
     return !sData || sData.enabled !== false;
@@ -2146,24 +2164,26 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
   });
 
   const firstServiceIndex = text.search(/(🚖|🍔|🛍️|📦|💇‍♀️|💇|🏨|🚗|💊|🚌|🛠️|🎟️|🛒|💳|\*\d+\.)/);
-  let welcomeHeader =
-    `👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\n` +
-    `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
-    `*CHAGUA HUDUMA YAKO:*\n\n`;
-  if (firstServiceIndex !== -1) {
+  let welcomeHeader = isEn
+    ? `👋 *WELCOME TO PAPO HAPO SUPER APP!* 🟢\n\nI'm *Papo Hapo Assistant* 🤖. Order multiple services with ease!\n\n*CHOOSE YOUR SERVICE:*\n\n`
+    : `👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n`;
+  if (!isEn && firstServiceIndex !== -1) {
     welcomeHeader = text.substring(0, firstServiceIndex);
   }
 
   let welcomeBody = "";
   active.forEach(srv => {
-    const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
-    welcomeBody += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.desc}${maintTag}\n`;
+    const maintTag = srv.isMaintenance ? (isEn ? " _(Maintenance)_" : " _(Matengenezo)_") : "";
+    const label = isEn ? srv.enDesc : srv.desc;
+    welcomeBody += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${label}${maintTag}\n`;
   });
-  welcomeBody += `📋 ${active.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
+  welcomeBody += isEn
+    ? `📋 ${active.length + 1}. My Orders – Track Your Orders\n`
+    : `📋 ${active.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
 
-  const welcomeFooter =
-    `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
-    `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`;
+  const welcomeFooter = isEn
+    ? `\n✨ *Reply with a number (1–${active.length + 1}), service name, or describe what you need.*\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`
+    : `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcomeHeader + welcomeBody + welcomeFooter;
 }
 
@@ -2174,11 +2194,13 @@ export function generateDynamicWelcomeMessage(
   servicesConfig: any,
   chSymbol: string,
   customWelcome?: string,
-  customerName?: string
+  customerName?: string,
+  lang: 'sw' | 'en' = 'sw'
 ): string {
-  if (customWelcome) {
+  const isEn = lang === 'en';
+  if (customWelcome && !isEn) {
     const replaced = customWelcome.replace(/{channel}/g, chSymbol);
-    const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig);
+    const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig, 'sw');
     return customerName && !applied.includes(customerName)
       ? `Habari *${customerName}* 👋\n\n${applied}`
       : applied;
@@ -2199,7 +2221,26 @@ export function generateDynamicWelcomeMessage(
     };
   });
 
-  let welcome = customerName ? `Habari *${customerName}* 👋\n\n` : '';
+  let welcome = '';
+  if (isEn) {
+    welcome = customerName ? `Hello *${customerName}* 👋\n\n` : '';
+    welcome +=
+      `👋 *WELCOME TO PAPO HAPO SUPER APP!* ${badge}\n\n` +
+      `I'm *Papo Hapo Assistant* 🤖. Order multiple services with ease!\n\n` +
+      `*CHOOSE YOUR SERVICE:*\n\n`;
+
+    activeServices.forEach(srv => {
+      const maintTag = srv.isMaintenance ? " _(Maintenance)_" : "";
+      welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.enDesc}${maintTag}\n`;
+    });
+    welcome += `📋 ${activeServices.length + 1}. My Orders – Track Your Orders\n`;
+    welcome +=
+      `\n✨ *Reply with a number (1–${activeServices.length + 1}), service name, or describe what you need.*\n\n` +
+      `*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`;
+    return welcome;
+  }
+
+  welcome = customerName ? `Habari *${customerName}* 👋\n\n` : '';
   welcome +=
     `👋 *KARIBU PAPO HAPO SUPER APP!* ${badge}\n\n` +
     `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
@@ -2212,8 +2253,41 @@ export function generateDynamicWelcomeMessage(
   welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
   welcome +=
     `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
-    `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`;
+    `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcome;
+}
+
+async function translateSwahiliReplyToEnglish(swText: string): Promise<string> {
+  if (!swText) return swText;
+  const clean = swText.replace(/^\[\[EN_NATIVE\]\]/, '');
+  if (swText.startsWith('[[EN_NATIVE]]')) {
+    return clean;
+  }
+
+  // Try Gemini Flash for natural, crisp English keeping WhatsApp markdown, URLs, codes & TZS untouched
+  if (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) {
+    try {
+      const prompt = `Translate this WhatsApp customer-bot message from Swahili to concise, natural English.
+RULES:
+- Preserve ALL WhatsApp markdown (*bold*, _italic_), emojis, numbers, prices (TZS ...), booking codes (#...), brand names (PapoRide, PapoFood, PapoMart, PapoSend, PapoMed, PapoStyle, PapoFix, PapoStay, PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay), and URLs EXACTLY as-is.
+- Keep it short, crisp, and mobile-friendly.
+- Output ONLY the translated English message, no preamble or quotes.
+
+Message:
+${clean}`;
+      const res = await generateContentWithRetry({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+      const out = res?.text?.trim();
+      if (out && out.length > 0) {
+        return out;
+      }
+    } catch (err) {
+      console.warn('[Meta Bot] English translation fallback triggered:', err);
+    }
+  }
+  return clean;
 }
 
 /**
@@ -2226,7 +2300,16 @@ export async function handleMetaInputWithMedia(
   dbAdmin: any
 ): Promise<MetaBotResponse> {
   const mediaCollector: MetaMediaAttachment[] = [];
-  const text = await handleMetaInputInternal(senderId, textBody, channel, dbAdmin, mediaCollector);
+  let text = await handleMetaInputInternal(senderId, textBody, channel, dbAdmin, mediaCollector);
+  const session = await getMetaSession(senderId, channel, dbAdmin);
+  const lang = session.details?.lang || 'sw';
+
+  if (text.startsWith('[[EN_NATIVE]]')) {
+    text = text.slice('[[EN_NATIVE]]'.length);
+  } else if (lang === 'en') {
+    text = await translateSwahiliReplyToEnglish(text);
+  }
+
   return { text, media: mediaCollector };
 }
 
@@ -2311,20 +2394,107 @@ async function handleMetaInputInternal(
     }
   }
 
-  // --- 0B. NEW CUSTOMER ONBOARDING (IF PHONE / SENDER IS NOT REGISTERED YET) ---
+  // --- 0B. CUSTOMER PROFILE SYNC & LANGUAGE PREFERENCE ---
   let customerProfile = await getMetaCustomerProfile(senderId, channel, dbAdmin);
   if (customerProfile) {
     session.details.customerName = customerProfile.name;
     if (!session.details.phone && customerProfile.phone) {
       session.details.phone = customerProfile.phone;
     }
-  } else if (!session.details.customerName) {
+    if (customerProfile.lang && !session.details.lang) {
+      session.details.lang = customerProfile.lang;
+    }
+  }
+
+  let lang: 'sw' | 'en' = session.details.lang || customerProfile?.lang || 'sw';
+  const loadServicesConfigQuick = async () => {
+    let cfg: any = {};
+    if (dbAdmin) {
+      try {
+        const bizSnap = await dbAdmin.collection('config').doc('business').get();
+        if (bizSnap.exists) cfg = bizSnap.data().services || {};
+      } catch {}
+    }
+    return cfg;
+  };
+
+  // Global Language Switch Commands (work from any step!)
+  const isSwitchToEnglish = /^(en|eng|english|kiingereza|speak\s+english|switch\s+to\s+english|change\s+(?:language\s+)?to\s+english|use\s+english|in\s+english)$/i.test(cleanInput);
+  const isSwitchToSwahili = /^(sw|swa|swahili|kiswahili|tumia\s+kiswahili|switch\s+to\s+swahili|change\s+(?:language\s+)?to\s+swahili|badili\s+(?:lugha\s+)?kwenda\s+kiswahili)$/i.test(cleanInput);
+  const isLanguagePickerCmd = /^(lugha|language|lang|change\s+language|badili\s+lugha|switch\s+language)$/i.test(cleanInput);
+
+  if (isSwitchToEnglish || isSwitchToSwahili) {
+    const nextLang: 'sw' | 'en' = isSwitchToEnglish ? 'en' : 'sw';
+    lang = nextLang;
+    session.details.lang = nextLang;
+    if (customerProfile) {
+      await saveMetaCustomerProfile({ ...customerProfile, lang: nextLang }, dbAdmin);
+    }
+    if (!customerProfile && !session.details.customerName) {
+      session.step = 'REGISTERING_CUSTOMER';
+      await saveMetaSession(session, dbAdmin);
+      return nextLang === 'en'
+        ? `[[EN_NATIVE]]🇬🇧 *Language set to English!*\n\n👋 Welcome to *Papo Hapo* (${chSymbol})!\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
+        : `🇹🇿 *Lugha imebadilishwa kuwa Kiswahili!*\n\n👋 Karibu *Papo Hapo* (${chSymbol})!\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
+    }
+    const cName = customerProfile?.name || session.details.customerName;
+    const cPhone = customerProfile?.phone || session.details.phone;
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = { customerName: cName, ...(cPhone ? { phone: cPhone } : {}), lang: nextLang };
+    await saveMetaSession(session, dbAdmin);
+    const servicesCfg = await loadServicesConfigQuick();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, nextLang);
+    return nextLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+  }
+
+  if (isLanguagePickerCmd) {
+    session.step = 'CHOOSING_LANGUAGE';
+    delete session.service;
+    await saveMetaSession(session, dbAdmin);
+    return `[[EN_NATIVE]]🌐 *Chagua Lugha / Choose Language:*\n\n1. 🇹🇿 *Kiswahili*\n2. 🇬🇧 *English*`;
+  }
+
+  if (session.step === 'CHOOSING_LANGUAGE') {
+    let pickedLang: 'sw' | 'en' | null = null;
+    if (cleanInput === '1' || /swahili|kiswahili/i.test(cleanInput)) pickedLang = 'sw';
+    else if (cleanInput === '2' || /english|kiingereza|\ben\b/i.test(cleanInput)) pickedLang = 'en';
+
+    if (!pickedLang) {
+      return `[[EN_NATIVE]]⚠️ Chagua *1* (Kiswahili) au *2* (English).`;
+    }
+    lang = pickedLang;
+    session.details.lang = pickedLang;
+    if (customerProfile) {
+      await saveMetaCustomerProfile({ ...customerProfile, lang: pickedLang }, dbAdmin);
+    }
+    if (!customerProfile && !session.details.customerName) {
+      session.step = 'REGISTERING_CUSTOMER';
+      await saveMetaSession(session, dbAdmin);
+      return pickedLang === 'en'
+        ? `[[EN_NATIVE]]🇬🇧 *English selected!*\n\n👋 Welcome to *Papo Hapo*!\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
+        : `🇹🇿 *Kiswahili kimechaguliwa!*\n\n👋 Karibu *Papo Hapo* (${chSymbol})!\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
+    }
+    const cName = customerProfile?.name || session.details.customerName;
+    const cPhone = customerProfile?.phone || session.details.phone;
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = { customerName: cName, ...(cPhone ? { phone: cPhone } : {}), lang: pickedLang };
+    await saveMetaSession(session, dbAdmin);
+    const servicesCfg = await loadServicesConfigQuick();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, pickedLang);
+    return pickedLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
+  }
+
+  if (!customerProfile && !session.details.customerName) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
       const isGreetingWord = ['hi', 'mambo', 'vip', 'vipi', 'habari', 'hello', 'anza', 'start', 'menu'].includes(cleanedLower);
       if (isGps || isDigitOnly || isGreetingWord || cleanInput.length < 2) {
-        return `👋 Tafadhali andika *Jina lako kamili* ili tukamilishe usajili wako mfupi (Mfano: *Juma Hassan*):`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]👋 Please enter your *full name* to finish quick registration (e.g. *Juma Hassan*):`
+          : `👋 Tafadhali andika *Jina lako kamili* ili tukamilishe usajili wako mfupi (Mfano: *Juma Hassan*):`;
       }
 
       const cleanName = cleanInput
@@ -2339,6 +2509,7 @@ async function handleMetaInputInternal(
         channel,
         name: cleanName,
         phone: defaultWaPhone || session.details.phone || senderId,
+        lang,
         createdAt: Date.now(),
       };
       await saveMetaCustomerProfile(newProfile, dbAdmin);
@@ -2348,21 +2519,15 @@ async function handleMetaInputInternal(
       delete session.service;
       await saveMetaSession(session, dbAdmin);
 
-      const badge = chSymbol.includes('🟢') ? '🟢' : chSymbol.includes('🔵') ? '🔵' : '🟣';
-      return (
-        `Habari *${cleanName}* 👋\n\n` +
-        `👋 *KARIBU PAPO HAPO SUPER APP!* ${badge}\n\n` +
-        `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
-        `*CHAGUA HUDUMA YAKO:*\n\n` +
-        META_DEFAULT_SERVICES.map((s, idx) => `${s.emoji} ${idx + 1}. ${s.title} – ${s.desc}`).join('\n') +
-        `\n📋 ${META_DEFAULT_SERVICES.length + 1}. Oda Zangu – Fuatilia Oda Zako\n\n` +
-        `✨ *Unaweza kuandika namba (1–${META_DEFAULT_SERVICES.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
-        `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️`
-      );
+      const servicesCfg = await loadServicesConfigQuick();
+      const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cleanName, lang);
+      return lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
     } else {
       session.step = 'REGISTERING_CUSTOMER';
       await saveMetaSession(session, dbAdmin);
-      return `👋 Karibu *Papo Hapo* (${chSymbol})!\n\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
+      return lang === 'en'
+        ? `[[EN_NATIVE]]👋 Welcome to *Papo Hapo* (${chSymbol})!\n\nEnter your *full name* to get started (e.g. *Juma Hassan*):`
+        : `👋 Karibu *Papo Hapo* (${chSymbol})!\n\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):`;
     }
   }
 
@@ -2372,7 +2537,9 @@ async function handleMetaInputInternal(
     delete session.details.activeQuestionNodeId;
     const gpsLoc = await resolveGpsLocationPin(cleanInput);
     if (!gpsLoc) {
-      return `⚠️ Imeshindikana kusoma eneo la GPS. Tafadhali andika jina la mtaa uliopo (Mfano: *Mikocheni*):`;
+      return lang === 'en'
+        ? `[[EN_NATIVE]]⚠️ Could not read your GPS pin. Please type your area name (e.g. *Mikocheni*):`
+        : `⚠️ Imeshindikana kusoma eneo la GPS. Tafadhali andika jina la mtaa uliopo (Mfano: *Mikocheni*):`;
     }
     if (session.service === 'food' && session.step === 'FOOD_DELIVERY_ADDRESS') {
       session.details.deliveryAddress = gpsLoc.name;
@@ -2412,7 +2579,8 @@ async function handleMetaInputInternal(
       session.step = 'SELECTING_VEHICLE';
       await saveMetaSession(session, dbAdmin);
       const avail = await getLiveDriverAvailability(dbAdmin);
-      return formatVehicleChoiceMessage(session.details.pickupName, gpsLoc.name, avail);
+      const vMsg = formatVehicleChoiceMessage(session.details.pickupName, gpsLoc.name, avail, lang);
+      return lang === 'en' ? `[[EN_NATIVE]]${vMsg}` : vMsg;
     }
     session.service = 'taxi';
     session.step = 'COLLECTING_ROUTE';
@@ -2422,7 +2590,9 @@ async function handleMetaInputInternal(
     delete session.details.awaitingPickup;
     session.details.awaitingDest = true;
     await saveMetaSession(session, dbAdmin);
-    return `📍 *Kutoka:* ${gpsLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
+    return lang === 'en'
+      ? `[[EN_NATIVE]]📍 *Pickup:* ${gpsLoc.name}\n\n*Where are you going?* _(Type destination or send 📍 Location pin)_:`
+      : `📍 *Kutoka:* ${gpsLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
   }
 
   // --- 0D. GLOBAL ORDER & BOOKING TRACKING ("ODA ZANGU" / #FD-3441 / #TBL-3947 / #PFX-... / #TK-... / #ML-... / #PP-...) ---
@@ -2437,10 +2607,12 @@ async function handleMetaInputInternal(
       delete session.service;
       await saveMetaSession(session, dbAdmin);
       const tracked = await lookupCustomerAllTrackables(dbAdmin, { phone: cleanInput, senderId });
-      return formatTrackedOrdersWhatsAppMessage(tracked, cleanInput);
+      return formatTrackedOrdersWhatsAppMessage(tracked, cleanInput, undefined, lang);
     }
     if (!['hi', 'menu', 'anza', 'start'].includes(cleanedLower)) {
-      return `⚠️ Tafadhali andika namba sahihi ya simu uliyoagizia (Mfano: *0782542520*), au andika *Hi* kurudi kwenye Menu.`;
+      return lang === 'en'
+        ? `[[EN_NATIVE]]⚠️ Please enter a valid phone number (e.g. *0782542520*), or reply *Menu*.`
+        : `⚠️ Tafadhali andika namba sahihi ya simu uliyoagizia (Mfano: *0782542520*), au andika *Hi* kurudi kwenye Menu.`;
     }
   }
 
@@ -2454,7 +2626,9 @@ async function handleMetaInputInternal(
       session.step = 'TRACKING_LOOKUP_PHONE';
       delete session.service;
       await saveMetaSession(session, dbAdmin);
-      return `📋 *Fuatilia Oda Zako Zote*\n\nTafadhali andika *namba yako ya simu* uliyoagizia ili tukuonyeshe oda zako zote (Mfano: *0782542520*):`;
+      return lang === 'en'
+        ? `[[EN_NATIVE]]📋 *Track Your Orders*\n\nPlease enter the *phone number* used for your orders (e.g. *0782542520*):`
+        : `📋 *Fuatilia Oda Zako Zote*\n\nTafadhali andika *namba yako ya simu* uliyoagizia ili tukuonyeshe oda zako zote (Mfano: *0782542520*):`;
     }
 
     session.step = 'COLLECTING_ROUTE';
@@ -2465,7 +2639,7 @@ async function handleMetaInputInternal(
       code: matchedCode,
       senderId
     });
-    return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode);
+    return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode, lang);
   }
 
   // Load custom meta config from local JSON or Firebase if database is available
@@ -2649,7 +2823,8 @@ async function handleMetaInputInternal(
 
   // Master Welcome Message
   const getWelcomeMessage = (customerName?: string) => {
-    return generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome, customerName);
+    const welcomeStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome, customerName, lang);
+    return lang === 'en' ? `[[EN_NATIVE]]${welcomeStr}` : welcomeStr;
   };
 
   // If user says "hi" or triggers restart
@@ -2658,11 +2833,13 @@ async function handleMetaInputInternal(
   if (isGreeting || session.step === 'START') {
     const preservedName = session.details?.customerName;
     const preservedPhone = session.details?.phone;
+    const preservedLang = session.details?.lang || lang;
     session.step = 'START';
     delete session.service;
     session.details = {};
     if (preservedName) session.details.customerName = preservedName;
     if (preservedPhone) session.details.phone = preservedPhone;
+    if (preservedLang) session.details.lang = preservedLang;
     
     // Classify first statement if it is conversational and not just a greeting
     if (!isGreeting && cleanInput.length > 3) {
@@ -2671,12 +2848,16 @@ async function handleMetaInputInternal(
         const matchedSrv = activeServices.find(srv => srv.key === intent);
         if (matchedSrv) {
           if (matchedSrv.isMaintenance) {
-            return `⚠️ *${matchedSrv.title}* ipo kwenye matengenezo kwa sasa.`;
+            return lang === 'en'
+              ? `[[EN_NATIVE]]⚠️ *${matchedSrv.title}* is currently under maintenance.`
+              : `⚠️ *${matchedSrv.title}* ipo kwenye matengenezo kwa sasa.`;
           }
           session.service = intent as any;
           return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector);
         } else {
-          return `⚠️ Samahani, huduma ya *${intent.toUpperCase()}* haipatikani kwa sasa.`;
+          return lang === 'en'
+            ? `[[EN_NATIVE]]⚠️ Sorry, *${intent.toUpperCase()}* is currently unavailable.`
+            : `⚠️ Samahani, huduma ya *${intent.toUpperCase()}* haipatikani kwa sasa.`;
         }
       }
     }
@@ -2693,10 +2874,12 @@ async function handleMetaInputInternal(
       if (!lookupPhone) {
         session.step = 'TRACKING_LOOKUP_PHONE';
         await saveMetaSession(session, dbAdmin);
-        return `📋 *Fuatilia Oda Zako Zote*\n\nTafadhali andika *namba yako ya simu* uliyoagizia ili tukuonyeshe oda zako zote (Mfano: *0782542520*):`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]📋 *Track Your Orders*\n\nPlease enter the *phone number* used for your orders (e.g. *0782542520*):`
+          : `📋 *Fuatilia Oda Zako Zote*\n\nTafadhali andika *namba yako ya simu* uliyoagizia ili tukuonyeshe oda zako zote (Mfano: *0782542520*):`;
       }
       const tracked = await lookupCustomerAllTrackables(dbAdmin, { phone: lookupPhone, senderId });
-      return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone);
+      return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, undefined, lang);
     }
 
     // Check if numeric input matches any display number of active services
@@ -2708,7 +2891,9 @@ async function handleMetaInputInternal(
       session.service = matchedSrvByNum.key as any;
     } else {
       if (/^\d{1,2}$/.test(cleanInput)) {
-        return `⚠️ Samahani, huduma hii haipatikani kwa sasa au imefungwa. Tafadhali chagua namba kati ya *1–${trackMenuNumber}* kwenye menu!`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Invalid choice. Please reply with *1–${trackMenuNumber}* from the menu.`
+          : `⚠️ Samahani, huduma hii haipatikani kwa sasa au imefungwa. Tafadhali chagua namba kati ya *1–${trackMenuNumber}* kwenye menu!`;
       }
 
       // Use NLP classifier for conversational selection!
@@ -2724,7 +2909,9 @@ async function handleMetaInputInternal(
           return `⚠️ Samahani, huduma ya ${intent.toUpperCase()} haipatikani kwa sasa.`;
         }
       } else {
-        return `⚠️ Samahani, sijaelewa ombi lako. Tafadhali chagua namba (*1–${trackMenuNumber}*), andika jina la huduma (mf. *PapoFix*, *PapoMall*, *PapoTicket*, *PapoPay*), au andika *Hi* kuanza upya.`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ I didn't quite get that. Reply with a number (*1–${trackMenuNumber}*), a service name (e.g. *PapoFix*, *PapoMall*), or *Menu*.`
+          : `⚠️ Samahani, sijaelewa ombi lako. Tafadhali chagua namba (*1–${trackMenuNumber}*), andika jina la huduma (mf. *PapoFix*, *PapoMall*, *PapoTicket*, *PapoPay*), au andika *Hi* kuanza upya.`;
       }
     }
     
@@ -2756,9 +2943,11 @@ async function handleMetaInputInternal(
       }
       const preservedName = session.details?.customerName;
       const preservedPhone = session.details?.phone;
+      const preservedLang = session.details?.lang || lang;
       session.details = {};
       if (preservedName) session.details.customerName = preservedName;
       if (preservedPhone) session.details.phone = preservedPhone;
+      if (preservedLang) session.details.lang = preservedLang;
       session.service = requestedBrandService;
       session.step = 'COLLECTING_ROUTE';
       await saveMetaSession(session, dbAdmin);
@@ -2769,10 +2958,10 @@ async function handleMetaInputInternal(
   // Active Flow handling
   const activeSrv = activeServices.find(srv => srv.key === session.service);
   if (activeSrv && activeSrv.isMaintenance) {
-    // Intercept if active flow got put into maintenance mid-way
+    const preservedLang = session.details?.lang || lang;
     session.step = 'START';
     delete session.service;
-    session.details = {};
+    session.details = preservedLang ? { lang: preservedLang } : {};
     await saveMetaSession(session, dbAdmin);
     return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
   }
@@ -2867,21 +3056,40 @@ async function getLiveDriverAvailability(dbAdmin: any): Promise<LiveDriverAvaila
   return result;
 }
 
-function formatDriverBucketBadge(avail: LiveDriverAvailability, bucket: VehicleBucket): string {
+function formatDriverBucketBadge(avail: LiveDriverAvailability, bucket: VehicleBucket, lang: 'sw' | 'en' = 'sw'): string {
   const freeN = avail.free[bucket];
   const busyN = avail.busy[bucket];
+  if (lang === 'en') {
+    if (freeN > 0) return `🟢 ${freeN} ready`;
+    if (busyN > 0) return `🟡 All busy`;
+    return `🔴 Offline`;
+  }
   if (freeN > 0) return `🟢 ${freeN} tayari`;
   if (busyN > 0) return `🟡 Wako busy`;
   return `🔴 Hawapo online`;
 }
 
-function formatVehicleChoiceMessage(pickupName: string, destName: string, avail: LiveDriverAvailability): string {
+function formatVehicleChoiceMessage(
+  pickupName: string,
+  destName: string,
+  avail: LiveDriverAvailability,
+  lang: 'sw' | 'en' = 'sw'
+): string {
+  if (lang === 'en') {
+    return (
+      `🗺️ *${pickupName}* ➜ *${destName}*\n\n` +
+      `Choose ride type:\n` +
+      `1. 🏍️ *Boda Boda* _(${formatDriverBucketBadge(avail, 'bike', 'en')})_\n` +
+      `2. 🛺 *Bajaji* _(${formatDriverBucketBadge(avail, 'bajaj', 'en')})_\n` +
+      `3. 🚕 *Cab / Taxi* _(${formatDriverBucketBadge(avail, 'mini', 'en')})_`
+    );
+  }
   return (
     `🗺️ *${pickupName}* ➜ *${destName}*\n\n` +
     `Chagua usafiri:\n` +
-    `1. 🏍️ *Boda Boda* _(${formatDriverBucketBadge(avail, 'bike')})_\n` +
-    `2. 🛺 *Bajaji* _(${formatDriverBucketBadge(avail, 'bajaj')})_\n` +
-    `3. 🚕 *Teksi* _(${formatDriverBucketBadge(avail, 'mini')})_`
+    `1. 🏍️ *Boda Boda* _(${formatDriverBucketBadge(avail, 'bike', 'sw')})_\n` +
+    `2. 🛺 *Bajaji* _(${formatDriverBucketBadge(avail, 'bajaj', 'sw')})_\n` +
+    `3. 🚕 *Teksi* _(${formatDriverBucketBadge(avail, 'mini', 'sw')})_`
   );
 }
 
@@ -2897,6 +3105,8 @@ async function routeToServiceFlow(
 ): Promise<string> {
   const service = session.service;
   const cleaned = input.toUpperCase();
+  const lang: 'sw' | 'en' = session.details?.lang === 'en' ? 'en' : 'sw';
+  const isEn = lang === 'en';
 
   // 1. TAXI FLOW
   if (service === 'taxi') {
@@ -2916,13 +3126,17 @@ async function routeToServiceFlow(
         session.details.awaitingPickup = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
-        return `🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:`;
+        return isEn
+          ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\nType your pickup area or send 📍 *Location pin*:`
+          : `🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:`;
       }
 
       if (session.details.awaitingDest && session.details.pickupName) {
         const destClean = cleanPlaceName(input);
         if (!destClean || destClean.length < 2) {
-          return `📍 *Kutoka:* ${session.details.pickupName}\nAndika eneo *unapokwenda* (mf. *Posta*, *Kariakoo*):`;
+          return isEn
+            ? `[[EN_NATIVE]]📍 *Pickup:* ${session.details.pickupName}\nEnter your *destination* (e.g. *Posta*, *Kariakoo*):`
+            : `📍 *Kutoka:* ${session.details.pickupName}\nAndika eneo *unapokwenda* (mf. *Posta*, *Kariakoo*):`;
         }
         session.details.destinationName = destClean;
         delete session.details.awaitingDest;
@@ -2931,7 +3145,8 @@ async function routeToServiceFlow(
         session.step = 'SELECTING_VEHICLE';
         await saveMetaSession(session, dbAdmin);
         const avail = await getLiveDriverAvailability(dbAdmin);
-        return formatVehicleChoiceMessage(session.details.pickupName, destClean, avail);
+        const vMsg = formatVehicleChoiceMessage(session.details.pickupName, destClean, avail, lang);
+        return isEn ? `[[EN_NATIVE]]${vMsg}` : vMsg;
       }
 
       // Smart natural language extraction of locations and vehicle
@@ -2966,19 +3181,24 @@ async function routeToServiceFlow(
           session.step = 'SELECTING_VEHICLE';
           await saveMetaSession(session, dbAdmin);
           const avail = await getLiveDriverAvailability(dbAdmin);
-          return formatVehicleChoiceMessage(pName, dName, avail);
+          const vMsg = formatVehicleChoiceMessage(pName, dName, avail, lang);
+          return isEn ? `[[EN_NATIVE]]${vMsg}` : vMsg;
         }
       } else {
         const singlePlace = cleanPlaceName(input);
         if (!singlePlace || singlePlace.length < 2) {
-          return `📍 Andika eneo *unapotoka* au tuma 📍 *Location* (mf. *Mikocheni*):`;
+          return isEn
+            ? `[[EN_NATIVE]]📍 Type your *pickup* location or send 📍 *Location pin* (e.g. *Mikocheni*):`
+            : `📍 Andika eneo *unapotoka* au tuma 📍 *Location* (mf. *Mikocheni*):`;
         }
         session.details.pickupName = singlePlace;
         delete session.details.awaitingPickup;
         session.details.awaitingDest = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
-        return `📍 *Kutoka:* ${singlePlace}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
+        return isEn
+          ? `[[EN_NATIVE]]📍 *Pickup:* ${singlePlace}\n\n*Where are you going?* _(Type destination or send 📍 Location)_:`
+          : `📍 *Kutoka:* ${singlePlace}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
       }
     }
 
@@ -2993,11 +3213,13 @@ async function routeToServiceFlow(
       } else if (vInput === '2' || vInput.includes('bajaj') || vInput.includes('sharo')) {
         vehicleType = 'bajaj';
         typeName = 'Bajaji 🛺';
-      } else if (vInput === '3' || vInput.includes('taxi') || vInput.includes('teksi') || vInput.includes('gari') || vInput.includes('mini') || vInput.includes('car')) {
+      } else if (vInput === '3' || vInput.includes('taxi') || vInput.includes('teksi') || vInput.includes('gari') || vInput.includes('mini') || vInput.includes('car') || vInput.includes('cab')) {
         vehicleType = 'mini';
-        typeName = 'Teksi 🚕';
+        typeName = isEn ? 'Taxi Cab 🚕' : 'Teksi 🚕';
       } else {
-        return `⚠️ Chagua namba *1–3*:\n1. 🏍️ Boda Boda\n2. 🛺 Bajaji\n3. 🚕 Teksi`;
+        return isEn
+          ? `[[EN_NATIVE]]⚠️ Choose *1–3*:\n1. 🏍️ Boda Boda\n2. 🛺 Bajaji\n3. 🚕 Taxi Cab`
+          : `⚠️ Chagua namba *1–3*:\n1. 🏍️ Boda Boda\n2. 🛺 Bajaji\n3. 🚕 Teksi`;
       }
 
       const pickupName = session.details.pickupName || "Mwenge";
@@ -3069,7 +3291,9 @@ async function routeToServiceFlow(
       const availabilityState: 'available' | 'busy' | 'offline' =
         freeCount > 0 ? 'available' : busyCount > 0 ? 'busy' : 'offline';
 
-      const labels: Record<VehicleBucket, string> = { bike: 'Boda Boda', bajaj: 'Bajaji', mini: 'Teksi' };
+      const labels: Record<VehicleBucket, string> = isEn
+        ? { bike: 'Boda Boda', bajaj: 'Bajaji', mini: 'Taxi' }
+        : { bike: 'Boda Boda', bajaj: 'Bajaji', mini: 'Teksi' };
       const altFreeList = (['bike', 'bajaj', 'mini'] as VehicleBucket[])
         .filter((b) => b !== vehicleType && avail.free[b] > 0)
         .map((b) => `${labels[b]} (${avail.free[b]})`);
@@ -3092,6 +3316,34 @@ async function routeToServiceFlow(
 
       session.step = 'CONFIRMING_TRIP';
       await saveMetaSession(session, dbAdmin);
+
+      if (isEn) {
+        let statusLineEn = '';
+        if (availabilityState === 'available') {
+          statusLineEn = `🟢 *${freeCount}* driver${freeCount > 1 ? 's' : ''} ready nearby`;
+        } else if (availabilityState === 'busy') {
+          statusLineEn = `🟡 *${busyCount}* *${labels[vehicleType]}* driver${busyCount > 1 ? 's' : ''} are currently *busy* on trips.`;
+        } else {
+          statusLineEn = `🔴 No *${labels[vehicleType]}* drivers are *Online* right now.`;
+        }
+
+        let respEn = `[[EN_NATIVE]]🧾 *${pLoc.name}* ➜ *${dLoc.name}*\n` +
+          `• *${typeName}* • *${distanceKm} km* (~${durationMin} min)\n` +
+          `• Fare: *TZS ${fare.toLocaleString()}*\n` +
+          `• Status: ${statusLineEn}`;
+
+        if (availabilityState !== 'available') {
+          if (altFreeList.length > 0) {
+            respEn += `\n💡 Available now: *${altFreeList.join(', ')}*`;
+          } else if (availabilityState === 'offline' && altBusyList.length > 0) {
+            respEn += `\n🟡 Busy on trips: *${altBusyList.join(', ')}*`;
+          }
+          respEn += `\n\n1. 🔄 *Change Ride Type*\n2. ⏳ *Request Anyway (Wait)*\n3. ❌ *Cancel*`;
+        } else {
+          respEn += `\n\n1. ✅ *Find Driver*\n2. ❌ *Cancel*`;
+        }
+        return respEn;
+      }
 
       let statusLine = '';
       if (availabilityState === 'available') {
@@ -3128,42 +3380,58 @@ async function routeToServiceFlow(
           session.step = 'SELECTING_VEHICLE';
           await saveMetaSession(session, dbAdmin);
           const avail = await getLiveDriverAvailability(dbAdmin);
-          return formatVehicleChoiceMessage(
-            session.details.pickupName || 'Hapa',
-            session.details.destinationName || 'Unapoenda',
-            avail
+          const vMsg = formatVehicleChoiceMessage(
+            session.details.pickupName || (isEn ? 'Pickup' : 'Hapa'),
+            session.details.destinationName || (isEn ? 'Destination' : 'Unapoenda'),
+            avail,
+            lang
           );
-        } else if (cleaned === '2' || cleaned.includes('tuma') || cleaned.includes('subiri') || cleaned.includes('ndio') || cleaned.includes('tafuta')) {
+          return isEn ? `[[EN_NATIVE]]${vMsg}` : vMsg;
+        } else if (cleaned === '2' || cleaned.includes('tuma') || cleaned.includes('subiri') || cleaned.includes('ndio') || cleaned.includes('tafuta') || cleaned.includes('request') || cleaned.includes('wait')) {
           session.step = 'SELECTING_PAYMENT_METHOD';
           await saveMetaSession(session, dbAdmin);
           const fare = session.details.calculatedFare || 0;
-          return `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
+          return isEn
+            ? `[[EN_NATIVE]]💳 *Payment — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
+            : `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
         } else if (cleaned === '3' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('cancel')) {
           const preservedName = session.details?.customerName;
+          const preservedLang = session.details?.lang || lang;
           session.step = 'COLLECTING_ROUTE';
           delete session.service;
-          session.details = preservedName ? { customerName: preservedName } : {};
+          session.details = { ...(preservedName ? { customerName: preservedName } : {}), lang: preservedLang };
           await saveMetaSession(session, dbAdmin);
-          return `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
+          return isEn
+            ? `[[EN_NATIVE]]❌ Ride cancelled. Reply *Menu* anytime.`
+            : `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
         } else {
-          return `⚠️ Chagua *1* (Badili Usafiri), *2* (Tuma Ombi Subiri) au *3* (Ghairi).`;
+          return isEn
+            ? `[[EN_NATIVE]]⚠️ Reply *1* (Change Ride), *2* (Request Anyway) or *3* (Cancel).`
+            : `⚠️ Chagua *1* (Badili Usafiri), *2* (Tuma Ombi Subiri) au *3* (Ghairi).`;
         }
       }
 
-      if (cleaned === '1' || cleaned.includes('ndio') || cleaned.includes('tafuta') || cleaned.includes('kubali') || cleaned.includes('yes')) {
+      if (cleaned === '1' || cleaned.includes('ndio') || cleaned.includes('tafuta') || cleaned.includes('kubali') || cleaned.includes('yes') || cleaned.includes('find')) {
         session.step = 'SELECTING_PAYMENT_METHOD';
         await saveMetaSession(session, dbAdmin);
         const fare = session.details.calculatedFare || 0;
-        return `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
+        return isEn
+          ? `[[EN_NATIVE]]💳 *Payment — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
+          : `💳 *Malipo — TZS ${fare.toLocaleString()}*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
       } else if (cleaned === '2' || cleaned.includes('hapana') || cleaned.includes('ghairi') || cleaned.includes('no') || cleaned.includes('cancel')) {
         const preservedName = session.details?.customerName;
+        const preservedLang = session.details?.lang || lang;
         session.step = 'COLLECTING_ROUTE';
         delete session.service;
-        session.details = preservedName ? { customerName: preservedName } : {};
+        session.details = { ...(preservedName ? { customerName: preservedName } : {}), lang: preservedLang };
         await saveMetaSession(session, dbAdmin);
-        return `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
+        return isEn
+          ? `[[EN_NATIVE]]❌ Ride cancelled. Reply *Menu* anytime.`
+          : `❌ Safari imeghairiwa. Andika *Menu* kuendelea.`;
       } else {
-        return `⚠️ Chagua *1* (Tafuta Dereva) au *2* (Ghairi).`;
+        return isEn
+          ? `[[EN_NATIVE]]⚠️ Reply *1* (Find Driver) or *2* (Cancel).`
+          : `⚠️ Chagua *1* (Tafuta Dereva) au *2* (Ghairi).`;
       }
     }
 
@@ -3185,7 +3453,9 @@ async function routeToServiceFlow(
         paymentMethod = 'airtelmoney';
         paymentMethodLabel = 'Airtel Money 📱';
       } else {
-        return `⚠️ Chagua *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
+        return isEn
+          ? `[[EN_NATIVE]]⚠️ Choose *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`
+          : `⚠️ Chagua *1–4*:\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money`;
       }
 
       session.details.paymentMethod = paymentMethod;
@@ -3195,9 +3465,13 @@ async function routeToServiceFlow(
 
       const waDigits = channel === 'whatsapp' ? session.senderId.replace(/\D/g, '') : '';
       if (waDigits.length >= 9) {
-        return `📞 *Namba ya mawasiliano?*\n1. ✅ Tumia *+${waDigits}*\n_Au andika namba nyingine:_`;
+        return isEn
+          ? `[[EN_NATIVE]]📞 *Contact number?*\n1. ✅ Use *+${waDigits}*\n_Or type another number:_`
+          : `📞 *Namba ya mawasiliano?*\n1. ✅ Tumia *+${waDigits}*\n_Au andika namba nyingine:_`;
       }
-      return `📞 Andika namba yako ya simu (mf. *0712345678*):`;
+      return isEn
+        ? `[[EN_NATIVE]]📞 Enter your phone number (e.g. *0712345678*):`
+        : `📞 Andika namba yako ya simu (mf. *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -3208,7 +3482,9 @@ async function routeToServiceFlow(
       } else {
         const digitsOnly = phoneNum.replace(/\D/g, '');
         if (digitsOnly.length < 9) {
-          return `⚠️ Weka namba sahihi (mf. *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
+          return isEn
+            ? `[[EN_NATIVE]]⚠️ Enter a valid phone number (e.g. *0712345678*)${waDigits.length >= 9 ? ` or *1* to use *+${waDigits}*` : ''}:`
+            : `⚠️ Weka namba sahihi (mf. *0712345678*)${waDigits.length >= 9 ? ` au *1* kutumia *+${waDigits}*` : ''}:`;
         }
       }
 
@@ -3225,10 +3501,11 @@ async function routeToServiceFlow(
       const paymentMethod = session.details.paymentMethod || 'cash';
       const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
       const availState = session.details.availabilityState || 'available';
+      const preservedLang = session.details?.lang || lang;
 
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
-      session.details = { customerName, phone: phoneNum };
+      session.details = { customerName, phone: phoneNum, lang: preservedLang };
       await saveMetaSession(session, dbAdmin);
 
       const randId = Math.floor(100000 + Math.random() * 900000);
@@ -3279,6 +3556,25 @@ async function routeToServiceFlow(
 
       const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
       const trackingUrl = `${publicBaseUrl}/track/${createdRideId}`;
+
+      if (isEn) {
+        const statusNoteEn =
+          availState === 'busy'
+            ? `🟡 Drivers are currently *busy* — your request is queued and you'll be notified here as soon as one finishes.`
+            : availState === 'offline'
+            ? `🔴 No drivers are *Online* right now — your request is saved for when a driver comes online.`
+            : `📡 Nearby drivers have been notified — you'll get an update here once accepted.`;
+
+        return `[[EN_NATIVE]]✅ *PapoRide Request Sent!*\n` +
+               `🔖 *${bookingCode}* • *${typeName}*\n` +
+               `📍 *${pickupName}* ➜ *${destName}*\n` +
+               `📏 *${distanceKm} km* (~${durationMin} min) • *TZS ${fare?.toLocaleString()}*\n` +
+               `💳 ${paymentMethodLabel} • 📞 ${phoneNum}\n\n` +
+               `${statusNoteEn}\n\n` +
+               `🗺️ Live Map: ${trackingUrl}\n` +
+               `📋 My Orders: ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
+               `_Reply *Menu* or *My Orders* anytime._`;
+      }
 
       const statusNote =
         availState === 'busy'
@@ -3774,10 +4070,11 @@ async function routeToServiceFlow(
       const preferredTableId = session.details.preferredTableId;
       const preferredTableNumber = session.details.preferredTableNumber;
 
-      // Reset session cleanly while preserving customer identity
+      // Reset session cleanly while preserving customer identity & language
+      const preservedLang = session.details?.lang || lang;
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
-      session.details = { customerName, phone: phoneNum };
+      session.details = { customerName, phone: phoneNum, lang: preservedLang };
       await saveMetaSession(session, dbAdmin);
 
       if (foodMode === 'table_booking') {
@@ -5365,51 +5662,76 @@ export async function notifyRideStatusToMeta(
     const fareText = ride.fare ? `TZS ${Number(ride.fare).toLocaleString()}/=` : '';
     const paymentLabel = ride.paymentMethodLabel || ride.paymentMethod || 'Cash';
 
+    let customerLang: 'sw' | 'en' = 'sw';
+    try {
+      const custProf = await getMetaCustomerProfile(recipientId, channel, dbAdmin);
+      const sess = await getMetaSession(recipientId, channel, dbAdmin);
+      customerLang = sess?.details?.lang || custProf?.lang || 'sw';
+    } catch {}
+    const isEn = customerLang === 'en';
+
     let message = '';
 
     if (status === 'accepted' || status === 'driver_arriving') {
-      message =
-        `🎉 *Dereva Amekubali Oda Yako!* (${bookingRef})\n\n` +
-        `👤 *Dereva:* ${driverName} (${driverRating})\n` +
-        (driverPhone ? `📞 *Simu:* ${driverPhone}\n` : '') +
-        `🚘 *Gari:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''}\n` +
-        `🔢 *Namba ya Gari:* *${vehiclePlate}*\n` +
-        `⏱️ *Muda wa Kufika (ETA):* ~Dakika *${etaMinutes}*${distKmText}\n\n` +
-        `📍 Dereva yuko njiani kuelekea *${pickup.name || 'mahali ulipo'}*.\n` +
-        `🗺️ *Fuatilia dereva mubashara:*\n${trackUrl}`;
+      message = isEn
+        ? `🎉 *Driver Accepted!* (${bookingRef})\n\n` +
+          `👤 *Driver:* ${driverName} (${driverRating})\n` +
+          (driverPhone ? `📞 *Phone:* ${driverPhone}\n` : '') +
+          `🚘 *Vehicle:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''} • *${vehiclePlate}*\n` +
+          `⏱️ *ETA:* ~*${etaMinutes} min*\n\n` +
+          `📍 Heading to *${pickup.name || 'your pickup'}*.\n` +
+          `🗺️ Live Map: ${trackUrl}`
+        : `🎉 *Dereva Amekubali Oda Yako!* (${bookingRef})\n\n` +
+          `👤 *Dereva:* ${driverName} (${driverRating})\n` +
+          (driverPhone ? `📞 *Simu:* ${driverPhone}\n` : '') +
+          `🚘 *Gari:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''}\n` +
+          `🔢 *Namba ya Gari:* *${vehiclePlate}*\n` +
+          `⏱️ *Muda wa Kufika (ETA):* ~Dakika *${etaMinutes}*${distKmText}\n\n` +
+          `📍 Dereva yuko njiani kuelekea *${pickup.name || 'mahali ulipo'}*.\n` +
+          `🗺️ *Fuatilia dereva mubashara:*\n${trackUrl}`;
     } else if (status === 'driver_arrived') {
-      message =
-        `📍 *Dereva Amefika!* (${bookingRef})\n\n` +
-        `Dereva *${driverName}* akiwa na gari *${vehicleModel}* (*${vehiclePlate}*) ameshafika eneo la *${pickup.name || 'kukuchukua'}*.\n` +
-        (driverPhone ? `📞 Mpige simu: ${driverPhone}\n` : '') +
-        `🗺️ ${trackUrl}`;
+      message = isEn
+        ? `📍 *Driver Has Arrived!* (${bookingRef})\n\n` +
+          `*${driverName}* (*${vehicleModel}* • *${vehiclePlate}*) is waiting at *${pickup.name || 'pickup'}*.\n` +
+          (driverPhone ? `📞 Call: ${driverPhone}\n` : '') +
+          `🗺️ ${trackUrl}`
+        : `📍 *Dereva Amefika!* (${bookingRef})\n\n` +
+          `Dereva *${driverName}* akiwa na gari *${vehicleModel}* (*${vehiclePlate}*) ameshafika eneo la *${pickup.name || 'kukuchukua'}*.\n` +
+          (driverPhone ? `📞 Mpige simu: ${driverPhone}\n` : '') +
+          `🗺️ ${trackUrl}`;
     } else if (status === 'on_trip') {
-      message =
-        `🚕 *Safari Imeanza!* (${bookingRef})\n\n` +
-        `Upo safarini na dereva *${driverName}* (*${vehiclePlate}*) kuelekea *${dest.name || 'unapoenda'}*.\n` +
-        `🗺️ *Fuatilia safari mubashara:*\n${trackUrl}`;
+      message = isEn
+        ? `🚕 *Trip Started!* (${bookingRef})\n\n` +
+          `On your way to *${dest.name || 'destination'}* with *${driverName}* (*${vehiclePlate}*).\n` +
+          `🗺️ Live Map: ${trackUrl}`
+        : `🚕 *Safari Imeanza!* (${bookingRef})\n\n` +
+          `Upo safarini na dereva *${driverName}* (*${vehiclePlate}*) kuelekea *${dest.name || 'unapoenda'}*.\n` +
+          `🗺️ *Fuatilia safari mubashara:*\n${trackUrl}`;
     } else if (status === 'completed') {
-      message =
-        `🏁 *Safari Imekamilika!* (${bookingRef})\n\n` +
-        `Asante kwa kusafiri na *${driverName}* (*${vehiclePlate}*).\n` +
-        (fareText ? `💵 *Nauli ya Kulipa:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
-        `⭐ *Tafadhali mpe tathmini dereva wako (tuma namba 1 hadi 5):*\n` +
-        `5 - Bora kabisa ⭐⭐⭐⭐⭐\n` +
-        `4 - Nzuri sana ⭐⭐⭐⭐\n` +
-        `3 - Wastani ⭐⭐⭐\n` +
-        `2 - Hairidhishi ⭐⭐\n` +
-        `1 - Mbaya ⭐`;
+      message = isEn
+        ? `🏁 *Trip Completed!* (${bookingRef})\n\n` +
+          `Thanks for riding with *${driverName}* (*${vehiclePlate}*).\n` +
+          (fareText ? `💵 *Fare:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
+          `⭐ *Rate your driver (reply 1–5):*\n5 ⭐⭐⭐⭐⭐ | 4 ⭐⭐⭐⭐ | 3 ⭐⭐⭐ | 2 ⭐⭐ | 1 ⭐`
+        : `🏁 *Safari Imekamilika!* (${bookingRef})\n\n` +
+          `Asante kwa kusafiri na *${driverName}* (*${vehiclePlate}*).\n` +
+          (fareText ? `💵 *Nauli ya Kulipa:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
+          `⭐ *Tafadhali mpe tathmini dereva wako (tuma namba 1 hadi 5):*\n` +
+          `5 - Bora kabisa ⭐⭐⭐⭐⭐\n` +
+          `4 - Nzuri sana ⭐⭐⭐⭐\n` +
+          `3 - Wastani ⭐⭐⭐\n` +
+          `2 - Hairidhishi ⭐⭐\n` +
+          `1 - Mbaya ⭐`;
 
-      // Persist pending rating state onto customer's Meta session
       const session = await getMetaSession(recipientId, channel, dbAdmin);
       session.details.ratingRideId = rideId;
       session.details.ratingDriverId = ride.driverId || driver.id || '';
       session.details.ratingDriverName = driverName;
       await saveMetaSession(session, dbAdmin);
     } else if (status === 'cancelled') {
-      message =
-        `❌ *Safari Imesitishwa* (${bookingRef})\n\n` +
-        `Oda yako imeghairiwa. Andika *Menu* au *1* kuagiza usafiri mwingine papo hapo.`;
+      message = isEn
+        ? `❌ *Ride Cancelled* (${bookingRef})\n\nReply *Menu* or *1* to book another ride.`
+        : `❌ *Safari Imesitishwa* (${bookingRef})\n\nOda yako imeghairiwa. Andika *Menu* au *1* kuagiza usafiri mwingine papo hapo.`;
     }
 
     if (!message) {
