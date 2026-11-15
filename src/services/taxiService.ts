@@ -95,7 +95,22 @@ export const taxiService = {
     });
     
     const updatedSnap = await getDoc(rideRef);
-    return { id: updatedSnap.id, ...updatedSnap.data() };
+    const updatedData = { id: updatedSnap.id, ...updatedSnap.data() };
+    fetch('/api/meta/ride-status-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rideId,
+        status: 'accepted',
+        driverInfo: {
+          name: driverInfo.name,
+          photo: driverInfo.photo,
+          vehicle: { plate: driverInfo.vehicleNumber },
+        },
+        rideData: updatedData,
+      }),
+    }).catch(() => {});
+    return updatedData;
   },
 
   // Update ride status
@@ -106,7 +121,17 @@ export const taxiService = {
       updatedAt: serverTimestamp()
     });
     const updatedSnap = await getDoc(rideRef);
-    return { id: updatedSnap.id, ...updatedSnap.data() };
+    const updatedData = { id: updatedSnap.id, ...updatedSnap.data() };
+    fetch('/api/meta/ride-status-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rideId,
+        status,
+        rideData: updatedData,
+      }),
+    }).catch(() => {});
+    return updatedData;
   },
 
   // Rate a ride

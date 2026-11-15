@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, extractMetaWebhookMessages, claimMetaWebhookMessage } from '../_lib/metaBot';
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, extractMetaWebhookMessages, claimMetaWebhookMessage, recordInboundMetaPhoneNumberId } from '../_lib/metaBot';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -80,9 +80,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               continue;
             }
 
+            recordInboundMetaPhoneNumberId(msg.senderId, msg.phoneNumberId);
             console.log(`[Meta Webhook Vercel] Processing message from ${msg.channel}:${msg.senderId} (id=${msg.messageId || 'none'}): "${msg.textBody}"`);
-            const { text: reply, media } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
-            console.log(`[Meta Webhook Vercel] Reply to ${msg.channel}:${msg.senderId} (${media.length} photo(s)) -> "${reply}"`);
+            const { text: reply, media, interactive } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
+            console.log(`[Meta Webhook Vercel] Reply to ${msg.channel}:${msg.senderId} (${media.length} photo(s)${interactive ? `, interactive=${interactive.type}` : ''}) -> "${reply}"`);
 
             await sendMetaOutboundMessage({
               channel: msg.channel,
@@ -90,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               text: reply,
               phoneNumberId: msg.phoneNumberId,
               media,
+              interactive,
             });
 
             if (dbAdmin) {

@@ -1414,6 +1414,7 @@ export default function RiderHome({ onNavVisibilityChange, onProfileClick, onNav
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [incomingOrder, setIncomingOrder] = useState<any>(null);
   const [declinedRequests, setDeclinedRequests] = useState<Set<string>>(new Set());
+  const autoArrivedRideIdRef = React.useRef<string | null>(null);
 
   const handleSignOut = async () => {
     try {
@@ -2040,15 +2041,16 @@ const getEndPin = (etaText: string) => {
         console.log(`[Simulation] Driver reached target for status: ${status}`);
         
         // If we are arriving at the customer, auto-transition to arrived at pickup!
-        if (status === 'accepted' || status === 'driver_arriving') {
+        if ((status === 'accepted' || status === 'driver_arriving') && autoArrivedRideIdRef.current !== activeRide?.id) {
+          autoArrivedRideIdRef.current = activeRide?.id || null;
           console.log("[Simulation] Auto marking as arrived at pickup");
-          arrivedAtPickup();
+          arrivedAtPickup(activeRide);
         }
       }
     }, 1100);
 
     return () => clearInterval(simInterval);
-  }, [isOnline, activeRide?.status, updateDriverLocation, arrivedAtPickup]);
+  }, [isOnline, activeRide?.status, activeRide?.id, updateDriverLocation, arrivedAtPickup]);
 
   // Restore online status from Firestore on mount - ONLY ONCE
   useEffect(() => {
@@ -2556,7 +2558,7 @@ const getEndPin = (etaText: string) => {
       setIncomingRequest(null);
 
       // Force update location immediately upon acceptance
-      await firestoreAccept(incomingRequest.id, user.uid, driverInfo, { lat: position[0], lng: position[1] });
+      await firestoreAccept(incomingRequest.id, user.uid, driverInfo, { lat: position[0], lng: position[1] }, incomingRequest);
       
       // Also update the drivers collection to 'busy' or similar if needed, 
       // but status 'online' is usually enough if filtered by 'active'
@@ -2574,11 +2576,12 @@ const getEndPin = (etaText: string) => {
     if (!activeRide?.id) return;
     try {
       if (status === 'driver_arrived') {
-        await arrivedAtPickup();
+        autoArrivedRideIdRef.current = activeRide.id;
+        await arrivedAtPickup(activeRide);
         DriverVoice.arrivedAtPickup();
         toast.success("Umefika kwa mteja!");
       } else if (status === 'on_trip') {
-        await startTrip();
+        await startTrip(activeRide);
         DriverVoice.tripStarted((activeRide?.destination as any)?.name || activeRide?.destination?.address);
         toast.success("Safari imeanza!");
       }
@@ -2607,7 +2610,8 @@ const getEndPin = (etaText: string) => {
       await completeTrip(
         activeRide.customerId,
         user.uid,
-        activeRide.fare
+        activeRide.fare,
+        activeRide
       );
       DriverVoice.tripCompleted(activeRide.fare);
       setShowPayment(true);
@@ -2625,17 +2629,19 @@ const getEndPin = (etaText: string) => {
     const status = activeRide.status;
 
     // Phase 1: Driver -> Pickup (Point A) [GREEN Route]
-    if (['accepted', 'driver_arriving'].includes(status)) {
+    if (['accepted', 'driver_arriving'].includes(status) && autoArrivedRideIdRef.current !== activeRide.id) {
       const distToPickup = getDistanceDriver(
         [position[0], position[1]], 
         [activeRide.pickup.lat, activeRide.pickup.lng]
       );
       
       if (distToPickup < ARRIVAL_THRESHOLD_METERS) {
+        autoArrivedRideIdRef.current = activeRide.id;
         console.log(`[Proximity Detector] Within ${distToPickup.toFixed(1)}m of pickup. Triggering arrivedAtPickup.`);
-        arrivedAtPickup().then(() => {
+        arrivedAtPickup(activeRide).then(() => {
           toast.success("Mteja amefikiwa! Umewasili eneo la pickup.");
         }).catch(err => {
+          autoArrivedRideIdRef.current = null;
           console.warn("[Proximity] Auto-arrival trigger failed:", err);
         });
       }

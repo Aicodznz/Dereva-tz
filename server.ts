@@ -4,8 +4,8 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables } from "./src/lib/metaBot";
-import { getFirestoreDb } from "./api/_lib/getFirestoreDb";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId } from "./src/lib/metaBot";
+import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
 dotenv.config();
@@ -267,9 +267,10 @@ async function startServer() {
           return;
         }
 
+        recordInboundMetaPhoneNumberId(msg.senderId, msg.phoneNumberId);
         console.log(`[Meta Webhook] Incoming message on ${msg.channel} from ${msg.senderId} (id=${msg.messageId || 'none'}): "${msg.textBody}"`);
-        const { text: reply, media } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
-        console.log(`[Meta Webhook] Responding to ${msg.channel}:${msg.senderId} (${media.length} photo(s)) -> "${reply}"`);
+        const { text: reply, media, interactive } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
+        console.log(`[Meta Webhook] Responding to ${msg.channel}:${msg.senderId} (${media.length} photo(s)${interactive ? `, interactive=${interactive.type}` : ''}) -> "${reply}"`);
 
         await sendMetaOutboundMessage({
           channel: msg.channel,
@@ -277,6 +278,7 @@ async function startServer() {
           text: reply,
           phoneNumberId: msg.phoneNumberId,
           media,
+          interactive,
         });
 
         recordMetaChatInMemory(msg.channel, msg.senderId, msg.textBody, reply);
@@ -329,7 +331,7 @@ async function startServer() {
     console.log(`[Meta Simulator] Received simulated message from ${channel}:${senderId}: "${message}"`);
     
     try {
-      const { text: reply, media } = await handleMetaInputWithMedia(senderId, message, channel, dbAdmin);
+      const { text: reply, media, interactive } = await handleMetaInputWithMedia(senderId, message, channel, dbAdmin);
       
       recordMetaChatInMemory(channel, senderId, message, reply);
 
@@ -349,7 +351,7 @@ async function startServer() {
         }
       }
       
-      res.json({ reply, media, status: "success" });
+      res.json({ reply, media, interactive, status: "success" });
     } catch (error: any) {
       console.error("[Meta Simulator] Failed to simulate:", error);
       res.status(500).json({ error: "Failed to simulate Meta response", details: error.message });
@@ -2021,6 +2023,39 @@ The JSON output must contain the following keys:
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // Real-time Firestore backup watcher for WhatsApp/Meta rides (fires even if client HTTP fails)
+    subscribeCollectionChanges(
+      'rides',
+      [{ field: 'status', op: 'in', value: ['accepted', 'driver_assigned', 'driver_arriving', 'driver_arrived', 'arrived', 'on_trip', 'started', 'completed'] }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+          const ride = change.data || {};
+          const ch = String(ride.metaChannel || ride.channel || '').toLowerCase();
+          const cid = String(ride.customerId || '');
+          const isMetaRide = Boolean(
+            ride.metaSenderId ||
+            ch === 'whatsapp' || ch === 'messenger' || ch === 'instagram' ||
+            cid.startsWith('meta-client-') || cid.startsWith('whatsapp-client-')
+          );
+          if (!isMetaRide) continue;
+          notifyRideStatusToMeta(
+            {
+              rideId: change.id,
+              status: ride.status,
+              driverInfo: ride.driverInfo,
+              driverLocation: ride.driverLocation,
+              rideData: ride,
+            },
+            dbAdmin
+          ).catch((err) => {
+            console.warn('[Meta Ride Watcher] Notification warning:', err?.message || err);
+          });
+        }
+      }
+    );
   });
 }
 

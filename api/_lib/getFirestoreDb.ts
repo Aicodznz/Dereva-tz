@@ -13,7 +13,8 @@ import {
   query as firestoreQuery, 
   where as firestoreWhere, 
   orderBy as firestoreOrderBy, 
-  limit as firestoreLimit 
+  limit as firestoreLimit,
+  onSnapshot as firestoreOnSnapshot
 } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
@@ -341,3 +342,60 @@ export function getFirestoreDb() {
     collection: (colName: string) => buildRef([colName])
   };
 }
+
+export function subscribeCollectionChanges(
+  colPath: string,
+  whereRules: QueryRule[],
+  onChanges: (changes: Array<{ type: 'added' | 'modified' | 'removed'; id: string; data: any }>, isInitialSnapshot: boolean) => void
+): () => void {
+  if (!realDb) {
+    return () => {};
+  }
+  let isInitialSnapshot = true;
+  let unsub: (() => void) | null = null;
+  let cancelled = false;
+
+  (async () => {
+    if (authPromise) {
+      try {
+        await authPromise;
+      } catch {}
+    }
+    if (cancelled) return;
+    try {
+      const colRef = firestoreCollection(realDb, colPath);
+      const queryParams = whereRules.map((r) => firestoreWhere(r.field, r.op as any, r.value));
+      const q = queryParams.length > 0 ? firestoreQuery(colRef, ...queryParams) : colRef;
+      unsub = firestoreOnSnapshot(
+        q,
+        (snap: any) => {
+          const changes = snap.docChanges().map((c: any) => ({
+            type: c.type as 'added' | 'modified' | 'removed',
+            id: c.doc.id,
+            data: c.doc.data(),
+          }));
+          const initial = isInitialSnapshot;
+          isInitialSnapshot = false;
+          if (changes.length > 0) {
+            onChanges(changes, initial);
+          }
+        },
+        (err: any) => {
+          console.warn(`[getFirestoreDb] Real-time listener warning for ${colPath}:`, err?.message || err);
+        }
+      );
+    } catch (err: any) {
+      console.warn(`[getFirestoreDb] Failed to subscribe to ${colPath}:`, err?.message || err);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    if (unsub) {
+      try {
+        unsub();
+      } catch {}
+    }
+  };
+}
+

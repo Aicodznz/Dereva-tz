@@ -2,22 +2,40 @@ import { db } from '../firebase';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { DriverInfo, RideStatus } from '../types/ride.types';
 
-function notifyMetaRideStatus(payload: {
+async function notifyMetaRideStatus(payload: {
   rideId: string;
   status: RideStatus;
   driverInfo?: DriverInfo;
   driverLocation?: { lat: number; lng: number };
+  rideData?: any;
 }) {
-  fetch('/api/meta/ride-status-notify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {});
+  const attemptSend = async () => {
+    const resp = await fetch('/api/meta/ride-status-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    return resp.json().catch(() => ({}));
+  };
+
+  try {
+    await attemptSend();
+  } catch {
+    setTimeout(() => {
+      attemptSend().catch((err) => {
+        console.warn('[notifyMetaRideStatus] Retry failed:', err?.message || err);
+      });
+    }, 1200);
+  }
 }
 
 export function useDriverActions(rideId: string | null) {
-  const acceptRide = async (targetRideId: string, driverId: string, driverInfo: DriverInfo, currentLoc: { lat: number, lng: number }) => {
+  const acceptRide = async (targetRideId: string, driverId: string, driverInfo: DriverInfo, currentLoc: { lat: number, lng: number }, rideSnapshot?: any) => {
     try {
+      let capturedRideData: any = rideSnapshot || null;
       await runTransaction(db, async (transaction) => {
         const rideRef = doc(db, 'rides', targetRideId);
         const rideDoc = await transaction.get(rideRef);
@@ -30,6 +48,7 @@ export function useDriverActions(rideId: string | null) {
         if (rideData.status !== 'pending') {
           throw new Error('Ombi hili limechukuliwa na dereva mwingine');
         }
+        capturedRideData = rideData;
 
         transaction.update(rideRef, {
           status: 'accepted' as RideStatus,
@@ -54,6 +73,7 @@ export function useDriverActions(rideId: string | null) {
         status: 'accepted',
         driverInfo,
         driverLocation: currentLoc,
+        rideData: capturedRideData,
       });
     } catch (error) {
       console.error("Accept ride transaction failed:", error);
@@ -61,43 +81,68 @@ export function useDriverActions(rideId: string | null) {
     }
   };
 
-  const arrivedAtPickup = async () => {
+  const arrivedAtPickup = async (rideSnapshot?: any) => {
     if (!rideId) return;
     try {
-      await updateDoc(doc(db, 'rides', rideId), {
+      const rideRef = doc(db, 'rides', rideId);
+      let resolvedRide = rideSnapshot || null;
+      if (!resolvedRide) {
+        const snap = await getDoc(rideRef).catch(() => null);
+        if (snap?.exists()) resolvedRide = snap.data();
+      }
+      await updateDoc(rideRef, {
         status: 'driver_arrived' as RideStatus,
         arrivedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      notifyMetaRideStatus({ rideId, status: 'driver_arrived' });
+      notifyMetaRideStatus({
+        rideId,
+        status: 'driver_arrived',
+        driverInfo: resolvedRide?.driverInfo,
+        driverLocation: resolvedRide?.driverLocation,
+        rideData: resolvedRide,
+      });
     } catch (error) {
       console.error(error);
       throw error;
     }
   };
 
-  const startTrip = async () => {
+  const startTrip = async (rideSnapshot?: any) => {
     if (!rideId) return;
     try {
-      await updateDoc(doc(db, 'rides', rideId), {
+      const rideRef = doc(db, 'rides', rideId);
+      let resolvedRide = rideSnapshot || null;
+      if (!resolvedRide) {
+        const snap = await getDoc(rideRef).catch(() => null);
+        if (snap?.exists()) resolvedRide = snap.data();
+      }
+      await updateDoc(rideRef, {
         status: 'on_trip' as RideStatus,
         startedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
-      notifyMetaRideStatus({ rideId, status: 'on_trip' });
+      notifyMetaRideStatus({
+        rideId,
+        status: 'on_trip',
+        driverInfo: resolvedRide?.driverInfo,
+        driverLocation: resolvedRide?.driverLocation,
+        rideData: resolvedRide,
+      });
     } catch (error) {
       console.error(error);
       throw error;
     }
   };
 
-  const completeTrip = async (customerId: string, driverId: string, amount: number) => {
+  const completeTrip = async (customerId: string, driverId: string, amount: number, rideSnapshot?: any) => {
     if (!rideId) return;
 
     try {
       const rideRef = doc(db, 'rides', rideId);
       const rideSnap = await getDoc(rideRef).catch(() => null);
-      const rideMethod = rideSnap?.exists() ? (rideSnap.data()?.paymentMethod || 'cash') : 'cash';
+      const resolvedRide = rideSnap?.exists() ? rideSnap.data() : (rideSnapshot || null);
+      const rideMethod = resolvedRide?.paymentMethod || 'cash';
 
       await updateDoc(rideRef, {
         status: 'completed' as RideStatus,
@@ -122,7 +167,13 @@ export function useDriverActions(rideId: string | null) {
         updatedAt: serverTimestamp()
       });
 
-      notifyMetaRideStatus({ rideId, status: 'completed' });
+      notifyMetaRideStatus({
+        rideId,
+        status: 'completed',
+        driverInfo: resolvedRide?.driverInfo,
+        driverLocation: resolvedRide?.driverLocation,
+        rideData: resolvedRide,
+      });
     } catch (error) {
       console.error(error);
       throw error;

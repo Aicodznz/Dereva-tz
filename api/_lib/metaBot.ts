@@ -90,6 +90,102 @@ export interface MetaSession {
   lastUpdated: number;
 }
 
+export type WhatsAppInteractivePayload =
+  | {
+      type: 'button';
+      header?: { type: 'text'; text: string };
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        buttons: Array<{
+          type: 'reply';
+          reply: { id: string; title: string };
+        }>;
+      };
+    }
+  | {
+      type: 'list';
+      header?: { type: 'text'; text: string };
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        button: string;
+        sections: Array<{
+          title?: string;
+          rows: Array<{
+            id: string;
+            title: string;
+            description?: string;
+          }>;
+        }>;
+      };
+    }
+  | {
+      type: 'location_request_message';
+      body: { text: string };
+      footer?: { text: string };
+      action: { name: 'send_location' };
+    }
+  | {
+      type: 'cta_url';
+      header?: { type: 'text'; text: string };
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        name: 'cta_url';
+        parameters: {
+          display_text: string;
+          url: string;
+        };
+      };
+    }
+  | {
+      type: 'flow';
+      header?: { type: 'text'; text: string };
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        name: 'flow';
+        parameters: {
+          flow_message_version: '3';
+          flow_id: string;
+          flow_cta: string;
+          flow_action?: 'navigate' | 'data_exchange';
+          flow_action_payload?: { screen: string; data?: Record<string, any> };
+          flow_token?: string;
+          mode?: 'draft' | 'published';
+        };
+      };
+    }
+  | {
+      type: 'catalog_message';
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        name: 'catalog_message';
+        parameters?: { thumbnail_product_retailer_id?: string };
+      };
+    }
+  | {
+      type: 'product';
+      body?: { text: string };
+      footer?: { text: string };
+      action: { catalog_id: string; product_retailer_id: string };
+    }
+  | {
+      type: 'product_list';
+      header: { type: 'text'; text: string };
+      body: { text: string };
+      footer?: { text: string };
+      action: {
+        catalog_id: string;
+        sections: Array<{
+          title: string;
+          product_items: Array<{ product_retailer_id: string }>;
+        }>;
+      };
+    };
+
 export interface MetaMediaAttachment {
   url: string;
   caption?: string;
@@ -98,6 +194,7 @@ export interface MetaMediaAttachment {
 export interface MetaBotResponse {
   text: string;
   media: MetaMediaAttachment[];
+  interactive?: WhatsAppInteractivePayload;
 }
 
 export interface MetaCustomerProfile {
@@ -1993,6 +2090,9 @@ Respond strictly with the matching category ID. If none fits nicely, return "def
           await dbAdmin.collection('rides').add({
             status: "pending",
             customerId: `meta-client-${session.senderId}`,
+            metaSenderId: session.senderId,
+            metaChannel: channel,
+            metaPhoneNumberId: senderWhatsAppPhoneNumberIds.get(session.senderId) || globalLastWhatsAppPhoneNumberId || '',
             customerInfo: {
               name: session.details.variables['customer.name'] || "Meta Customer",
               phone: phone,
@@ -2311,8 +2411,1120 @@ ${clean}`;
   return clean;
 }
 
+function clampMetaPlainStr(raw: string, maxLen: number, ellipsis = true): string {
+  const cleaned = String(raw || '')
+    .replace(/[*_~`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+  if (cleaned.length <= maxLen) return cleaned;
+  const targetLen = ellipsis && maxLen > 3 ? maxLen - 1 : maxLen;
+  let sliced = cleaned.slice(0, targetLen).replace(/[\uD800-\uDBFF]$/, '').trim();
+  return ellipsis && maxLen > 3 ? `${sliced}…` : sliced;
+}
+
+function clampMetaBodyText(raw: string, maxLen = 1024): string {
+  const cleaned = String(raw || '').trim();
+  if (!cleaned) return 'Chagua hapa chini:';
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen - 3).replace(/[\uD800-\uDBFF]$/, '').trim()}...`;
+}
+
+function stripBotNavHintLines(raw: string): string {
+  return String(raw || '')
+    .replace(/\n*_\(\s*0\.\s*Rudi nyuma\s*•\s*00\.\s*Anza upya\s*\)_\s*$/i, '')
+    .replace(/\n*_\(\s*0\.\s*Back\s*•\s*00\.\s*Start over\s*\)_\s*$/i, '')
+    .replace(/\n*_\(Andika \*Rudi\*.*\)_\s*$/i, '')
+    .replace(/\n*_\(Reply \*Back\*.*\)_\s*$/i, '')
+    .trim();
+}
+
+function getWhatsAppFlowAndCatalogConfig(): {
+  catalogId: string;
+  flowIds: { default?: string; register?: string; ride?: string; booking?: string };
+} {
+  let catalogId = String(process.env.META_WHATSAPP_CATALOG_ID || '').trim();
+  const flowIds: { default?: string; register?: string; ride?: string; booking?: string } = {
+    default: String(process.env.META_WHATSAPP_FLOW_ID || '').trim() || undefined,
+    register: String(process.env.META_WHATSAPP_FLOW_ID_REGISTER || '').trim() || undefined,
+    ride: String(process.env.META_WHATSAPP_FLOW_ID_RIDE || '').trim() || undefined,
+    booking: String(process.env.META_WHATSAPP_FLOW_ID_BOOKING || '').trim() || undefined,
+  };
+  try {
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    if (fs.existsSync(localPath)) {
+      const cfg = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      if (!catalogId && cfg?.catalogId) catalogId = String(cfg.catalogId).trim();
+      if (cfg?.flowIds && typeof cfg.flowIds === 'object') {
+        flowIds.default = flowIds.default || String(cfg.flowIds.default || '').trim() || undefined;
+        flowIds.register = flowIds.register || String(cfg.flowIds.register || '').trim() || undefined;
+        flowIds.ride = flowIds.ride || String(cfg.flowIds.ride || '').trim() || undefined;
+        flowIds.booking = flowIds.booking || String(cfg.flowIds.booking || '').trim() || undefined;
+      }
+    }
+  } catch {}
+  return { catalogId, flowIds };
+}
+
+function sanitizeWhatsAppInteractivePayload(
+  payload: WhatsAppInteractivePayload | undefined
+): WhatsAppInteractivePayload | undefined {
+  if (!payload) return undefined;
+
+  if (payload.type === 'button') {
+    const seen = new Set<string>();
+    const buttons = (payload.action?.buttons || [])
+      .map((b, idx) => {
+        const id = clampMetaPlainStr(b?.reply?.id || String(idx + 1), 256, false) || String(idx + 1);
+        const title = clampMetaPlainStr(b?.reply?.title || `Chaguo ${idx + 1}`, 20);
+        return { type: 'reply' as const, reply: { id, title } };
+      })
+      .filter((b) => {
+        if (!b.reply.title || seen.has(b.reply.id)) return false;
+        seen.add(b.reply.id);
+        return true;
+      })
+      .slice(0, 3);
+    if (buttons.length === 0) return undefined;
+    return {
+      type: 'button',
+      ...(payload.header?.text ? { header: { type: 'text', text: clampMetaPlainStr(payload.header.text, 60) } } : {}),
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: { buttons },
+    };
+  }
+
+  if (payload.type === 'list') {
+    const seen = new Set<string>();
+    let totalRows = 0;
+    const sections: Array<{ title?: string; rows: Array<{ id: string; title: string; description?: string }> }> = [];
+    for (const sec of payload.action?.sections || []) {
+      if (totalRows >= 10) break;
+      const rows: Array<{ id: string; title: string; description?: string }> = [];
+      for (const r of sec.rows || []) {
+        if (totalRows >= 10) break;
+        const id = clampMetaPlainStr(r.id || String(totalRows + 1), 200, false) || String(totalRows + 1);
+        if (seen.has(id)) continue;
+        const title = clampMetaPlainStr(r.title || `Chaguo ${totalRows + 1}`, 24);
+        if (!title) continue;
+        const desc = r.description ? clampMetaPlainStr(r.description, 72) : undefined;
+        seen.add(id);
+        totalRows += 1;
+        rows.push({ id, title, ...(desc ? { description: desc } : {}) });
+      }
+      if (rows.length > 0) {
+        sections.push({
+          ...(sec.title ? { title: clampMetaPlainStr(sec.title, 24) } : {}),
+          rows,
+        });
+      }
+    }
+    if (totalRows === 0 || sections.length === 0) return undefined;
+    return {
+      type: 'list',
+      ...(payload.header?.text ? { header: { type: 'text', text: clampMetaPlainStr(payload.header.text, 60) } } : {}),
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: {
+        button: clampMetaPlainStr(payload.action?.button || 'Chagua', 20) || 'Chagua',
+        sections,
+      },
+    };
+  }
+
+  if (payload.type === 'location_request_message') {
+    return {
+      type: 'location_request_message',
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: { name: 'send_location' },
+    };
+  }
+
+  if (payload.type === 'cta_url') {
+    const url = String(payload.action?.parameters?.url || '').trim();
+    if (!/^https:\/\//i.test(url)) return undefined;
+    return {
+      type: 'cta_url',
+      ...(payload.header?.text ? { header: { type: 'text', text: clampMetaPlainStr(payload.header.text, 60) } } : {}),
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: {
+        name: 'cta_url',
+        parameters: {
+          display_text: clampMetaPlainStr(payload.action?.parameters?.display_text || 'Fungua', 20) || 'Fungua',
+          url,
+        },
+      },
+    };
+  }
+
+  if (payload.type === 'flow') {
+    const flowId = String(payload.action?.parameters?.flow_id || '').trim();
+    if (!flowId) return undefined;
+    return {
+      type: 'flow',
+      ...(payload.header?.text ? { header: { type: 'text', text: clampMetaPlainStr(payload.header.text, 60) } } : {}),
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3',
+          flow_id: flowId,
+          flow_cta: clampMetaPlainStr(payload.action?.parameters?.flow_cta || 'Fungua Fomu', 20) || 'Fungua Fomu',
+          ...(payload.action?.parameters?.flow_action ? { flow_action: payload.action.parameters.flow_action } : {}),
+          ...(payload.action?.parameters?.flow_action_payload
+            ? { flow_action_payload: payload.action.parameters.flow_action_payload }
+            : {}),
+          ...(payload.action?.parameters?.flow_token ? { flow_token: payload.action.parameters.flow_token } : {}),
+          ...(payload.action?.parameters?.mode ? { mode: payload.action.parameters.mode } : {}),
+        },
+      },
+    };
+  }
+
+  if (payload.type === 'catalog_message') {
+    return {
+      type: 'catalog_message',
+      body: { text: clampMetaBodyText(payload.body?.text, 1024) },
+      ...(payload.footer?.text ? { footer: { text: clampMetaPlainStr(payload.footer.text, 60) } } : {}),
+      action: {
+        name: 'catalog_message',
+        ...(payload.action?.parameters ? { parameters: payload.action.parameters } : {}),
+      },
+    };
+  }
+
+  return payload;
+}
+
+function buildPaginatedListInteractive(params: {
+  header?: string;
+  bodyText: string;
+  footer?: string;
+  buttonLabel: string;
+  sectionTitle: string;
+  items: Array<{ id: string; title: string; description?: string }>;
+  page?: number;
+  extraRows?: Array<{ sectionTitle?: string; rows: Array<{ id: string; title: string; description?: string }> }>;
+  isEn?: boolean;
+}): WhatsAppInteractivePayload | undefined {
+  const { header, bodyText, footer, buttonLabel, sectionTitle, items, page = 0, extraRows = [], isEn = false } = params;
+  const reservedExtraCount = extraRows.reduce((acc, s) => acc + s.rows.length, 0);
+  const maxMainCapacity = Math.max(1, 10 - reservedExtraCount);
+  let rowsToUse = items;
+  const navRows: Array<{ id: string; title: string; description?: string }> = [];
+
+  if (items.length > maxMainCapacity) {
+    const perPageNoNav = Math.max(1, maxMainCapacity - 2);
+    const totalPages = Math.ceil(items.length / perPageNoNav);
+    const safePage = Math.max(0, Math.min(page, totalPages - 1));
+    const start = safePage * perPageNoNav;
+    const sliceSize =
+      safePage === 0
+        ? Math.min(items.length - start, maxMainCapacity - 1)
+        : safePage === totalPages - 1
+        ? Math.min(items.length - start, maxMainCapacity - 1)
+        : perPageNoNav;
+    rowsToUse = items.slice(start, start + sliceSize);
+    if (safePage > 0) {
+      navRows.push({
+        id: '__LIST_PAGE_PREV__',
+        title: isEn ? '⬅️ Previous Page' : '⬅️ Orodha Iliyopita',
+        description: isEn ? `Show items ${Math.max(1, start - perPageNoNav + 1)}–${start}` : `Angalia machaguo yaliyotangulia`,
+      });
+    }
+    if (safePage < totalPages - 1 && start + sliceSize < items.length) {
+      navRows.push({
+        id: '__LIST_PAGE_NEXT__',
+        title: isEn ? '➡️ More Options' : '➡️ Machaguo Zaidi',
+        description: isEn
+          ? `Show ${start + sliceSize + 1}–${items.length}`
+          : `Ona zilizobaki (${start + sliceSize + 1}–${items.length})`,
+      });
+    }
+  }
+
+  const sections: Array<{ title?: string; rows: Array<{ id: string; title: string; description?: string }> }> = [
+    ...extraRows.map((ex) => ({ title: ex.sectionTitle, rows: ex.rows })),
+    {
+      title: sectionTitle,
+      rows: rowsToUse,
+    },
+  ];
+  if (navRows.length > 0) {
+    sections.push({
+      title: isEn ? 'Navigation' : 'Ukurasa',
+      rows: navRows,
+    });
+  }
+
+  return sanitizeWhatsAppInteractivePayload({
+    type: 'list',
+    ...(header ? { header: { type: 'text', text: header } } : {}),
+    body: { text: bodyText },
+    ...(footer ? { footer: { text: footer } } : {}),
+    action: {
+      button: buttonLabel,
+      sections,
+    },
+  });
+}
+
+function parseNumberedOptionsFromText(rawText: string): Array<{ id: string; title: string; description?: string }> {
+  const lines = String(rawText || '').split('\n');
+  const results: Array<{ id: string; title: string; description?: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const m = line.match(/^(?:[^\w\d\s]{1,3}\s*)?\*?(\d{1,2})\.\s*(.+?)\*?(?:\s*[–—-]\s*(.+))?$/);
+    if (!m) continue;
+    const id = m[1];
+    let title = m[2].replace(/\*/g, '').trim();
+    let desc = m[3] ? m[3].replace(/[*_]/g, '').trim() : '';
+    const nextLine = (lines[i + 1] || '').trim();
+    if (!desc && nextLine && !/^(?:[^\w\d\s]{1,3}\s*)?\*?\d{1,2}\./.test(nextLine) && !/^Andika|^Reply|^Chagua/i.test(nextLine)) {
+      desc = nextLine.replace(/[*_]/g, '').trim();
+    }
+    if (title) {
+      results.push({ id, title, ...(desc ? { description: desc } : {}) });
+    }
+  }
+  return results;
+}
+
+export function buildWhatsAppInteractive(
+  replyText: string,
+  session: MetaSession,
+  opts?: { servicesConfig?: any }
+): WhatsAppInteractivePayload | undefined {
+  const lang: 'sw' | 'en' = session?.details?.lang === 'en' ? 'en' : 'sw';
+  const isEn = lang === 'en';
+  const rawStripped = stripBotNavHintLines(replyText);
+  const { catalogId, flowIds } = getWhatsAppFlowAndCatalogConfig();
+  const savedLoc: MetaSavedLocation | undefined = session?.details?.lastLocation;
+  const listPage = Number(session?.details?.listPage || 0);
+
+  // 1. Explicit "Ask GPS Pin" button click
+  if (session?.details?.forceAskGpsPin) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'location_request_message',
+      body: {
+        text: rawStripped,
+      },
+      footer: {
+        text: isEn ? 'Or type your area name directly' : 'Au andika jina la mtaa moja kwa moja',
+      },
+      action: { name: 'send_location' },
+    });
+  }
+
+  // 2. Active Order / Ride / Ticket / Booking Tracking URL CTA (completed actions or My Orders lookup)
+  const firstHttpsUrlMatch = rawStripped.match(/https:\/\/[^\s<>"')]+/i);
+  const firstHttpsUrl = firstHttpsUrlMatch ? firstHttpsUrlMatch[0].replace(/[.,;!?]+$/, '') : '';
+  const looksCompletedOrTracking =
+    firstHttpsUrl.length > 0 &&
+    (/^([✅🎉📋📲🎟️🏨🛠️✨💳🔗❌]|\*?(?:ODA|BOOKING|MEZA|TIKETI|OMBI|SALIO|MAWAKALA|PAPOPAY))/i.test(rawStripped) ||
+      session?.step === 'COLLECTING_ROUTE' && !session?.service && !session?.details?.awaitingPickup && !session?.details?.awaitingDest && !/CHAGUA HUDUMA|CHOOSE YOUR SERVICE/i.test(rawStripped));
+
+  if (looksCompletedOrTracking && firstHttpsUrl && !session?.details?.ratingRideId) {
+    let ctaLabel = isEn ? '🔗 Open Link' : '🔗 Fungua Kiungo';
+    if (/\/track\//i.test(firstHttpsUrl)) ctaLabel = isEn ? '🗺️ Track Live' : '🗺️ Ramani Live';
+    else if (/\/orders/i.test(firstHttpsUrl)) ctaLabel = isEn ? '📋 Track Orders' : '📋 Fuatilia Oda';
+    else if (/\/papopay/i.test(firstHttpsUrl)) ctaLabel = isEn ? '💳 Open PapoPay' : '💳 Fungua PapoPay';
+    else if (/\/vendor\//i.test(firstHttpsUrl)) ctaLabel = isEn ? '🍽️ View Menu' : '🍽️ Tazama Menyu';
+
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'cta_url',
+      body: { text: rawStripped },
+      footer: {
+        text: isEn ? 'Reply "Menu" anytime for more' : 'Andika "Menu" kwa huduma nyingine',
+      },
+      action: {
+        name: 'cta_url',
+        parameters: {
+          display_text: ctaLabel,
+          url: firstHttpsUrl,
+        },
+      },
+    });
+  }
+
+  // 3. Post-Trip Driver Rating List
+  if (session?.details?.ratingRideId) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '⭐ Rate Your Driver' : '⭐ Tathmini Dereva' },
+      body: {
+        text: isEn
+          ? `How was your ride with *${session.details.ratingDriverName || 'your driver'}*? Tap below to rate:`
+          : `Safari yako na *${session.details.ratingDriverName || 'dereva'}* ilikuwaje? Bonyeza kitufe hapo chini kumpa nyota:`,
+      },
+      footer: { text: isEn ? 'Thank you for riding Papo Hapo' : 'Asante kwa kusafiri na Papo Hapo' },
+      action: {
+        button: isEn ? '⭐ Rate Driver' : '⭐ Tathmini Dereva',
+        sections: [
+          {
+            title: isEn ? 'Select Rating' : 'Chagua Nyota',
+            rows: [
+              { id: '5', title: '5 ⭐⭐⭐⭐⭐', description: isEn ? 'Excellent service!' : 'Bora kabisa!' },
+              { id: '4', title: '4 ⭐⭐⭐⭐', description: isEn ? 'Very good' : 'Nzuri sana' },
+              { id: '3', title: '3 ⭐⭐⭐', description: isEn ? 'Average' : 'Wastani' },
+              { id: '2', title: '2 ⭐⭐', description: isEn ? 'Below average' : 'Hairidhishi' },
+              { id: '1', title: '1 ⭐', description: isEn ? 'Poor experience' : 'Mbaya' },
+            ],
+          },
+          {
+            title: isEn ? 'Other' : 'Nyingine',
+            rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Ruka / Menyu Kuu' }],
+          },
+        ],
+      },
+    });
+  }
+
+  // 4. Language Picker
+  if (session?.step === 'CHOOSING_LANGUAGE') {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: '🌐 Papo Hapo Language' },
+      body: { text: 'Chagua lugha unayopendelea / Choose your preferred language:' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: '🇹🇿 Kiswahili' } },
+          { type: 'reply', reply: { id: '2', title: '🇬🇧 English' } },
+        ],
+      },
+    });
+  }
+
+  // 5. Quick Customer Registration (Flow if configured, else Language toggle quick reply)
+  if (session?.step === 'REGISTERING_CUSTOMER') {
+    const regFlowId = flowIds.register || flowIds.default;
+    if (regFlowId) {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'flow',
+        header: { type: 'text', text: isEn ? '👋 Quick Registration' : '👋 Usajili wa Haraka' },
+        body: { text: rawStripped },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_id: regFlowId,
+            flow_cta: isEn ? '📝 Register Now' : '📝 Jisajili Haraka',
+          },
+        },
+      });
+    }
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      footer: { text: isEn ? 'Type your full name above' : 'Andika jina lako kamili kuanza' },
+      action: {
+        buttons: [{ type: 'reply', reply: { id: 'lugha', title: '🌐 SW / English' } }],
+      },
+    });
+  }
+
+  // 6. Main Welcome Menu (2-Page Interactive List supporting up to 14 services cleanly!)
+  const isWelcomeMenuText =
+    /CHAGUA HUDUMA YAKO|CHOOSE YOUR SERVICE|PAPO HAPO SUPER APP/i.test(rawStripped) &&
+    !session?.service;
+  if (isWelcomeMenuText) {
+    const servicesCfg = opts?.servicesConfig || {};
+    const active = META_DEFAULT_SERVICES.filter((item) => {
+      const sData = servicesCfg[item.id];
+      return !sData || sData.enabled !== false;
+    }).map((item, idx) => ({
+      ...item,
+      displayNum: String(idx + 1),
+      isMaintenance: servicesCfg[item.id]?.maintenance === true,
+    }));
+    const trackNum = String(active.length + 1);
+    const allMenuRows = [
+      ...active.map((srv) => ({
+        id: srv.displayNum,
+        title: `${srv.emoji} ${srv.title}`,
+        description: `${isEn ? srv.enDesc : srv.desc}${srv.isMaintenance ? (isEn ? ' (Maintenance)' : ' (Matengenezo)') : ''}`,
+      })),
+      {
+        id: trackNum,
+        title: isEn ? '📋 My Orders' : '📋 Oda Zangu',
+        description: isEn ? 'Track rides, food & bookings' : 'Fuatilia oda, meza & safari zako',
+      },
+    ];
+
+    const menuPage = Number(session?.details?.menuPage || 1);
+    const cName = session?.details?.customerName;
+    const greetingLine = cName
+      ? isEn
+        ? `Hello *${cName}* 👋`
+        : `Habari *${cName}* 👋`
+      : isEn
+      ? `Hello! 👋`
+      : `Habari! 👋`;
+
+    if (allMenuRows.length <= 10) {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'list',
+        header: { type: 'text', text: isEn ? '🟢 Papo Hapo Super App' : '🟢 Papo Hapo Super App' },
+        body: {
+          text: isEn
+            ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`
+            : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`,
+        },
+        footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
+        action: {
+          button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+          sections: [
+            {
+              title: isEn ? 'Available Services' : 'Huduma Zote',
+              rows: allMenuRows,
+            },
+          ],
+        },
+      });
+    }
+
+    if (menuPage === 2) {
+      const page2Rows = allMenuRows.slice(9);
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'list',
+        header: { type: 'text', text: isEn ? `📋 More Services (10–${allMenuRows.length})` : `📋 Huduma Zaidi (10–${allMenuRows.length})` },
+        body: {
+          text: isEn
+            ? `${greetingLine}\n\nPick a service below (*10–${allMenuRows.length}*) or go back to the first page:`
+            : `${greetingLine}\n\nChagua huduma zilizobaki (*10–${allMenuRows.length}*) kupitia orodha hapo chini, au rudi ukurasa wa kwanza:`,
+        },
+        footer: { text: isEn ? 'Page 2 of 2 • Type "SW" for Swahili' : 'Ukurasa 2/2 • Type "EN" for English' },
+        action: {
+          button: isEn ? '📋 More Services' : '📋 Fungua Zaidi',
+          sections: [
+            {
+              title: isEn ? `Services (10–${allMenuRows.length})` : `Huduma (${10}–${allMenuRows.length})`,
+              rows: page2Rows.slice(0, 8),
+            },
+            {
+              title: isEn ? 'Navigation' : 'Menyu',
+              rows: [
+                {
+                  id: '__MENU_PAGE_1__',
+                  title: isEn ? '⬅️ Main Services (1–9)' : '⬅️ Huduma Kuu (1–9)',
+                  description: isEn ? 'PapoRide, PapoFood, PapoMart...' : 'PapoRide, PapoFood, PapoMart...',
+                },
+                {
+                  id: 'lugha',
+                  title: isEn ? '🌐 Change Language' : '🌐 Badili Lugha (SW/EN)',
+                  description: 'Kiswahili / English',
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
+    // Menu Page 1 (Top 9 services + More Services row)
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: '🟢 Papo Hapo Super App' },
+      body: {
+        text: isEn
+          ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type directly (e.g. _"Taxi Mwenge to Posta"_).`
+          : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini au andika moja kwa moja (mf. _"Taxi Mwenge kwenda Posta"_).`,
+      },
+      footer: { text: isEn ? 'Page 1/2 • Reply "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
+      action: {
+        button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+        sections: [
+          {
+            title: isEn ? 'Top Services (1–9)' : 'Huduma Kuu (1–9)',
+            rows: allMenuRows.slice(0, 9),
+          },
+          {
+            title: isEn ? 'More & Orders' : 'Zaidi & Oda',
+            rows: [
+              {
+                id: '__MENU_PAGE_2__',
+                title: isEn ? `➡️ More (10–${allMenuRows.length})` : `➡️ Huduma Zaidi (10–${allMenuRows.length})`,
+                description: isEn
+                  ? 'PapoBus, PapoRent, PapoMall, PapoPay & My Orders'
+                  : 'PapoBus, PapoRent, PapoMall, PapoPay & Oda Zangu',
+              },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  // 7. GPS Location Prompts vs Saved Location Prompts
+  const isSavedLocOffer =
+    Boolean(savedLoc?.name) &&
+    (/Tumia \*?.+\*?|Use \*?.+\*?/i.test(rawStripped) &&
+      (/Unatoka wapi|Pickup Location|eneo la kuletewa|eneo gani|Tukulet/i.test(rawStripped)));
+  if (isSavedLocOffer && savedLoc?.name) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      footer: { text: isEn ? 'Or type another area name' : 'Au andika jina la mtaa mwingine' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: `📍 ${savedLoc.name}` } },
+          { type: 'reply', reply: { id: '__ASK_GPS_PIN__', title: isEn ? '📌 Send New GPS' : '📌 Tuma GPS Mpya' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      },
+    });
+  }
+
+  const isLocationAskStep =
+    !isValidationErrorReply(rawStripped) &&
+    ((session?.service === 'taxi' &&
+      session?.step === 'COLLECTING_ROUTE' &&
+      (session?.details?.awaitingPickup || session?.details?.awaitingDest)) ||
+      (session?.service === 'food' && session?.step === 'FOOD_DELIVERY_ADDRESS') ||
+      (session?.service === 'ecommerce' && session?.step === 'MALL_DELIVERY_ADDRESS') ||
+      ((session?.service === 'grocery' || session?.service === 'pharmacy') &&
+        session?.step === 'COLLECTING_PHONE' &&
+        Boolean(session?.details?.skipPhoneAsk)));
+
+  if (isLocationAskStep) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'location_request_message',
+      body: { text: rawStripped },
+      footer: {
+        text: isEn ? 'Tap Send Location or type area name' : 'Bonyeza Send Location au andika mtaa',
+      },
+      action: { name: 'send_location' },
+    });
+  }
+
+  // 8. Step-Specific Native WhatsApp Interactive Payloads
+  if (session?.step === 'SELECTING_VEHICLE') {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '🚖 PapoRide — Choose Ride' : '🚖 PapoRide — Chagua Usafiri' },
+      body: { text: rawStripped },
+      footer: { text: isEn ? 'Tap a ride below • "0" Back' : 'Bonyeza usafiri chini • "0" Rudi' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: '🏍️ Boda Boda' } },
+          { type: 'reply', reply: { id: '2', title: '🛺 Bajaji' } },
+          { type: 'reply', reply: { id: '3', title: isEn ? '🚕 Taxi Cab' : '🚕 Teksi' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'CONFIRMING_TRIP') {
+    const cleanBody = rawStripped
+      .replace(/\n\n1\.\s*[\s\S]*$/m, '')
+      .trim();
+    const availState = session?.details?.availabilityState || 'available';
+    if (availState !== 'available') {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'button',
+        header: { type: 'text', text: isEn ? '🧾 Confirm Ride' : '🧾 Thibitisha Safari' },
+        body: { text: cleanBody || rawStripped },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: '1', title: isEn ? '🔄 Change Ride' : '🔄 Badili Usafiri' } },
+            { type: 'reply', reply: { id: '2', title: isEn ? '⏳ Request Anyway' : '⏳ Tuma Ombi' } },
+            { type: 'reply', reply: { id: '3', title: isEn ? '❌ Cancel' : '❌ Ghairi' } },
+          ],
+        },
+      });
+    }
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '🧾 Confirm Ride' : '🧾 Thibitisha Safari' },
+      body: { text: cleanBody || rawStripped },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: isEn ? '✅ Find Driver' : '✅ Tafuta Dereva' } },
+          { type: 'reply', reply: { id: '2', title: isEn ? '❌ Cancel' : '❌ Ghairi' } },
+          { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'SELECTING_PAYMENT_METHOD') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '💳 Payment Method' : '💳 Njia ya Malipo' },
+      body: { text: cleanBody },
+      footer: { text: isEn ? 'Tap below to choose payment' : 'Bonyeza chini kuchagua malipo' },
+      action: {
+        button: isEn ? '💳 Choose Payment' : '💳 Chagua Malipo',
+        sections: [
+          {
+            title: isEn ? 'Payment Options' : 'Njia za Malipo',
+            rows: [
+              { id: '1', title: '💵 Cash', description: isEn ? 'Pay cash on delivery/arrival' : 'Lipa pesa taslimu ukipokea' },
+              { id: '2', title: '📱 M-Pesa', description: 'Vodacom M-Pesa (Push Prompt)' },
+              { id: '3', title: '📱 Tigo Pesa', description: 'Mixx by Yas / Tigo Pesa' },
+              { id: '4', title: '📱 Airtel Money', description: 'Airtel Money (Push Prompt)' },
+            ],
+          },
+          {
+            title: isEn ? 'Navigation' : 'Hatua',
+            rows: [
+              { id: '0', title: isEn ? '⬅️ Go Back' : '⬅️ Rudi Nyuma' },
+              { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'FOOD_CHOOSE_MODE') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '🍔 PapoFood & Dining' : '🍔 PapoFood & Migahawa' },
+      body: { text: cleanBody },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: isEn ? '🛵 Delivery' : '🛵 Niletewe' } },
+          { type: 'reply', reply: { id: '2', title: isEn ? '🥡 Takeaway' : '🥡 Nitachukua' } },
+          { type: 'reply', reply: { id: '3', title: isEn ? '🪑 Book Table' : '🪑 Weka Meza' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'FOOD_SELECT_VENDOR') {
+    const restaurants: any[] = session?.details?.restaurantOptions || [];
+    if (restaurants.length > 0) {
+      const items = restaurants.map((r, idx) => {
+        const distPart = typeof r.distanceKm === 'number' ? `~${r.distanceKm} km` : '';
+        const tblPart = r.openTablesCount ? `Meza ${r.openTablesCount}` : '';
+        const desc = [r.address, distPart, tblPart].filter(Boolean).join(' • ');
+        return {
+          id: String(idx + 1),
+          title: `🍽️ ${r.name}`,
+          description: desc || 'Mgahawa wa PapoFood',
+        };
+      });
+      const shortHeader = rawStripped.split('\n')[0] || (isEn ? 'Choose Restaurant' : 'Chagua Mgahawa');
+      return buildPaginatedListInteractive({
+        header: isEn ? '🍽️ Choose Restaurant' : '🍽️ Chagua Mgahawa',
+        bodyText: `${shortHeader}\n${isEn ? 'Tap the button below to pick a restaurant or send GPS for closest places.' : 'Bonyeza kitufe hapo chini kuchagua mgahawa au tuma GPS kupata wa karibu.'}`,
+        footer: isEn ? 'Or send 📍 Location pin' : 'Au tuma 📍 Location yako',
+        buttonLabel: isEn ? '🍽️ Pick Place' : '🍽️ Chagua Mgahawa',
+        sectionTitle: isEn ? 'Restaurants' : 'Migahawa Iliyopo',
+        items,
+        page: listPage,
+        extraRows: [
+          {
+            sectionTitle: isEn ? 'Nearby GPS' : 'Karibu Nawe',
+            rows: [
+              {
+                id: '__ASK_GPS_PIN__',
+                title: isEn ? '📍 Find Nearest GPS' : '📍 Tafuta wa Karibu GPS',
+                description: isEn ? 'Send GPS location for closest kitchens' : 'Tuma GPS kupata migahawa ya karibu',
+              },
+            ],
+          },
+        ],
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'FOOD_SELECT_ITEM') {
+    const menu: any[] = session?.details?.foodMenu || [];
+    const cart: any[] = session?.details?.foodCart || [];
+    if (menu.length > 0) {
+      const items = menu.map((item, idx) => ({
+        id: String(idx + 1),
+        title: item.name,
+        description: `TZS ${Number(item.price || 0).toLocaleString()}${item.description ? ` • ${item.description}` : ''}`,
+      }));
+      const sub = cart.reduce((s: number, it: any) => s + (it.price || 0) * (it.quantity || 1), 0);
+      const extraRows =
+        cart.length > 0
+          ? [
+              {
+                sectionTitle: isEn ? 'Your Basket' : 'Kikapu Chako',
+                rows: [
+                  {
+                    id: '0',
+                    title: isEn ? '✅ Checkout Order' : '✅ Maliza Oda Sasa',
+                    description: isEn
+                      ? `${cart.length} item(s) • TZS ${sub.toLocaleString()}`
+                      : `Vitu ${cart.length} • TZS ${sub.toLocaleString()}/=`,
+                  },
+                ],
+              },
+            ]
+          : [];
+      const vendorLabel = session?.details?.selectedVendorName || 'Mgahawa';
+      return buildPaginatedListInteractive({
+        header: `🍽️ ${vendorLabel}`,
+        bodyText:
+          cart.length > 0
+            ? isEn
+              ? `Menu for *${vendorLabel}*.\n🧺 Basket: *${cart.length} item(s)* (*TZS ${sub.toLocaleString()}*)\nTap below to add more or checkout:`
+              : `Menyu ya *${vendorLabel}*.\n🧺 Kikapu: *${cart.length} vitu* (*TZS ${sub.toLocaleString()}/=*)\nBonyeza chini kuongeza au kumaliza oda:`
+            : isEn
+            ? `Menu for *${vendorLabel}*. Tap below to select a dish:`
+            : `Menyu ya *${vendorLabel}*. Bonyeza kitufe hapo chini kuchagua chakula:`,
+        footer: isEn ? 'Tap button to open menu' : 'Bonyeza kitufe kufungua menyu',
+        buttonLabel: isEn ? '🍔 Open Menu' : '🍔 Chagua Chakula',
+        sectionTitle: isEn ? 'Dishes & Drinks' : 'Vyakula & Vinywaji',
+        items,
+        page: listPage,
+        extraRows,
+        isEn,
+      });
+    }
+  }
+
+  if (
+    session?.step === 'FOOD_ITEM_QUANTITY' ||
+    session?.step === 'MALL_QUANTITY' ||
+    session?.step === 'EVENT_QUANTITY'
+  ) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      footer: { text: isEn ? 'Or type any quantity (e.g. 5)' : 'Au andika idadi yoyote (mf. 5)' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: '1️⃣ 1' } },
+          { type: 'reply', reply: { id: '2', title: '2️⃣ 2' } },
+          { type: 'reply', reply: { id: '3', title: '3️⃣ 3' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'FOOD_CART_DECISION') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '🧺 Basket Updated' : '🧺 Kikapu Chako' },
+      body: { text: cleanBody },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: isEn ? '➕ Add More' : '➕ Ongeza' } },
+          { type: 'reply', reply: { id: '2', title: isEn ? '✅ Checkout' : '✅ Endelea' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'TABLE_SELECT_SEATS') {
+    const tables: any[] = session?.details?.availableTables || [];
+    const seatRows = [
+      { id: '2', title: isEn ? '👥 2 People' : '👥 Watu 2', description: isEn ? 'Table for 2 guests' : 'Meza ya watu 2' },
+      { id: '4', title: isEn ? '👥 4 People' : '👥 Watu 4', description: isEn ? 'Table for 4 guests' : 'Meza ya watu 4' },
+      { id: '6', title: isEn ? '👥 6 People' : '👥 Watu 6', description: isEn ? 'Group table for 6' : 'Meza ya watu 6' },
+    ];
+    const tableRows = tables.slice(0, 6).map((t, i) => ({
+      id: `M${i + 1}`,
+      title: `🪑 Meza #${t.number}`,
+      description: `${t.capacity} Viti • ${t.section || 'Indoor'}`,
+    }));
+    const sections = [];
+    if (tableRows.length > 0) {
+      sections.push({ title: isEn ? 'Open Tables' : 'Meza Zilizo Wazi', rows: tableRows });
+    }
+    sections.push({ title: isEn ? 'Or Pick Party Size' : 'Au Chagua Idadi', rows: seatRows });
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '🪑 Select Table / Seats' : '🪑 Chagua Meza / Viti' },
+      body: { text: rawStripped.split('\n').slice(0, 3).join('\n') || rawStripped },
+      footer: { text: isEn ? 'Or type number of guests' : 'Au andika idadi ya watu' },
+      action: {
+        button: isEn ? '🪑 Pick Seats' : '🪑 Chagua Viti',
+        sections,
+      },
+    });
+  }
+
+  if (session?.step === 'TABLE_SELECT_TIME') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '🕒 Arrival Time' : '🕒 Muda wa Kufika' },
+      body: { text: cleanBody },
+      footer: { text: isEn ? 'Or type custom date/time' : 'Au andika muda wako mwenyewe' },
+      action: {
+        button: isEn ? '🕒 Pick Time' : '🕒 Chagua Muda',
+        sections: [
+          {
+            title: isEn ? 'Time Slots' : 'Muda wa Kufika',
+            rows: [
+              { id: '1', title: isEn ? '⚡ Right Now' : '⚡ Sasa hivi', description: isEn ? 'Within 30 mins' : 'Ndani ya dakika 30' },
+              { id: '2', title: isEn ? '🌆 Tonight 7:00 PM' : '🌆 Leo Jioni (19:00)', description: isEn ? 'Evening dining' : 'Leo Saa 1:00 Usiku' },
+              { id: '3', title: isEn ? '🌙 Tonight 8:30 PM' : '🌙 Leo Usiku (20:30)', description: isEn ? 'Late dinner' : 'Leo Saa 2:30 Usiku' },
+              { id: '4', title: isEn ? '📅 Tomorrow 1:00 PM' : '📅 Kesho Mchana (13:00)', description: isEn ? 'Tomorrow lunch' : 'Kesho Saa 7:00 Mchana' },
+            ],
+          },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'TABLE_ASK_PREORDER') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '🍽️ Pre-Order Food?' : '🍽️ Chakula cha Mapema?' },
+      body: { text: cleanBody },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: isEn ? '🍔 Pre-order Food' : '🍔 Chagua Chakula' } },
+          { type: 'reply', reply: { id: '2', title: isEn ? '🪑 Hold Table Only' : '🪑 Shikilia Meza' } },
+          { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi' } },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'HOTEL_SELECT_VENDOR') {
+    const hotels: any[] = session?.details?.optionsList || [];
+    if (hotels.length > 0) {
+      return buildPaginatedListInteractive({
+        header: isEn ? '🏨 PapoStay — Hotels' : '🏨 PapoStay — Hoteli',
+        bodyText: isEn ? 'Tap below to view hotels and pick one to see rooms:' : 'Bonyeza kitufe hapo chini kuchagua hoteli na kuona vyumba:',
+        buttonLabel: isEn ? '🏨 Pick Hotel' : '🏨 Chagua Hoteli',
+        sectionTitle: isEn ? 'Hotels & Lodges' : 'Hoteli Zilizopo',
+        items: hotels.map((h, i) => ({
+          id: String(i + 1),
+          title: `🏨 ${h.name}`,
+          description: `${h.desc || 'Tanzania'} • TZS ${Number(h.price || 0).toLocaleString()}/usiku`,
+        })),
+        page: listPage,
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'HOTEL_SELECT_ROOM') {
+    const rooms: any[] = session?.details?.roomOptions || [];
+    if (rooms.length > 0) {
+      return buildPaginatedListInteractive({
+        header: `🛏️ ${session?.details?.selectedHotelName || 'Rooms'}`,
+        bodyText: isEn ? 'Select a room below to book:' : 'Chagua chumba unachotaka kuweka booking:',
+        buttonLabel: isEn ? '🛏️ Pick Room' : '🛏️ Chagua Chumba',
+        sectionTitle: isEn ? 'Available Rooms' : 'Vyumba Vilivyopo',
+        items: rooms.map((r, i) => ({
+          id: String(i + 1),
+          title: r.name,
+          description: `TZS ${Number(r.price || 0).toLocaleString()}/usiku${r.desc ? ` • ${r.desc}` : ''}`,
+        })),
+        page: listPage,
+        extraRows: [
+          {
+            sectionTitle: isEn ? 'Navigation' : 'Hatua',
+            rows: [{ id: '0', title: isEn ? '⬅️ Other Hotels' : '⬅️ Hoteli Nyingine' }],
+          },
+        ],
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'FIX_SELECT_CAT') {
+    const parsedCats = parseNumberedOptionsFromText(rawStripped);
+    if (parsedCats.length > 0) {
+      return buildPaginatedListInteractive({
+        header: isEn ? '🛠️ PapoFix — Repairs' : '🛠️ PapoFix — Mafundi',
+        bodyText: isEn ? 'Select the type of technician you need:' : 'Chagua aina ya fundi au huduma ya matengenezo unayohitaji:',
+        buttonLabel: isEn ? '🛠️ Pick Service' : '🛠️ Chagua Fundi',
+        sectionTitle: isEn ? 'Home Services' : 'Aina za Mafundi',
+        items: parsedCats,
+        page: listPage,
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'EVENT_SELECT') {
+    const events: any[] = session?.details?.eventOptions || [];
+    if (events.length > 0) {
+      return buildPaginatedListInteractive({
+        header: isEn ? '🎟️ PapoTicket Events' : '🎟️ PapoTicket — Matukio',
+        bodyText: isEn ? 'Select an event below to book tickets:' : 'Chagua tukio au mechi unayotaka kukata tiketi:',
+        buttonLabel: isEn ? '🎟️ Pick Event' : '🎟️ Chagua Tukio',
+        sectionTitle: isEn ? 'Upcoming Events' : 'Matukio Yajayo',
+        items: events.map((ev, i) => {
+          const minP = Array.isArray(ev.tiers) && ev.tiers.length > 0
+            ? Math.min(...ev.tiers.map((t: any) => Number(t.price) || 10000))
+            : 10000;
+          return {
+            id: String(i + 1),
+            title: ev.title,
+            description: `${ev.venue} • Kuanzia TZS ${minP.toLocaleString()}`,
+          };
+        }),
+        page: listPage,
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'EVENT_SELECT_TIER') {
+    const tiers: any[] = session?.details?.selectedEvent?.tiers || [];
+    if (tiers.length > 0) {
+      return buildPaginatedListInteractive({
+        header: `🎟️ ${session?.details?.selectedEvent?.title || 'Tickets'}`,
+        bodyText: isEn ? 'Select your ticket tier:' : 'Chagua daraja la tiketi unayotaka:',
+        buttonLabel: isEn ? '🎫 Pick Tier' : '🎫 Chagua Daraja',
+        sectionTitle: isEn ? 'Ticket Tiers' : 'Madaraja ya Tiketi',
+        items: tiers.map((t, i) => ({
+          id: String(i + 1),
+          title: t.name,
+          description: `TZS ${Number(t.price || 0).toLocaleString()}`,
+        })),
+        page: listPage,
+        isEn,
+      });
+    }
+  }
+
+  if (session?.step === 'PAPOPAY_MENU') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: '💳 PapoPay & PapoWallet' },
+      body: { text: cleanBody },
+      action: {
+        button: isEn ? '💳 Open PapoPay' : '💳 Chagua Huduma',
+        sections: [
+          {
+            title: isEn ? 'Wallet & Payments' : 'Huduma za Malipo',
+            rows: [
+              { id: '1', title: isEn ? '💰 Check Balance' : '💰 Angalia Salio', description: isEn ? 'PapoWallet & PapoPoints' : 'Salio la PapoWallet & Pointi' },
+              { id: '2', title: isEn ? '📲 Pay Bill / Driver' : '📲 Lipa Bili / Dereva', description: isEn ? 'LUKU, Restaurant or Driver' : 'Lipa bili, mgahawa au dereva' },
+              { id: '3', title: isEn ? '🏪 Nearby Agents' : '🏪 Tafuta Wakala', description: isEn ? 'Deposit / Withdraw cash' : 'Weka au toa pesa karibu' },
+              { id: '4', title: isEn ? '🔗 Open PapoPay Web' : '🔗 Fungua Mtandaoni', description: isEn ? 'QR & Bill Pay Portal' : 'QR, LUKU & DAWASCO Portal' },
+            ],
+          },
+          {
+            title: isEn ? 'Menu' : 'Menyu',
+            rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
+          },
+        ],
+      },
+    });
+  }
+
+  if (
+    session?.step === 'SELECTING_OPTION' ||
+    session?.step === 'FIX_SELECT_VENDOR' ||
+    session?.step === 'MALL_SELECT_ITEM'
+  ) {
+    if (session?.service === 'ecommerce' && catalogId && /catalog|katalogi/i.test(rawStripped)) {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'catalog_message',
+        body: { text: rawStripped },
+        action: { name: 'catalog_message' },
+      });
+    }
+    const itemsList: any[] = session?.details?.optionsList || [];
+    if (itemsList.length > 0) {
+      const btnMap: Record<string, string> = {
+        bus_ticket: isEn ? '🚌 Pick Bus' : '🚌 Chagua Basi',
+        car_rental: isEn ? '🚗 Pick Car' : '🚗 Chagua Gari',
+        salon: isEn ? '💇 Pick Salon' : '💇 Chagua Saluni',
+        grocery: isEn ? '🥦 Pick Item' : '🥦 Chagua Bidhaa',
+        pharmacy: isEn ? '💊 Pick Item' : '💊 Chagua Dawa',
+        handyman: isEn ? '🛠️ Pick Fundi' : '🛠️ Chagua Fundi',
+        ecommerce: isEn ? '🛍️ Pick Item' : '🛍️ Chagua Bidhaa',
+      };
+      const hdrMap: Record<string, string> = {
+        bus_ticket: '🚌 PapoBus',
+        car_rental: '🚗 PapoRent',
+        salon: '💇 PapoStyle',
+        grocery: '🥦 PapoMart',
+        pharmacy: '💊 PapoMed',
+        handyman: '🛠️ PapoFix',
+        ecommerce: '🛒 PapoMall',
+      };
+      const srvKey = session?.service || 'ecommerce';
+      return buildPaginatedListInteractive({
+        header: hdrMap[srvKey] || '📋 Papo Hapo',
+        bodyText: rawStripped.split('\n')[0] || (isEn ? 'Select an option below:' : 'Chagua chaguo hapa chini:'),
+        footer: isEn ? 'Tap button below to choose' : 'Bonyeza kitufe hapo chini kuchagua',
+        buttonLabel: btnMap[srvKey] || (isEn ? '📋 Choose' : '📋 Chagua'),
+        sectionTitle: isEn ? 'Options' : 'Machaguo',
+        items: itemsList.map((it, idx) => ({
+          id: String(idx + 1),
+          title: it.name || it.label || `#${idx + 1}`,
+          description: `${it.price ? `TZS ${Number(it.price).toLocaleString()}` : ''}${it.desc ? `${it.price ? ' • ' : ''}${it.desc}` : ''}`,
+        })),
+        page: listPage,
+        extraRows: [
+          {
+            sectionTitle: isEn ? 'Navigation' : 'Hatua',
+            rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
+          },
+        ],
+        isEn,
+      });
+    }
+  }
+
+  // 9. Generic Numbered List Detector (Workflow decision nodes or custom dynamic lists)
+  if (!isValidationErrorReply(rawStripped)) {
+    const parsedOpts = parseNumberedOptionsFromText(rawStripped);
+    if (parsedOpts.length >= 2 && parsedOpts.length <= 3) {
+      const cleanBody = rawStripped.split(/\n\s*(?:[^\w\d\s]{1,3}\s*)?\*?1\./)[0]?.trim() || rawStripped;
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'button',
+        body: { text: cleanBody },
+        action: {
+          buttons: parsedOpts.map((o) => ({
+            type: 'reply' as const,
+            reply: { id: o.id, title: o.title },
+          })),
+        },
+      });
+    } else if (parsedOpts.length >= 4) {
+      const cleanBody = rawStripped.split(/\n\s*(?:[^\w\d\s]{1,3}\s*)?\*?1\./)[0]?.trim() || rawStripped;
+      return buildPaginatedListInteractive({
+        bodyText: cleanBody,
+        buttonLabel: isEn ? '📋 Open List' : '📋 Fungua Orodha',
+        sectionTitle: isEn ? 'Options' : 'Machaguo',
+        items: parsedOpts,
+        page: listPage,
+        isEn,
+      });
+    }
+  }
+
+  // 10. Open-Text Active Steps => Quick Reply Back & Main Menu Buttons (Zero manual typing of 0/00!)
+  const inActiveEscapeStep =
+    Boolean(session?.service) ||
+    ['TRACKING_LOOKUP_PHONE', 'CHANGING_PHONE'].includes(session?.step || '');
+  if (inActiveEscapeStep) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi Nyuma' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      },
+    });
+  }
+
+  return undefined;
+}
+
 /**
- * Handles input from Meta channels (WhatsApp, Facebook, Instagram) and returns text + media cards
+ * Handles input from Meta channels (WhatsApp, Facebook, Instagram) and returns text + media cards + WhatsApp interactive payload
  */
 export async function handleMetaInputWithMedia(
   senderId: string,
@@ -2331,7 +3543,23 @@ export async function handleMetaInputWithMedia(
     text = await translateSwahiliReplyToEnglish(text);
   }
 
-  return { text, media: mediaCollector };
+  let interactive: WhatsAppInteractivePayload | undefined;
+  if (channel === 'whatsapp') {
+    let servicesConfig: any = {};
+    if (!session.service && dbAdmin) {
+      try {
+        const bizSnap = await dbAdmin.collection('config').doc('business').get();
+        if (bizSnap.exists) servicesConfig = bizSnap.data().services || {};
+      } catch {}
+    }
+    interactive = buildWhatsAppInteractive(text, session, { servicesConfig });
+    if (session.details?.forceAskGpsPin) {
+      delete session.details.forceAskGpsPin;
+      await saveMetaSession(session, dbAdmin);
+    }
+  }
+
+  return { text, media: mediaCollector, interactive };
 }
 
 /**
@@ -2481,6 +3709,15 @@ async function handleMetaInputInternal(
   } else {
     delete session.lastPrompt;
   }
+  // Reset list pagination on real progression
+  if (!['__LIST_PAGE_NEXT__', '__LIST_PAGE_PREV__'].includes(textBody.trim())) {
+    if (
+      beforeSnapshot.step !== session.step ||
+      beforeSnapshot.service !== session.service
+    ) {
+      delete session.details.listPage;
+    }
+  }
   await saveMetaSession(session, dbAdmin);
   return reply;
 }
@@ -2501,6 +3738,95 @@ async function processMetaInputCore(
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
   const waDigits = channel === 'whatsapp' ? senderId.replace(/\D/g, '') : '';
   const defaultWaPhone = waDigits.length >= 9 ? `+${waDigits}` : '';
+
+  // --- 00. WHATSAPP PAGINATION, GPS REQUEST BUTTON & FLOW FORM HANDLERS ---
+  if (cleanInput === '__MENU_PAGE_1__' || cleanInput === '__MENU_PAGE_2__') {
+    markSkipHistory();
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = {
+      ...preserveCustomerFields(session.details, session.details?.lang),
+      menuPage: cleanInput === '__MENU_PAGE_2__' ? 2 : 1,
+    };
+    let servicesConfig: any = {};
+    if (dbAdmin) {
+      try {
+        const bizSnap = await dbAdmin.collection('config').doc('business').get();
+        if (bizSnap.exists) servicesConfig = bizSnap.data().services || {};
+      } catch {}
+    }
+    await saveMetaSession(session, dbAdmin);
+    const l = session.details.lang || 'sw';
+    const menuStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, undefined, session.details.customerName, l);
+    return l === 'en' ? `[[EN_NATIVE]]${menuStr}` : menuStr;
+  }
+
+  if (cleanInput === '__LIST_PAGE_NEXT__' || cleanInput === '__LIST_PAGE_PREV__') {
+    markSkipHistory();
+    const curPage = Number(session.details?.listPage || 0);
+    session.details.listPage = cleanInput === '__LIST_PAGE_NEXT__' ? curPage + 1 : Math.max(0, curPage - 1);
+    await saveMetaSession(session, dbAdmin);
+    return session.lastPrompt || (session.details?.lang === 'en' ? '[[EN_NATIVE]]Choose an option below:' : 'Chagua hapa chini:');
+  }
+
+  if (cleanInput === '__ASK_GPS_PIN__') {
+    markSkipHistory();
+    session.details.forceAskGpsPin = true;
+    await saveMetaSession(session, dbAdmin);
+    return session.details?.lang === 'en'
+      ? `[[EN_NATIVE]]📌 Tap the *Send Location* button below or type your area name:`
+      : `📌 Bonyeza kitufe cha *Send Location* hapo chini au andika jina la eneo lako:`;
+  }
+
+  if (cleanInput.startsWith('__FLOW_DATA__:')) {
+    try {
+      const flowJson = JSON.parse(cleanInput.slice('__FLOW_DATA__:'.length));
+      const fName = String(flowJson.name || flowJson.full_name || '').trim();
+      const fPhone = String(flowJson.phone || flowJson.phone_number || '').trim();
+      const fLang = flowJson.lang === 'en' || flowJson.language === 'en' ? 'en' : flowJson.lang === 'sw' ? 'sw' : session.details?.lang;
+      if (fName) session.details.customerName = fName;
+      if (fPhone && fPhone.replace(/\D/g, '').length >= 9) session.details.phone = fPhone;
+      if (fLang) session.details.lang = fLang;
+      if (fName || fPhone) {
+        const custObj: MetaCustomerProfile = {
+          senderId,
+          channel,
+          name: session.details.customerName || 'Mteja wa Papo Hapo',
+          phone: session.details.phone || defaultWaPhone || senderId,
+          lang: session.details.lang || 'sw',
+          createdAt: Date.now(),
+        };
+        await saveMetaCustomerProfile(custObj, dbAdmin);
+      }
+      if (flowJson.pickup && flowJson.destination) {
+        session.service = 'taxi';
+        session.details.pickupName = String(flowJson.pickup).trim();
+        session.details.destinationName = String(flowJson.destination).trim();
+        session.details.route = `${session.details.pickupName} - ${session.details.destinationName}`;
+        session.step = 'SELECTING_VEHICLE';
+        await saveMetaSession(session, dbAdmin);
+        const avail = await getLiveDriverAvailability(dbAdmin);
+        const vMsg = formatVehicleChoiceMessage(session.details.pickupName, session.details.destinationName, avail, session.details.lang || 'sw');
+        return session.details.lang === 'en' ? `[[EN_NATIVE]]${vMsg}` : vMsg;
+      }
+      session.step = 'COLLECTING_ROUTE';
+      delete session.service;
+      await saveMetaSession(session, dbAdmin);
+      let servicesCfg: any = {};
+      if (dbAdmin) {
+        try {
+          const bizSnap = await dbAdmin.collection('config').doc('business').get();
+          if (bizSnap.exists) servicesCfg = bizSnap.data().services || {};
+        } catch {}
+      }
+      const l = session.details.lang || 'sw';
+      const welcome = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, session.details.customerName, l);
+      const prefix = l === 'en' ? '✅ *Details saved!* \n\n' : '✅ *Taarifa zimehifadhiwa!* \n\n';
+      return l === 'en' ? `[[EN_NATIVE]]${prefix}${welcome}` : `${prefix}${welcome}`;
+    } catch {
+      return `⚠️ Imeshindikana kusoma fomu. Tafadhali andika ujumbe wako hapa:`;
+    }
+  }
 
   // --- 0A. POST-TRIP DRIVER RATING INTERCEPTOR ---
   if (session.details?.ratingRideId) {
@@ -3863,6 +5189,7 @@ async function routeToServiceFlow(
             customerId: `meta-client-${session.senderId}`,
             metaSenderId: session.senderId,
             metaChannel: session.channel,
+            metaPhoneNumberId: senderWhatsAppPhoneNumberIds.get(session.senderId) || globalLastWhatsAppPhoneNumberId || '',
             customerInfo: {
               name: customerName,
               phone: phoneNum,
@@ -6098,6 +7425,19 @@ async function routeToServiceFlow(
   return generateDynamicWelcomeMessage(servicesConfig, chSymbol, undefined, session.details.customerName, lang);
 }
 
+const senderWhatsAppPhoneNumberIds = new Map<string, string>();
+let globalLastWhatsAppPhoneNumberId = '';
+
+export function recordInboundMetaPhoneNumberId(senderId?: string, phoneNumberId?: string): void {
+  const cleanPhoneId = String(phoneNumberId || '').trim();
+  const cleanSender = String(senderId || '').trim();
+  if (!cleanPhoneId) return;
+  globalLastWhatsAppPhoneNumberId = cleanPhoneId;
+  if (cleanSender) {
+    senderWhatsAppPhoneNumberIds.set(cleanSender, cleanPhoneId);
+  }
+}
+
 /**
  * Sends a real outbound reply (optional image cards + text) via Meta Graph API
  * (WhatsApp Cloud API / Messenger / Instagram)
@@ -6108,14 +7448,19 @@ export async function sendMetaOutboundMessage(params: {
   text: string;
   phoneNumberId?: string;
   media?: MetaMediaAttachment[];
+  interactive?: WhatsAppInteractivePayload;
 }): Promise<{ sent: boolean; reason?: string }> {
-  const { channel, recipientId, text, phoneNumberId, media } = params;
+  const { channel, recipientId, text, phoneNumberId, media, interactive } = params;
   if (!recipientId || !text) {
     return { sent: false, reason: 'Missing recipientId or text' };
   }
 
   try {
     if (channel === 'whatsapp') {
+      if (phoneNumberId) {
+        recordInboundMetaPhoneNumberId(recipientId, phoneNumberId);
+      }
+
       const accessToken = (
         process.env.META_WHATSAPP_ACCESS_TOKEN ||
         process.env.WHATSAPP_ACCESS_TOKEN ||
@@ -6125,8 +7470,10 @@ export async function sendMetaOutboundMessage(params: {
 
       const resolvedPhoneId = (
         phoneNumberId ||
+        senderWhatsAppPhoneNumberIds.get(recipientId) ||
         process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
         process.env.WHATSAPP_PHONE_NUMBER_ID ||
+        globalLastWhatsAppPhoneNumberId ||
         ''
       ).trim();
 
@@ -6135,7 +7482,7 @@ export async function sendMetaOutboundMessage(params: {
         return { sent: false, reason: 'Missing META_WHATSAPP_ACCESS_TOKEN or phoneNumberId' };
       }
 
-      // Send up to 4 image cards first so the customer sees real food/product/room photos above the numbered prompt
+      // Send up to 4 image cards first so the customer sees real food/product/room photos above the interactive prompt
       if (Array.isArray(media) && media.length > 0) {
         for (const item of media.slice(0, 4)) {
           try {
@@ -6196,28 +7543,65 @@ export async function sendMetaOutboundMessage(params: {
         }
       }
 
-      const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: recipientId,
-          type: 'text',
-          text: {
-            preview_url: false,
-            body: text.slice(0, 4096),
+      const sendWaPlainText = async (bodyStr: string) => {
+        const resp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: recipientId,
+            type: 'text',
+            text: {
+              preview_url: false,
+              body: bodyStr.slice(0, 4096),
+            },
+          }),
+        });
+        const respData = await resp.json().catch(() => ({}));
+        return { ok: resp.ok, status: resp.status, data: respData };
+      };
 
-      const respData = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        console.error('[Meta Outbound] WhatsApp Cloud API error:', resp.status, JSON.stringify(respData));
-        return { sent: false, reason: respData?.error?.message || `HTTP ${resp.status}` };
+      const sanitizedInteractive = sanitizeWhatsAppInteractivePayload(interactive);
+      if (sanitizedInteractive) {
+        // If full details on a CTA URL message exceed 1024 chars, send full text first then attach the CTA URL card
+        if (sanitizedInteractive.type === 'cta_url' && text.length > 1024) {
+          await sendWaPlainText(text);
+          sanitizedInteractive.body.text = clampMetaBodyText(
+            '👇 Bonyeza kitufe hapo chini kufungua kiungo:',
+            1024
+          );
+        }
+
+        const intResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: recipientId,
+            type: 'interactive',
+            interactive: sanitizedInteractive,
+          }),
+        });
+        const intData = await intResp.json().catch(() => ({}));
+        if (intResp.ok) {
+          console.log(`[Meta Outbound] WhatsApp interactive (${sanitizedInteractive.type}) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
+          return { sent: true };
+        }
+        console.warn('[Meta Outbound] WhatsApp interactive send rejected, falling back to plain text:', intResp.status, JSON.stringify(intData));
+      }
+
+      const plainRes = await sendWaPlainText(text);
+      if (!plainRes.ok) {
+        console.error('[Meta Outbound] WhatsApp Cloud API error:', plainRes.status, JSON.stringify(plainRes.data));
+        return { sent: false, reason: plainRes.data?.error?.message || `HTTP ${plainRes.status}` };
       }
 
       console.log(`[Meta Outbound] WhatsApp reply sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
@@ -6339,6 +7723,67 @@ export async function sendMetaOutboundMessage(params: {
  * and Post-Trip Rating prompt to Meta customers (WhatsApp / Messenger / Instagram).
  */
 const notifiedRideStatuses = new Set<string>();
+const inFlightRideNotifications = new Set<string>();
+
+function normalizeCanonicalRideStatus(rawStatus: string): 'accepted' | 'driver_arrived' | 'on_trip' | 'completed' | 'cancelled' | '' {
+  const s = String(rawStatus || '').trim().toLowerCase();
+  if (s === 'accepted' || s === 'driver_assigned' || s === 'driver_arriving') return 'accepted';
+  if (s === 'driver_arrived' || s === 'arrived') return 'driver_arrived';
+  if (s === 'on_trip' || s === 'started' || s === 'in_progress') return 'on_trip';
+  if (s === 'completed' || s === 'delivered') return 'completed';
+  if (s === 'cancelled') return 'cancelled';
+  return '';
+}
+
+function resolveRideMetaRecipient(ride: any): {
+  channel: 'whatsapp' | 'messenger' | 'instagram' | '';
+  recipientId: string;
+  phoneNumberId?: string;
+} {
+  if (!ride || typeof ride !== 'object') {
+    return { channel: '', recipientId: '' };
+  }
+  const rawChannel = String(ride.metaChannel || ride.channel || ride.orderSource || '').trim().toLowerCase();
+  const customerIdStr = String(ride.customerId || '').trim();
+
+  let channel: 'whatsapp' | 'messenger' | 'instagram' | '' = '';
+  if (rawChannel === 'whatsapp' || rawChannel === 'messenger' || rawChannel === 'instagram') {
+    channel = rawChannel;
+  } else if (customerIdStr.startsWith('whatsapp-client-')) {
+    channel = 'whatsapp';
+  } else if (customerIdStr.startsWith('messenger-client-')) {
+    channel = 'messenger';
+  } else if (customerIdStr.startsWith('instagram-client-')) {
+    channel = 'instagram';
+  }
+
+  let recipientId = String(ride.metaSenderId || '').trim();
+  if (!recipientId) {
+    for (const prefix of ['meta-client-', 'whatsapp-client-', 'messenger-client-', 'instagram-client-']) {
+      if (customerIdStr.startsWith(prefix)) {
+        recipientId = customerIdStr.slice(prefix.length).trim();
+        break;
+      }
+    }
+  }
+
+  if (!recipientId && channel === 'whatsapp' && ride.customerInfo?.phone) {
+    const digits = String(ride.customerInfo.phone).replace(/\D/g, '');
+    if (digits.startsWith('0') && digits.length >= 9) recipientId = `255${digits.slice(1)}`;
+    else if (digits.length === 9 && (digits.startsWith('7') || digits.startsWith('6'))) recipientId = `255${digits}`;
+    else if (digits.length >= 9) recipientId = digits;
+  }
+
+  if (!channel && recipientId && /^\d{9,15}$/.test(recipientId)) {
+    channel = 'whatsapp';
+  }
+
+  return {
+    channel,
+    recipientId,
+    phoneNumberId: String(ride.metaPhoneNumberId || senderWhatsAppPhoneNumberIds.get(recipientId) || '').trim() || undefined,
+  };
+}
 
 export async function notifyRideStatusToMeta(
   params: {
@@ -6355,37 +7800,49 @@ export async function notifyRideStatusToMeta(
     return { notified: false, reason: 'Missing rideId or status' };
   }
 
-  const dedupKey = `${rideId}:${status}`;
+  const canonicalStatus = normalizeCanonicalRideStatus(status);
+  if (!canonicalStatus) {
+    return { notified: false, reason: `Unsupported status for notification: ${status}` };
+  }
+
+  const dedupKey = `${rideId}:${canonicalStatus}`;
   if (notifiedRideStatuses.has(dedupKey)) {
     return { notified: false, reason: 'Status already notified' };
   }
+  if (inFlightRideNotifications.has(dedupKey)) {
+    return { notified: false, reason: 'Notification already in flight' };
+  }
 
+  inFlightRideNotifications.add(dedupKey);
   try {
-    let ride: any = incomingRide || null;
-    if (!ride && dbAdmin) {
-      const snap = await dbAdmin.collection('rides').doc(rideId).get();
-      if (snap.exists) {
-        ride = snap.data();
+    let dbRide: any = null;
+    if (dbAdmin) {
+      try {
+        const snap = await dbAdmin.collection('rides').doc(rideId).get();
+        if (snap.exists) {
+          dbRide = snap.data();
+        }
+      } catch (readErr) {
+        console.warn('[Meta Ride Notify] Firestore ride lookup warning:', readErr);
       }
     }
+
+    const ride: any = dbRide || incomingRide
+      ? { ...(incomingRide || {}), ...(dbRide || {}) }
+      : null;
 
     if (!ride) {
       return { notified: false, reason: 'Ride not found' };
     }
 
-    if (ride.lastMetaNotifiedStatus === status) {
+    const alreadyInDb = normalizeCanonicalRideStatus(String(ride.lastMetaNotifiedStatus || ''));
+    if (alreadyInDb === canonicalStatus) {
       notifiedRideStatuses.add(dedupKey);
       return { notified: false, reason: 'Status already notified in Firestore' };
     }
 
-    const channel = (ride.metaChannel || ride.channel) as 'whatsapp' | 'messenger' | 'instagram' | undefined;
-    const recipientId: string =
-      ride.metaSenderId ||
-      (typeof ride.customerId === 'string' && ride.customerId.startsWith('meta-client-')
-        ? ride.customerId.slice('meta-client-'.length)
-        : '');
-
-    if (!channel || !recipientId || !['whatsapp', 'messenger', 'instagram'].includes(channel)) {
+    const { channel, recipientId, phoneNumberId } = resolveRideMetaRecipient(ride);
+    if (!channel || !recipientId) {
       return { notified: false, reason: 'Ride did not originate from a Meta channel' };
     }
 
@@ -6393,12 +7850,15 @@ export async function notifyRideStatusToMeta(
     const driverLoc = incomingLoc || ride.driverLocation || null;
     const pickup = ride.pickup || {};
     const dest = ride.destination || {};
-    const driverName = driver.name || 'Dereva wa Papo Hapo';
+    const driverName = driver.name || ride.driverName || 'Dereva wa Papo Hapo';
     const driverPhone = driver.phone || '';
     const vehicleModel = driver.vehicle?.model || driver.vehicleModel || 'Gari';
-    const vehiclePlate = driver.vehicle?.plate || driver.vehiclePlate || 'Namba ya Gari';
+    const vehiclePlate = driver.vehicle?.plate || driver.vehiclePlate || ride.vehicleNumber || 'Namba ya Gari';
     const vehicleColor = driver.vehicle?.color || '';
     const driverRating = driver.rating ? `${driver.rating} ⭐` : '4.9 ⭐';
+    const pickupPlace = pickup.name || pickup.address || 'mahali ulipo';
+    const pickupAddr = pickup.address && pickup.address !== pickup.name ? `${pickup.name} (${pickup.address})` : pickupPlace;
+    const destPlace = dest.name || dest.address || 'unapoenda';
 
     let etaMinutes = 5;
     let distKmText = '';
@@ -6417,7 +7877,8 @@ export async function notifyRideStatusToMeta(
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
     const trackUrl = `${publicBaseUrl}/track/${rideId}`;
     const bookingRef = ride.bookingId || rideId;
-    const fareText = ride.fare ? `TZS ${Number(ride.fare).toLocaleString()}/=` : '';
+    const fareVal = Number(ride.fare || ride.estimatedFare || 0);
+    const fareText = fareVal > 0 ? `TZS ${fareVal.toLocaleString()}/=` : '';
     const paymentLabel = ride.paymentMethodLabel || ride.paymentMethod || 'Cash';
 
     let customerLang: 'sw' | 'en' = 'sw';
@@ -6430,49 +7891,51 @@ export async function notifyRideStatusToMeta(
 
     let message = '';
 
-    if (status === 'accepted' || status === 'driver_arriving') {
+    if (canonicalStatus === 'accepted') {
       message = isEn
-        ? `🎉 *Driver Accepted!* (${bookingRef})\n\n` +
+        ? `🎉 *Driver Confirmed Your Ride!* (${bookingRef})\n\n` +
           `👤 *Driver:* ${driverName} (${driverRating})\n` +
           (driverPhone ? `📞 *Phone:* ${driverPhone}\n` : '') +
           `🚘 *Vehicle:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''} • *${vehiclePlate}*\n` +
           `⏱️ *ETA:* ~*${etaMinutes} min*\n\n` +
-          `📍 Heading to *${pickup.name || 'your pickup'}*.\n` +
+          `📍 Heading to *${pickupPlace}*.\n` +
           `🗺️ Live Map: ${trackUrl}`
-        : `🎉 *Dereva Amekubali Oda Yako!* (${bookingRef})\n\n` +
+        : `🎉 *Dereva Amethibitisha Safari Yako!* (${bookingRef})\n\n` +
           `👤 *Dereva:* ${driverName} (${driverRating})\n` +
           (driverPhone ? `📞 *Simu:* ${driverPhone}\n` : '') +
-          `🚘 *Gari:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''}\n` +
-          `🔢 *Namba ya Gari:* *${vehiclePlate}*\n` +
+          `🚘 *Usafiri:* ${vehicleModel}${vehicleColor ? ` (${vehicleColor})` : ''}\n` +
+          `🔢 *Namba ya Gari/Chombo:* *${vehiclePlate}*\n` +
           `⏱️ *Muda wa Kufika (ETA):* ~Dakika *${etaMinutes}*${distKmText}\n\n` +
-          `📍 Dereva yuko njiani kuelekea *${pickup.name || 'mahali ulipo'}*.\n` +
+          `📍 Dereva yuko njiani kuelekea *${pickupPlace}*.\n` +
           `🗺️ *Fuatilia dereva mubashara:*\n${trackUrl}`;
-    } else if (status === 'driver_arrived') {
+    } else if (canonicalStatus === 'driver_arrived') {
       message = isEn
-        ? `📍 *Driver Has Arrived!* (${bookingRef})\n\n` +
-          `*${driverName}* (*${vehicleModel}* • *${vehiclePlate}*) is waiting at *${pickup.name || 'pickup'}*.\n` +
-          (driverPhone ? `📞 Call: ${driverPhone}\n` : '') +
-          `🗺️ ${trackUrl}`
-        : `📍 *Dereva Amefika!* (${bookingRef})\n\n` +
-          `Dereva *${driverName}* akiwa na gari *${vehicleModel}* (*${vehiclePlate}*) ameshafika eneo la *${pickup.name || 'kukuchukua'}*.\n` +
+        ? `📍 *Driver Has Arrived at Pickup!* (${bookingRef})\n\n` +
+          `*${driverName}* (*${vehicleModel}* • *${vehiclePlate}*) has arrived at *${pickupAddr}* and is waiting for you.\n` +
+          (driverPhone ? `📞 Call driver: ${driverPhone}\n` : '') +
+          `🗺️ Live Map: ${trackUrl}`
+        : `📍 *Dereva Amefika Sehemu ya Kukuchukua!* (${bookingRef})\n\n` +
+          `Dereva *${driverName}* akiwa na *${vehicleModel}* (*${vehiclePlate}*) ameshawasili eneo la *${pickupAddr}* na anakusubiri.\n` +
           (driverPhone ? `📞 Mpige simu: ${driverPhone}\n` : '') +
-          `🗺️ ${trackUrl}`;
-    } else if (status === 'on_trip') {
+          `🗺️ *Ramani:*\n${trackUrl}`;
+    } else if (canonicalStatus === 'on_trip') {
       message = isEn
         ? `🚕 *Trip Started!* (${bookingRef})\n\n` +
-          `On your way to *${dest.name || 'destination'}* with *${driverName}* (*${vehiclePlate}*).\n` +
+          `On your way to *${destPlace}* with *${driverName}* (*${vehiclePlate}*).\n` +
           `🗺️ Live Map: ${trackUrl}`
         : `🚕 *Safari Imeanza!* (${bookingRef})\n\n` +
-          `Upo safarini na dereva *${driverName}* (*${vehiclePlate}*) kuelekea *${dest.name || 'unapoenda'}*.\n` +
+          `Upo safarini na dereva *${driverName}* (*${vehiclePlate}*) kuelekea *${destPlace}*.\n` +
           `🗺️ *Fuatilia safari mubashara:*\n${trackUrl}`;
-    } else if (status === 'completed') {
+    } else if (canonicalStatus === 'completed') {
       message = isEn
         ? `🏁 *Trip Completed!* (${bookingRef})\n\n` +
           `Thanks for riding with *${driverName}* (*${vehiclePlate}*).\n` +
-          (fareText ? `💵 *Fare:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
+          `📍 *Route:* ${pickupPlace} ➜ ${destPlace}\n` +
+          (fareText ? `💵 *Total Fare:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
           `⭐ *Rate your driver (reply 1–5):*\n5 ⭐⭐⭐⭐⭐ | 4 ⭐⭐⭐⭐ | 3 ⭐⭐⭐ | 2 ⭐⭐ | 1 ⭐`
         : `🏁 *Safari Imekamilika!* (${bookingRef})\n\n` +
           `Asante kwa kusafiri na *${driverName}* (*${vehiclePlate}*).\n` +
+          `📍 *Njia:* ${pickupPlace} ➜ ${destPlace}\n` +
           (fareText ? `💵 *Nauli ya Kulipa:* *${fareText}* (${paymentLabel})\n\n` : '\n') +
           `⭐ *Tafadhali mpe tathmini dereva wako (tuma namba 1 hadi 5):*\n` +
           `5 - Bora kabisa ⭐⭐⭐⭐⭐\n` +
@@ -6481,44 +7944,128 @@ export async function notifyRideStatusToMeta(
           `2 - Hairidhishi ⭐⭐\n` +
           `1 - Mbaya ⭐`;
 
-      const session = await getMetaSession(recipientId, channel, dbAdmin);
-      session.details.ratingRideId = rideId;
-      session.details.ratingDriverId = ride.driverId || driver.id || '';
-      session.details.ratingDriverName = driverName;
-      await saveMetaSession(session, dbAdmin);
-    } else if (status === 'cancelled') {
+      try {
+        const session = await getMetaSession(recipientId, channel, dbAdmin);
+        session.details.ratingRideId = rideId;
+        session.details.ratingDriverId = ride.driverId || driver.id || '';
+        session.details.ratingDriverName = driverName;
+        await saveMetaSession(session, dbAdmin);
+      } catch {}
+    } else if (canonicalStatus === 'cancelled') {
       message = isEn
         ? `❌ *Ride Cancelled* (${bookingRef})\n\nReply *Menu* or *1* to book another ride.`
         : `❌ *Safari Imesitishwa* (${bookingRef})\n\nOda yako imeghairiwa. Andika *Menu* au *1* kuagiza usafiri mwingine papo hapo.`;
     }
 
     if (!message) {
-      return { notified: false, reason: `No template for status: ${status}` };
+      return { notified: false, reason: `No template for status: ${canonicalStatus}` };
     }
 
-    notifiedRideStatuses.add(dedupKey);
+    let interactive: WhatsAppInteractivePayload | undefined;
+    if (channel === 'whatsapp') {
+      if (canonicalStatus === 'accepted' || canonicalStatus === 'driver_arrived' || canonicalStatus === 'on_trip') {
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'cta_url',
+          header: {
+            type: 'text',
+            text: isEn ? '🚕 PapoRide Trip Update' : '🚕 Taarifa ya Safari',
+          },
+          body: { text: message },
+          footer: { text: `Papo Hapo • ${bookingRef}` },
+          action: {
+            name: 'cta_url',
+            parameters: {
+              display_text: isEn ? '🗺️ Track Live' : '🗺️ Ramani Live',
+              url: trackUrl,
+            },
+          },
+        });
+      } else if (canonicalStatus === 'completed') {
+        const compactBody = isEn
+          ? `🏁 *Trip Completed!* (${bookingRef})\n\nThanks for riding with *${driverName}* (*${vehiclePlate}*).\n📍 *Route:* ${pickupPlace} ➜ ${destPlace}` +
+            (fareText ? `\n💵 *Total Fare:* *${fareText}* (${paymentLabel})` : '') +
+            `\n\nTap *⭐ Rate Driver* below to leave your rating:`
+          : `🏁 *Safari Imekamilika!* (${bookingRef})\n\nAsante kwa kusafiri na *${driverName}* (*${vehiclePlate}*).\n📍 *Njia:* ${pickupPlace} ➜ ${destPlace}` +
+            (fareText ? `\n💵 *Nauli ya Kulipa:* *${fareText}* (${paymentLabel})` : '') +
+            `\n\nBonyeza *⭐ Tathmini Dereva* hapo chini kumpa nyota:`;
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'list',
+          header: { type: 'text', text: isEn ? '⭐ Rate Your Driver' : '⭐ Tathmini Dereva' },
+          body: { text: compactBody },
+          footer: { text: `Papo Hapo • ${bookingRef}` },
+          action: {
+            button: isEn ? '⭐ Rate Driver' : '⭐ Tathmini Dereva',
+            sections: [
+              {
+                title: isEn ? 'Select Rating' : 'Chagua Nyota',
+                rows: [
+                  { id: '5', title: '5 ⭐⭐⭐⭐⭐', description: isEn ? 'Excellent service!' : 'Bora kabisa!' },
+                  { id: '4', title: '4 ⭐⭐⭐⭐', description: isEn ? 'Very good' : 'Nzuri sana' },
+                  { id: '3', title: '3 ⭐⭐⭐', description: isEn ? 'Average' : 'Wastani' },
+                  { id: '2', title: '2 ⭐⭐', description: isEn ? 'Below average' : 'Hairidhishi' },
+                  { id: '1', title: '1 ⭐', description: isEn ? 'Poor' : 'Mbaya' },
+                ],
+              },
+              {
+                title: isEn ? 'More' : 'Nyingine',
+                rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Ruka / Menyu Kuu' }],
+              },
+            ],
+          },
+        });
+      } else if (canonicalStatus === 'cancelled') {
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'button',
+          body: { text: message },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: '1', title: isEn ? '🚖 Book Another' : '🚖 Agiza Tena' } },
+              { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+            ],
+          },
+        });
+      }
+    }
 
     const res = await sendMetaOutboundMessage({
       channel,
       recipientId,
       text: message,
+      phoneNumberId,
+      interactive,
     });
 
-    if (dbAdmin) {
-      try {
-        await dbAdmin.collection('rides').doc(rideId).update({
-          lastMetaNotifiedStatus: status,
-          lastMetaNotifiedAt: new Date(),
-        });
-      } catch {
-        // ignore non-critical Firestore tracking update failure
+    if (res.sent) {
+      notifiedRideStatuses.add(dedupKey);
+      if (dbAdmin) {
+        try {
+          await dbAdmin.collection('rides').doc(rideId).update({
+            lastMetaNotifiedStatus: canonicalStatus,
+            lastMetaNotifiedAt: new Date(),
+          });
+        } catch {
+          // ignore non-critical Firestore tracking update failure
+        }
+        try {
+          await dbAdmin.collection('meta_chats').add({
+            channel,
+            senderId: recipientId,
+            message: `[RIDE_STATUS:${canonicalStatus.toUpperCase()}] ${bookingRef}`,
+            reply: message,
+            timestamp: new Date(),
+          });
+        } catch {}
       }
+    } else {
+      console.warn(`[Meta Ride Notify] Outbound send failed for ${dedupKey}: ${res.reason}`);
     }
 
     return { notified: res.sent, reason: res.reason };
   } catch (err: any) {
     console.error('[Meta Ride Notify] Error:', err?.message || err);
     return { notified: false, reason: err?.message || String(err) };
+  } finally {
+    inFlightRideNotifications.delete(dedupKey);
   }
 }
 
@@ -6557,10 +8104,25 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
         for (const message of value.messages) {
           const senderId = String(message?.from || '').trim();
           const messageId = String(message?.id || '').trim();
+
+          const pickInteractiveReply = (replyObj?: { id?: string; title?: string }): string => {
+            if (!replyObj) return '';
+            const rid = String(replyObj.id || '').trim();
+            const rtitle = String(replyObj.title || '').trim();
+            if (rid && (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(rid) || rid.startsWith('CMD:'))) {
+              return rid.startsWith('CMD:') ? rid.slice(4) : rid;
+            }
+            return rtitle || rid;
+          };
+
+          const nfmRaw = message?.interactive?.nfm_reply?.response_json;
+          const nfmText = typeof nfmRaw === 'string' && nfmRaw.trim() ? `__FLOW_DATA__:${nfmRaw.trim()}` : '';
+
           const textBody = String(
             message?.text?.body ||
-              message?.interactive?.button_reply?.title ||
-              message?.interactive?.list_reply?.title ||
+              pickInteractiveReply(message?.interactive?.button_reply) ||
+              pickInteractiveReply(message?.interactive?.list_reply) ||
+              nfmText ||
               message?.button?.text ||
               (message?.location
                 ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}`

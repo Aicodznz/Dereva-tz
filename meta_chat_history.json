@@ -1,5 +1,141 @@
 [
   {
+    "id": "m-mem-1794771286691-w96p",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "lugha",
+    "reply": "🌐 *Chagua Lugha / Choose Language:*\n\n1. 🇹🇿 *Kiswahili*\n2. 🇬🇧 *English*\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:46.691Z"
+  },
+  {
+    "id": "m-mem-1794771285727-6qhi",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "__ASK_GPS_PIN__",
+    "reply": "📌 Bonyeza kitufe cha *Send Location* hapo chini au andika jina la eneo lako:",
+    "timestamp": "2026-11-15T19:34:45.727Z"
+  },
+  {
+    "id": "m-mem-1794771284764-s8zi",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "2",
+    "reply": "📍 *Eneo la kuletewa chakula?*\n1. 📍 Tumia *Mikocheni*\n_Au andika mtaa mwingine / tuma 📍 Location yako:_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:44.764Z"
+  },
+  {
+    "id": "m-mem-1794771283572-qz50",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "1",
+    "reply": "✅ Imeongezwa: *SSFF x1*\n🧺 Jumla ya sasa: *TZS 10,000/=*\n\n1. ➕ Ongeza chakula / kinywaji kingine\n2. ✅ Endelea kukamilisha\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:43.572Z"
+  },
+  {
+    "id": "m-mem-1794771282480-q3xh",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "1",
+    "reply": "🍔 Umechagua: *SSFF* (*TZS 10,000/=*)\n\nUngependa sahani / idadi ngapi? (Andika mfano: *1*, *2*, *3*):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:42.480Z"
+  },
+  {
+    "id": "m-mem-1794771281400-pplh",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "1",
+    "reply": "🍽️ *MENYU YA RESTAURANTKISINIA*\n\n*1. SSFF* — *TZS 10,000/=*\n\nAndika namba ya chakula unachotaka (*1–1*):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:41.400Z"
+  },
+  {
+    "id": "m-mem-1794771280188-n1lr",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "1",
+    "reply": "🛵 *AGIZA CHAKULA (DELIVERY)*\n\n📍 Migahawa ya karibu na *Mikocheni*:\n\n*1. Restaurantkisinia*\n📍 Relini, Matumbi, Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 78492, Tanzania • ~5.6 km\n\nAndika namba ya mgahawa (*1–1*) au tuma *📍 GPS Location* kupata wa karibu:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:40.188Z"
+  },
+  {
+    "id": "m-mem-1794771278870-y588",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "2",
+    "reply": "🍔 *PAPO HAPO CHAKULA & MIGAHAWA*\n\nUngependa huduma ipi leo?\n\n1. 🛵 *Niletewe Chakula (Delivery)*\n2. 🥡 *Nitachukua Mwenyewe (Takeaway)*\n3. 🪑 *Weka Meza / Viti Mgahawani (Book Table)*\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:38.870Z"
+  },
+  {
+    "id": "m-mem-1794771277812-n7xv",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "2",
+    "reply": "✅ *Oda ya PapoRide Imetumwa!*\n🔖 *PH-708809* • *Teksi 🚕*\n📍 *Mikocheni* ➜ *Posta*\n📏 *9.1 km* (~9 dk) • *TZS 9,000*\n💳 M-Pesa 📱 • 📞 +255700009988\n\n🔴 Hakuna dereva aliye *Online* kwa sasa — ombi limehifadhiwa, dereva akiingia hewani ataliona.\n\n🗺️ Ramani: https://dereva-tz.onrender.com/track/xxmsgqD0cXpViAWh8VHF\n📋 Oda zako: https://dereva-tz.onrender.com/my-orders?phone=255700009988&code=PH-708809\n\n_Andika *Menu* au *Oda zangu* muda wowote._",
+    "timestamp": "2026-11-15T19:34:37.812Z"
+  },
+  {
+    "id": "m-mem-1794771275614-lh9h",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "2",
+    "reply": "💳 *Malipo — TZS 9,000*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:35.614Z"
+  },
+  {
+    "id": "m-mem-1794771274513-6p0t",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "3",
+    "reply": "🧾 *Mikocheni* ➜ *Posta*\n• *Teksi 🚕* • *9.1 km* (~9 dk)\n• Nauli: *TZS 9,000*\n• Hali: 🔴 Hakuna dereva wa *Teksi* aliye *Online* kwa sasa.\n\n1. 🔄 *Badili Usafiri*\n2. ⏳ *Tuma Ombi (Subiri Dereva)*\n3. ❌ *Ghairi*\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:34.513Z"
+  },
+  {
+    "id": "m-mem-1794771273007-l1dd",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "Posta",
+    "reply": "🗺️ *Mikocheni* ➜ *Posta*\n\nChagua usafiri:\n1. 🏍️ *Boda Boda* _(🔴 Hawapo online)_\n2. 🛺 *Bajaji* _(🔴 Hawapo online)_\n3. 🚕 *Teksi* _(🔴 Hawapo online)_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:33.007Z"
+  },
+  {
+    "id": "m-mem-1794771271614-0j00",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "__GPS_PIN__:-6.77,39.24|Mikocheni|Mikocheni Dar",
+    "reply": "📍 *Kutoka:* Mikocheni\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:31.614Z"
+  },
+  {
+    "id": "m-mem-1794771270224-sg6r",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "1",
+    "reply": "🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-15T19:34:30.224Z"
+  },
+  {
+    "id": "m-mem-1794771269076-2x2i",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "__MENU_PAGE_2__",
+    "reply": "Habari *Juma Interactive* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
+    "timestamp": "2026-11-15T19:34:29.076Z"
+  },
+  {
+    "id": "m-mem-1794771268057-dc4c",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "Juma Interactive",
+    "reply": "Habari *Juma Interactive* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
+    "timestamp": "2026-11-15T19:34:28.057Z"
+  },
+  {
+    "id": "m-mem-1794771265996-2fo5",
+    "channel": "whatsapp",
+    "senderId": "255700009988",
+    "message": "Hi",
+    "reply": "👋 Karibu *Papo Hapo* (🟢 WhatsApp)!\n\nAndika *jina lako kamili* kuanza (mf. *Juma Hassan*):",
+    "timestamp": "2026-11-15T19:34:25.996Z"
+  },
+  {
     "id": "m-mem-1794764166757-gzhy",
     "channel": "whatsapp",
     "senderId": "255700999777",
@@ -262,141 +398,5 @@
     "message": "Posta",
     "reply": "🗺️ *Mikocheni* ➜ *Posta*\n\nChagua usafiri:\n1. 🏍️ *Boda Boda* _(🔴 Hawapo online)_\n2. 🛺 *Bajaji* _(🔴 Hawapo online)_\n3. 🚕 *Teksi* _(🔴 Hawapo online)_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
     "timestamp": "2026-11-15T17:31:57.122Z"
-  },
-  {
-    "id": "m-mem-1794763915892-frnm",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "1",
-    "reply": "📍 *Kutoka:* Mikocheni\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:55.892Z"
-  },
-  {
-    "id": "m-mem-1794763914812-c82c",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "1",
-    "reply": "🚖 *PapoRide — Unatoka wapi?*\n1. 📍 Tumia *Mikocheni*\n_Au andika eneo lingine / tuma 📍 Location:_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:54.812Z"
-  },
-  {
-    "id": "m-mem-1794763913781-tyqt",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "00",
-    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
-    "timestamp": "2026-11-15T17:31:53.781Z"
-  },
-  {
-    "id": "m-mem-1794763913045-m23f",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "__GPS_PIN__:-6.7745,39.2421|Mikocheni|Mikocheni, Dar",
-    "reply": "📍 *Kutoka:* Mikocheni\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:53.045Z"
-  },
-  {
-    "id": "m-mem-1794763911865-hflw",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "2",
-    "reply": "🎉 *MEZA IMEHIFADHIWA KIKAMILIFU!* 🪑✨\n🔖 Namba ya Booking: *#TBL-4064*\n🏠 Mgahawa: *Restaurantkisinia*\n📍 Eneo: *Relini, Matumbi, Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 78492, Tanzania*\n🪑 Meza: *#5* (Viti *4*)\n🕒 Muda wa Kufika: *Leo Saa 1:00 Usiku (19:00)*\n🍽️ *Chakula:* Utaagiza ukifika mgahawani\n💳 Malipo: *Lipa Mgahawani Ukifika 💵*\n📞 Simu: *+255700999777*\n\n🔗 *Fuatilia booking hii & oda zako zote:*\nhttps://dereva-tz.onrender.com/my-orders?phone=255700999777&code=TBL-4064\n🍽️ *Menyu ya mgahawa:* https://dereva-tz.onrender.com/vendor/nbdTGZ6JWTi06vrsXm1C\n\nMeza yako tayari imeoneshwa kama *RESERVED* kwenye mfumo wa mgahawa. Karibu sana! 🙏",
-    "timestamp": "2026-11-15T17:31:51.865Z"
-  },
-  {
-    "id": "m-mem-1794763909899-6k99",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "2",
-    "reply": "🕒 Muda wa kufika: *Leo Saa 1:00 Usiku (19:00)*\n\n🍽️ Je, ungependa *kuchagua chakula mapema (Pre-order)* ukute kimeandaliwa mezani, au utaagiza ukifika mgahawani?\n\n1. 🍔 *Ndio, Chagua Chakula Sasa (Pre-order)*\n2. 🪑 *Hapana, Nitaagiza Nikifika (Shikilia Meza Tu)*\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:49.899Z"
-  },
-  {
-    "id": "m-mem-1794763908798-wrxs",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "4",
-    "reply": "👥 Viti vilivyochaguliwa: *Watu 4*\n\n🕒 *CHAGUA SIKU NA MUDA WA KUFIKA:*\n1. ⚡ Sasa hivi (Ndani ya dakika 30)\n2. 🌆 Leo Jioni (Saa 1:00 Usiku)\n3. 🌙 Leo Usiku (Saa 2:30 Usiku)\n4. 📅 Kesho Mchana (Saa 7:00 Mchana)\n\n_Andika namba (*1–4*) au andika muda wako mwenyewe (Mfano: *Leo saa 11 jioni*):_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:48.798Z"
-  },
-  {
-    "id": "m-mem-1794763907638-63vw",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "0",
-    "reply": "🪑 *BOOKING YA MEZA — RESTAURANTKISINIA*\n📍 Relini, Matumbi, Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 78492, Tanzania\n\nJe, mnahitaji *viti / watu wangapi*? (Mfano andika: *1*, *2*, *4*, *6* — au andika *M1* kuchagua meza maalum):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:47.638Z"
-  },
-  {
-    "id": "m-mem-1794763906971-08qh",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "2",
-    "reply": "👥 Viti vilivyochaguliwa: *Watu 2*\n\n🕒 *CHAGUA SIKU NA MUDA WA KUFIKA:*\n1. ⚡ Sasa hivi (Ndani ya dakika 30)\n2. 🌆 Leo Jioni (Saa 1:00 Usiku)\n3. 🌙 Leo Usiku (Saa 2:30 Usiku)\n4. 📅 Kesho Mchana (Saa 7:00 Mchana)\n\n_Andika namba (*1–4*) au andika muda wako mwenyewe (Mfano: *Leo saa 11 jioni*):_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:46.971Z"
-  },
-  {
-    "id": "m-mem-1794763905840-on06",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "1",
-    "reply": "🪑 *BOOKING YA MEZA — RESTAURANTKISINIA*\n📍 Relini, Matumbi, Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 78492, Tanzania\n\nJe, mnahitaji *viti / watu wangapi*? (Mfano andika: *1*, *2*, *4*, *6* — au andika *M1* kuchagua meza maalum):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:45.840Z"
-  },
-  {
-    "id": "m-mem-1794763904415-vpk9",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "3",
-    "reply": "🪑 *WEKA MEZA / VITI MGAHAWANI (Table Booking)*\n\nChagua mgahawa unaotaka:\n\n*1. Restaurantkisinia*\n📍 Relini, Matumbi, Tabata, Ilala Municipal, Dar es Salaam, Coastal Zone, 78492, Tanzania\n\nAndika namba ya mgahawa (*1–1*) au tuma *📍 GPS Location* kupata wa karibu:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:44.415Z"
-  },
-  {
-    "id": "m-mem-1794763902669-q2k7",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "2",
-    "reply": "🍔 *PAPO HAPO CHAKULA & MIGAHAWA*\n\nUngependa huduma ipi leo?\n\n1. 🛵 *Niletewe Chakula (Delivery)*\n2. 🥡 *Nitachukua Mwenyewe (Takeaway)*\n3. 🪑 *Weka Meza / Viti Mgahawani (Book Table)*\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-15T17:31:42.669Z"
-  },
-  {
-    "id": "m-mem-1794763901365-57so",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "00",
-    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
-    "timestamp": "2026-11-15T17:31:41.365Z"
-  },
-  {
-    "id": "m-mem-1794703643955-49kz",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "Hi",
-    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
-    "timestamp": "2026-11-15T00:47:23.955Z"
-  },
-  {
-    "id": "m-mem-1794703643000-e4ze",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "1",
-    "reply": "Habari *Juma Test* 👋\n\n👋 *KARIBU PAPO HAPO SUPER APP!* 🟢\n\nMimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n*CHAGUA HUDUMA YAKO:*\n\n🚖 1. PapoRide – Usafiri\n🍔 2. PapoFood – Chakula\n🛍️ 3. PapoMart – Mahitaji ya Sokoni\n📦 4. PapoSend – Usafirishaji wa Mizigo\n💊 5. PapoMed – Dawa na Afya\n💇 6. PapoStyle – Saluni na Spa\n🛠️ 7. PapoFix – Mafundi na Matengenezo\n🏨 8. PapoStay – Hoteli na Malazi\n🎟️ 9. PapoTicket – Tiketi za Matukio\n🚌 10. PapoBus – Tiketi za Mabasi\n🚗 11. PapoRent – Kukodisha Magari\n🛒 12. PapoMall – Maduka\n💳 13. PapoPay – Malipo na Wakala\n📋 14. Oda Zangu – Fuatilia Oda Zako\n\n✨ *Unaweza kuandika namba (1–14), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_",
-    "timestamp": "2026-11-15T00:47:23.000Z"
-  },
-  {
-    "id": "m-mem-1794703641978-2goi",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "Lugha",
-    "reply": "🌐 *Chagua Lugha / Choose Language:*\n\n1. 🇹🇿 *Kiswahili*\n2. 🇬🇧 *English*",
-    "timestamp": "2026-11-15T00:47:21.978Z"
-  },
-  {
-    "id": "m-mem-1794703641364-qk1c",
-    "channel": "whatsapp",
-    "senderId": "255700999777",
-    "message": "PapoFix",
-    "reply": "🛠️ *PapoFix — Handyman & Repair Services*\n\nWhat type of technician do you need today?\n\n*1. Electrician* (Inspection from TZS 10,000)\n*2. Plumber (Plumbing)* (Inspection from TZS 10,000)\n*3. AC & Fridge Repair* (Inspection from TZS 15,000)\n*4. Carpentry & Locks* (Inspection from TZS 10,000)\n*5. Cleaning & Pest Control* (Inspection from TZS 15,000)\n*6. Painting & Construction* (Inspection from TZS 12,000)\n*7. TV, Solar & Electronics* (Inspection from TZS 10,000)\n\nType the number (*1–7*):",
-    "timestamp": "2026-11-15T00:47:21.364Z"
   }
 ]
