@@ -16,6 +16,8 @@ import {
   Check,
   Globe,
   Sun,
+  Activity,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   GeoLibreBasemapId,
@@ -32,6 +34,8 @@ export interface GeoLibreLayerState {
   showGeofences: boolean;
   showDaladalaRoutes: boolean;
   show3DBuildings: boolean;
+  showTraffic: boolean;
+  showRoadReports: boolean;
 }
 
 export interface GeoLibreLayerCounts {
@@ -41,6 +45,7 @@ export interface GeoLibreLayerCounts {
   busyDrivers?: number;
   geofenceCount?: number;
   daladalaRoutes?: number;
+  roadReports?: number;
 }
 
 interface GeoLibreControlDrawerProps {
@@ -129,6 +134,22 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
     countLabel?: string;
   }[] = [
     {
+      key: 'showTraffic',
+      label: 'Live Traffic (Msongamano)',
+      sublabel: 'Rangi za barabara: Kijani (Shwari), Njano (Kiasi), Nyekundu (Foleni)',
+      icon: Activity,
+      accent: 'text-emerald-400',
+    },
+    {
+      key: 'showRoadReports',
+      label: 'Matukio Barabarani',
+      sublabel: 'Taarifa za moja kwa moja za foleni, mafuriko, ujenzi na ajali',
+      icon: AlertTriangle,
+      accent: 'text-amber-400',
+      countLabel:
+        counts.roadReports !== undefined ? `${counts.roadReports} Matukio Hai` : undefined,
+    },
+    {
       key: 'showVendors',
       label: 'Biashara & Maduka',
       sublabel: 'Pin za kijani (Wazi) na nyekundu (Imefungwa)',
@@ -136,7 +157,7 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
       accent: 'text-emerald-400',
       countLabel:
         counts.openVendors !== undefined
-          ? `${counts.openVendors} Wazi • ${counts.closedVendors || 0} Imefungwa`
+          ? `${counts.openVendors} Wazi · ${counts.closedVendors || 0} Imefungwa`
           : undefined,
     },
     {
@@ -154,7 +175,7 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
       accent: 'text-amber-400',
       countLabel:
         counts.onlineDrivers !== undefined
-          ? `${counts.onlineDrivers} Online • ${counts.busyDrivers || 0} Busy`
+          ? `${counts.onlineDrivers} Online · ${counts.busyDrivers || 0} Busy`
           : undefined,
     },
     {
