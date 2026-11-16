@@ -2828,6 +2828,12 @@ function clampMetaPlainStr(raw: string, maxLen: number, ellipsis = true): string
   return ellipsis && maxLen > 3 ? `${sliced}…` : sliced;
 }
 
+function clampMetaIdStr(raw: string, maxLen = 200): string {
+  const cleaned = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned.length <= maxLen ? cleaned : cleaned.slice(0, maxLen).trim();
+}
+
 function clampMetaBodyText(raw: string, maxLen = 1024): string {
   const cleaned = String(raw || '').trim();
   if (!cleaned) return 'Chagua hapa chini:';
@@ -2880,7 +2886,7 @@ function sanitizeWhatsAppInteractivePayload(
     const seen = new Set<string>();
     const buttons = (payload.action?.buttons || [])
       .map((b, idx) => {
-        const id = clampMetaPlainStr(b?.reply?.id || String(idx + 1), 256, false) || String(idx + 1);
+        const id = clampMetaIdStr(b?.reply?.id || String(idx + 1), 256) || String(idx + 1);
         const title = clampMetaPlainStr(b?.reply?.title || `Chaguo ${idx + 1}`, 20);
         return { type: 'reply' as const, reply: { id, title } };
       })
@@ -2909,7 +2915,7 @@ function sanitizeWhatsAppInteractivePayload(
       const rows: Array<{ id: string; title: string; description?: string }> = [];
       for (const r of sec.rows || []) {
         if (totalRows >= 10) break;
-        const id = clampMetaPlainStr(r.id || String(totalRows + 1), 200, false) || String(totalRows + 1);
+        const id = clampMetaIdStr(r.id || String(totalRows + 1), 200) || String(totalRows + 1);
         if (seen.has(id)) continue;
         const title = clampMetaPlainStr(r.title || `Chaguo ${totalRows + 1}`, 24);
         if (!title) continue;
@@ -3050,7 +3056,7 @@ function sanitizeWhatsAppInteractivePayload(
         if (expectedMode && expectedMode !== 'quick_reply') continue;
         const buttons = rawAction.buttons.slice(0, 2).map((btn: any, bIdx: number) => {
           const qr = btn?.quick_reply || btn?.reply || {};
-          let qrId = clampMetaPlainStr(qr.id || `CMD:${cleanedCards.length + 1}#c${cleanedCards.length}`, 256, false);
+          let qrId = clampMetaIdStr(qr.id || `CMD:${cleanedCards.length + 1}#c${cleanedCards.length}`, 256);
           if (seenQrIds.has(qrId)) {
             qrId = `${qrId}#c${cleanedCards.length}_${bIdx}`;
           }
@@ -3481,39 +3487,43 @@ export function buildWhatsAppInteractive(
     const servicesCfg = opts?.servicesConfig || {};
     const liveStatusMap = opts?.liveStatusMap || {};
     const active = META_DEFAULT_SERVICES.filter((item) => {
-      const sData = servicesCfg[item.id];
+      const sData = servicesCfg[item.id] || servicesCfg[item.key];
       return !sData || sData.enabled !== false;
-    }).map((item, idx) => ({
-      ...item,
-      displayNum: String(idx + 1),
-      isMaintenance: servicesCfg[item.id]?.maintenance === true,
-      liveStatus: liveStatusMap[item.key],
-    }));
+    }).map((item, idx) => {
+      const sData = servicesCfg[item.id] || servicesCfg[item.key] || {};
+      return {
+        ...item,
+        displayNum: String(idx + 1),
+        isMaintenance: sData.maintenance === true,
+        liveStatus: liveStatusMap[item.key],
+      };
+    });
     const trackNum = String(active.length + 1);
-    const allMenuRows = [
-      ...active.map((srv) => {
-        const baseDesc = isEn ? srv.enDesc : srv.desc;
-        const badge = srv.liveStatus
-          ? isEn
-            ? srv.liveStatus.listBadgeEn
-            : srv.liveStatus.listBadgeSw
-          : srv.isMaintenance
-          ? isEn
-            ? '🟠 Maintenance'
-            : '🟠 Matengenezo'
-          : '';
-        return {
-          id: srv.displayNum,
-          title: `${srv.emoji} ${srv.title}`,
-          description: badge ? `${baseDesc} • ${badge}` : baseDesc,
-        };
-      }),
-      {
-        id: trackNum,
-        title: isEn ? '📋 My Orders' : '📋 Oda Zangu',
-        description: isEn ? 'Track rides, food & bookings' : 'Fuatilia oda, meza & safari zako',
-      },
-    ];
+    const serviceRows = active.map((srv) => {
+      const baseDesc = isEn ? srv.enDesc : srv.desc;
+      const badge = srv.liveStatus
+        ? isEn
+          ? srv.liveStatus.listBadgeEn
+          : srv.liveStatus.listBadgeSw
+        : srv.isMaintenance
+        ? isEn
+          ? '🟠 Maintenance'
+          : '🟠 Matengenezo'
+        : isEn
+        ? '🟢 Open'
+        : '🟢 Wazi';
+      return {
+        id: srv.displayNum,
+        title: `${srv.emoji} ${srv.title}`,
+        description: badge ? `${badge} • ${baseDesc}` : baseDesc,
+      };
+    });
+    const trackRow = {
+      id: trackNum,
+      title: isEn ? '📋 My Orders' : '📋 Oda Zangu',
+      description: isEn ? 'Track rides, food & bookings' : 'Fuatilia oda, meza & safari zako',
+    };
+    const allMenuRows = [...serviceRows, trackRow];
 
     const menuPage = Number(session?.details?.menuPage || 1);
     const cName = session?.details?.customerName;
@@ -3528,7 +3538,7 @@ export function buildWhatsAppInteractive(
     if (allMenuRows.length <= 10) {
       return sanitizeWhatsAppInteractivePayload({
         type: 'list',
-        header: { type: 'text', text: isEn ? '🟢 Papo Hapo Super App' : '🟢 Papo Hapo Super App' },
+        header: { type: 'text', text: '🟢 Papo Hapo Super App' },
         body: {
           text: isEn
             ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`
@@ -3548,30 +3558,31 @@ export function buildWhatsAppInteractive(
     }
 
     if (menuPage === 2) {
-      const page2Rows = allMenuRows.slice(9);
+      const remainingServiceRows = serviceRows.slice(8);
       return sanitizeWhatsAppInteractivePayload({
         type: 'list',
-        header: { type: 'text', text: isEn ? `📋 More Services (10–${allMenuRows.length})` : `📋 Huduma Zaidi (10–${allMenuRows.length})` },
+        header: { type: 'text', text: isEn ? '📋 More Services' : '📋 Huduma Nyingine' },
         body: {
           text: isEn
-            ? `${greetingLine}\n\nPick a service below (*10–${allMenuRows.length}*) or go back to the first page:`
-            : `${greetingLine}\n\nChagua huduma zilizobaki (*10–${allMenuRows.length}*) kupitia orodha hapo chini, au rudi ukurasa wa kwanza:`,
+            ? `${greetingLine}\n\nTap *📋 More Services* below to pick *PapoTicket, PapoBus, PapoRent, PapoMall* or *PapoPay*:`
+            : `${greetingLine}\n\nBonyeza *📋 Huduma Nyingine* hapo chini kuchagua *PapoTicket, PapoBus, PapoRent, PapoMall* au *PapoPay*:`,
         },
-        footer: { text: isEn ? 'Page 2 of 2 • Type "SW" for Swahili' : 'Ukurasa 2/2 • Type "EN" for English' },
+        footer: { text: isEn ? 'Page 2/2 • Type "SW" for Swahili' : 'Ukurasa 2/2 • Type "EN" for English' },
         action: {
-          button: isEn ? '📋 More Services' : '📋 Fungua Zaidi',
+          button: isEn ? '📋 More Services' : '📋 Huduma Nyingine',
           sections: [
             {
-              title: isEn ? `Services (10–${allMenuRows.length})` : `Huduma (${10}–${allMenuRows.length})`,
-              rows: page2Rows.slice(0, 8),
+              title: isEn ? `More Services (9–${serviceRows.length})` : `Huduma Zaidi (9–${serviceRows.length})`,
+              rows: remainingServiceRows.slice(0, 7),
             },
             {
-              title: isEn ? 'Navigation' : 'Menyu',
+              title: isEn ? 'Orders & Navigation' : 'Oda & Menyu',
               rows: [
+                trackRow,
                 {
                   id: '__MENU_PAGE_1__',
-                  title: isEn ? '⬅️ Main Services (1–9)' : '⬅️ Huduma Kuu (1–9)',
-                  description: isEn ? 'PapoRide, PapoFood, PapoMart...' : 'PapoRide, PapoFood, PapoMart...',
+                  title: isEn ? '⬅️ Main Services (1–8)' : '⬅️ Huduma Kuu (1–8)',
+                  description: isEn ? 'PapoRide, PapoFood, PapoMart, PapoSend...' : 'PapoRide, PapoFood, PapoMart, PapoSend...',
                 },
                 {
                   id: 'lugha',
@@ -3585,32 +3596,32 @@ export function buildWhatsAppInteractive(
       });
     }
 
-    // Menu Page 1 (Top 9 services + More Services row)
+    // Menu Page 1: Top 8 core services + Always-visible My Orders + Working More Services button
+    const moreTitles = active.slice(8).map((s) => s.title).join(', ');
     return sanitizeWhatsAppInteractivePayload({
       type: 'list',
       header: { type: 'text', text: '🟢 Papo Hapo Super App' },
       body: {
         text: isEn
-          ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type directly (e.g. _"Taxi Mwenge to Posta"_).`
-          : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini au andika moja kwa moja (mf. _"Taxi Mwenge kwenda Posta"_).`,
+          ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type any service/number (*1–${allMenuRows.length}*).`
+          : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* chini au andika huduma/namba (*1–${allMenuRows.length}*).`,
       },
-      footer: { text: isEn ? 'Page 1/2 • Reply "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
+      footer: { text: isEn ? 'Page 1/2 • Type "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
       action: {
         button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
         sections: [
           {
-            title: isEn ? 'Top Services (1–9)' : 'Huduma Kuu (1–9)',
-            rows: allMenuRows.slice(0, 9),
+            title: isEn ? 'Popular Services' : 'Huduma Kuu',
+            rows: serviceRows.slice(0, 8),
           },
           {
-            title: isEn ? 'More & Orders' : 'Zaidi & Oda',
+            title: isEn ? 'Orders & More' : 'Oda & Zaidi',
             rows: [
+              trackRow,
               {
                 id: '__MENU_PAGE_2__',
-                title: isEn ? `➡️ More (10–${allMenuRows.length})` : `➡️ Huduma Zaidi (10–${allMenuRows.length})`,
-                description: isEn
-                  ? 'PapoBus, PapoRent, PapoMall, PapoPay & My Orders'
-                  : 'PapoBus, PapoRent, PapoMall, PapoPay & Oda Zangu',
+                title: isEn ? `➡️ More (${active.length - 8})` : `➡️ Huduma Zaidi (${active.length - 8})`,
+                description: moreTitles || (isEn ? 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay' : 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay'),
               },
             ],
           },
@@ -4329,15 +4340,13 @@ export async function handleMetaInputWithMedia(
   if (channel === 'whatsapp') {
     let servicesConfig: any = {};
     let liveStatusMap: Record<string, MetaServiceLiveStatus> | undefined;
-    if (!session.service && dbAdmin) {
+    if (!session.service && !session.details?.promoCarousel && !session.details?.ratingRideId && dbAdmin) {
       try {
         const bizSnap = await dbAdmin.collection('config').doc('business').get();
         if (bizSnap.exists) servicesConfig = bizSnap.data().services || {};
       } catch {}
       try {
-        if (/CHAGUA HUDUMA YAKO|CHOOSE YOUR SERVICE|PAPO HAPO SUPER APP/i.test(text)) {
-          liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesConfig);
-        }
+        liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesConfig);
       } catch {}
     }
     interactive = buildWhatsAppInteractive(text, session, { servicesConfig, liveStatusMap });
@@ -4531,13 +4540,22 @@ async function processMetaInputCore(
   const defaultWaPhone = waDigits.length >= 9 ? `+${waDigits}` : '';
 
   // --- 00. WHATSAPP PAGINATION, GPS REQUEST BUTTON & FLOW FORM HANDLERS ---
-  if (cleanInput === '__MENU_PAGE_1__' || cleanInput === '__MENU_PAGE_2__') {
+  const isMenuPage1Cmd =
+    cleanInput === '__MENU_PAGE_1__' ||
+    cleanInput === 'MENUPAGE1' ||
+    /^(?:⬅️\s*)?(?:huduma kuu|main services)\b/i.test(cleanInput);
+  const isMenuPage2Cmd =
+    cleanInput === '__MENU_PAGE_2__' ||
+    cleanInput === 'MENUPAGE2' ||
+    /^(?:➡️\s*)?(?:huduma zaidi|huduma nyingine|more services|more\s*\(\d+)/i.test(cleanInput);
+
+  if (isMenuPage1Cmd || isMenuPage2Cmd) {
     markSkipHistory();
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = {
       ...preserveCustomerFields(session.details, session.details?.lang),
-      menuPage: cleanInput === '__MENU_PAGE_2__' ? 2 : 1,
+      menuPage: isMenuPage2Cmd ? 2 : 1,
     };
     let servicesConfig: any = {};
     if (dbAdmin) {
@@ -4553,15 +4571,21 @@ async function processMetaInputCore(
     return l === 'en' ? `[[EN_NATIVE]]${menuStr}` : menuStr;
   }
 
-  if (cleanInput === '__LIST_PAGE_NEXT__' || cleanInput === '__LIST_PAGE_PREV__') {
+  if (
+    cleanInput === '__LIST_PAGE_NEXT__' ||
+    cleanInput === 'LISTPAGENEXT' ||
+    cleanInput === '__LIST_PAGE_PREV__' ||
+    cleanInput === 'LISTPAGEPREV'
+  ) {
     markSkipHistory();
     const curPage = Number(session.details?.listPage || 0);
-    session.details.listPage = cleanInput === '__LIST_PAGE_NEXT__' ? curPage + 1 : Math.max(0, curPage - 1);
+    const isNextList = cleanInput === '__LIST_PAGE_NEXT__' || cleanInput === 'LISTPAGENEXT';
+    session.details.listPage = isNextList ? curPage + 1 : Math.max(0, curPage - 1);
     await saveMetaSession(session, dbAdmin);
     return session.lastPrompt || (session.details?.lang === 'en' ? '[[EN_NATIVE]]Choose an option below:' : 'Chagua hapa chini:');
   }
 
-  if (cleanInput === '__ASK_GPS_PIN__') {
+  if (cleanInput === '__ASK_GPS_PIN__' || cleanInput === 'ASKGPSPIN') {
     markSkipHistory();
     session.details.forceAskGpsPin = true;
     await saveMetaSession(session, dbAdmin);
@@ -9198,11 +9222,31 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             const rid = String(replyObj.id || '').trim();
             const rtitle = String(replyObj.title || '').trim();
             const normalizedRid = rid.replace(/#c\d+(?:_\d+)?$/i, '');
+            const legacyMap: Record<string, string> = {
+              MENUPAGE1: '__MENU_PAGE_1__',
+              MENUPAGE2: '__MENU_PAGE_2__',
+              ASKGPSPIN: '__ASK_GPS_PIN__',
+              LISTPAGENEXT: '__LIST_PAGE_NEXT__',
+              LISTPAGEPREV: '__LIST_PAGE_PREV__',
+            };
+            const upperNoSpace = normalizedRid.toUpperCase();
+            if (legacyMap[upperNoSpace]) {
+              return legacyMap[upperNoSpace];
+            }
             if (
               normalizedRid &&
               (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(normalizedRid) || normalizedRid.startsWith('CMD:'))
             ) {
               return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;
+            }
+            if (/^(?:➡️\s*)?(?:huduma zaidi|huduma nyingine|more services|more\s*\(\d+)/i.test(rtitle)) {
+              return '__MENU_PAGE_2__';
+            }
+            if (/^(?:⬅️\s*)?(?:huduma kuu|main services)/i.test(rtitle)) {
+              return '__MENU_PAGE_1__';
+            }
+            if (/tafuta wa karibu gps|find nearest gps|tuma gps/i.test(rtitle)) {
+              return '__ASK_GPS_PIN__';
             }
             return rtitle || normalizedRid;
           };
