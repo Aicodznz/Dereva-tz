@@ -15,8 +15,14 @@ import {
   Plus,
   Check,
   Globe,
+  Sun,
 } from 'lucide-react';
-import { GeoLibreBasemapId, GEOLIBRE_BASEMAPS } from '../../lib/geoLibreEngine';
+import {
+  GeoLibreBasemapId,
+  GEOLIBRE_BASEMAPS,
+  MapProjectionMode,
+  MapboxLightPreset,
+} from '../../lib/geoLibreEngine';
 
 export interface GeoLibreLayerState {
   showVendors: boolean;
@@ -48,6 +54,11 @@ interface GeoLibreControlDrawerProps {
   customOverlayUrl?: string;
   onLoadCustomOverlay?: (url: string) => void;
   onClearCustomOverlay?: () => void;
+  projection?: MapProjectionMode;
+  onProjectionChange?: (mode: MapProjectionMode) => void;
+  lightPreset?: MapboxLightPreset;
+  onLightPresetChange?: (preset: MapboxLightPreset) => void;
+  isMapboxEnabled?: boolean;
 }
 
 const BASEMAP_ORDER: { id: GeoLibreBasemapId; icon: React.FC<{ className?: string }> }[] = [
@@ -99,6 +110,11 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
   customOverlayUrl,
   onLoadCustomOverlay,
   onClearCustomOverlay,
+  projection = 'globe',
+  onProjectionChange,
+  lightPreset = 'day',
+  onLightPresetChange,
+  isMapboxEnabled = false,
 }) => {
   const [urlInput, setUrlInput] = useState(customOverlayUrl || '');
 
@@ -211,6 +227,16 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
               {BASEMAP_ORDER.map(({ id, icon: Icon }) => {
                 const cfg = GEOLIBRE_BASEMAPS[id];
                 const isSelected = basemap === id;
+                const displayLabel =
+                  isMapboxEnabled && id === 'street_3d'
+                    ? 'Standard 3D'
+                    : isMapboxEnabled && id === 'satellite'
+                    ? 'Standard Satellite'
+                    : isMapboxEnabled && id === 'night'
+                    ? 'Dark'
+                    : isMapboxEnabled && id === 'lite'
+                    ? 'Light'
+                    : cfg.shortLabel;
                 return (
                   <button
                     key={id}
@@ -224,9 +250,9 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
                   >
                     <Icon className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-orange-400' : 'text-neutral-400'}`} />
                     <div className="min-w-0">
-                      <div className="text-xs font-bold leading-tight truncate">{cfg.shortLabel}</div>
+                      <div className="text-xs font-bold leading-tight truncate">{displayLabel}</div>
                       <div className="text-[10px] text-neutral-400 font-mono tabular-nums mt-0.5">
-                        {cfg.tag} • {cfg.dataRate}
+                        {isMapboxEnabled ? 'Mapbox GL' : `${cfg.tag} • ${cfg.dataRate}`}
                       </div>
                     </div>
                   </button>
@@ -234,6 +260,65 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
               })}
             </div>
           </div>
+
+          {/* 1B. Projection (Globe / Mercator) & Lighting Preset */}
+          {onProjectionChange && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block">
+                Projection (Mtazamo wa Dunia)
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { id: 'globe', label: 'Globe (3D Dunia)' },
+                  { id: 'mercator', label: 'Mercator (Bapa)' },
+                ] as const).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onProjectionChange(p.id)}
+                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                      projection === p.id
+                        ? 'border-orange-500 bg-orange-500/15 text-white'
+                        : 'border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <Globe className={`w-3.5 h-3.5 ${projection === p.id ? 'text-orange-400' : 'text-neutral-400'}`} />
+                    <span>{p.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isMapboxEnabled && onLightPresetChange && basemap === 'street_3d' && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block">
+                Mwanga wa Mtaa (Standard Lighting)
+              </span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  { id: 'dawn', label: 'Asubuhi' },
+                  { id: 'day', label: 'Mchana' },
+                  { id: 'dusk', label: 'Jioni' },
+                  { id: 'night', label: 'Usiku' },
+                ] as const).map((lp) => (
+                  <button
+                    key={lp.id}
+                    type="button"
+                    onClick={() => onLightPresetChange(lp.id)}
+                    className={`px-2 py-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      lightPreset === lp.id
+                        ? 'border-amber-500 bg-amber-500/20 text-amber-200'
+                        : 'border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <Sun className="w-3 h-3 shrink-0" />
+                    <span>{lp.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 2. Layer Toggles */}
           <div className="space-y-2">

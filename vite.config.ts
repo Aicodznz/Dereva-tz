@@ -11,14 +11,17 @@ export default defineConfig(({mode}) => {
   // Custom parsing of .env file to ensure local .env file overrides process.env
   let localCloudName = '';
   let localUploadPreset = '';
+  let localMapboxToken = '';
   try {
     const envPath = path.resolve(process.cwd(), '.env');
     if (fs.existsSync(envPath)) {
       const envContent = fs.readFileSync(envPath, 'utf-8');
       const cloudNameMatch = envContent.match(/^VITE_CLOUDINARY_CLOUD_NAME=(.*)$/m);
       const uploadPresetMatch = envContent.match(/^VITE_CLOUDINARY_UPLOAD_PRESET=(.*)$/m);
+      const mapboxMatch = envContent.match(/^VITE_MAPBOX_TOKEN=(.*)$/m);
       if (cloudNameMatch) localCloudName = cloudNameMatch[1].trim();
       if (uploadPresetMatch) localUploadPreset = uploadPresetMatch[1].trim();
+      if (mapboxMatch) localMapboxToken = mapboxMatch[1].trim();
     }
   } catch (e) {
     console.error("Error reading local .env file:", e);
@@ -26,6 +29,7 @@ export default defineConfig(({mode}) => {
 
   const cloudName = localCloudName || env.VITE_CLOUDINARY_CLOUD_NAME || '';
   const uploadPreset = localUploadPreset || env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+  const mapboxToken = localMapboxToken || env.VITE_MAPBOX_TOKEN || '';
 
   return {
     plugins: [react(), tailwindcss()],
@@ -33,6 +37,7 @@ export default defineConfig(({mode}) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'import.meta.env.VITE_CLOUDINARY_CLOUD_NAME': JSON.stringify(cloudName),
       'import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET': JSON.stringify(uploadPreset),
+      'import.meta.env.VITE_MAPBOX_TOKEN': JSON.stringify(mapboxToken),
     },
     resolve: {
       alias: {

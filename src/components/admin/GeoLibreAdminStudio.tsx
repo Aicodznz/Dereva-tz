@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
@@ -17,12 +19,16 @@ import {
   CircleDot,
   Hexagon,
   Upload,
+  Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ensureMapLibreGeoLibreSetup,
   GeoLibreBasemapId,
   GEOLIBRE_BASEMAPS,
+  MAPBOX_STYLE_URLS,
+  MapProjectionMode,
+  getMapboxToken,
   normalizeLatLngList,
   toFirestoreLatLngList,
   calculatePathDistanceKm,
@@ -63,10 +69,13 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
   onPolygonChange,
   onRouteChange,
 }) => {
+  const mapboxToken = useMemo(() => getMapboxToken(), []);
+  const useMapbox = Boolean(mapboxToken);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
   const [basemap, setBasemap] = useState<GeoLibreBasemapId>('street_3d');
+  const [projection, setProjection] = useState<MapProjectionMode>('mercator');
   const [mapReady, setMapReady] = useState(false);
 
   const normalizedPoly = useMemo(() => normalizeLatLngList(polygonPoints), [polygonPoints]);
@@ -153,8 +162,8 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
   }, [mode, center, radius, normalizedPoly, normalizedRoute]);
 
   const syncZoneLayers = useCallback(
-    (map: maplibregl.Map) => {
-      if (!map.isStyleLoaded()) return;
+    (map: any) => {
+      if (!map || !map.isStyleLoaded?.()) return;
       const strokeColor = mode === 'route' ? '#2563EB' : active ? '#EA580C' : '#9CA3AF';
       const fillColor = active ? '#F97316' : '#9CA3AF';
       try {
@@ -203,24 +212,38 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    ensureMapLibreGeoLibreSetup();
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: GEOLIBRE_BASEMAPS[basemap].style,
-      center: [center[1] || 39.2083, center[0] || -6.7924],
-      zoom: 11.2,
-      attributionControl: false,
-    });
+    let map: any;
+    if (useMapbox) {
+      map = new mapboxgl.Map({
+        accessToken: mapboxToken,
+        container: containerRef.current,
+        style: MAPBOX_STYLE_URLS[basemap],
+        center: [center[1] || 39.2083, center[0] || -6.7924],
+        zoom: 11.8,
+        projection,
+        attributionControl: false,
+      });
+    } else {
+      ensureMapLibreGeoLibreSetup();
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: GEOLIBRE_BASEMAPS[basemap].style,
+        center: [center[1] || 39.2083, center[0] || -6.7924],
+        zoom: 11.2,
+        attributionControl: false,
+      });
+    }
     mapRef.current = map;
 
     map.on('load', () => {
       setMapReady(true);
       syncZoneLayers(map);
     });
+    map.on('style.load', () => syncZoneLayers(map));
     map.on('styledata', () => syncZoneLayers(map));
 
-    map.on('click', (e) => {
+    map.on('click', (e: any) => {
       const lat = Number(e.lngLat.lat.toFixed(6));
       const lng = Number(e.lngLat.lng.toFixed(6));
       if (modeRef.current === 'circle') {
@@ -247,15 +270,24 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.flyTo({ center: [center[1] || 39.2083, center[0] || -6.7924], zoom: 11.2, duration: 500 });
+    map.flyTo({ center: [center[1] || 39.2083, center[0] || -6.7924], zoom: 11.8, duration: 500 });
   }, [cityName]);
 
   // Swap basemap
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
-  }, [basemap]);
+    map.setStyle(useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style);
+  }, [basemap, useMapbox]);
+
+  // Toggle Globe / Mercator projection
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || typeof map.setProjection !== 'function') return;
+    try {
+      map.setProjection(projection);
+    } catch {}
+  }, [projection]);
 
   // Update shape layer
   useEffect(() => {
@@ -274,9 +306,9 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     if (mode === 'circle') {
       const el = document.createElement('div');
       el.innerHTML = `<div style="width:22px;height:22px;border-radius:9999px;background:#EA580C;border:3px solid #FFF;box-shadow:0 4px 12px rgba(0,0,0,0.45);cursor:grab;"></div>`;
-      const m = new maplibregl.Marker({ element: el, draggable: true })
-        .setLngLat([center[1], center[0]])
-        .addTo(map);
+      const m: any = useMapbox
+        ? new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([center[1], center[0]]).addTo(map)
+        : new maplibregl.Marker({ element: el, draggable: true }).setLngLat([center[1], center[0]]).addTo(map);
       m.on('dragend', () => {
         const ll = m.getLngLat();
         onCenterChange([Number(ll.lat.toFixed(6)), Number(ll.lng.toFixed(6))]);
@@ -288,9 +320,9 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     activeVertices.forEach((pt, idx) => {
       const el = document.createElement('div');
       el.innerHTML = `<div style="min-width:22px;height:22px;padding:0 5px;border-radius:9999px;background:${mode === 'route' ? '#2563EB' : '#EA580C'};color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);cursor:grab;">${idx + 1}</div>`;
-      const m = new maplibregl.Marker({ element: el, draggable: true })
-        .setLngLat([pt[1], pt[0]])
-        .addTo(map);
+      const m: any = useMapbox
+        ? new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([pt[1], pt[0]]).addTo(map)
+        : new maplibregl.Marker({ element: el, draggable: true }).setLngLat([pt[1], pt[0]]).addTo(map);
       m.on('dragend', () => {
         const ll = m.getLngLat();
         const cloned = [...activeVertices];
@@ -303,7 +335,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
       });
       markersRef.current.push(m);
     });
-  }, [mode, center, activeVertices, onCenterChange, onPolygonChange, onRouteChange]);
+  }, [mode, center, activeVertices, onCenterChange, onPolygonChange, onRouteChange, useMapbox]);
 
   const handleExportGeoJson = () => {
     const json = JSON.stringify(activeGeoJson, null, 2);
@@ -363,9 +395,22 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
       <div className="relative h-[28rem] rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-900">
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Basemap Switcher Top Left */}
-        <div className="absolute top-3 left-3 z-10">
+        {/* Basemap Switcher + Projection Toggle Top Left */}
+        <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5">
           <GeoLibreBasemapPillBar basemap={basemap} onChange={setBasemap} compact={false} />
+          <button
+            type="button"
+            onClick={() => setProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
+            className={`px-2.5 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-1 backdrop-blur-md shadow-lg cursor-pointer ${
+              projection === 'globe'
+                ? 'bg-sky-600 border-sky-500 text-white'
+                : 'bg-neutral-950/85 border-white/15 text-neutral-300 hover:text-white'
+            }`}
+            title="Badili Globe / Mercator"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>{projection === 'globe' ? 'Globe' : 'Mercator'}</span>
+          </button>
         </div>
 
         {/* GeoEditor Action Bar Top Right */}

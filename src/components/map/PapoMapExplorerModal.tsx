@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
@@ -20,6 +22,7 @@ import {
   Loader2,
   Bus,
   Check,
+  Globe,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -30,6 +33,10 @@ import {
   ensureMapLibreGeoLibreSetup,
   GeoLibreBasemapId,
   GEOLIBRE_BASEMAPS,
+  MAPBOX_STYLE_URLS,
+  MapProjectionMode,
+  MapboxLightPreset,
+  getMapboxToken,
   evaluateVendorOpenStatus,
   haversineKm,
   buildSpatialDemandLayersData,
@@ -93,17 +100,21 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
 }) => {
   const navigate = useNavigate();
   const { config: businessConfig } = useBusinessConfig();
+  const mapboxToken = useMemo(() => getMapboxToken(), []);
+  const useMapbox = Boolean(mapboxToken);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const vendorMarkersRef = useRef<maplibregl.Marker[]>([]);
-  const driverMarkersRef = useRef<maplibregl.Marker[]>([]);
-  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const mapRef = useRef<any>(null);
+  const vendorMarkersRef = useRef<any[]>([]);
+  const driverMarkersRef = useRef<any[]>([]);
+  const userMarkerRef = useRef<any>(null);
 
   const initLat = Number(initialLocation?.lat) || -6.7924;
   const initLng = Number(initialLocation?.lng) || 39.2083;
 
   const [basemap, setBasemap] = useState<GeoLibreBasemapId>('street_3d');
+  const [projection, setProjection] = useState<MapProjectionMode>('globe');
+  const [lightPreset, setLightPreset] = useState<MapboxLightPreset>('day');
   const [pitch, setPitch] = useState<number>(48);
   const [bearing, setBearing] = useState<number>(0);
   const [mapReady, setMapReady] = useState(false);
@@ -260,50 +271,60 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
 
   // Inject or sync custom overlay layers cleanly whenever style finishes loading
   const syncMapLayers = useCallback(
-    (map: maplibregl.Map) => {
-      if (!map.isStyleLoaded()) return;
-      const cfg = GEOLIBRE_BASEMAPS[basemap];
+    (map: any) => {
+      if (!map || !map.isStyleLoaded?.()) return;
 
-      // 1. 3D Extruded Buildings (vector basemaps only)
-      try {
-        if (cfg.supports3D && layers.show3DBuildings) {
-          const styleLayers = map.getStyle().layers || [];
-          const labelLayerId = styleLayers.find(
-            (l) => l.type === 'symbol' && (l.layout as any)?.['text-field']
-          )?.id;
-          if (!map.getLayer('geolibre-3d-buildings') && map.getSource('openmaptiles')) {
-            map.addLayer(
-              {
-                id: 'geolibre-3d-buildings',
-                source: 'openmaptiles',
-                'source-layer': 'building',
-                type: 'fill-extrusion',
-                minzoom: 13.5,
-                paint: {
-                  'fill-extrusion-color': [
-                    'interpolate',
-                    ['linear'],
-                    ['get', 'render_height'],
-                    0,
-                    '#CBD5E1',
-                    40,
-                    '#94A3B8',
-                    90,
-                    '#64748B',
-                  ],
-                  'fill-extrusion-height': ['get', 'render_height'],
-                  'fill-extrusion-base': ['get', 'render_min_height'],
-                  'fill-extrusion-opacity': 0.72,
-                },
-              },
-              labelLayerId
-            );
+      // 1. 3D Buildings & Standard Lighting
+      if (useMapbox) {
+        try {
+          if (basemap === 'street_3d' && typeof map.setConfigProperty === 'function') {
+            map.setConfigProperty('basemap', 'lightPreset', lightPreset);
+            map.setConfigProperty('basemap', 'show3dObjects', layers.show3DBuildings);
+            map.setConfigProperty('basemap', 'showPointOfInterestLabels', true);
+            map.setConfigProperty('basemap', 'showRoadLabels', true);
+            map.setConfigProperty('basemap', 'showPlaceLabels', true);
           }
-        } else if (map.getLayer('geolibre-3d-buildings')) {
-          map.removeLayer('geolibre-3d-buildings');
-        }
-      } catch {
-        // Style might not expose openmaptiles
+        } catch {}
+      } else {
+        const cfg = GEOLIBRE_BASEMAPS[basemap];
+        try {
+          if (cfg.supports3D && layers.show3DBuildings) {
+            const styleLayers = map.getStyle().layers || [];
+            const labelLayerId = styleLayers.find(
+              (l: any) => l.type === 'symbol' && l.layout?.['text-field']
+            )?.id;
+            if (!map.getLayer('geolibre-3d-buildings') && map.getSource('openmaptiles')) {
+              map.addLayer(
+                {
+                  id: 'geolibre-3d-buildings',
+                  source: 'openmaptiles',
+                  'source-layer': 'building',
+                  type: 'fill-extrusion',
+                  minzoom: 13.5,
+                  paint: {
+                    'fill-extrusion-color': [
+                      'interpolate',
+                      ['linear'],
+                      ['get', 'render_height'],
+                      0,
+                      '#CBD5E1',
+                      40,
+                      '#94A3B8',
+                      90,
+                      '#64748B',
+                    ],
+                    'fill-extrusion-height': ['get', 'render_height'],
+                    'fill-extrusion-base': ['get', 'render_min_height'],
+                    'fill-extrusion-opacity': 0.72,
+                  },
+                },
+                labelLayerId
+              );
+            }
+          } else if (map.getLayer('geolibre-3d-buildings')) {
+            map.removeLayer('geolibre-3d-buildings');
+          }
+        } catch {}
       }
 
       // 2. Service Geofence Boundaries
@@ -323,7 +344,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
             paint: { 'line-color': '#F97316', 'line-width': 2, 'line-dasharray': [3, 2] },
           });
         } else {
-          (map.getSource('geolibre-geofences') as maplibregl.GeoJSONSource).setData(geofencesGeoJson);
+          map.getSource('geolibre-geofences').setData(geofencesGeoJson);
         }
         const vis = layers.showGeofences ? 'visible' : 'none';
         if (map.getLayer('geolibre-geofences-fill')) map.setLayoutProperty('geolibre-geofences-fill', 'visibility', vis);
@@ -415,7 +436,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         if (map.getLayer('geolibre-hex-extrusion')) map.setLayoutProperty('geolibre-hex-extrusion', 'visibility', vis);
       } catch {}
 
-      // 5. Custom GeoJSON Overlay (optional)
+      // 5. Custom GeoJSON Overlay
       try {
         if (customGeoJsonData) {
           if (!map.getSource('geolibre-custom-geojson')) {
@@ -433,30 +454,45 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
               paint: { 'line-color': '#06B6D4', 'line-width': 2.5 },
             });
           } else {
-            (map.getSource('geolibre-custom-geojson') as maplibregl.GeoJSONSource).setData(customGeoJsonData);
+            map.getSource('geolibre-custom-geojson').setData(customGeoJsonData);
           }
         }
       } catch {}
     },
-    [basemap, layers, geofencesGeoJson, demandData, customGeoJsonData]
+    [useMapbox, basemap, lightPreset, layers, geofencesGeoJson, demandData, customGeoJsonData]
   );
 
-  // Initialize WebGL MapLibre Map
+  // Initialize Mapbox Standard GL JS (or MapLibre fallback)
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
-    ensureMapLibreGeoLibreSetup();
     setWebglLost(false);
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: GEOLIBRE_BASEMAPS[basemap].style,
-      center: [initLng, initLat],
-      zoom: 13.5,
-      pitch,
-      bearing,
-      maxPitch: 75,
-      attributionControl: false,
-    });
+    let map: any;
+    if (useMapbox) {
+      map = new mapboxgl.Map({
+        accessToken: mapboxToken,
+        container: containerRef.current,
+        style: MAPBOX_STYLE_URLS[basemap],
+        center: [initLng, initLat],
+        zoom: 14.5,
+        pitch,
+        bearing,
+        projection,
+        attributionControl: false,
+      });
+    } else {
+      ensureMapLibreGeoLibreSetup();
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: GEOLIBRE_BASEMAPS[basemap].style,
+        center: [initLng, initLat],
+        zoom: 13.5,
+        pitch,
+        bearing,
+        maxPitch: 75,
+        attributionControl: false,
+      });
+    }
     mapRef.current = map;
 
     const canvas = map.getCanvas();
@@ -472,6 +508,9 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       setMapReady(true);
       syncMapLayers(map);
     });
+    map.on('style.load', () => {
+      syncMapLayers(map);
+    });
     map.on('styledata', () => {
       syncMapLayers(map);
     });
@@ -481,9 +520,9 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     // User location marker
     const userEl = document.createElement('div');
     userEl.innerHTML = `<div style="width:18px;height:18px;border-radius:9999px;background:#2563EB;border:3px solid #FFFFFF;box-shadow:0 0 0 6px rgba(37,99,235,0.28);"></div>`;
-    userMarkerRef.current = new maplibregl.Marker({ element: userEl })
-      .setLngLat([initLng, initLat])
-      .addTo(map);
+    userMarkerRef.current = useMapbox
+      ? new mapboxgl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map)
+      : new maplibregl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map);
 
     return () => {
       canvas.removeEventListener('webglcontextlost', handleContextLost);
@@ -502,10 +541,23 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
-  }, [basemap]);
+    if (useMapbox) {
+      map.setStyle(MAPBOX_STYLE_URLS[basemap]);
+    } else {
+      map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
+    }
+  }, [basemap, useMapbox]);
 
-  // Sync layers when toggles or data change
+  // Live projection toggle (Globe vs Mercator)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || typeof map.setProjection !== 'function') return;
+    try {
+      map.setProjection(projection);
+    } catch {}
+  }, [projection]);
+
+  // Sync layers when toggles or lighting preset change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -546,17 +598,21 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         setSelectedVendor(v);
         map.flyTo({
           center: [Number(v.location.lng), Number(v.location.lat)],
-          zoom: Math.max(map.getZoom(), 15),
+          zoom: Math.max(map.getZoom(), 16),
           duration: 600,
         });
       };
 
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([Number(v.location.lng), Number(v.location.lat)])
-        .addTo(map);
+      const marker = useMapbox
+        ? new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+            .setLngLat([Number(v.location.lng), Number(v.location.lat)])
+            .addTo(map)
+        : new maplibregl.Marker({ element: el, anchor: 'bottom' })
+            .setLngLat([Number(v.location.lng), Number(v.location.lat)])
+            .addTo(map);
       vendorMarkersRef.current.push(marker);
     }
-  }, [filteredVendors, layers.showVendors]);
+  }, [filteredVendors, layers.showVendors, useMapbox]);
 
   // Render Live Driver Markers (Online Green vs Busy Amber)
   useEffect(() => {
@@ -582,14 +638,14 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       el.onclick = () => {
         setSelectedVendor(null);
         setSelectedDriver(drv);
-        map.flyTo({ center: [drv.lng, drv.lat], zoom: Math.max(map.getZoom(), 15), duration: 600 });
+        map.flyTo({ center: [drv.lng, drv.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
       };
-      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([drv.lng, drv.lat])
-        .addTo(map);
+      const marker = useMapbox
+        ? new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([drv.lng, drv.lat]).addTo(map)
+        : new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([drv.lng, drv.lat]).addTo(map);
       driverMarkersRef.current.push(marker);
     }
-  }, [liveDrivers, layers.showDrivers]);
+  }, [liveDrivers, layers.showDrivers, useMapbox]);
 
   // Debounced Place Search (/api/geo/search)
   useEffect(() => {
@@ -607,7 +663,6 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
           if (Array.isArray(json)) setSearchResults(json);
         }
       } catch {
-        // Ignore transient search error
       } finally {
         setIsSearching(false);
       }
@@ -627,7 +682,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         const lng = pos.coords.longitude;
         setUserPos({ lat, lng });
         userMarkerRef.current?.setLngLat([lng, lat]);
-        mapRef.current?.flyTo({ center: [lng, lat], zoom: 15, duration: 750 });
+        mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 750 });
         setIsLocating(false);
       },
       () => {
@@ -695,7 +750,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
                         if (Number.isFinite(lat) && Number.isFinite(lng)) {
                           setUserPos({ lat, lng });
                           userMarkerRef.current?.setLngLat([lng, lat]);
-                          mapRef.current?.flyTo({ center: [lng, lat], zoom: 15.5, duration: 750 });
+                          mapRef.current?.flyTo({ center: [lng, lat], zoom: 16, duration: 750 });
                         }
                         setSearchResults([]);
                         setSearchText(label.split(',')[0]);
@@ -832,6 +887,18 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => setProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
+          className={`w-9 h-9 rounded-xl border flex items-center justify-center cursor-pointer shadow-lg ${
+            projection === 'globe'
+              ? 'bg-sky-600 border-sky-500 text-white'
+              : 'bg-neutral-950/90 border-white/15 text-neutral-300'
+          }`}
+          title={projection === 'globe' ? 'Globe 3D (Bofya kwenda Mercator)' : 'Mercator (Bofya kwenda Globe)'}
+        >
+          <Globe className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
           onClick={() => {
             const next = pitch > 10 ? 0 : 52;
             setPitch(next);
@@ -871,7 +938,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         </button>
       </div>
 
-      {/* Bottom Summary Telemetry Strip when no card is selected */}
+      {/* Bottom Summary Telemetry Strip */}
       {!selectedVendor && !selectedDriver && (
         <div className="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 bg-neutral-950/90 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-2.5 shadow-2xl">
           <div className="flex flex-wrap items-center gap-4 text-xs">
@@ -1088,6 +1155,11 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
           setCustomOverlayUrl('');
           setCustomGeoJsonData(null);
         }}
+        projection={projection}
+        onProjectionChange={setProjection}
+        lightPreset={lightPreset}
+        onLightPresetChange={setLightPreset}
+        isMapboxEnabled={useMapbox}
       />
     </div>,
     document.body

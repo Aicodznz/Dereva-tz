@@ -159,6 +159,56 @@ export const GEOLIBRE_BASEMAPS: Record<GeoLibreBasemapId, GeoLibreBasemapConfig>
   },
 };
 
+export type MapProjectionMode = 'globe' | 'mercator';
+export type MapboxLightPreset = 'day' | 'dusk' | 'dawn' | 'night';
+
+export function getMapboxToken(): string {
+  try {
+    const t = (import.meta as any)?.env?.VITE_MAPBOX_TOKEN;
+    return typeof t === 'string' ? t.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+export const MAPBOX_STYLE_URLS: Record<GeoLibreBasemapId, string> = {
+  street_3d: 'mapbox://styles/mapbox/standard',
+  satellite: 'mapbox://styles/mapbox/standard-satellite',
+  night: 'mapbox://styles/mapbox/dark-v11',
+  lite: 'mapbox://styles/mapbox/light-v11',
+  bright: 'mapbox://styles/mapbox/streets-v12',
+};
+
+export function getMapboxRasterTileStyle(
+  styleId: 'streets-v12' | 'satellite-streets-v12' | 'dark-v11' | 'light-v11',
+  token: string
+): maplibregl.StyleSpecification {
+  return {
+    version: 8,
+    name: `Mapbox ${styleId}`,
+    sources: {
+      'mapbox-raster': {
+        type: 'raster',
+        tiles: [
+          `https://api.mapbox.com/styles/v1/mapbox/${styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${encodeURIComponent(token)}`,
+        ],
+        tileSize: 512,
+        maxzoom: 22,
+        attribution: '© Mapbox © OpenStreetMap',
+      },
+    },
+    layers: [
+      {
+        id: 'mapbox-raster-layer',
+        type: 'raster',
+        source: 'mapbox-raster',
+        minzoom: 0,
+        maxzoom: 22,
+      },
+    ],
+  };
+}
+
 export type LatLngTuple = [number, number]; // [lat, lng]
 export interface LatLngObject {
   lat: number;

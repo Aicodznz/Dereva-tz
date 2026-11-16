@@ -18,6 +18,8 @@ import { db } from '../../firebase';
 import {
   ensureMapLibreGeoLibreSetup,
   SATELLITE_HYBRID_STYLE,
+  getMapboxToken,
+  getMapboxRasterTileStyle,
   buildSpatialDemandLayersData,
   evaluateVendorOpenStatus,
 } from '../../lib/geoLibreEngine';
@@ -75,7 +77,9 @@ const TILE_ENGINES = {
     name: 'Satelaiti (Angani HD)',
     tag: '🛰️ Satelaiti',
     dataRate: '34 KB/s',
-    url: SATELLITE_HYBRID_STYLE as any,
+    url: (getMapboxToken()
+      ? getMapboxRasterTileStyle('satellite-streets-v12', getMapboxToken())
+      : SATELLITE_HYBRID_STYLE) as any,
     supports3D: false,
     isDataSaver: false
   },
@@ -84,7 +88,9 @@ const TILE_ENGINES = {
     name: 'Usiku (Night Mode)',
     tag: '🌙 Usiku',
     dataRate: '18 KB/s',
-    url: 'https://tiles.openfreemap.org/styles/dark',
+    url: (getMapboxToken()
+      ? getMapboxRasterTileStyle('dark-v11', getMapboxToken())
+      : 'https://tiles.openfreemap.org/styles/dark') as any,
     supports3D: false,
     isDataSaver: false
   }
