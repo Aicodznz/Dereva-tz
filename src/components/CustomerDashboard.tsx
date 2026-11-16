@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../AuthContext';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import LocationPicker from './LocationPicker';
+import { PapoMapExplorerModal } from './map/PapoMapExplorerModal';
 import { FaceRegistrationModal } from './papopay/FaceRegistrationModal';
 
 import { useLanguage } from '../LanguageContext';
@@ -40,6 +41,7 @@ export default function CustomerDashboard() {
   const [adminAnnouncements, setAdminAnnouncements] = useState<any[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [isPapoMapOpen, setIsPapoMapOpen] = useState(false);
   const [isMapViewOnly, setIsMapViewOnly] = useState(false);
   const [selectedVendorId, setSelectedVendorId] = useState<string | undefined>(undefined);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -912,6 +914,16 @@ export default function CustomerDashboard() {
         />
       )}
 
+      {isPapoMapOpen && (
+        <PapoMapExplorerModal
+          isOpen={isPapoMapOpen}
+          onClose={() => setIsPapoMapOpen(false)}
+          initialLocation={location}
+          vendors={vendors}
+          onSelectLocation={handleLocationSelect}
+        />
+      )}
+
       {tableSession && (
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
@@ -1073,8 +1085,7 @@ export default function CustomerDashboard() {
                         if (isUnderMaintenance) {
                           handleServiceClick(e);
                         } else {
-                          setIsMapViewOnly(true);
-                          setIsLocationPickerOpen(true);
+                          setIsPapoMapOpen(true);
                         }
                       }}
                       className="flex flex-col items-center text-center group w-full gap-2 relative cursor-pointer"

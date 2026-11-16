@@ -89,6 +89,7 @@ import { AISmartHeatMap, HeatZone } from "./map/AISmartHeatMap";
 import { useTheme } from "../ThemeContext";
 import { calculateDetourBudget, calculateDistanceBasedPapoShareFare } from "../services/papoShareEngine";
 import { calculateBearing } from "../utils/mapHelpers";
+import { normalizeLatLngList, isPointInPolygon } from "../lib/geoLibreEngine";
 import Chat from "./Chat";
 import ActiveRideChatPopup from "./ActiveRideChatPopup";
 import { db, auth, handleFirestoreError, OperationType } from "../firebase";
@@ -3201,19 +3202,9 @@ const getEndPin = (etaText: string) => {
           toast.error(`Kituo chako cha kuanzia kiko nje ya eneo la huduma la ${selectedCity}! Mipaka ya sasa ya Geofence ni kilomita ${Math.round(radius/1000)}.`);
           return;
         }
-      } else if (gfType === 'polygon' && cityData.geofencePolygon && cityData.geofencePolygon.length >= 3) {
-        // Ray-casting inside polygon test
-        let inside = false;
-        const pts = cityData.geofencePolygon;
-        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-          const xi = pts[i][0], yi = pts[i][1];
-          const xj = pts[j][0], yj = pts[j][1];
-          const intersect = ((yi > pLng) !== (yj > pLng))
-              && (pLat < (xj - xi) * (pLng - yi) / (yj - yi) + xi);
-          if (intersect) inside = !inside;
-        }
-
-        if (!inside) {
+      } else if (gfType === 'polygon') {
+        const pts = normalizeLatLngList(cityData.geofencePolygon);
+        if (pts.length >= 3 && !isPointInPolygon(pLat, pLng, pts)) {
           toast.error(`Kituo chako cha kuanzia kiko nje ya mipaka ya kipekee ya huduma (Polygon) ya mji wa ${selectedCity}.`);
           return;
         }
@@ -5064,18 +5055,21 @@ const getEndPin = (etaText: string) => {
                             }}
                           />
                         );
-                      } else if (type === 'polygon' && cityData.geofencePolygon && cityData.geofencePolygon.length >= 3) {
-                        return (
-                          <Polygon
-                            positions={cityData.geofencePolygon}
-                            pathOptions={{
-                              color: '#F97316',
-                              fillColor: '#F97316',
-                              fillOpacity: 0.1,
-                              weight: 2
-                            }}
-                          />
-                        );
+                      } else if (type === 'polygon') {
+                        const polyPts = normalizeLatLngList(cityData.geofencePolygon);
+                        if (polyPts.length >= 3) {
+                          return (
+                            <Polygon
+                              positions={polyPts}
+                              pathOptions={{
+                                color: '#F97316',
+                                fillColor: '#F97316',
+                                fillOpacity: 0.1,
+                                weight: 2
+                              }}
+                            />
+                          );
+                        }
                       }
                       return null;
                     })()}

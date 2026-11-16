@@ -8,27 +8,21 @@ import {
   Activity, AlertTriangle, ShieldCheck, Zap, Gauge,
   Mountain, Wifi, WifiOff, Phone, Fuel, ChevronDown,
   ChevronUp, Play, Radio, ArrowRight, Clock, DollarSign,
-  Plus, Minus, Crosshair, Route, RefreshCw, CornerUpRight
+  Plus, Minus, Crosshair, Route, RefreshCw, CornerUpRight,
+  Flame, Satellite, Store
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
+import {
+  ensureMapLibreGeoLibreSetup,
+  SATELLITE_HYBRID_STYLE,
+  buildSpatialDemandLayersData,
+  evaluateVendorOpenStatus,
+} from '../../lib/geoLibreEngine';
 
-// Ensure MapLibre Web Worker loads reliably without worker URL resolution errors in Vite
-if (typeof window !== 'undefined') {
-  try {
-    if (typeof (maplibregl as any).setWorkerUrl === 'function') {
-      const workerUrl = window.location?.origin 
-        ? `${window.location.origin}/maplibre-gl-worker.mjs`
-        : '/maplibre-gl-worker.mjs';
-      (maplibregl as any).setWorkerUrl(workerUrl);
-      if (typeof (maplibregl as any).setWorkerCount === 'function') {
-        (maplibregl as any).setWorkerCount(2);
-      }
-    }
-  } catch (e) {
-    console.warn("MapLibre worker setup notice:", e);
-  }
-}
+ensureMapLibreGeoLibreSetup();
 
 export interface MapLibre3DViewProps {
   isOpen: boolean;
@@ -74,6 +68,24 @@ const TILE_ENGINES = {
     dataRate: '20 KB/s',
     url: 'https://tiles.openfreemap.org/styles/bright',
     supports3D: true,
+    isDataSaver: false
+  },
+  satellite: {
+    id: 'satellite',
+    name: 'Satelaiti (Angani HD)',
+    tag: '🛰️ Satelaiti',
+    dataRate: '34 KB/s',
+    url: SATELLITE_HYBRID_STYLE as any,
+    supports3D: false,
+    isDataSaver: false
+  },
+  night: {
+    id: 'night',
+    name: 'Usiku (Night Mode)',
+    tag: '🌙 Usiku',
+    dataRate: '18 KB/s',
+    url: 'https://tiles.openfreemap.org/styles/dark',
+    supports3D: false,
     isDataSaver: false
   }
 };
@@ -739,6 +751,9 @@ export default function MapLibre3DView({
   const [isHeadingUp, setIsHeadingUp] = useState<boolean>(true);
   const [buildings3DEnabled, setBuildings3DEnabled] = useState<boolean>(true);
   const [dataSaverMode, setDataSaverMode] = useState<boolean>(false);
+  const [showDemandHeatmap, setShowDemandHeatmap] = useState<boolean>(false);
+  const [showNearbyVendors, setShowNearbyVendors] = useState<boolean>(false);
+  const vendorMarkersRef = useRef<maplibregl.Marker[]>([]);
 
   // Analyzer Panels & Modals
   const [showTerrainDrawer, setShowTerrainDrawer] = useState<boolean>(false);
@@ -1130,6 +1145,43 @@ export default function MapLibre3DView({
 
       driverMarkerRef.current = marker;
 
+      // 5. Add GeoLibre 3D Demand Heatmap & Hex Extrusions Layer
+      try {
+        const demandData = buildSpatialDemandLayersData({});
+        if (!map.getSource('driver-heat-pts')) {
+          map.addSource('driver-heat-pts', { type: 'geojson', data: demandData.heatPoints });
+          map.addLayer({
+            id: 'driver-heatmap-layer',
+            type: 'heatmap',
+            source: 'driver-heat-pts',
+            layout: { visibility: showDemandHeatmap ? 'visible' : 'none' },
+            paint: {
+              'heatmap-weight': ['coalesce', ['get', 'weight'], 0.7],
+              'heatmap-intensity': 1.25,
+              'heatmap-radius': 36,
+              'heatmap-opacity': 0.78
+            }
+          });
+        }
+        if (!map.getSource('driver-hex-cols')) {
+          map.addSource('driver-hex-cols', { type: 'geojson', data: demandData.hexColumns });
+          map.addLayer({
+            id: 'driver-hex-layer',
+            type: 'fill-extrusion',
+            source: 'driver-hex-cols',
+            layout: { visibility: showDemandHeatmap ? 'visible' : 'none' },
+            paint: {
+              'fill-extrusion-color': ['coalesce', ['get', 'color'], '#F97316'],
+              'fill-extrusion-height': ['coalesce', ['get', 'height'], 220],
+              'fill-extrusion-base': 0,
+              'fill-extrusion-opacity': 0.45
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Driver heatmap layer notice:", err);
+      }
+
       // Once road vector tiles finish rendering, snap parked vehicle onto nearest street centerline
       map.once('idle', () => {
         if (!driverMarkerRef.current) return;
@@ -1149,12 +1201,57 @@ export default function MapLibre3DView({
     });
 
     return () => {
+      vendorMarkersRef.current.forEach(m => m.remove());
+      vendorMarkersRef.current = [];
       customerMarkerRef.current?.remove();
       destMarkerRef.current?.remove();
       driverMarkerRef.current?.remove();
       map.remove();
     };
   }, [activeEngineKey, dataSaverMode]);
+
+  // Sync Heatmap visibility dynamically without recreating map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    const vis = showDemandHeatmap ? 'visible' : 'none';
+    try {
+      if (map.getLayer('driver-heatmap-layer')) map.setLayoutProperty('driver-heatmap-layer', 'visibility', vis);
+      if (map.getLayer('driver-hex-layer')) map.setLayoutProperty('driver-hex-layer', 'visibility', vis);
+    } catch {}
+  }, [showDemandHeatmap]);
+
+  // Sync Nearby Open/Closed Vendors on 3D Driver Map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    vendorMarkersRef.current.forEach(m => m.remove());
+    vendorMarkersRef.current = [];
+    if (!showNearbyVendors || !isOpen) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'vendors'), where('status', '==', 'active')));
+        if (cancelled || !mapInstanceRef.current) return;
+        snap.docs.forEach(d => {
+          const v = { id: d.id, ...d.data() } as any;
+          if (!v.location || !Number.isFinite(Number(v.location.lat))) return;
+          const st = evaluateVendorOpenStatus(v.operatingHours, v.hotelStatus);
+          const el = document.createElement('div');
+          el.innerHTML = `<div style="background:#0F172A;color:#fff;font-size:10px;font-weight:800;padding:3px 7px;border-radius:8px;border:1.5px solid ${st.isOpen ? '#10B981' : '#EF4444'};box-shadow:0 4px 10px rgba(0,0,0,0.4);white-space:nowrap;">${st.isOpen ? '🟢' : '🔴'} ${(v.businessName || 'Duka').replace(/</g, '&lt;')}</div>`;
+          const m = new maplibregl.Marker({ element: el })
+            .setLngLat([Number(v.location.lng), Number(v.location.lat)])
+            .addTo(mapInstanceRef.current!);
+          vendorMarkersRef.current.push(m);
+        });
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showNearbyVendors, activeEngineKey, isOpen]);
 
   // Update vehicle marker position, road snapping, rotation & camera
   useEffect(() => {
@@ -1519,6 +1616,64 @@ export default function MapLibre3DView({
 
         {/* Right: Quick Action Compact Icon Pills */}
         <div className="flex items-center gap-1 sm:gap-1.5 pointer-events-auto">
+          {/* GeoLibre Basemap Cycle (Mitaa 3D -> Satelaiti -> Usiku) */}
+          <button
+            type="button"
+            onClick={() => {
+              const order: (keyof typeof TILE_ENGINES)[] = ['vector_liberty', 'satellite', 'night', 'lite_saver'];
+              const idx = order.indexOf(activeEngineKey);
+              const next = order[(idx + 1) % order.length];
+              setActiveEngineKey(next);
+              setDataSaverMode(next === 'lite_saver');
+              toast.info(`Ramani: ${TILE_ENGINES[next].name}`);
+            }}
+            className="h-8 px-2.5 rounded-full bg-white/90 dark:bg-neutral-900/90 text-neutral-800 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 shadow-md flex items-center gap-1 text-[10px] font-bold whitespace-nowrap shrink-0 cursor-pointer active:scale-90 transition-all"
+            title="Badili Basemap (Mitaa 3D / Satelaiti / Usiku / Lite)"
+          >
+            <Satellite className="w-3.5 h-3.5 text-orange-500" />
+            <span className="hidden sm:inline">{activeEngine.id === 'satellite' ? 'Satelaiti' : activeEngine.id === 'night' ? 'Usiku' : activeEngine.id === 'lite_saver' ? 'Lite' : '3D'}</span>
+          </button>
+
+          {/* GeoLibre 3D Demand Heatmap Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowDemandHeatmap(prev => {
+                const nxt = !prev;
+                toast.info(nxt ? '🔥 Ramani ya Joto ya Mahitaji Imewashwa' : 'Ramani ya Joto Imezimwa');
+                return nxt;
+              });
+            }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer active:scale-90 ${
+              showDemandHeatmap
+                ? 'bg-rose-600 text-white shadow-rose-950/40 ring-1 ring-rose-400/50'
+                : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800'
+            }`}
+            title="Washa/Zima Ramani ya Joto ya Mahitaji (3D Demand Heatmap)"
+          >
+            <Flame className="w-3.5 h-3.5" />
+          </button>
+
+          {/* GeoLibre Nearby Open/Closed Businesses Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowNearbyVendors(prev => {
+                const nxt = !prev;
+                toast.info(nxt ? '🟢 Maduka ya Karibu (Wazi/Funga) Yamewashwa' : 'Maduka Yamefichwa');
+                return nxt;
+              });
+            }}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all cursor-pointer active:scale-90 ${
+              showNearbyVendors
+                ? 'bg-emerald-600 text-white shadow-emerald-950/40 ring-1 ring-emerald-400/50'
+                : 'bg-white/90 dark:bg-neutral-900/90 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-800'
+            }`}
+            title="Onyesha Maduka ya Karibu (Wazi/Imefungwa)"
+          >
+            <Store className="w-3.5 h-3.5" />
+          </button>
+
           {/* Alternative Routes & Detour Selector Button */}
           <button
             onClick={() => setShowRoutesDrawer(prev => !prev)}

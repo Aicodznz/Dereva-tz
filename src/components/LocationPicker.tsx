@@ -13,6 +13,7 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'firebase/firestore';
 import ARMapView from './map/ARMapView';
 import { useBusinessConfig } from '../BusinessConfigContext';
+import { evaluateVendorOpenStatus } from '../lib/geoLibreEngine';
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -1239,16 +1240,18 @@ export default function LocationPicker({
               <div className="absolute top-2.5 left-2.5 z-[1000] flex flex-wrap items-center gap-1.5 max-w-[calc(100%-84px)]">
                 <div className="flex bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md rounded-xl p-0.5 shadow-md border border-white/60 dark:border-neutral-700/60">
                   <button 
+                    type="button"
                     onClick={() => setMapType('standard')}
                     className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'standard' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                   >
                     Ramani
                   </button>
                   <button 
+                    type="button"
                     onClick={() => setMapType('satellite')}
                     className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${mapType === 'satellite' ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                   >
-                    Satellite
+                    Satelaiti
                   </button>
                 </div>
 
@@ -1311,11 +1314,11 @@ export default function LocationPicker({
                 touchZoom={true}
                 whenReady={() => setTimeout(() => setMapReady(true), 100)}
               >
-                <TileLayer
+                <TileLayer 
                   url={mapType === 'satellite' 
-                    ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                    ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" 
                     : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                  }
+                  } 
                   subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
                   maxZoom={22}
                   maxNativeZoom={19}
@@ -1638,9 +1641,19 @@ export default function LocationPicker({
                                    </span>
                                 </div>
                              </div>
-                             <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
-                                <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                                <p className="text-[11px] text-neutral-400 font-bold truncate uppercase tracking-tighter">{selectedVendor.address || 'Shop No. 22, Elegant Tower, New...'}</p>
+                             <div className="flex items-center justify-between gap-1.5 mt-1 overflow-hidden">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <MapPin className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                                  <p className="text-[11px] text-neutral-400 font-bold truncate uppercase tracking-tighter">{selectedVendor.address || 'Eneo la Duka'}</p>
+                                </div>
+                                {(() => {
+                                  const st = evaluateVendorOpenStatus(selectedVendor.operatingHours, selectedVendor.hotelStatus);
+                                  return (
+                                    <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold whitespace-nowrap shrink-0 ${st.isOpen ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                      {st.isOpen ? '🟢 ' : '🔴 '}{st.label}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-2 mt-3.5 justify-start">
                                  <button 
