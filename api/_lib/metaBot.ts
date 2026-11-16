@@ -1063,6 +1063,8 @@ interface MetaRestaurantOption {
   distanceKm?: number;
   openTablesCount?: number;
   imageUrl?: string;
+  isOpen?: boolean;
+  operatingHours?: string;
 }
 
 interface MetaFoodMenuItem {
@@ -1084,6 +1086,8 @@ interface MetaCatalogOption {
   imageUrl?: string;
   galleryPhotos?: string[];
   roomPricing?: { single?: number; double?: number; vip?: number };
+  isOpen?: boolean;
+  operatingHours?: string;
 }
 
 interface MetaRestaurantTable {
@@ -1103,6 +1107,83 @@ const NON_TABLE_SHAPES = new Set([
   'indoor_plant',
   'structure_divider'
 ]);
+
+export function getTanzaniaNowMinutes(nowMs: number = Date.now()): number {
+  const tzDate = new Date(nowMs + 3 * 60 * 60 * 1000); // Africa/Dar_es_Salaam (UTC+3)
+  return tzDate.getUTCHours() * 60 + tzDate.getUTCMinutes();
+}
+
+function parseTimeTokenToMinutes(token: string): number | null {
+  const cleaned = String(token || '').trim().toUpperCase().replace(/\./g, ':');
+  const match = cleaned.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2] || '0', 10);
+  const meridiem = match[3] ? match[3].toUpperCase() : '';
+  if (isNaN(hour) || isNaN(minute) || minute < 0 || minute > 59 || hour < 0 || hour > 24) {
+    return null;
+  }
+  if (meridiem === 'PM' && hour < 12) hour += 12;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+  if (hour === 24 && minute === 0) return 24 * 60;
+  if (hour >= 24) return null;
+  return hour * 60 + minute;
+}
+
+export function evaluateOperatingHoursStatus(
+  rawHours?: string,
+  flags?: { isOpen?: any; isClosed?: any; openTime?: string; closeTime?: string; status?: string },
+  nowMs?: number
+): { isOpen: boolean; hoursLabel?: string } {
+  const combinedHours =
+    String(rawHours || '').trim() ||
+    (flags?.openTime && flags?.closeTime ? `${flags.openTime} - ${flags.closeTime}` : '');
+  const cleanHours = combinedHours.replace(/\s+/g, ' ').trim();
+  const statusStr = String(flags?.status || '').trim().toLowerCase();
+
+  if (
+    flags?.isOpen === false ||
+    flags?.isClosed === true ||
+    statusStr === 'closed' ||
+    statusStr === 'offline' ||
+    statusStr === 'unavailable'
+  ) {
+    return { isOpen: false, hoursLabel: cleanHours || undefined };
+  }
+
+  if (!cleanHours) {
+    return { isOpen: true };
+  }
+
+  if (/\b(24\s*h|24\s*hours?|24\/7|masaa\s*24|always\s*open)\b/i.test(cleanHours)) {
+    return { isOpen: true, hoursLabel: '24/7' };
+  }
+
+  if (/^(closed|imefungwa)$/i.test(cleanHours)) {
+    return { isOpen: false };
+  }
+
+  const rangeMatch = cleanHours.match(
+    /(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)\s*(?:-|–|—|\bto\b|\bhadi\b|\bmpaka\b)\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)/i
+  );
+  if (rangeMatch) {
+    const startMins = parseTimeTokenToMinutes(rangeMatch[1]);
+    const endMins = parseTimeTokenToMinutes(rangeMatch[2]);
+    if (startMins !== null && endMins !== null) {
+      if (startMins === endMins) {
+        return { isOpen: true, hoursLabel: cleanHours };
+      }
+      const nowMins = getTanzaniaNowMinutes(nowMs);
+      const isOpenNow =
+        endMins > startMins
+          ? nowMins >= startMins && nowMins < endMins
+          : nowMins >= startMins || nowMins < endMins;
+      return { isOpen: isOpenNow, hoursLabel: cleanHours };
+    }
+  }
+
+  return { isOpen: true, hoursLabel: cleanHours };
+}
 
 async function fetchRestaurantsForMeta(
   dbAdmin: any,
@@ -1133,6 +1214,13 @@ async function fetchRestaurantsForMeta(
             gpsCoords && vLat !== undefined && vLng !== undefined
               ? Math.round(calculateDistanceKm(gpsCoords.lat, gpsCoords.lng, vLat, vLng) * 10) / 10
               : undefined;
+          const hoursEval = evaluateOperatingHoursStatus(data.operatingHours, {
+            isOpen: data.isOpen,
+            isClosed: data.isClosed,
+            openTime: data.openTime,
+            closeTime: data.closeTime,
+            status: data.status
+          });
 
           results.push({
             id: docSnap.id,
@@ -1142,7 +1230,9 @@ async function fetchRestaurantsForMeta(
             lng: vLng,
             distanceKm: dist,
             openTablesCount,
-            imageUrl: resolvePublicImageUrl(data.bannerUrl || data.logoUrl || '')
+            imageUrl: resolvePublicImageUrl(data.bannerUrl || data.logoUrl || ''),
+            isOpen: hoursEval.isOpen,
+            operatingHours: hoursEval.hoursLabel
           });
         }
       }
@@ -1158,6 +1248,8 @@ async function fetchRestaurantsForMeta(
         name: 'Papo Hapo Kitchen & Grill',
         address: 'Mikocheni, Dar es Salaam',
         openTablesCount: 6,
+        isOpen: true,
+        operatingHours: '08:00 - 23:00',
         imageUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80'
       },
       {
@@ -1165,6 +1257,8 @@ async function fetchRestaurantsForMeta(
         name: 'Masaki Bistro & Pizza',
         address: 'Masaki, Dar es Salaam',
         openTablesCount: 5,
+        isOpen: true,
+        operatingHours: '09:00 - 23:30',
         imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80'
       },
       {
@@ -1172,14 +1266,19 @@ async function fetchRestaurantsForMeta(
         name: 'Al-Farouq Biryani House',
         address: 'Kariakoo, Dar es Salaam',
         openTablesCount: 8,
+        isOpen: true,
+        operatingHours: '08:00 - 22:00',
         imageUrl: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=800&q=80'
       }
     ];
   }
 
-  if (gpsCoords) {
-    results.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
-  }
+  results.sort((a, b) => {
+    const openDiff = (a.isOpen === false ? 1 : 0) - (b.isOpen === false ? 1 : 0);
+    if (openDiff !== 0) return openDiff;
+    if (gpsCoords) return (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
+    return 0;
+  });
   return results.slice(0, 6);
 }
 
@@ -1272,56 +1371,92 @@ async function fetchCatalogItemsForMeta(
   const results: MetaCatalogOption[] = [];
   if (dbAdmin) {
     try {
-      const prodSnap = await dbAdmin.collection('products').where('vendorCategory', '==', vendorCategory).limit(20).get();
+      const [prodSnap, vSnap] = await Promise.all([
+        dbAdmin.collection('products').where('vendorCategory', '==', vendorCategory).limit(20).get(),
+        dbAdmin.collection('vendors').where('category', '==', vendorCategory).limit(20).get()
+      ]);
+
+      const vendorStatusMap = new Map<
+        string,
+        { vendorName: string; isOpen: boolean; operatingHours?: string; address?: string; banner?: string; desc?: string }
+      >();
+      if (!vSnap.empty) {
+        vSnap.docs.forEach((vDoc: any) => {
+          const v = vDoc.data() || {};
+          if (v.status === 'suspended' || v.isApproved === false) return;
+          const hoursEval = evaluateOperatingHoursStatus(v.operatingHours, {
+            isOpen: v.isOpen,
+            isClosed: v.isClosed,
+            openTime: v.openTime,
+            closeTime: v.closeTime,
+            status: v.status
+          });
+          vendorStatusMap.set(vDoc.id, {
+            vendorName: v.businessName || '',
+            isOpen: hoursEval.isOpen,
+            operatingHours: hoursEval.hoursLabel,
+            address: v.address || '',
+            banner: v.bannerUrl || v.logoUrl || '',
+            desc: v.description || ''
+          });
+        });
+      }
+
       if (!prodSnap.empty) {
         prodSnap.docs.forEach((docSnap: any) => {
           const p = docSnap.data() || {};
           if (p.hidden === true || p.status === 'discontinued') return;
           const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || '';
+          const vMeta = p.vendorId ? vendorStatusMap.get(String(p.vendorId)) : undefined;
           results.push({
             id: docSnap.id,
             vendorId: p.vendorId || `${vendorCategory}-vendor-meta`,
+            vendorName: p.vendorName || vMeta?.vendorName || undefined,
             name: p.name || 'Bidhaa Maalum',
             price: Number(p.discountPrice || p.price) || 5000,
             desc: p.description ? String(p.description).slice(0, 90) : (p.category || ''),
-            imageUrl: resolvePublicImageUrl(rawImg)
+            imageUrl: resolvePublicImageUrl(rawImg),
+            isOpen: vMeta ? vMeta.isOpen : true,
+            operatingHours: vMeta?.operatingHours
           });
         });
       }
 
-      if (results.length === 0) {
-        const vSnap = await dbAdmin.collection('vendors').where('category', '==', vendorCategory).limit(10).get();
-        if (!vSnap.empty) {
-          for (const vDoc of vSnap.docs) {
-            const v = vDoc.data() || {};
-            if (v.status === 'suspended' || v.isApproved === false) continue;
-            const vpSnap = await dbAdmin.collection('products').where('vendorId', '==', vDoc.id).limit(10).get();
-            if (!vpSnap.empty) {
-              vpSnap.docs.forEach((pDoc: any) => {
-                const p = pDoc.data() || {};
-                if (p.hidden === true || p.status === 'discontinued') return;
-                const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || v.bannerUrl || v.logoUrl || '';
-                results.push({
-                  id: pDoc.id,
-                  vendorId: vDoc.id,
-                  vendorName: v.businessName || '',
-                  name: p.name || v.businessName || 'Huduma Maalum',
-                  price: Number(p.discountPrice || p.price) || 10000,
-                  desc: p.description ? String(p.description).slice(0, 90) : (v.address || ''),
-                  imageUrl: resolvePublicImageUrl(rawImg)
-                });
-              });
-            } else {
+      if (results.length === 0 && !vSnap.empty) {
+        for (const vDoc of vSnap.docs) {
+          const v = vDoc.data() || {};
+          if (v.status === 'suspended' || v.isApproved === false) continue;
+          const vMeta = vendorStatusMap.get(vDoc.id);
+          const vpSnap = await dbAdmin.collection('products').where('vendorId', '==', vDoc.id).limit(10).get();
+          if (!vpSnap.empty) {
+            vpSnap.docs.forEach((pDoc: any) => {
+              const p = pDoc.data() || {};
+              if (p.hidden === true || p.status === 'discontinued') return;
+              const rawImg = p.imageUrl || (Array.isArray(p.imageUrls) ? p.imageUrls[0] : '') || v.bannerUrl || v.logoUrl || '';
               results.push({
-                id: vDoc.id,
+                id: pDoc.id,
                 vendorId: vDoc.id,
                 vendorName: v.businessName || '',
-                name: v.businessName || 'Mtoa Huduma',
-                price: 15000,
-                desc: v.description ? String(v.description).slice(0, 90) : (v.address || ''),
-                imageUrl: resolvePublicImageUrl(v.bannerUrl || v.logoUrl || '')
+                name: p.name || v.businessName || 'Huduma Maalum',
+                price: Number(p.discountPrice || p.price) || 10000,
+                desc: p.description ? String(p.description).slice(0, 90) : (v.address || ''),
+                imageUrl: resolvePublicImageUrl(rawImg),
+                isOpen: vMeta ? vMeta.isOpen : true,
+                operatingHours: vMeta?.operatingHours
               });
-            }
+            });
+          } else {
+            results.push({
+              id: vDoc.id,
+              vendorId: vDoc.id,
+              vendorName: v.businessName || '',
+              name: v.businessName || 'Mtoa Huduma',
+              price: 15000,
+              desc: v.description ? String(v.description).slice(0, 90) : (v.address || ''),
+              imageUrl: resolvePublicImageUrl(v.bannerUrl || v.logoUrl || ''),
+              isOpen: vMeta ? vMeta.isOpen : true,
+              operatingHours: vMeta?.operatingHours
+            });
           }
         }
       }
@@ -1330,15 +1465,18 @@ async function fetchCatalogItemsForMeta(
     }
   }
 
-  const finalItems = results.length > 0 ? results : fallbacks;
-  if (searchQuery && searchQuery.length >= 3) {
-    const q = searchQuery.toLowerCase();
-    finalItems.sort((a, b) => {
+  const finalItems = results.length > 0 ? results : fallbacks.map((f) => ({ ...f, isOpen: f.isOpen ?? true }));
+  finalItems.sort((a, b) => {
+    const openDiff = (a.isOpen === false ? 1 : 0) - (b.isOpen === false ? 1 : 0);
+    if (openDiff !== 0) return openDiff;
+    if (searchQuery && searchQuery.length >= 3) {
+      const q = searchQuery.toLowerCase();
       const aMatch = `${a.name} ${a.desc || ''}`.toLowerCase().includes(q) ? 0 : 1;
       const bMatch = `${b.name} ${b.desc || ''}`.toLowerCase().includes(q) ? 0 : 1;
       return aMatch - bMatch;
-    });
-  }
+    }
+    return 0;
+  });
   return finalItems.slice(0, 6);
 }
 
@@ -1354,6 +1492,13 @@ async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
           const gallery = Array.isArray(data.galleryPhotos) ? data.galleryPhotos : [];
           const rawImg = data.bannerUrl || gallery[0] || data.logoUrl || '';
           const minPrice = Number(data.roomPricing?.single || data.roomPricing?.double || data.roomPricing?.vip || 85000);
+          const hoursEval = evaluateOperatingHoursStatus(data.operatingHours, {
+            isOpen: data.isOpen,
+            isClosed: data.isClosed,
+            openTime: data.openTime,
+            closeTime: data.closeTime,
+            status: data.status
+          });
           results.push({
             id: docSnap.id,
             vendorId: docSnap.id,
@@ -1362,7 +1507,9 @@ async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
             desc: data.address || data.hotelCategory || 'Dar es Salaam',
             imageUrl: resolvePublicImageUrl(rawImg),
             galleryPhotos: gallery.map((g: string) => resolvePublicImageUrl(g)).filter(Boolean),
-            roomPricing: data.roomPricing
+            roomPricing: data.roomPricing,
+            isOpen: hoursEval.isOpen,
+            operatingHours: hoursEval.hoursLabel
           });
         });
       }
@@ -1379,6 +1526,8 @@ async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
         name: 'The Hyatt Regency Kilimanjaro',
         price: 280000,
         desc: 'Posta • Luxury Sea View',
+        isOpen: true,
+        operatingHours: '24/7',
         imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'
       },
       {
@@ -1387,6 +1536,8 @@ async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
         name: 'Serena Luxury Hotel & Suites',
         price: 220000,
         desc: 'City Centre • Pool & Breakfast',
+        isOpen: true,
+        operatingHours: '24/7',
         imageUrl: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80'
       },
       {
@@ -1395,10 +1546,13 @@ async function fetchHotelsForMeta(dbAdmin: any): Promise<MetaCatalogOption[]> {
         name: 'Transit Motel Airport',
         price: 65000,
         desc: 'Kipawa • AC & WiFi',
+        isOpen: true,
+        operatingHours: '24/7',
         imageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80'
       }
     ];
   }
+  results.sort((a, b) => (a.isOpen === false ? 1 : 0) - (b.isOpen === false ? 1 : 0));
   return results.slice(0, 6);
 }
 
@@ -2284,13 +2438,218 @@ export const META_DEFAULT_SERVICES = [
   { key: 'papopay', id: 'papopay', emoji: '💳', title: 'PapoPay', desc: 'Malipo na Wakala', enDesc: 'Wallet & Payments' }
 ];
 
+export interface MetaServiceLiveStatus {
+  state: 'open' | 'busy' | 'offline' | 'closed' | 'maintenance';
+  listBadgeSw: string;
+  listBadgeEn: string;
+  textTagSw: string;
+  textTagEn: string;
+  hoursLabel?: string;
+  closedNoticeSw?: string;
+  closedNoticeEn?: string;
+}
+
+const SERVICE_VENDOR_CATEGORY_MAP: Record<string, string> = {
+  food: 'restaurant',
+  grocery: 'grocery',
+  pharmacy: 'pharmacy',
+  salon: 'salon',
+  handyman: 'handyman',
+  hotel: 'hotel',
+  events: 'events',
+  bus_ticket: 'bus_ticket',
+  car_rental: 'car_rental',
+  ecommerce: 'ecommerce'
+};
+
+export async function getMetaServicesLiveStatusMap(
+  dbAdmin: any,
+  servicesConfig: any = {}
+): Promise<Record<string, MetaServiceLiveStatus>> {
+  const map: Record<string, MetaServiceLiveStatus> = {};
+  const [avail, vSnap] = await Promise.all([
+    getLiveDriverAvailability(dbAdmin),
+    dbAdmin ? dbAdmin.collection('vendors').limit(80).get().catch(() => null) : Promise.resolve(null)
+  ]);
+
+  const vendorCountsByCategory: Record<string, { total: number; open: number; sampleHours?: string }> = {};
+  if (vSnap && !vSnap.empty) {
+    vSnap.docs.forEach((docSnap: any) => {
+      const v = docSnap.data() || {};
+      if (v.status === 'suspended' || v.isApproved === false) return;
+      const cat = String(v.category || '').trim().toLowerCase();
+      if (!cat) return;
+      if (!vendorCountsByCategory[cat]) {
+        vendorCountsByCategory[cat] = { total: 0, open: 0 };
+      }
+      vendorCountsByCategory[cat].total += 1;
+      const ev = evaluateOperatingHoursStatus(v.operatingHours, {
+        isOpen: v.isOpen,
+        isClosed: v.isClosed,
+        openTime: v.openTime,
+        closeTime: v.closeTime,
+        status: v.status
+      });
+      if (ev.isOpen) {
+        vendorCountsByCategory[cat].open += 1;
+      } else if (ev.hoursLabel && !vendorCountsByCategory[cat].sampleHours) {
+        vendorCountsByCategory[cat].sampleHours = ev.hoursLabel;
+      }
+    });
+  }
+
+  for (const srv of META_DEFAULT_SERVICES) {
+    const sData = servicesConfig?.[srv.id] || servicesConfig?.[srv.key] || {};
+    if (sData.maintenance === true) {
+      map[srv.key] = {
+        state: 'maintenance',
+        listBadgeSw: '🟠 Matengenezo',
+        listBadgeEn: '🟠 Maintenance',
+        textTagSw: '🟠 Matengenezo',
+        textTagEn: '🟠 Maintenance'
+      };
+      continue;
+    }
+
+    const schedEval = evaluateOperatingHoursStatus(sData.operatingHours || sData.workingHours, {
+      isOpen: sData.isOpen,
+      isClosed: sData.isClosed,
+      openTime: sData.openTime,
+      closeTime: sData.closeTime,
+      status: sData.status
+    });
+    if (!schedEval.isOpen) {
+      const hSuffix = schedEval.hoursLabel ? ` (${schedEval.hoursLabel})` : '';
+      map[srv.key] = {
+        state: 'closed',
+        listBadgeSw: `🔴 Imefungwa${hSuffix}`,
+        listBadgeEn: `🔴 Closed${hSuffix}`,
+        textTagSw: `🔴 Imefungwa${hSuffix}`,
+        textTagEn: `🔴 Closed${hSuffix}`,
+        hoursLabel: schedEval.hoursLabel,
+        closedNoticeSw:
+          sData.closedMessage ||
+          `⚠️ *${srv.title}* imefungwa kwa sasa${schedEval.hoursLabel ? ` (Saa za kazi: *${schedEval.hoursLabel}*)` : ''}.`,
+        closedNoticeEn:
+          sData.closedMessageEn ||
+          `⚠️ *${srv.title}* is currently closed${schedEval.hoursLabel ? ` (Hours: *${schedEval.hoursLabel}*)` : ''}.`
+      };
+      continue;
+    }
+
+    if (srv.key === 'taxi') {
+      if (avail.totalFree > 0) {
+        map[srv.key] = {
+          state: 'open',
+          listBadgeSw: `🟢 ${avail.totalFree} Online`,
+          listBadgeEn: `🟢 ${avail.totalFree} Online`,
+          textTagSw: `🟢 Madereva ${avail.totalFree} Online`,
+          textTagEn: `🟢 ${avail.totalFree} Drivers Online`
+        };
+      } else if (avail.totalBusy > 0) {
+        map[srv.key] = {
+          state: 'busy',
+          listBadgeSw: `🟡 Wote Busy (${avail.totalBusy})`,
+          listBadgeEn: `🟡 All Busy (${avail.totalBusy})`,
+          textTagSw: `🟡 Madereva Busy (${avail.totalBusy})`,
+          textTagEn: `🟡 Drivers Busy (${avail.totalBusy})`
+        };
+      } else {
+        map[srv.key] = {
+          state: 'offline',
+          listBadgeSw: '🔴 Hakuna Online',
+          listBadgeEn: '🔴 No Drivers',
+          textTagSw: '🔴 Hakuna Dereva Online',
+          textTagEn: '🔴 No Drivers Online'
+        };
+      }
+      continue;
+    }
+
+    if (srv.key === 'parcel') {
+      const parcelFree = avail.free.bike + avail.free.bajaj;
+      const parcelBusy = avail.busy.bike + avail.busy.bajaj;
+      if (parcelFree > 0) {
+        map[srv.key] = {
+          state: 'open',
+          listBadgeSw: `🟢 ${parcelFree} Online`,
+          listBadgeEn: `🟢 ${parcelFree} Online`,
+          textTagSw: `🟢 Madereva ${parcelFree} Online`,
+          textTagEn: `🟢 ${parcelFree} Couriers Online`
+        };
+      } else if (parcelBusy > 0) {
+        map[srv.key] = {
+          state: 'busy',
+          listBadgeSw: '🟡 Wako Busy',
+          listBadgeEn: '🟡 Couriers Busy',
+          textTagSw: '🟡 Wako Busy',
+          textTagEn: '🟡 Couriers Busy'
+        };
+      } else {
+        map[srv.key] = {
+          state: 'offline',
+          listBadgeSw: '🔴 Hakuna Online',
+          listBadgeEn: '🔴 Offline',
+          textTagSw: '🔴 Hakuna Online sasa',
+          textTagEn: '🔴 No Couriers Online'
+        };
+      }
+      continue;
+    }
+
+    const vCat = SERVICE_VENDOR_CATEGORY_MAP[srv.key];
+    if (vCat) {
+      const stats = vendorCountsByCategory[vCat];
+      if (stats && stats.total > 0) {
+        if (stats.open > 0) {
+          map[srv.key] = {
+            state: 'open',
+            listBadgeSw: `🟢 ${stats.open} Wazi`,
+            listBadgeEn: `🟢 ${stats.open} Open`,
+            textTagSw: `🟢 Wazi (${stats.open})`,
+            textTagEn: `🟢 Open (${stats.open})`
+          };
+        } else {
+          const hrs = stats.sampleHours ? ` (${stats.sampleHours})` : '';
+          map[srv.key] = {
+            state: 'closed',
+            listBadgeSw: `🔴 Zimefungwa${hrs}`,
+            listBadgeEn: `🔴 Closed${hrs}`,
+            textTagSw: `🔴 Zimefungwa sasa${hrs}`,
+            textTagEn: `🔴 Closed now${hrs}`,
+            hoursLabel: stats.sampleHours
+          };
+        }
+        continue;
+      }
+    }
+
+    map[srv.key] = {
+      state: 'open',
+      listBadgeSw: srv.key === 'papopay' ? '🟢 Wazi 24/7' : '🟢 Wazi',
+      listBadgeEn: srv.key === 'papopay' ? '🟢 Open 24/7' : '🟢 Open',
+      textTagSw: srv.key === 'papopay' ? '🟢 24/7' : '🟢 Wazi',
+      textTagEn: srv.key === 'papopay' ? '🟢 24/7' : '🟢 Open'
+    };
+  }
+
+  return map;
+}
+
 /**
  * Helper to dynamically apply current business services configuration (enabled/disabled/maintenance)
  * to any custom welcome message or node text that contains the services list.
  */
-export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: any, lang: 'sw' | 'en' = 'sw'): string {
+export function applyBusinessConfigToWelcomeText(
+  text: string,
+  servicesConfig: any,
+  lang: 'sw' | 'en' = 'sw',
+  liveStatusMap?: Record<string, MetaServiceLiveStatus>
+): string {
   if (!text) return text;
-  if (!servicesConfig || Object.keys(servicesConfig).length === 0) return text;
+  if ((!servicesConfig || Object.keys(servicesConfig).length === 0) && (!liveStatusMap || Object.keys(liveStatusMap).length === 0)) {
+    return text;
+  }
 
   const hasServiceList =
     text.includes("TAXI") ||
@@ -2304,14 +2663,15 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
 
   const isEn = lang === 'en';
   const active = META_DEFAULT_SERVICES.filter(item => {
-    const sData = servicesConfig[item.id];
+    const sData = servicesConfig?.[item.id];
     return !sData || sData.enabled !== false;
   }).map((item, idx) => {
-    const sData = servicesConfig[item.id] || {};
+    const sData = servicesConfig?.[item.id] || {};
     return {
       ...item,
       displayNum: idx + 1,
-      isMaintenance: sData.maintenance === true
+      isMaintenance: sData.maintenance === true,
+      liveStatus: liveStatusMap?.[item.key]
     };
   });
 
@@ -2325,9 +2685,13 @@ export function applyBusinessConfigToWelcomeText(text: string, servicesConfig: a
 
   let welcomeBody = "";
   active.forEach(srv => {
-    const maintTag = srv.isMaintenance ? (isEn ? " _(Maintenance)_" : " _(Matengenezo)_") : "";
+    const statusLabel = srv.liveStatus
+      ? ` _(${isEn ? srv.liveStatus.textTagEn : srv.liveStatus.textTagSw})_`
+      : srv.isMaintenance
+      ? (isEn ? " _(Maintenance)_" : " _(Matengenezo)_")
+      : "";
     const label = isEn ? srv.enDesc : srv.desc;
-    welcomeBody += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${label}${maintTag}\n`;
+    welcomeBody += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${label}${statusLabel}\n`;
   });
   welcomeBody += isEn
     ? `📋 ${active.length + 1}. My Orders – Track Your Orders\n`
@@ -2347,12 +2711,13 @@ export function generateDynamicWelcomeMessage(
   chSymbol: string,
   customWelcome?: string,
   customerName?: string,
-  lang: 'sw' | 'en' = 'sw'
+  lang: 'sw' | 'en' = 'sw',
+  liveStatusMap?: Record<string, MetaServiceLiveStatus>
 ): string {
   const isEn = lang === 'en';
   if (customWelcome && !isEn) {
     const replaced = customWelcome.replace(/{channel}/g, chSymbol);
-    const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig, 'sw');
+    const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig, 'sw', liveStatusMap);
     return customerName && !applied.includes(customerName)
       ? `Habari *${customerName}* 👋\n\n${applied}`
       : applied;
@@ -2369,7 +2734,8 @@ export function generateDynamicWelcomeMessage(
     return {
       ...item,
       displayNum: (idx + 1).toString(),
-      isMaintenance
+      isMaintenance,
+      liveStatus: liveStatusMap?.[item.key]
     };
   });
 
@@ -2382,8 +2748,12 @@ export function generateDynamicWelcomeMessage(
       `*CHOOSE YOUR SERVICE:*\n\n`;
 
     activeServices.forEach(srv => {
-      const maintTag = srv.isMaintenance ? " _(Maintenance)_" : "";
-      welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.enDesc}${maintTag}\n`;
+      const statusLabel = srv.liveStatus
+        ? ` _(${srv.liveStatus.textTagEn})_`
+        : srv.isMaintenance
+        ? " _(Maintenance)_"
+        : "";
+      welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.enDesc}${statusLabel}\n`;
     });
     welcome += `📋 ${activeServices.length + 1}. My Orders – Track Your Orders\n`;
     welcome +=
@@ -2399,8 +2769,12 @@ export function generateDynamicWelcomeMessage(
     `*CHAGUA HUDUMA YAKO:*\n\n`;
 
   activeServices.forEach(srv => {
-    const maintTag = srv.isMaintenance ? " _(Matengenezo)_" : "";
-    welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.desc}${maintTag}\n`;
+    const statusLabel = srv.liveStatus
+      ? ` _(${srv.liveStatus.textTagSw})_`
+      : srv.isMaintenance
+      ? " _(Matengenezo)_"
+      : "";
+    welcome += `${srv.emoji} ${srv.displayNum}. ${srv.title} – ${srv.desc}${statusLabel}\n`;
   });
   welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
   welcome +=
@@ -2928,7 +3302,7 @@ function buildMediaCarouselInteractive(params: {
 export function buildWhatsAppInteractive(
   replyText: string,
   session: MetaSession,
-  opts?: { servicesConfig?: any }
+  opts?: { servicesConfig?: any; liveStatusMap?: Record<string, MetaServiceLiveStatus> }
 ): WhatsAppInteractivePayload | undefined {
   const lang: 'sw' | 'en' = session?.details?.lang === 'en' ? 'en' : 'sw';
   const isEn = lang === 'en';
@@ -3105,6 +3479,7 @@ export function buildWhatsAppInteractive(
     !session?.service;
   if (isWelcomeMenuText) {
     const servicesCfg = opts?.servicesConfig || {};
+    const liveStatusMap = opts?.liveStatusMap || {};
     const active = META_DEFAULT_SERVICES.filter((item) => {
       const sData = servicesCfg[item.id];
       return !sData || sData.enabled !== false;
@@ -3112,14 +3487,27 @@ export function buildWhatsAppInteractive(
       ...item,
       displayNum: String(idx + 1),
       isMaintenance: servicesCfg[item.id]?.maintenance === true,
+      liveStatus: liveStatusMap[item.key],
     }));
     const trackNum = String(active.length + 1);
     const allMenuRows = [
-      ...active.map((srv) => ({
-        id: srv.displayNum,
-        title: `${srv.emoji} ${srv.title}`,
-        description: `${isEn ? srv.enDesc : srv.desc}${srv.isMaintenance ? (isEn ? ' (Maintenance)' : ' (Matengenezo)') : ''}`,
-      })),
+      ...active.map((srv) => {
+        const baseDesc = isEn ? srv.enDesc : srv.desc;
+        const badge = srv.liveStatus
+          ? isEn
+            ? srv.liveStatus.listBadgeEn
+            : srv.liveStatus.listBadgeSw
+          : srv.isMaintenance
+          ? isEn
+            ? '🟠 Maintenance'
+            : '🟠 Matengenezo'
+          : '';
+        return {
+          id: srv.displayNum,
+          title: `${srv.emoji} ${srv.title}`,
+          description: badge ? `${baseDesc} • ${badge}` : baseDesc,
+        };
+      }),
       {
         id: trackNum,
         title: isEn ? '📋 My Orders' : '📋 Oda Zangu',
@@ -3374,9 +3762,17 @@ export function buildWhatsAppInteractive(
     const restaurants: any[] = session?.details?.restaurantOptions || [];
     if (restaurants.length > 0) {
       const items = restaurants.map((r, idx) => {
+        const isClosed = r.isOpen === false;
+        const statusPart = isClosed
+          ? isEn
+            ? `🔴 Closed${r.operatingHours ? ` (${r.operatingHours})` : ''}`
+            : `🔴 Imefungwa${r.operatingHours ? ` (${r.operatingHours})` : ''}`
+          : isEn
+          ? '🟢 Open'
+          : '🟢 Wazi';
         const distPart = typeof r.distanceKm === 'number' ? `~${r.distanceKm} km` : '';
-        const tblPart = r.openTablesCount ? `Meza ${r.openTablesCount}` : '';
-        const desc = [r.address, distPart, tblPart].filter(Boolean).join(' • ');
+        const tblPart = !isClosed && r.openTablesCount ? `Meza ${r.openTablesCount}` : '';
+        const desc = [statusPart, r.address, distPart, tblPart].filter(Boolean).join(' • ');
         return {
           id: String(idx + 1),
           title: `🍽️ ${r.name}`,
@@ -3602,12 +3998,22 @@ export function buildWhatsAppInteractive(
   if (session?.step === 'HOTEL_SELECT_VENDOR') {
     const hotels: any[] = session?.details?.optionsList || [];
     if (hotels.length > 0) {
-      const items = hotels.map((h, i) => ({
-        id: String(i + 1),
-        title: `🏨 ${h.name}`,
-        description: `${h.desc || 'Tanzania'} • TZS ${Number(h.price || 0).toLocaleString()}/usiku`,
-        imageUrl: h.imageUrl,
-      }));
+      const items = hotels.map((h, i) => {
+        const statusPart =
+          h.isOpen === false
+            ? isEn
+              ? `🔴 Closed${h.operatingHours ? ` (${h.operatingHours})` : ''}`
+              : `🔴 Imefungwa${h.operatingHours ? ` (${h.operatingHours})` : ''}`
+            : isEn
+            ? '🟢 Open'
+            : '🟢 Wazi';
+        return {
+          id: String(i + 1),
+          title: `🏨 ${h.name}`,
+          description: `${statusPart} • ${h.desc || 'Tanzania'} • TZS ${Number(h.price || 0).toLocaleString()}/usiku`,
+          imageUrl: h.imageUrl,
+        };
+      });
       const fallbackList = buildPaginatedListInteractive({
         header: isEn ? '🏨 PapoStay — Hotels' : '🏨 PapoStay — Hoteli',
         bodyText: isEn ? 'Tap below to view hotels and pick one to see rooms:' : 'Bonyeza kitufe hapo chini kuchagua hoteli na kuona vyumba:',
@@ -3798,12 +4204,24 @@ export function buildWhatsAppInteractive(
         ecommerce: '🛒 PapoMall',
       };
       const srvKey = session?.service || 'ecommerce';
-      const mappedItems = itemsList.map((it, idx) => ({
-        id: String(idx + 1),
-        title: it.name || it.label || `#${idx + 1}`,
-        description: `${it.price ? `TZS ${Number(it.price).toLocaleString()}` : ''}${it.desc ? `${it.price ? ' • ' : ''}${it.desc}` : ''}`,
-        imageUrl: it.imageUrl,
-      }));
+      const mappedItems = itemsList.map((it, idx) => {
+        const statusPrefix =
+          it.isOpen === false
+            ? isEn
+              ? `🔴 Closed${it.operatingHours ? ` (${it.operatingHours})` : ''} • `
+              : `🔴 Imefungwa${it.operatingHours ? ` (${it.operatingHours})` : ''} • `
+            : it.operatingHours || it.vendorName
+            ? isEn
+              ? '🟢 Open • '
+              : '🟢 Wazi • '
+            : '';
+        return {
+          id: String(idx + 1),
+          title: it.name || it.label || `#${idx + 1}`,
+          description: `${statusPrefix}${it.price ? `TZS ${Number(it.price).toLocaleString()}` : ''}${it.desc ? `${it.price ? ' • ' : ''}${it.desc}` : ''}`,
+          imageUrl: it.imageUrl,
+        };
+      });
       const introBody = rawStripped.split('\n')[0] || (isEn ? 'Select an option below:' : 'Chagua chaguo hapa chini:');
       const fallbackList = buildPaginatedListInteractive({
         header: hdrMap[srvKey] || '📋 Papo Hapo',
@@ -3910,13 +4328,19 @@ export async function handleMetaInputWithMedia(
   let interactive: WhatsAppInteractivePayload | undefined;
   if (channel === 'whatsapp') {
     let servicesConfig: any = {};
+    let liveStatusMap: Record<string, MetaServiceLiveStatus> | undefined;
     if (!session.service && dbAdmin) {
       try {
         const bizSnap = await dbAdmin.collection('config').doc('business').get();
         if (bizSnap.exists) servicesConfig = bizSnap.data().services || {};
       } catch {}
+      try {
+        if (/CHAGUA HUDUMA YAKO|CHOOSE YOUR SERVICE|PAPO HAPO SUPER APP/i.test(text)) {
+          liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesConfig);
+        }
+      } catch {}
     }
-    interactive = buildWhatsAppInteractive(text, session, { servicesConfig });
+    interactive = buildWhatsAppInteractive(text, session, { servicesConfig, liveStatusMap });
     if (session.details?.forceAskGpsPin || session.details?.promoCarousel || session.details?.promoLeadCmd) {
       delete session.details.forceAskGpsPin;
       delete session.details.promoCarousel;
@@ -4124,7 +4548,8 @@ async function processMetaInputCore(
     }
     await saveMetaSession(session, dbAdmin);
     const l = session.details.lang || 'sw';
-    const menuStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, undefined, session.details.customerName, l);
+    const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesConfig);
+    const menuStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, undefined, session.details.customerName, l, liveStatusMap);
     return l === 'en' ? `[[EN_NATIVE]]${menuStr}` : menuStr;
   }
 
@@ -4187,7 +4612,8 @@ async function processMetaInputCore(
         } catch {}
       }
       const l = session.details.lang || 'sw';
-      const welcome = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, session.details.customerName, l);
+      const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesCfg);
+      const welcome = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, session.details.customerName, l, liveStatusMap);
       const prefix = l === 'en' ? '✅ *Details saved!* \n\n' : '✅ *Taarifa zimehifadhiwa!* \n\n';
       return l === 'en' ? `[[EN_NATIVE]]${prefix}${welcome}` : `${prefix}${welcome}`;
     } catch {
@@ -4300,7 +4726,7 @@ async function processMetaInputCore(
     }
   };
 
-  const loadServicesConfigQuick = async () => {
+  const loadServicesConfigWithStatus = async () => {
     let cfg: any = {};
     if (dbAdmin) {
       try {
@@ -4308,7 +4734,8 @@ async function processMetaInputCore(
         if (bizSnap.exists) cfg = bizSnap.data().services || {};
       } catch {}
     }
-    return cfg;
+    const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, cfg);
+    return { servicesCfg: cfg, liveStatusMap };
   };
 
   // Global Language Switch Commands (work from any step!)
@@ -4337,8 +4764,8 @@ async function processMetaInputCore(
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = preserveCustomerFields(session.details, nextLang, customerProfile);
-    const servicesCfg = await loadServicesConfigQuick();
-    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, nextLang);
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, nextLang, liveStatusMap);
     const wrappedMenu = nextLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
     session.lastPrompt = wrappedMenu;
     markSkipHistory();
@@ -4380,8 +4807,8 @@ async function processMetaInputCore(
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = preserveCustomerFields(session.details, pickedLang, customerProfile);
-    const servicesCfg = await loadServicesConfigQuick();
-    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, pickedLang);
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, pickedLang, liveStatusMap);
     const wrappedMenu = pickedLang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
     session.lastPrompt = wrappedMenu;
     markSkipHistory();
@@ -4459,8 +4886,8 @@ async function processMetaInputCore(
       session.step = 'COLLECTING_ROUTE';
       delete session.service;
 
-      const servicesCfg = await loadServicesConfigQuick();
-      const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cleanName, lang);
+      const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+      const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cleanName, lang, liveStatusMap);
       const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
       session.lastPrompt = wrappedMenu;
       markSkipHistory();
@@ -4504,8 +4931,8 @@ async function processMetaInputCore(
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = preserveCustomerFields(session.details, lang, customerProfile);
-    const servicesCfg = await loadServicesConfigQuick();
-    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang, liveStatusMap);
     const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
     session.lastPrompt = wrappedMenu;
     markSkipHistory();
@@ -4535,8 +4962,8 @@ async function processMetaInputCore(
       if (!session.service && (session.step === 'COLLECTING_ROUTE' || session.step === 'START')) {
         session.step = 'COLLECTING_ROUTE';
         session.history = [];
-        const servicesCfg = await loadServicesConfigQuick();
-        const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+        const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+        const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang, liveStatusMap);
         const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
         session.lastPrompt = wrappedMenu;
         await saveMetaSession(session, dbAdmin);
@@ -4553,8 +4980,8 @@ async function processMetaInputCore(
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = preserveCustomerFields(session.details, lang, customerProfile);
-    const servicesCfg = await loadServicesConfigQuick();
-    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang, liveStatusMap);
     const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${menuText}` : menuText;
     session.lastPrompt = wrappedMenu;
     await saveMetaSession(session, dbAdmin);
@@ -4574,8 +5001,8 @@ async function processMetaInputCore(
     session.step = 'COLLECTING_ROUTE';
     delete session.service;
     session.details = preserveCustomerFields(session.details, lang, customerProfile);
-    const servicesCfg = await loadServicesConfigQuick();
-    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang);
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang, liveStatusMap);
     const confirmPrefix =
       lang === 'en'
         ? `✅ Phone number updated to *${cleanInput}*!\n\n`
@@ -4624,16 +5051,26 @@ async function processMetaInputCore(
       await saveMetaSession(session, dbAdmin);
       appendMediaItems(
         mediaCollector,
-        restaurants.map((r, idx) => ({
-          url: r.imageUrl,
-          caption: `*${idx + 1}. ${r.name}*\n📍 ${r.address}`
-        }))
+        restaurants.map((r, idx) => {
+          const stLabel =
+            r.isOpen === false
+              ? `🔴 Imefungwa${r.operatingHours ? ` (${r.operatingHours})` : ''}`
+              : `🟢 Wazi${r.operatingHours ? ` (${r.operatingHours})` : ''}`;
+          return {
+            url: r.imageUrl,
+            caption: `*${idx + 1}. ${r.name}* (${stLabel})\n📍 ${r.address}`
+          };
+        })
       );
       let resp = `📍 Migahawa ya karibu na *${gpsLoc.name}*:\n\n`;
       restaurants.forEach((r, idx) => {
         const distPart = typeof r.distanceKm === 'number' ? ` • ~${r.distanceKm} km` : '';
         const tblPart = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
-        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${distPart}${tblPart}\n\n`;
+        const stTag =
+          r.isOpen === false
+            ? `🔴 Imefungwa${r.operatingHours ? ` (Saa: ${r.operatingHours})` : ''}`
+            : `🟢 Wazi${r.operatingHours ? ` (${r.operatingHours})` : ''}`;
+        resp += `*${idx + 1}. ${r.name}* — ${stTag}\n📍 ${r.address}${distPart}${tblPart}\n\n`;
       });
       resp += `Andika namba ya mgahawa (*1–${restaurants.length}*):`;
       return resp;
@@ -4881,24 +5318,41 @@ async function processMetaInputCore(
   }
 
   const activeServices = META_DEFAULT_SERVICES.filter(item => {
-    const sData = servicesConfig[item.id];
+    const sData = servicesConfig?.[item.id] || servicesConfig?.[item.key];
     return !sData || sData.enabled !== false;
   }).map((item, idx) => {
-    const sData = servicesConfig[item.id] || {};
+    const sData = servicesConfig?.[item.id] || servicesConfig?.[item.key] || {};
     const isMaintenance = sData.maintenance === true;
+    const schedEval = evaluateOperatingHoursStatus(sData.operatingHours || sData.workingHours, {
+      isOpen: sData.isOpen,
+      isClosed: sData.isClosed,
+      openTime: sData.openTime,
+      closeTime: sData.closeTime,
+      status: sData.status
+    });
+    const hoursLabel = schedEval.hoursLabel ? ` (Saa za kazi: *${schedEval.hoursLabel}*)` : '';
+    const hoursLabelEn = schedEval.hoursLabel ? ` (Hours: *${schedEval.hoursLabel}*)` : '';
     return {
       ...item,
       displayNum: (idx + 1).toString(),
       isMaintenance,
-      maintenanceMessage: sData.message || `Huduma ya ${item.title} ipo kwenye matengenezo kwa sasa.`
+      maintenanceMessage: sData.message || `Huduma ya ${item.title} ipo kwenye matengenezo kwa sasa.`,
+      isClosedNow: !schedEval.isOpen,
+      closedMessage:
+        sData.closedMessage ||
+        `🔴 *${item.title}* imefungwa kwa sasa${hoursLabel}.\n\nTafadhali chagua huduma nyingine kwenye *Menu* au rudi tena ndani ya muda wa kazi.`,
+      closedMessageEn:
+        sData.closedMessageEn ||
+        `[[EN_NATIVE]]🔴 *${item.title}* is currently closed${hoursLabelEn}.\n\nPlease choose another service from *Menu* or try again during operating hours.`
     };
   });
 
   const trackMenuNumber = (activeServices.length + 1).toString();
 
   // Master Welcome Message
-  const getWelcomeMessage = (customerName?: string) => {
-    const welcomeStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome, customerName, lang);
+  const getWelcomeMessage = async (customerName?: string) => {
+    const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesConfig);
+    const welcomeStr = generateDynamicWelcomeMessage(servicesConfig, chSymbol, customWelcome, customerName, lang, liveStatusMap);
     return lang === 'en' ? `[[EN_NATIVE]]${welcomeStr}` : welcomeStr;
   };
 
@@ -4927,6 +5381,9 @@ async function processMetaInputCore(
               ? `[[EN_NATIVE]]⚠️ *${matchedSrv.title}* is currently under maintenance.`
               : `⚠️ *${matchedSrv.title}* ipo kwenye matengenezo kwa sasa.`;
           }
+          if (matchedSrv.isClosedNow) {
+            return lang === 'en' ? matchedSrv.closedMessageEn : matchedSrv.closedMessage;
+          }
           session.service = intent as any;
           return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
             getKnownPhone,
@@ -4943,7 +5400,7 @@ async function processMetaInputCore(
     
     session.step = 'COLLECTING_ROUTE'; // Transition to standard numeric choices
     await saveMetaSession(session, dbAdmin);
-    return getWelcomeMessage(preservedName);
+    return await getWelcomeMessage(preservedName);
   }
 
   // If we are collecting initial selection
@@ -4967,6 +5424,9 @@ async function processMetaInputCore(
       if (matchedSrvByNum.isMaintenance) {
         return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrvByNum.maintenanceMessage}`;
       }
+      if (matchedSrvByNum.isClosedNow) {
+        return lang === 'en' ? matchedSrvByNum.closedMessageEn : matchedSrvByNum.closedMessage;
+      }
       session.service = matchedSrvByNum.key as any;
     } else {
       if (/^\d{1,2}$/.test(cleanInput)) {
@@ -4982,6 +5442,9 @@ async function processMetaInputCore(
         if (matchedSrv) {
           if (matchedSrv.isMaintenance) {
             return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedSrv.maintenanceMessage}`;
+          }
+          if (matchedSrv.isClosedNow) {
+            return lang === 'en' ? matchedSrv.closedMessageEn : matchedSrv.closedMessage;
           }
           session.service = intent as any;
         } else {
@@ -5024,6 +5487,9 @@ async function processMetaInputCore(
       if (matchedBrandSrv.isMaintenance) {
         return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${matchedBrandSrv.maintenanceMessage}`;
       }
+      if (matchedBrandSrv.isClosedNow) {
+        return lang === 'en' ? matchedBrandSrv.closedMessageEn : matchedBrandSrv.closedMessage;
+      }
       session.details = preserveCustomerFields(session.details, lang, customerProfile);
       session.service = requestedBrandService;
       session.step = 'COLLECTING_ROUTE';
@@ -5044,6 +5510,13 @@ async function processMetaInputCore(
     session.details = preserveCustomerFields(session.details, lang, customerProfile);
     await saveMetaSession(session, dbAdmin);
     return `⚠️ *MATENGENEZO / MAINTENANCE* ⚠️\n\n${activeSrv.maintenanceMessage}`;
+  }
+  if (activeSrv && activeSrv.isClosedNow) {
+    session.step = 'START';
+    delete session.service;
+    session.details = preserveCustomerFields(session.details, lang, customerProfile);
+    await saveMetaSession(session, dbAdmin);
+    return lang === 'en' ? activeSrv.closedMessageEn : activeSrv.closedMessage;
   }
 
   return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
@@ -5235,14 +5708,27 @@ async function routeToServiceFlow(
         session.details.awaitingPickup = true;
         session.step = 'COLLECTING_ROUTE';
         await saveMetaSession(session, dbAdmin);
+        const avail = await getLiveDriverAvailability(dbAdmin);
+        const driverBannerSw =
+          avail.totalFree > 0
+            ? `🟢 Madereva *${avail.totalFree}* wapo *Online* tayari`
+            : avail.totalBusy > 0
+            ? `🟡 Madereva *${avail.totalBusy}* wapo *Online* lakini wote wako *Busy* safarini`
+            : `🔴 Hakuna dereva aliye *Online* kwa sasa (unaweza kutuma ombi lisubiri)`;
+        const driverBannerEn =
+          avail.totalFree > 0
+            ? `🟢 *${avail.totalFree}* driver${avail.totalFree > 1 ? 's' : ''} *Online* & ready`
+            : avail.totalBusy > 0
+            ? `🟡 *${avail.totalBusy}* driver${avail.totalBusy > 1 ? 's' : ''} *Online* (all *Busy* on trips)`
+            : `🔴 No drivers are *Online* right now (requests stay queued)`;
         if (savedLoc?.name) {
           return isEn
-            ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\n1. 📍 Use *${savedLoc.name}*\n_Or type another area / send 📍 Location pin:_`
-            : `🚖 *PapoRide — Unatoka wapi?*\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo lingine / tuma 📍 Location:_`;
+            ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\n${driverBannerEn}\n\n1. 📍 Use *${savedLoc.name}*\n_Or type another area / send 📍 Location pin:_`
+            : `🚖 *PapoRide — Unatoka wapi?*\n${driverBannerSw}\n\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo lingine / tuma 📍 Location:_`;
         }
         return isEn
-          ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\nType your pickup area or send 📍 *Location pin*:`
-          : `🚖 *PapoRide — Unatoka wapi?*\nAndika jina la eneo au tuma 📍 *Location*:`;
+          ? `[[EN_NATIVE]]🚖 *PapoRide — Pickup Location?*\n${driverBannerEn}\n\nType your pickup area or send 📍 *Location pin*:`
+          : `🚖 *PapoRide — Unatoka wapi?*\n${driverBannerSw}\n\nAndika jina la eneo au tuma 📍 *Location*:`;
       }
 
       if (session.details.awaitingPickup && input.trim() === '1' && savedLoc?.name) {
@@ -5830,17 +6316,27 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        restaurants.map((r, idx) => ({
-          url: r.imageUrl,
-          caption: `*${idx + 1}. ${r.name}*\n📍 ${r.address}`
-        }))
+        restaurants.map((r, idx) => {
+          const stLabel =
+            r.isOpen === false
+              ? `🔴 Imefungwa${r.operatingHours ? ` (${r.operatingHours})` : ''}`
+              : `🟢 Wazi${r.operatingHours ? ` (${r.operatingHours})` : ''}`;
+          return {
+            url: r.imageUrl,
+            caption: `*${idx + 1}. ${r.name}* (${stLabel})\n📍 ${r.address}`
+          };
+        })
       );
 
       let resp = `${modeLabel}\n\n${gpsFilter && savedLoc?.name ? `📍 Migahawa ya karibu na *${savedLoc.name}*:` : 'Chagua mgahawa unaotaka:'}\n\n`;
       restaurants.forEach((r, idx) => {
         const distPart = typeof r.distanceKm === 'number' ? ` • ~${r.distanceKm} km` : '';
         const tblPart = r.openTablesCount ? ` • 🪑 Meza ${r.openTablesCount} wazi` : '';
-        resp += `*${idx + 1}. ${r.name}*\n📍 ${r.address}${distPart}${tblPart}\n\n`;
+        const stTag =
+          r.isOpen === false
+            ? `🔴 Imefungwa${r.operatingHours ? ` (Saa: ${r.operatingHours})` : ''}`
+            : `🟢 Wazi${r.operatingHours ? ` (${r.operatingHours})` : ''}`;
+        resp += `*${idx + 1}. ${r.name}* — ${stTag}\n📍 ${r.address}${distPart}${tblPart}\n\n`;
       });
       resp += `Andika namba ya mgahawa (*1–${restaurants.length}*) au tuma *📍 GPS Location* kupata wa karibu:`;
       return resp;
@@ -6048,6 +6544,9 @@ async function routeToServiceFlow(
       }
       if (!chosen) {
         return `⚠️ Tafadhali andika namba sahihi ya mgahawa (*1–${options.length}*) kutoka kwenye orodha:`;
+      }
+      if (chosen.isOpen === false) {
+        return `🔴 Samahani, *${chosen.name}* imefungwa kwa sasa${chosen.operatingHours ? ` (Saa za kazi: *${chosen.operatingHours}*)` : ''}.\n\nTafadhali chagua mgahawa mwingine ulio wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedVendorId = chosen.id;
@@ -6366,9 +6865,24 @@ async function routeToServiceFlow(
         session.step = 'COLLECTING_ROUTE';
         session.details.awaitingParcelRoute = true;
         await saveMetaSession(session, dbAdmin);
+        const avail = await getLiveDriverAvailability(dbAdmin);
+        const pFree = avail.free.bike + avail.free.bajaj;
+        const pBusy = avail.busy.bike + avail.busy.bajaj;
+        const courierBannerSw =
+          pFree > 0
+            ? `🟢 Madereva *${pFree}* wapo *Online* tayari`
+            : pBusy > 0
+            ? `🟡 Madereva *${pBusy}* wapo *Busy* sasa`
+            : `🔴 Hakuna dereva aliye *Online* sasa (ombi litasubiri)`;
+        const courierBannerEn =
+          pFree > 0
+            ? `🟢 *${pFree}* courier${pFree > 1 ? 's' : ''} *Online*`
+            : pBusy > 0
+            ? `🟡 *${pBusy}* courier${pBusy > 1 ? 's' : ''} *Busy*`
+            : `🔴 No couriers *Online* right now (requests queued)`;
         return isEn
-          ? `[[EN_NATIVE]]📦 *PapoSend — Send a Parcel*\nType pickup & dropoff route (e.g. *Kariakoo - Tegeta*):`
-          : `📦 *PapoSend — Tuma Mzigo*\nAndika *njia ya mzigo* — unatoka wapi kwenda wapi (Mfano: *Kariakoo - Tegeta*):`;
+          ? `[[EN_NATIVE]]📦 *PapoSend — Send a Parcel*\n${courierBannerEn}\n\nType pickup & dropoff route (e.g. *Kariakoo - Tegeta*):`
+          : `📦 *PapoSend — Tuma Mzigo*\n${courierBannerSw}\n\nAndika *njia ya mzigo* — unatoka wapi kwenda wapi (Mfano: *Kariakoo - Tegeta*):`;
       }
       if (knownPhone) {
         return await finalizeParcel(knownPhone, input.trim());
@@ -6484,16 +6998,26 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        cars.map((car, idx) => ({
-          url: car.imageUrl,
-          caption: `*${idx + 1}. ${car.name}* — *TZS ${car.price.toLocaleString()}/siku*${car.desc ? `\n${car.desc}` : ''}`
-        }))
+        cars.map((car, idx) => {
+          const stBadge =
+            car.isOpen === false
+              ? `🔴 Imefungwa${car.operatingHours ? ` (${car.operatingHours})` : ''}`
+              : `🟢 Wazi${car.operatingHours ? ` (${car.operatingHours})` : ''}`;
+          return {
+            url: car.imageUrl,
+            caption: `*${idx + 1}. ${car.name}* (${stBadge}) — *TZS ${car.price.toLocaleString()}/siku*${car.desc ? `\n${car.desc}` : ''}`
+          };
+        })
       );
 
       let resp = `🚗 *PapoRent — Kodisha Gari*\n\n`;
       resp += `Magari yanayopatikana leo karibu nawe:\n\n`;
       cars.forEach((car, idx) => {
-        resp += `*${idx + 1}. ${car.name}*\n${car.desc ? `📌 ${car.desc}\n` : ''}💰 Kodi kwa siku: *TSH ${car.price.toLocaleString()}*\n\n`;
+        const stTag =
+          car.isOpen === false
+            ? `🔴 Imefungwa${car.operatingHours ? ` (${car.operatingHours})` : ''}`
+            : `🟢 Wazi${car.operatingHours ? ` (${car.operatingHours})` : ''}`;
+        resp += `*${idx + 1}. ${car.name}* — ${stTag}\n${car.desc ? `📌 ${car.desc}\n` : ''}💰 Kodi kwa siku: *TSH ${car.price.toLocaleString()}*\n\n`;
       });
       resp += `Andika namba ya gari unalotaka kukodi leo (*1–${cars.length}*):`;
       return resp;
@@ -6504,6 +7028,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Namba si sahihi. Andika namba sahihi ya gari (*1–${session.details.optionsList?.length || 3}*).`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, *${selected.vendorName || selected.name}* imefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua gari jingine lililo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedId = selected.id;
@@ -6606,16 +7133,26 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        salons.map((sal, idx) => ({
-          url: sal.imageUrl,
-          caption: `*${idx + 1}. ${sal.name}* — *TSH ${sal.price.toLocaleString()}*${sal.desc ? `\n📍 ${sal.desc}` : ''}`
-        }))
+        salons.map((sal, idx) => {
+          const stBadge =
+            sal.isOpen === false
+              ? `🔴 Imefungwa${sal.operatingHours ? ` (${sal.operatingHours})` : ''}`
+              : `🟢 Wazi${sal.operatingHours ? ` (${sal.operatingHours})` : ''}`;
+          return {
+            url: sal.imageUrl,
+            caption: `*${idx + 1}. ${sal.name}* (${stBadge}) — *TSH ${sal.price.toLocaleString()}*${sal.desc ? `\n📍 ${sal.desc}` : ''}`
+          };
+        })
       );
 
       let resp = `💇‍♀️ *PapoStyle — Saluni & Spa*\n\n`;
       if (searchQ) resp += `Umesema unatafuta: *"${searchQ}"*\n\n`;
       salons.forEach((sal, idx) => {
-        resp += `*${idx + 1}. ${sal.name}*\n${sal.desc ? `📍 ${sal.desc}\n` : ''}💰 Huduma: *TSH ${sal.price.toLocaleString()}*\n\n`;
+        const stTag =
+          sal.isOpen === false
+            ? `🔴 Imefungwa${sal.operatingHours ? ` (${sal.operatingHours})` : ''}`
+            : `🟢 Wazi${sal.operatingHours ? ` (${sal.operatingHours})` : ''}`;
+        resp += `*${idx + 1}. ${sal.name}* — ${stTag}\n${sal.desc ? `📍 ${sal.desc}\n` : ''}💰 Huduma: *TSH ${sal.price.toLocaleString()}*\n\n`;
       });
       resp += `Andika namba ya Saluni unayotaka kuweka miadi (*1–${salons.length}*):`;
       return resp;
@@ -6626,6 +7163,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Chaguo si sahihi. Tafadhali weka namba kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, *${selected.vendorName || selected.name}* imefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua saluni nyingine iliyo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedId = selected.id;
@@ -6738,16 +7278,27 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        items.map((item, idx) => ({
-          url: item.imageUrl,
-          caption: `*${idx + 1}. ${item.name}* — *TSH ${item.price.toLocaleString()}*${item.desc ? `\n${item.desc}` : ''}`
-        }))
+        items.map((item, idx) => {
+          const stBadge =
+            item.isOpen === false
+              ? `🔴 Imefungwa${item.operatingHours ? ` (${item.operatingHours})` : ''}`
+              : `🟢 Wazi${item.operatingHours ? ` (${item.operatingHours})` : ''}`;
+          return {
+            url: item.imageUrl,
+            caption: `*${idx + 1}. ${item.name}* (${stBadge}) — *TSH ${item.price.toLocaleString()}*${item.desc ? `\n${item.desc}` : ''}`
+          };
+        })
       );
 
       let resp = `🥦 *PapoMart — Mahitaji ya Sokoni*\n\n`;
       if (searchQ) resp += `Bidhaa zilizopo kwa ajili ya: *"${searchQ}"*\n\n`;
       items.forEach((item, idx) => {
-        resp += `*${idx + 1}. ${item.name}*\n${item.desc ? `📌 ${item.desc}\n` : ''}💰 Bei: *TSH ${item.price.toLocaleString()}*\n\n`;
+        const stTag =
+          item.isOpen === false
+            ? `🔴 Imefungwa${item.operatingHours ? ` (${item.operatingHours})` : ''}`
+            : `🟢 Wazi${item.operatingHours ? ` (${item.operatingHours})` : ''}`;
+        const vLine = item.vendorName ? `🏪 ${item.vendorName} • ` : '';
+        resp += `*${idx + 1}. ${item.name}* — ${stTag}\n${vLine}${item.desc ? `📌 ${item.desc}\n` : ''}💰 Bei: *TSH ${item.price.toLocaleString()}*\n\n`;
       });
       resp += `Andika namba ya bidhaa unayotaka kuagiza sasa hivi (*1–${items.length}*):`;
       return resp;
@@ -6758,6 +7309,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Weka namba sahihi ya orodha kuanzia *1* hadi *${session.details.optionsList?.length || 3}*.`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, duka la *${selected.vendorName || selected.name}* limefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua bidhaa kutoka duka lililo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedId = selected.id;
@@ -6883,16 +7437,27 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        meds.map((med, idx) => ({
-          url: med.imageUrl,
-          caption: `*${idx + 1}. ${med.name}* — *TSH ${med.price.toLocaleString()}*${med.desc ? `\n${med.desc}` : ''}`
-        }))
+        meds.map((med, idx) => {
+          const stBadge =
+            med.isOpen === false
+              ? `🔴 Imefungwa${med.operatingHours ? ` (${med.operatingHours})` : ''}`
+              : `🟢 Wazi${med.operatingHours ? ` (${med.operatingHours})` : ''}`;
+          return {
+            url: med.imageUrl,
+            caption: `*${idx + 1}. ${med.name}* (${stBadge}) — *TSH ${med.price.toLocaleString()}*${med.desc ? `\n${med.desc}` : ''}`
+          };
+        })
       );
 
       let resp = `💊 *PapoMed — Dawa na Afya*\n\n`;
       if (searchQ) resp += `Dawa/Vifaa vilivyopo karibu kwa ajili ya: *"${searchQ}"*\n\n`;
       meds.forEach((med, idx) => {
-        resp += `*${idx + 1}. ${med.name}*\n${med.desc ? `📌 ${med.desc}\n` : ''}💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
+        const stTag =
+          med.isOpen === false
+            ? `🔴 Imefungwa${med.operatingHours ? ` (${med.operatingHours})` : ''}`
+            : `🟢 Wazi${med.operatingHours ? ` (${med.operatingHours})` : ''}`;
+        const vLine = med.vendorName ? `🏥 ${med.vendorName} • ` : '';
+        resp += `*${idx + 1}. ${med.name}* — ${stTag}\n${vLine}${med.desc ? `📌 ${med.desc}\n` : ''}💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
       });
       resp += `Andika namba ya dawa unayohitaji kuagiza (*1–${meds.length}*):`;
       return resp;
@@ -6903,6 +7468,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Weka namba sahihi. Chagua *1* hadi *${session.details.optionsList?.length || 3}*.`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, duka la dawa *${selected.vendorName || selected.name}* limefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua chaguo lililo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedId = selected.id;
@@ -7000,16 +7568,26 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        hotels.map((htl, idx) => ({
-          url: htl.imageUrl,
-          caption: `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc || 'Tanzania'} • Kuanzia *TZS ${htl.price.toLocaleString()}/usiku*`
-        }))
+        hotels.map((htl, idx) => {
+          const stBadge =
+            htl.isOpen === false
+              ? `🔴 Imefungwa${htl.operatingHours ? ` (${htl.operatingHours})` : ''}`
+              : `🟢 Wazi${htl.operatingHours ? ` (${htl.operatingHours})` : ''}`;
+          return {
+            url: htl.imageUrl,
+            caption: `*${idx + 1}. ${htl.name}* (${stBadge})\n📍 ${htl.desc || 'Tanzania'} • Kuanzia *TZS ${htl.price.toLocaleString()}/usiku*`
+          };
+        })
       );
 
       let resp = `🏨 *PapoStay — Hoteli & Malazi*\n\n`;
       resp += `Hoteli na nyumba za wageni zilizopo:\n\n`;
       hotels.forEach((htl, idx) => {
-        resp += `*${idx + 1}. ${htl.name}*\n📍 ${htl.desc}\n💰 Kuanzia: *TSH ${htl.price.toLocaleString()}/usiku*\n\n`;
+        const stTag =
+          htl.isOpen === false
+            ? `🔴 Imefungwa${htl.operatingHours ? ` (${htl.operatingHours})` : ''}`
+            : `🟢 Wazi${htl.operatingHours ? ` (${htl.operatingHours})` : ''}`;
+        resp += `*${idx + 1}. ${htl.name}* — ${stTag}\n📍 ${htl.desc}\n💰 Kuanzia: *TSH ${htl.price.toLocaleString()}/usiku*\n\n`;
       });
       resp += `Andika namba ya hoteli kuona *picha na bei za vyumba vyake* (*1–${hotels.length}*):`;
       return resp;
@@ -7021,6 +7599,9 @@ async function routeToServiceFlow(
       const selectedHotel = hotelList[idx];
       if (!selectedHotel) {
         return `⚠️ Namba uliyoweka haipo. Tafadhali chagua *1–${hotelList.length}*:`;
+      }
+      if (selectedHotel.isOpen === false) {
+        return `🔴 Samahani, *${selectedHotel.name}* imefungwa / haipokei wageni kwa sasa${selectedHotel.operatingHours ? ` (Saa za kazi: *${selectedHotel.operatingHours}*)` : ''}.\n\nTafadhali chagua hoteli nyingine iliyo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
 
       session.details.selectedHotelId = selectedHotel.id;
@@ -7190,7 +7771,11 @@ async function routeToServiceFlow(
 
       let msg = `🛠️ *PapoFix — ${directCat.label}*\nChagua Fundi aliye karibu nawe:\n\n`;
       pros.forEach((p, idx) => {
-        msg += `*${idx + 1}. ${p.name}*\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Ada ya Ukaguzi: *TZS ${p.price.toLocaleString()}*\n\n`;
+        const stTag =
+          p.isOpen === false
+            ? `🔴 Hayupo Online${p.operatingHours ? ` (${p.operatingHours})` : ''}`
+            : `🟢 Anapatikana${p.operatingHours ? ` (${p.operatingHours})` : ''}`;
+        msg += `*${idx + 1}. ${p.name}* — ${stTag}\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Ada ya Ukaguzi: *TZS ${p.price.toLocaleString()}*\n\n`;
       });
       msg += `Andika namba ya Fundi (*1–${pros.length}*):`;
       return msg;
@@ -7217,13 +7802,17 @@ async function routeToServiceFlow(
         mediaCollector,
         pros.filter((p) => p.imageUrl).map((p, i) => ({
           url: p.imageUrl,
-          caption: `*${i + 1}. ${p.name}* — TZS ${p.price.toLocaleString()}`
+          caption: `*${i + 1}. ${p.name}* (${p.isOpen === false ? '🔴 Hayupo' : '🟢 Anapatikana'}) — TZS ${p.price.toLocaleString()}`
         }))
       );
 
       let msg = `🛠️ *Mafundi wa ${cat.label}*:\n\n`;
       pros.forEach((p, i) => {
-        msg += `*${i + 1}. ${p.name}*\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Ada ya Ukaguzi: *TZS ${p.price.toLocaleString()}*\n\n`;
+        const stTag =
+          p.isOpen === false
+            ? `🔴 Hayupo Online${p.operatingHours ? ` (${p.operatingHours})` : ''}`
+            : `🟢 Anapatikana${p.operatingHours ? ` (${p.operatingHours})` : ''}`;
+        msg += `*${i + 1}. ${p.name}* — ${stTag}\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Ada ya Ukaguzi: *TZS ${p.price.toLocaleString()}*\n\n`;
       });
       msg += `Andika namba ya Fundi unayechagua (*1–${pros.length}*):`;
       return msg;
@@ -7234,6 +7823,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Chaguo si sahihi. Chagua *1–${session.details.optionsList?.length || 3}*:`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, *${selected.name}* hayupo kazini / amefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua fundi mwingine anayepatikana (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
       session.details.selectedId = selected.id;
       session.details.selectedVendorId = selected.vendorId || 'papo-fix-express-team';
@@ -7363,16 +7955,27 @@ async function routeToServiceFlow(
 
       appendMediaItems(
         mediaCollector,
-        products.map((p, idx) => ({
-          url: p.imageUrl,
-          caption: `*${idx + 1}. ${p.name}* — *TZS ${p.price.toLocaleString()}*${p.desc ? `\n${p.desc}` : ''}`
-        }))
+        products.map((p, idx) => {
+          const stBadge =
+            p.isOpen === false
+              ? `🔴 Imefungwa${p.operatingHours ? ` (${p.operatingHours})` : ''}`
+              : `🟢 Wazi${p.operatingHours ? ` (${p.operatingHours})` : ''}`;
+          return {
+            url: p.imageUrl,
+            caption: `*${idx + 1}. ${p.name}* (${stBadge}) — *TZS ${p.price.toLocaleString()}*${p.desc ? `\n${p.desc}` : ''}`
+          };
+        })
       );
 
       let msg = `🛒 *PapoMall — Maduka & Soko la Mtandaoni*\n\n`;
       if (searchQ) msg += `Matokeo kwa: *"${searchQ}"*\n\n`;
       products.forEach((p, idx) => {
-        msg += `*${idx + 1}. ${p.name}*\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Bei: *TZS ${p.price.toLocaleString()}*\n\n`;
+        const stTag =
+          p.isOpen === false
+            ? `🔴 Imefungwa${p.operatingHours ? ` (${p.operatingHours})` : ''}`
+            : `🟢 Wazi${p.operatingHours ? ` (${p.operatingHours})` : ''}`;
+        const vLine = p.vendorName ? `🏪 ${p.vendorName} • ` : '';
+        msg += `*${idx + 1}. ${p.name}* — ${stTag}\n${vLine}${p.desc ? `📌 ${p.desc}\n` : ''}💰 Bei: *TZS ${p.price.toLocaleString()}*\n\n`;
       });
       msg += `Andika namba ya bidhaa unayotaka kununua (*1–${products.length}*):`;
       return msg;
@@ -7383,6 +7986,9 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Tafadhali chagua namba sahihi (*1–${session.details.optionsList?.length || 3}*):`;
+      }
+      if (selected.isOpen === false) {
+        return `🔴 Samahani, duka la *${selected.vendorName || selected.name}* limefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua bidhaa kutoka duka lililo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
       }
       session.details.selectedId = selected.id;
       session.details.selectedVendorId = selected.vendorId || 'papo-mall-official';
