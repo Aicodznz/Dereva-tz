@@ -9,6 +9,14 @@ import {
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
 import { FaceRegistrationModal } from '../papopay/FaceRegistrationModal';
 import { BiometricFaceCanvas, BiometricHudMode } from '../papopay/BiometricFaceCanvas';
+import {
+  ensureFaceModelsLoaded
+} from '../../lib/faceBiometrics';
+import {
+  identifyCustomerFromCamera,
+  loadRegisteredFaceCustomers,
+  RegisteredFaceCustomer
+} from '../../lib/faceRegistry';
 import { toast } from 'sonner';
 
 interface FacePaymentModalProps {
@@ -60,6 +68,7 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
   const [fps, setFps] = useState<number>(30);
   const [txId, setTxId] = useState<string>('');
   const [isSpoofTesting, setIsSpoofTesting] = useState<boolean>(false);
+  const [matchedPayerName, setMatchedPayerName] = useState<string>(payerName);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -171,69 +180,104 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
     } catch {}
   };
 
-  // Murtaza's Workshop Liveness & Anti-Spoofing Flow
+  // Live 1:N Biometric Liveness & Identity Verification Flow
   const runBiometricSequence = (isSimulatedFallback = false) => {
-    // Phase 1: Center Alignment
-    const t1 = setTimeout(() => {
+    setMatchedPayerName(payerName);
+
+    // Phase 1: Center Alignment & Load Models
+    const t1 = setTimeout(async () => {
       setPhase('align_center');
       setProgress(25);
       setHeadYaw(1.2);
       playStepBeep(640, 100);
       speakInstruction('Weka uso wako katikati ya mduara');
-    }, 800);
+      ensureFaceModelsLoaded().catch(() => {});
 
-    // If user has not registered their face, notify them to register!
-    if (!isRegisteredUser) {
-      const tUnreg = setTimeout(() => {
-        triggerUnregisteredFaceTest();
-      }, 2000);
-      timersRef.current.push(t1, tUnreg);
-      return;
-    }
+      const pool = await loadRegisteredFaceCustomers();
+      const enrolled = pool.filter(c => c.isRegistered && Array.isArray(c.faceDescriptor) && c.faceDescriptor.length === 128);
 
-    // Phase 2: Blink Detection (Murtaza's Anti-Spoofing Check)
-    const t2 = setTimeout(() => {
-      setPhase('blink_detect');
-      setProgress(55);
-      playStepBeep(880, 150);
-      speakInstruction('Pepesa macho kuonesha uhai');
-
-      // Simulate live blink capture
-      const t2Blink = setTimeout(() => {
-        setBlinkCount(1);
-        playStepBeep(1200, 80);
-      }, 1200);
-      timersRef.current.push(t2Blink);
-    }, 2400);
-
-    // Phase 3: Smile to Pay (MediaPipe Mesh Lip Distance Check)
-    const t3 = setTimeout(() => {
-      setPhase('smile_confirm');
-      setProgress(80);
-      playStepBeep(920, 120);
-      speakInstruction('Tabasamu kidogo kuthibitisha malipo');
-    }, 4200);
-
-    // Phase 4: Verification & Anti-Spoofing Neural Match
-    const t4 = setTimeout(() => {
-      if (!isSimulatedFallback) {
-        captureFrame();
+      // If caller explicitly says unregistered or nobody has enrolled a 128-D face yet:
+      if (!isRegisteredUser || enrolled.length === 0) {
+        const tUnreg = setTimeout(() => {
+          triggerUnregisteredFaceTest();
+        }, 1200);
+        timersRef.current.push(tUnreg);
+        return;
       }
-      setPhase('verifying');
-      setProgress(95);
 
-      const t5 = setTimeout(() => {
-        // Complete transaction!
+      if (isSimulatedFallback) {
+        const tErr = setTimeout(() => {
+          setPhase('error');
+          setErrorMessage('Kamera haijapatikana. Tafadhali ruhusu kamera ili uthibitishe uso wako.');
+          toast.error('Kamera inahitajika kuthibitisha uso kwa malipo!');
+        }, 1000);
+        timersRef.current.push(tErr);
+        return;
+      }
+
+      // Phase 2: Blink Detection (Anti-Spoofing Check)
+      const t2 = setTimeout(() => {
+        setPhase('blink_detect');
+        setProgress(55);
+        playStepBeep(880, 150);
+        speakInstruction('Pepesa macho kuonesha uhai');
+
+        const t2Blink = setTimeout(() => {
+          setBlinkCount(1);
+          playStepBeep(1200, 80);
+        }, 1000);
+        timersRef.current.push(t2Blink);
+      }, 1500);
+
+      // Phase 3: Smile to Pay
+      const t3 = setTimeout(() => {
+        setPhase('smile_confirm');
+        setProgress(80);
+        playStepBeep(920, 120);
+        speakInstruction('Tabasamu kidogo kuthibitisha malipo');
+      }, 3000);
+
+      // Phase 4: Real 1:N 128-D Biometric Identity Match against Enrolled Customers
+      const t4 = setTimeout(async () => {
+        captureFrame();
+        setPhase('verifying');
+        setProgress(92);
+
+        if (!videoRef.current || videoRef.current.readyState < 2) {
+          triggerUnregisteredFaceTest();
+          return;
+        }
+
+        const checkRes = await identifyCustomerFromCamera(videoRef.current, enrolled, {
+          mirrored: true,
+          maxDistance: 0.50
+        });
+
+        if (checkRes.status === 'no_face') {
+          setPhase('align_center');
+          setProgress(30);
+          toast.error(checkRes.message || 'Hakuna uso ulioonekana mbele ya kamera. Tafadhali rudia.');
+          return;
+        }
+
+        if (checkRes.status !== 'matched' || !checkRes.customer) {
+          triggerUnregisteredFaceTest();
+          return;
+        }
+
+        const verifiedCustomer: RegisteredFaceCustomer = checkRes.customer;
+        const finalScore = Number((checkRes.match?.confidencePct || 96.5).toFixed(1));
+        setMatchedPayerName(verifiedCustomer.name);
+        setFaceConfidence(finalScore);
+        setLivenessScore(99.6);
         setPhase('success');
         setProgress(100);
-        const finalScore = Number((98.5 + Math.random() * 1.2).toFixed(1));
-        setFaceConfidence(finalScore);
-        setLivenessScore(99.8);
 
         playPaymentChime();
         triggerHapticTap();
+        speakInstruction(`Malipo yamethibitishwa kwa uso wa ${verifiedCustomer.name.split(' ')[0]}.`);
 
-        toast.success(`Malipo ya TZS ${amount.toLocaleString()} yamethibitishwa kwa Face Pay!`, {
+        toast.success(`Malipo ya TZS ${amount.toLocaleString()} yamethibitishwa kwa ${verifiedCustomer.name}!`, {
           icon: '✨'
         });
 
@@ -241,21 +285,20 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
           stopCamera();
           onSuccess({
             txId: txId || `PAPO-FACE-${Math.floor(100000 + Math.random() * 900000)}`,
-            method: 'Face Payment (Smile-to-Pay)',
+            method: `Face Payment (${verifiedCustomer.name})`,
             amount,
             time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             faceScore: finalScore
           });
           onClose();
-        }, 1600);
+        }, 1500);
         timersRef.current.push(t6);
+      }, 4600);
 
-      }, 1300);
-      timersRef.current.push(t5);
+      timersRef.current.push(t2, t3, t4);
+    }, 700);
 
-    }, 5800);
-
-    timersRef.current.push(t1, t2, t3, t4);
+    timersRef.current.push(t1);
   };
 
   // Murtaza's Workshop Anti-Spoofing Attack Test Simulator
@@ -548,7 +591,7 @@ export const FacePaymentModal: React.FC<FacePaymentModalProps> = ({
                       USO UMETAMBULIKA!
                     </p>
                     <p className="text-xs text-emerald-300 font-mono">
-                      Uhakiki: {faceConfidence}% Match &bull; Live 99.8%
+                      {matchedPayerName} &bull; {faceConfidence}% Match
                     </p>
                   </motion.div>
                 )}

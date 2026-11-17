@@ -9,6 +9,13 @@ import {
 } from 'lucide-react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
 import { FaceRegistrationModal } from './FaceRegistrationModal';
+import { ensureFaceModelsLoaded, normalizeTzPhone } from '../../lib/faceBiometrics';
+import {
+  subscribeEnrolledFaceCustomers,
+  identifyCustomerFromCamera,
+  recordWakalaFaceTransaction,
+  RegisteredFaceCustomer
+} from '../../lib/faceRegistry';
 import { toast } from 'sonner';
 
 interface PapoPayKioskTerminalProps {
@@ -21,12 +28,18 @@ type KioskMode = 'transit_gate' | 'restaurant_counter' | 'retail_checkout';
 
 interface SimulatedCustomer {
   id: string;
+  uid?: string;
   name: string;
+  phone?: string;
+  normalizedPhone?: string;
   walletBalance: number;
   faceEmbeddingId: string;
+  faceDescriptor?: number[];
   avatar: string;
   category: string;
   isRegistered?: boolean;
+  matchConfidence?: number;
+  source?: 'firestore' | 'local' | 'demo';
 }
 
 const CUSTOMERS_DB: SimulatedCustomer[] = [
@@ -74,8 +87,11 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
   onBalanceDeduct
 }) => {
   const [kioskMode, setKioskMode] = useState<KioskMode>('transit_gate');
-  const [customersList, setCustomersList] = useState<SimulatedCustomer[]>(CUSTOMERS_DB);
-  const [selectedCustomer, setSelectedCustomer] = useState<SimulatedCustomer>(CUSTOMERS_DB[0]);
+  const [customersList, setCustomersList] = useState<SimulatedCustomer[]>(
+    CUSTOMERS_DB.map((c) => ({ ...c, source: 'demo' as const }))
+  );
+  const [selectedCustomer, setSelectedCustomer] = useState<SimulatedCustomer | null>(null);
+  const [scanMode, setScanMode] = useState<'live' | 'demo'>('live');
   const [isScanning, setIsScanning] = useState(false);
   const [isGateOpen, setIsGateOpen] = useState(false);
   const [faceRecognitionStatus, setFaceRecognitionStatus] = useState<'idle' | 'unregistered'>('idle');
@@ -177,8 +193,38 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
   };
 
   useEffect(() => {
+    if (!isOpen) return;
+    ensureFaceModelsLoaded().catch(() => {});
+    const unsub = subscribeEnrolledFaceCustomers((loaded: RegisteredFaceCustomer[]) => {
+      const realMapped: SimulatedCustomer[] = loaded
+        .filter((c) => c.isRegistered)
+        .map((c) => ({
+          id: c.id,
+          uid: c.uid,
+          name: c.name,
+          phone: c.phone,
+          normalizedPhone: c.normalizedPhone,
+          walletBalance: c.walletBalance,
+          faceEmbeddingId: c.faceEmbeddingId,
+          faceDescriptor: c.faceDescriptor,
+          avatar: c.photoUrl,
+          category: 'Mteja wa PapoPay (Live)',
+          isRegistered: true,
+          source: c.source || 'firestore'
+        }));
+      setCustomersList([
+        ...realMapped,
+        ...CUSTOMERS_DB.map((c) => ({ ...c, source: 'demo' as const }))
+      ]);
+    });
+    return () => unsub();
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen) {
       startCamera();
+      setSelectedCustomer(null);
+      setFaceRecognitionStatus('idle');
       const interval = setInterval(() => {
         setFps(Math.floor(29 + Math.random() * 3));
       }, 2000);
@@ -187,50 +233,144 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
       stopCamera();
       setIsGateOpen(false);
       setIsScanning(false);
+      setSelectedCustomer(null);
     }
     return () => stopCamera();
   }, [isOpen]);
 
   // Execute Real-Time Face Recognition & Payment
-  const triggerFaceRecognitionPass = () => {
+  const triggerFaceRecognitionPass = async () => {
     if (isScanning) return;
     setIsScanning(true);
     setIsGateOpen(false);
-
+    setFaceRecognitionStatus('idle');
     speak("Inasoma uso na kuthibitisha");
 
-    // Check if the detected person is unregistered in PapoPay
-    if (selectedCustomer.isRegistered === false) {
-      setTimeout(() => {
-        setIsScanning(false);
-        setIsGateOpen(false);
-        setFaceRecognitionStatus('unregistered');
+    try {
+      let target: SimulatedCustomer | null = selectedCustomer;
 
-        speak("Samahani, uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako kwanza ili kuendelea.");
-        toast.error("Uso Haujasajiliwa! Mtu huyu hana Face ID. Tafadhali sajili uso wako kwanza.", {
-          icon: '⚠️'
+      if (scanMode === 'live') {
+        if (!videoRef.current || videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+          toast.error('Kamera haiko hewani! Ruhusu kamera au chagua mteja wa Demo hapo chini.');
+          setIsScanning(false);
+          return;
+        }
+        const livePool: RegisteredFaceCustomer[] = customersList
+          .filter((c) => c.isRegistered && c.source !== 'demo' && Array.isArray(c.faceDescriptor) && c.faceDescriptor.length === 128)
+          .map((c) => ({
+            id: c.id,
+            uid: c.uid,
+            name: c.name,
+            phone: c.phone || '',
+            normalizedPhone: c.normalizedPhone || normalizeTzPhone(c.phone),
+            walletBalance: c.walletBalance,
+            faceEmbeddingId: c.faceEmbeddingId,
+            faceDescriptor: c.faceDescriptor,
+            photoUrl: c.avatar,
+            isRegistered: true,
+            source: c.source
+          }));
+
+        const res = await identifyCustomerFromCamera(videoRef.current, livePool, {
+          mirrored: true,
+          maxDistance: 0.50
         });
-      }, 1600);
-      return;
-    }
 
-    setFaceRecognitionStatus('idle');
+        if (res.status === 'no_face') {
+          toast.error(res.message || 'Hakuna uso ulioonekana mbele ya kamera.');
+          setIsScanning(false);
+          return;
+        }
 
-    setTimeout(() => {
-      // Step 2: Recognized!
+        if (res.status !== 'matched' || !res.customer) {
+          setSelectedCustomer(null);
+          setFaceRecognitionStatus('unregistered');
+          speak("Samahani, uso wako haujasajiliwa kwenye PapoPay. Tafadhali jisajili uso wako kwanza ili kuendelea.");
+          toast.error("Uso Haujasajiliwa! Mtu huyu hana Face ID.", { icon: '⚠️' });
+          setIsScanning(false);
+          return;
+        }
+
+        target = {
+          id: res.customer.id,
+          uid: res.customer.uid,
+          name: res.customer.name,
+          phone: res.customer.phone,
+          normalizedPhone: res.customer.normalizedPhone,
+          walletBalance: res.customer.walletBalance,
+          faceEmbeddingId: res.customer.faceEmbeddingId,
+          faceDescriptor: res.customer.faceDescriptor,
+          avatar: res.customer.photoUrl,
+          category: 'Mteja wa PapoPay (Live)',
+          isRegistered: true,
+          matchConfidence: res.match?.confidencePct || 96.5,
+          source: res.customer.source
+        };
+        setSelectedCustomer(target);
+      } else {
+        if (!target || target.isRegistered === false) {
+          setFaceRecognitionStatus('unregistered');
+          speak("Samahani, uso wako haujasajiliwa kwenye PapoPay.");
+          toast.error("Uso Haujasajiliwa! Mtu huyu hana Face ID.", { icon: '⚠️' });
+          setIsScanning(false);
+          return;
+        }
+      }
+
       const fare = getModeFare(kioskMode);
+      if (target.walletBalance < fare) {
+        toast.error(`Salio la ${target.name} halitoshi (Salio: TZS ${target.walletBalance.toLocaleString()})`);
+        speak("Samahani, salio la mkoba wako halitoshi.");
+        setIsScanning(false);
+        return;
+      }
+
+      const newBalance = Math.max(0, target.walletBalance - fare);
+      const newTxId = `PAPO-KIO-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      if (target.source !== 'demo') {
+        await recordWakalaFaceTransaction({
+          customer: {
+            id: target.id,
+            uid: target.uid,
+            name: target.name,
+            phone: target.phone || '',
+            normalizedPhone: target.normalizedPhone || normalizeTzPhone(target.phone),
+            walletBalance: target.walletBalance,
+            faceEmbeddingId: target.faceEmbeddingId,
+            faceDescriptor: target.faceDescriptor,
+            photoUrl: target.avatar,
+            isRegistered: true,
+            source: target.source
+          },
+          txId: newTxId,
+          type: 'merchant_pos',
+          typeLabel: getModeTitle(kioskMode),
+          amount: fare,
+          commission: 0,
+          newBalance,
+          wakalaId: 'TZ-DAR-KIOSK-048',
+          wakalaName: 'PapoPay Express Terminal',
+          securityMethod: 'Kiosk Face ID 1:N',
+          faceConfidence: target.matchConfidence || 99.0
+        });
+      }
+
       playPaymentChime();
       triggerHapticTap();
 
-      const newTxId = `PAPO-KIO-${Math.floor(100000 + Math.random() * 900000)}`;
+      const updatedCust: SimulatedCustomer = { ...target, walletBalance: newBalance };
+      setSelectedCustomer(updatedCust);
+      setCustomersList(prev => prev.map(c => c.id === target!.id ? updatedCust : c));
+
       const receipt = {
         id: newTxId,
         txId: newTxId,
-        customer: selectedCustomer.name,
+        customer: target.name,
         amount: fare,
         item: getModeTitle(kioskMode),
         time: new Date().toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        faceConfidence: 99.4,
+        faceConfidence: target.matchConfidence || 99.4,
         mode: kioskMode
       };
 
@@ -243,23 +383,19 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
 
       if (kioskMode === 'transit_gate') {
         setIsGateOpen(true);
-        speak(`Lango limefunguliwa. Karibu ${selectedCustomer.name.split(' ')[0]}`);
-        toast.success(`BRT Gate 02 Limefunguliwa! TZS ${fare} zimekatwa.`, { icon: '🟢' });
+        speak(`Lango limefunguliwa. Karibu ${target.name.split(' ')[0]}`);
+        toast.success(`BRT Gate 02 Limefunguliwa! TZS ${fare} zimekatwa kwa ${target.name}.`, { icon: '🟢' });
+        setTimeout(() => setIsGateOpen(false), 4000);
       } else {
-        speak(`Malipo ya shilingi elfu ${Math.round(fare / 1000)} yamekamilika.`);
-        toast.success(`Malipo ya TZS ${fare.toLocaleString()} yamethibitishwa kwa uso!`, { icon: '✨' });
+        speak(`Malipo ya shilingi ${fare.toLocaleString()} yamekamilika kwa ${target.name.split(' ')[0]}.`);
+        toast.success(`Malipo ya TZS ${fare.toLocaleString()} yamethibitishwa kwa uso wa ${target.name}!`, { icon: '✨' });
       }
-
+    } catch (err) {
+      console.error('Kiosk scan failed:', err);
+      toast.error('Hitilafu imetokea wakati wa kutambua uso.');
+    } finally {
       setIsScanning(false);
-
-      // Auto close gate after 4 seconds
-      if (kioskMode === 'transit_gate') {
-        setTimeout(() => {
-          setIsGateOpen(false);
-        }, 4000);
-      }
-
-    }, 1800);
+    }
   };
 
   if (!isOpen) return null;
@@ -387,24 +523,26 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                       />
                     )}
 
-                    {/* Customer Tag Box below the face (Murtaza cvzone pattern) */}
-                    <div className="mt-auto bg-black/80 backdrop-blur-md p-2 rounded-xl border border-cyan-500/40 text-left pointer-events-auto">
-                      <div className="flex items-center gap-2">
-                        <img 
-                          src={selectedCustomer.avatar} 
-                          alt="Face" 
-                          className="w-8 h-8 rounded-full object-cover border border-cyan-400"
-                        />
-                        <div className="leading-tight">
-                          <p className="text-xs font-black text-white truncate max-w-[140px]">
-                            {selectedCustomer.name}
-                          </p>
-                          <p className="text-[10px] text-cyan-300 font-mono">
-                            Match: 99.4% &bull; Live
-                          </p>
+                    {/* Customer Tag Box below the face */}
+                    {selectedCustomer && (
+                      <div className="mt-auto bg-black/80 backdrop-blur-md p-2 rounded-xl border border-cyan-500/40 text-left pointer-events-auto">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={selectedCustomer.avatar}
+                            alt="Face"
+                            className="w-8 h-8 rounded-full object-cover border border-cyan-400"
+                          />
+                          <div className="leading-tight">
+                            <p className="text-xs font-black text-white truncate max-w-[140px]">
+                              {selectedCustomer.name}
+                            </p>
+                            <p className="text-[10px] text-cyan-300 font-mono">
+                              Match: {(selectedCustomer.matchConfidence ?? 99.4).toFixed(1)}% &bull; {scanMode === 'live' ? 'Live AI' : 'Demo'}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -495,31 +633,53 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                 </button>
               </div>
 
-              {/* Simulated Customer Switcher (To test multi-face identification) */}
+              {/* Simulated Customer Switcher & Live Switch */}
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                    Chagua Mteja Mfano (Jaribu Nyuso Tofauti):
+                    Chagua Njia ya Utambuzi:
                   </span>
-                  <span className="text-[10px] text-cyan-400 font-mono">
-                    Jaribu aliyesajiliwa vs asiyesajiliwa
-                  </span>
+                  <div className="flex items-center gap-1 bg-black/50 p-1 rounded-xl border border-white/10 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanMode('live');
+                        setSelectedCustomer(null);
+                        setFaceRecognitionStatus('idle');
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-bold ${scanMode === 'live' ? 'bg-cyan-500 text-neutral-950' : 'text-neutral-400 hover:text-white'}`}
+                    >
+                      Kamera Halisi (Live 1:N)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanMode('demo');
+                        setSelectedCustomer(customersList[0] || null);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg font-bold ${scanMode === 'demo' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white'}`}
+                    >
+                      Chagua Profaili (Demo)
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {customersList.map(c => {
-                    const isSelected = selectedCustomer.id === c.id;
+                  {customersList.slice(0, 8).map(c => {
+                    const isSelected = selectedCustomer?.id === c.id;
                     const isReg = c.isRegistered !== false;
                     return (
                       <button
                         key={c.id}
+                        type="button"
                         onClick={() => {
+                          setScanMode('demo');
                           setSelectedCustomer(c);
                           setFaceRecognitionStatus('idle');
                         }}
                         className={`p-2 rounded-xl flex items-center gap-2 text-left transition-all ${
-                          isSelected 
-                            ? isReg 
-                              ? 'bg-cyan-500/20 border border-cyan-400 text-white shadow-xs' 
+                          isSelected
+                            ? isReg
+                              ? 'bg-cyan-500/20 border border-cyan-400 text-white shadow-xs'
                               : 'bg-amber-500/20 border border-amber-400 text-white shadow-xs'
                             : 'bg-black/30 hover:bg-black/50 border border-white/5 text-neutral-400'
                         }`}
@@ -564,7 +724,7 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                   </div>
                 </div>
 
-                {selectedCustomer.isRegistered === false ? (
+                {selectedCustomer && selectedCustomer.isRegistered === false ? (
                   <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-xs text-amber-200 space-y-2.5">
                     <div className="flex items-center gap-2 font-black text-amber-300">
                       <UserX className="w-4 h-4 shrink-0" />
@@ -582,7 +742,7 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                       <span>Sajili Uso Wako Sasa Hapa Kiosk</span>
                     </button>
                   </div>
-                ) : (
+                ) : selectedCustomer ? (
                   <div className="pt-3 border-t border-white/10 space-y-2 text-xs">
                     <div className="flex justify-between text-neutral-400">
                       <span>Mteja aliyetambuliwa:</span>
@@ -596,6 +756,10 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
                       <span>Face ID Vector:</span>
                       <span className="font-mono text-cyan-300">{selectedCustomer.faceEmbeddingId}</span>
                     </div>
+                  </div>
+                ) : (
+                  <div className="pt-3 border-t border-white/10 text-xs text-neutral-400">
+                    Bofya &ldquo;{kioskMode === 'transit_gate' ? 'Soma Uso & Fungua Geti' : 'Thibitisha Malipo'}&rdquo; kutambua uso kwenye kamera.
                   </div>
                 )}
 
@@ -745,22 +909,34 @@ export const PapoPayKioskTerminal: React.FC<PapoPayKioskTerminalProps> = ({
         <FaceRegistrationModal
           isOpen={isKioskEnrollOpen}
           onClose={() => setIsKioskEnrollOpen(false)}
-          initialName={selectedCustomer.name.includes('Mtu Asiyesajiliwa') ? 'Mteja Mpya' : selectedCustomer.name}
+          initialName=""
+          initialPhone=""
+          setAsCurrentDeviceProfile={false}
           onSuccess={(newReg) => {
+            const c = newReg.customer;
             const enrolledCustomer: SimulatedCustomer = {
-              id: newReg.embeddingId,
-              name: newReg.name,
-              walletBalance: 125000,
-              faceEmbeddingId: newReg.embeddingId,
-              avatar: newReg.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+              id: c?.id || newReg.embeddingId,
+              uid: c?.uid,
+              name: c?.name || newReg.name,
+              phone: c?.phone || newReg.phone,
+              normalizedPhone: c?.normalizedPhone || normalizeTzPhone(newReg.phone),
+              walletBalance: c?.walletBalance ?? 0,
+              faceEmbeddingId: c?.faceEmbeddingId || newReg.embeddingId,
+              faceDescriptor: c?.faceDescriptor || newReg.faceDescriptor,
+              avatar: c?.photoUrl || newReg.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
               category: 'Mteja Aliyesajiliwa Mpya',
-              isRegistered: true
+              isRegistered: true,
+              matchConfidence: 99.6,
+              source: 'firestore'
             };
-            setCustomersList(prev => [enrolledCustomer, ...prev]);
+            setCustomersList(prev => [
+              enrolledCustomer,
+              ...prev.filter(x => x.id !== enrolledCustomer.id)
+            ]);
             setSelectedCustomer(enrolledCustomer);
             setFaceRecognitionStatus('idle');
-            speak(`Hongera ${newReg.name.split(' ')[0]}! Uso wako umesajiliwa kwenye Kiosk. Sasa unaweza kupita au kulipa.`);
-            toast.success(`Uso wa ${newReg.name} umesajiliwa kikamilifu kwenye Kiosk!`, { icon: '🎉' });
+            speak(`Hongera ${enrolledCustomer.name.split(' ')[0]}! Uso wako umesajiliwa kwenye Kiosk. Sasa unaweza kupita au kulipa.`);
+            toast.success(`Uso wa ${enrolledCustomer.name} umesajiliwa kikamilifu kwenye Kiosk!`, { icon: '🎉' });
           }}
         />
       </div>

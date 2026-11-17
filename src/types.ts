@@ -69,8 +69,11 @@ export interface UserProfile {
   hasFaceEnrolled?: boolean;
   facePhotoUrl?: string;
   faceEmbeddingId?: string;
+  faceDescriptor?: number[];
   faceRegisteredAt?: string;
   faceDailyLimit?: number;
+  normalizedPhone?: string;
+  pin?: string;
   saccoGroup?: {
     groupId: string;
     groupName: string;

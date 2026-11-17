@@ -34,6 +34,9 @@ export default function RegisterCustomer() {
   const [faceOption, setFaceOption] = useState<'later' | 'now'>('later');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [capturedDescriptor, setCapturedDescriptor] = useState<number[] | null>(null);
+  const [facePin, setFacePin] = useState<string>('1234');
+  const [isExtractingFace, setIsExtractingFace] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -57,6 +60,8 @@ export default function RegisterCustomer() {
   const startCamera = async () => {
     setCameraError(null);
     try {
+      const { ensureFaceModelsLoaded } = await import('../../lib/faceBiometrics');
+      ensureFaceModelsLoaded().catch(() => {});
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -85,24 +90,28 @@ export default function RegisterCustomer() {
     setIsCameraActive(false);
   };
 
-  const handleCapturePhoto = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current || document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 640;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Draw video frame to canvas (unmirrored if needed, or matched)
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-    setCapturedPhoto(dataUrl);
-    stopCamera();
-    toast.success('Picha ya uso imenaswa kikamilifu!', { icon: '📸' });
+  const handleCapturePhoto = async () => {
+    if (!videoRef.current || videoRef.current.readyState < 2) {
+      toast.error('Kamera bado haijaiva. Subiri kidogo au pakia picha.');
+      return;
+    }
+    setIsExtractingFace(true);
+    setCameraError(null);
+    try {
+      const { captureMultiFrameFaceEnrollment } = await import('../../lib/faceBiometrics');
+      const res = await captureMultiFrameFaceEnrollment(videoRef.current, 2, true);
+      if (!res.ok) {
+        setCameraError(res.message);
+        toast.error(res.message, { icon: '⚠️' });
+        return;
+      }
+      setCapturedPhoto(res.photoUrl);
+      setCapturedDescriptor(res.descriptor);
+      stopCamera();
+      toast.success(`Uso umenaswa kikamilifu (${res.confidence}% uhakika)!`, { icon: '📸' });
+    } finally {
+      setIsExtractingFace(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,12 +119,25 @@ export default function RegisterCustomer() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const result = event.target?.result as string;
-      if (result) {
-        setCapturedPhoto(result);
+      if (!result) return;
+      setIsExtractingFace(true);
+      setCameraError(null);
+      try {
+        const { extractFaceBiometrics } = await import('../../lib/faceBiometrics');
+        const res = await extractFaceBiometrics(result, { mirrored: false, requireSingleFace: true });
+        if (!res.ok) {
+          setCameraError(res.message);
+          toast.error(res.message, { icon: '⚠️' });
+          return;
+        }
+        setCapturedPhoto(res.photoUrl);
+        setCapturedDescriptor(res.descriptor);
         stopCamera();
-        toast.success('Picha ya uso imepakiwa kikamilifu!', { icon: '✅' });
+        toast.success('Picha ya uso imehakikiwa na kunaswa kikamilifu!', { icon: '✅' });
+      } finally {
+        setIsExtractingFace(false);
       }
     };
     reader.readAsDataURL(file);
@@ -123,6 +145,7 @@ export default function RegisterCustomer() {
 
   const handleRetake = () => {
     setCapturedPhoto(null);
+    setCapturedDescriptor(null);
     startCamera();
   };
 
@@ -138,57 +161,61 @@ export default function RegisterCustomer() {
       return;
     }
 
-    const hasFace = faceOption === 'now' && Boolean(capturedPhoto);
+    const { normalizeTzPhone } = await import('../../lib/faceBiometrics');
+    const { saveEnrolledFaceCustomer } = await import('../../lib/faceRegistry');
+    const normPhone = normalizeTzPhone(formData.phone);
+    const hasFace = faceOption === 'now' && Boolean(capturedPhoto) && Boolean(capturedDescriptor);
+    const embeddingId = hasFace ? `EMB-TZ-${Date.now()}` : '';
+
+    if (faceOption === 'now' && !hasFace) {
+      toast.error('Tafadhali piga au pakia picha ya uso wako wazi kwanza, au chagua "Nitaweka Baadaye".');
+      return;
+    }
 
     setLoading(true);
     try {
+      const cleanPin = /^\d{4}$/.test(facePin) ? facePin : '1234';
       const extraPayload: any = {
         fullName: formData.fullName,
         phoneNumber: formData.phone,
         phone: formData.phone,
+        normalizedPhone: normPhone,
         gender: formData.gender,
         hasFaceEnrolled: hasFace,
         facePhotoUrl: hasFace ? capturedPhoto : '',
-        faceEmbeddingId: hasFace ? `EMB-TZ-${Date.now()}` : '',
-        faceRegisteredAt: hasFace ? new Date().toISOString() : ''
+        faceEmbeddingId: embeddingId,
+        faceDescriptor: hasFace ? capturedDescriptor : undefined,
+        faceRegisteredAt: hasFace ? new Date().toISOString() : '',
+        pin: cleanPin,
+        walletBalance: 0
       };
 
-      await signUp(formData.email.trim(), formData.password, 'customer', extraPayload);
+      const cred = await signUp(formData.email.trim(), formData.password, 'customer', extraPayload);
 
-      // Manage local persistent biometric record for immediate offline & kiosk recognition
-      if (hasFace && capturedPhoto) {
-        try {
-          const faceRecord = {
-            isEnrolled: true,
-            name: formData.fullName,
-            phone: formData.phone,
-            photoUrl: capturedPhoto,
-            embeddingId: `EMB-TZ-${Date.now()}`,
-            dailyLimit: 500000,
-            enrolledAt: new Date().toISOString()
-          };
-          localStorage.setItem('papopay_registered_face', JSON.stringify(faceRecord));
+      if (hasFace && capturedPhoto && capturedDescriptor) {
+        await saveEnrolledFaceCustomer({
+          uid: cred?.user?.uid,
+          name: formData.fullName,
+          phone: formData.phone,
+          embeddingId,
+          photoUrl: capturedPhoto,
+          faceDescriptor: capturedDescriptor,
+          dailyLimit: 500000,
+          pin: cleanPin,
+          walletBalance: 0,
+          setAsCurrentDeviceProfile: true
+        });
 
-          // Also save in customer registry for Wakala/Merchant lookup
-          const regString = localStorage.getItem('papopay_customers_registry');
-          let registry: any[] = [];
-          if (regString) {
-            try { registry = JSON.parse(regString); } catch {}
-          }
-          registry = [faceRecord, ...registry.filter(r => r.phone !== formData.phone)];
-          localStorage.setItem('papopay_customers_registry', JSON.stringify(registry));
-        } catch {}
-
-        toast.success('🎉 Hongera! Akaunti na Uso vimesajiliwa kikamilifu!', {
-          description: 'Sasa unaweza kuweka pesa kwa Wakala na kulipa bila simu wala kadi.'
+        toast.success('Hongera! Akaunti na Uso vimesajiliwa kikamilifu!', {
+          description: 'Sasa Wakala anaweza kukutambua kwa uso wako unapoweka au kutoa pesa.'
         });
       } else {
-        // Customer chose not to enroll face now
         try {
           localStorage.setItem('papopay_registered_face', JSON.stringify({
             isEnrolled: false,
             name: formData.fullName,
-            phone: formData.phone
+            phone: formData.phone,
+            normalizedPhone: normPhone
           }));
         } catch {}
 
@@ -455,24 +482,21 @@ export default function RegisterCustomer() {
                           <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-2 z-10 px-3">
                             <button
                               type="button"
+                              disabled={isExtractingFace}
                               onClick={handleCapturePhoto}
-                              className="w-full py-2 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 cursor-pointer active:scale-95 transition-all"
+                              className="w-full py-2 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-60 text-neutral-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 cursor-pointer active:scale-95 transition-all"
                             >
-                              <Camera className="w-4 h-4" />
-                              Piga Picha ya Uso Sasa
+                              {isExtractingFace ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                              {isExtractingFace ? 'Inachanganua Uso...' : 'Piga Picha ya Uso Sasa'}
                             </button>
                           </div>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {cameraError && (
-                            <p className="text-[11px] text-amber-500 font-medium">
-                              {cameraError}
-                            </p>
-                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"
+                              disabled={isExtractingFace}
                               onClick={startCamera}
                               className="py-2.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                             >
@@ -482,17 +506,38 @@ export default function RegisterCustomer() {
 
                             <button
                               type="button"
+                              disabled={isExtractingFace}
                               onClick={() => fileInputRef.current?.click()}
                               className="py-2.5 px-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                             >
-                              <Upload className="w-3.5 h-3.5" />
-                              Pakia Picha
+                              {isExtractingFace ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                              {isExtractingFace ? 'Inahakiki...' : 'Pakia Picha'}
                             </button>
                           </div>
                         </div>
                       )}
+                      {cameraError && (
+                        <p className="text-[11px] text-rose-500 font-semibold">
+                          {cameraError}
+                        </p>
+                      )}
                     </div>
                   )}
+
+                  {/* 4-digit Wakala Cash-Out PIN */}
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 dark:text-neutral-300 block mb-1">
+                      PIN ya Siri ya Wakala (Tarakimu 4 za Kutoa Pesa):
+                    </label>
+                    <Input
+                      type="password"
+                      maxLength={4}
+                      placeholder="1234"
+                      value={facePin}
+                      onChange={e => setFacePin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      className="h-10 bg-white/80 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl font-mono tracking-widest text-sm"
+                    />
+                  </div>
 
                   {/* Hidden file input for uploading photo */}
                   <input

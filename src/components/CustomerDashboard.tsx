@@ -1917,21 +1917,11 @@ export default function CustomerDashboard() {
       <FaceRegistrationModal
         isOpen={isFaceRegisterOpen}
         onClose={() => setIsFaceRegisterOpen(false)}
+        uid={user?.uid}
         initialName={profile?.displayName || profile?.fullName || user?.displayName || 'Mteja'}
         initialPhone={profile?.phoneNumber || profile?.phone || ''}
-        onSuccess={(data) => {
+        onSuccess={() => {
           setLocalFaceEnrolled(true);
-          try {
-            localStorage.setItem('papopay_registered_face', JSON.stringify({
-              isEnrolled: true,
-              name: data.name,
-              phone: data.phone,
-              embeddingId: data.embeddingId,
-              photoUrl: data.photoUrl,
-              dailyLimit: 500000,
-              enrolledAt: new Date().toISOString()
-            }));
-          } catch {}
           toast.success("Hongera! Uso wako umesajiliwa kikamilifu.", { icon: '🎉' });
         }}
       />

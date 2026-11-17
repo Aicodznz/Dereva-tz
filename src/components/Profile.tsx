@@ -2109,6 +2109,7 @@ export default function Profile() {
       <FaceRegistrationModal
         isOpen={isFaceModalOpen}
         onClose={() => setIsFaceModalOpen(false)}
+        uid={user?.uid}
         initialName={profile?.displayName || profile?.fullName || user?.displayName || 'Mteja'}
         initialPhone={profile?.phoneNumber || profile?.phone || ''}
         onSuccess={async (data) => {
@@ -2117,18 +2118,11 @@ export default function Profile() {
               hasFaceEnrolled: true,
               facePhotoUrl: data.photoUrl || '',
               faceEmbeddingId: data.embeddingId,
+              faceDescriptor: data.faceDescriptor,
+              pin: data.pin,
               faceRegisteredAt: new Date().toISOString()
             });
             setLocalFaceEnrolled(true);
-            localStorage.setItem('papopay_registered_face', JSON.stringify({
-              isEnrolled: true,
-              name: data.name,
-              phone: data.phone,
-              embeddingId: data.embeddingId,
-              photoUrl: data.photoUrl,
-              dailyLimit: 500000,
-              enrolledAt: new Date().toISOString()
-            }));
             toast.success("Hongera! Uso wako umesajiliwa kikamilifu kwenye akaunti yako.", { icon: '🎉' });
           } catch (err) {
             console.error('Failed to update face profile:', err);

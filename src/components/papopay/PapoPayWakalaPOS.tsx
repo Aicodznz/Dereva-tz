@@ -11,6 +11,16 @@ import { QRCodeSVG } from 'qrcode.react';
 import { playPaymentChime, triggerHapticTap } from '../../utils/nfcPayment';
 import { BiometricFaceCanvas, BiometricHudMode, FaceTrackResult } from './BiometricFaceCanvas';
 import { FaceRegistrationModal } from './FaceRegistrationModal';
+import {
+  ensureFaceModelsLoaded,
+  normalizeTzPhone
+} from '../../lib/faceBiometrics';
+import {
+  subscribeEnrolledFaceCustomers,
+  identifyCustomerFromCamera,
+  recordWakalaFaceTransaction,
+  RegisteredFaceCustomer
+} from '../../lib/faceRegistry';
 import { toast } from 'sonner';
 
 export type BusinessType = 'duka' | 'mgahawa' | 'hotel' | 'general_wakala';
@@ -18,22 +28,31 @@ export type WakalaOperation = 'face_deposit' | 'face_withdraw' | 'merchant_check
 
 export interface VerifiedCustomer {
   id: string;
+  uid?: string;
   name: string;
   phone: string;
+  normalizedPhone?: string;
   walletBalance: number;
   faceEmbeddingId: string;
+  faceDescriptor?: number[];
   avatar: string;
   isRegistered: boolean;
+  pin?: string;
+  matchConfidence?: number;
+  source?: 'firestore' | 'local' | 'demo';
 }
 
-const DEFAULT_VERIFIED_CUSTOMER: VerifiedCustomer = {
-  id: 'cust_baraka',
-  name: 'Baraka Juma Mrema',
+const DEFAULT_DEMO_CUSTOMER: VerifiedCustomer = {
+  id: 'cust_baraka_demo',
+  name: 'Baraka Juma Mrema (Demo)',
   phone: '0754 892 100',
   walletBalance: 3450000,
-  faceEmbeddingId: 'EMB-TZ-DAR-9821-VERIFIED',
+  faceEmbeddingId: 'EMB-TZ-DAR-9821-DEMO',
   avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  isRegistered: true
+  isRegistered: true,
+  pin: '1234',
+  matchConfidence: 99.2,
+  source: 'demo'
 };
 
 const MERCHANT_ITEMS_PRESETS: Record<BusinessType, { id: string; name: string; price: number; icon: string }[]> = {
@@ -104,9 +123,9 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
   // 'unregistered' -> face is NOT in system (prompts registration)
   const [faceSystemStatus, setFaceSystemStatus] = useState<'scanning' | 'querying' | 'matched' | 'unregistered'>('scanning');
   const [matchedCustomer, setMatchedCustomer] = useState<VerifiedCustomer | null>(null);
-
-  // Test mode: 'live' (detects registered vs unregistered), or togglable for easy demo testing
-  const [simulatedRegistrationStatus, setSimulatedRegistrationStatus] = useState<'registered' | 'unregistered'>('registered');
+  const [registeredPool, setRegisteredPool] = useState<RegisteredFaceCustomer[]>([]);
+  const [verificationMode, setVerificationMode] = useState<'live' | 'demo_registered' | 'demo_unregistered'>('live');
+  const [customerPinInput, setCustomerPinInput] = useState('');
 
   // UI state
   const [hudMode, setHudMode] = useState<BiometricHudMode>('mesh');
@@ -166,16 +185,25 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     }
   };
 
+  // Subscribe to real Firestore + localStorage face-registered customers
+  useEffect(() => {
+    if (!isOpen) return;
+    ensureFaceModelsLoaded().catch(() => {});
+    const unsub = subscribeEnrolledFaceCustomers((loaded) => {
+      setRegisteredPool(loaded);
+    });
+    return () => unsub();
+  }, [isOpen]);
+
   // Open modal lifecycle
   useEffect(() => {
     if (isOpen) {
       startCamera();
-      // Start in scanning state with NO customer pre-filled
       setMatchedCustomer(null);
       setFaceSystemStatus('scanning');
       setTxSuccess(false);
+      setCustomerPinInput('');
       speak("Kamera ya Wakala ipo hewani. Simama mbele ya kamera ili sura yako itambuliwe.");
-
     } else {
       stopCamera();
       setMatchedCustomer(null);
@@ -183,71 +211,93 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
       setIsConfirmingTx(false);
     }
     return () => stopCamera();
-  }, [isOpen, simulatedRegistrationStatus]);
+  }, [isOpen]);
 
-  // LIVE SYSTEM SEARCH IMPLEMENTATION
-  const executeLiveSystemSearch = (desiredStatus: 'registered' | 'unregistered') => {
+  // REAL 1:N BIOMETRIC SYSTEM SEARCH
+  const executeLiveSystemSearch = async (overrideMode?: 'live' | 'demo_registered' | 'demo_unregistered') => {
+    const modeToUse = overrideMode || verificationMode;
     isPosSearchingRef.current = true;
     setFaceSystemStatus('querying');
     setMatchedCustomer(null);
+    setCustomerPinInput('');
 
-    speak("Uso umepatikana. Inatafuta kwenye mfumo wa PapoPay...");
+    speak("Uso umepatikana. Inalinganisha alama za uso kwenye mfumo wa PapoPay...");
 
-    setTimeout(() => {
-      isPosSearchingRef.current = false;
-      // Check if user has registered a face in localStorage
-      let enrolledData: any = null;
-      try {
-        const stored = localStorage.getItem('papopay_registered_face');
-        if (stored) enrolledData = JSON.parse(stored);
-        if (!enrolledData || !enrolledData.isEnrolled) {
-          const storedList = localStorage.getItem('papopay_registered_faces');
-          if (storedList) {
-            const arr = JSON.parse(storedList);
-            if (Array.isArray(arr) && arr.length > 0 && arr[0].isEnrolled) {
-              enrolledData = arr[0];
-            }
-          }
-        }
-      } catch {}
-
-      if (enrolledData && enrolledData.isEnrolled === false && desiredStatus !== 'registered') {
-        // CASE: AKAUNTI IPO LAKINI HAJAWEKA USO BADO (kama hajaweka ambiwe hajaweka aweke)
-        setFaceSystemStatus('unregistered');
-        setMatchedCustomer(null);
-        triggerHapticTap();
-        speak(`Mteja ${enrolledData.name?.split(' ')[0] || ''} ana akaunti lakini hajasajili uso bado! Tafadhali weka uso wake sasa.`);
-        toast.warning(`Akaunti Ipo, Bado Hajaweka Uso: ${enrolledData.name || 'Mteja'}`, { 
-          description: "Mteja hakusajili uso wakati anajisajili. Bonyeza Sajili Uso Sasa.",
-          icon: '⚠️' 
-        });
-      } else if (desiredStatus === 'unregistered') {
-        // CASE 1: SURA HAIPO KWENYE MFUMO!
+    try {
+      if (modeToUse === 'demo_unregistered') {
         setFaceSystemStatus('unregistered');
         setMatchedCustomer(null);
         triggerHapticTap();
         speak("Samahani, sura yako haipo kwenye mfumo wa PapoPay. Tafadhali sajili uso wako sasa.");
         toast.error("Sura Haipo Kwenye Mfumo! Tafadhali sajili uso wako.", { icon: '⚠️' });
-      } else {
-        // CASE 2: SURA IPO KWENYE MFUMO! (kama alisha weka kipindi anajisajili sawa)
-        const verified: VerifiedCustomer = (enrolledData && enrolledData.isEnrolled) ? {
-          id: 'cust_enrolled',
-          name: enrolledData.name || DEFAULT_VERIFIED_CUSTOMER.name,
-          phone: enrolledData.phone || DEFAULT_VERIFIED_CUSTOMER.phone,
-          walletBalance: 3450000,
-          faceEmbeddingId: enrolledData.embeddingId || 'EMB-VERIFIED-LIVE',
-          avatar: enrolledData.photoUrl || DEFAULT_VERIFIED_CUSTOMER.avatar,
-          isRegistered: true
-        } : DEFAULT_VERIFIED_CUSTOMER;
+        return;
+      }
+
+      if (modeToUse === 'demo_registered') {
+        setMatchedCustomer(DEFAULT_DEMO_CUSTOMER);
+        setFaceSystemStatus('matched');
+        playPaymentChime();
+        triggerHapticTap();
+        speak(`Mteja ${DEFAULT_DEMO_CUSTOMER.name.split(' ')[0]} ametambuliwa (Hali ya Mfano).`);
+        toast.success(`Mteja wa Mfano Ametambuliwa: ${DEFAULT_DEMO_CUSTOMER.name}`, { icon: '✅' });
+        return;
+      }
+
+      // LIVE 1:N BIOMETRIC RECOGNITION
+      if (!videoRef.current || videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+        setFaceSystemStatus('scanning');
+        toast.error('Kamera haiko hewani. Ruhusu kamera kuskani uso.');
+        return;
+      }
+
+      const enrolledCandidates = registeredPool.filter((c) => c.isRegistered);
+      const res = await identifyCustomerFromCamera(videoRef.current, enrolledCandidates, {
+        mirrored: true,
+        maxDistance: 0.50
+      });
+
+      if (res.status === 'no_face') {
+        setFaceSystemStatus('scanning');
+        toast.error(res.message || 'Weka uso katikati ya kamera na ujaribu tena.');
+        return;
+      }
+
+      if (res.status === 'matched' && res.customer) {
+        const c = res.customer;
+        const verified: VerifiedCustomer = {
+          id: c.id,
+          uid: c.uid,
+          name: c.name,
+          phone: c.phone,
+          normalizedPhone: c.normalizedPhone,
+          walletBalance: c.walletBalance,
+          faceEmbeddingId: c.faceEmbeddingId,
+          faceDescriptor: c.faceDescriptor,
+          avatar: c.photoUrl,
+          isRegistered: true,
+          pin: c.pin,
+          matchConfidence: res.match?.confidencePct || 96.5,
+          source: c.source
+        };
 
         setMatchedCustomer(verified);
         setFaceSystemStatus('matched');
         playPaymentChime();
         triggerHapticTap();
-        speak(`Mteja ${verified.name.split(' ')[0]} ametambuliwa kikamilifu. Salio lako ni shilingi ${verified.walletBalance.toLocaleString()}. Sasa unaweza kuthibitisha muamala.`);
-        toast.success(`Mteja Ametambuliwa: ${verified.name}`, { icon: '✅' });
+        speak(`Mteja ${verified.name.split(' ')[0]} ametambuliwa kwa uhakika wa asilimia ${Math.round(verified.matchConfidence || 96)}. Salio lake ni shilingi ${verified.walletBalance.toLocaleString()}.`);
+        toast.success(`Mteja Ametambuliwa: ${verified.name} (${verified.matchConfidence}%)`, { icon: '✅' });
+        return;
       }
-    }, 1400);
+
+      // Unregistered / Unknown visitor -> NEVER fall back to Baraka!
+      setFaceSystemStatus('unregistered');
+      setMatchedCustomer(null);
+      triggerHapticTap();
+      speak("Samahani, uso huu haujasajiliwa kwenye mfumo wa PapoPay. Tafadhali sajili uso wa mteja kwanza.");
+      toast.error(res.message || "Uso Haujasajiliwa Kwenye Mfumo!", { icon: '⚠️' });
+    } finally {
+      isPosSearchingRef.current = false;
+    }
   };
 
   const handleFaceTracked = (data: FaceTrackResult) => {
@@ -256,12 +306,14 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     setLiveDistance(data.distanceCm);
     setLiveYaw(data.headYaw);
 
-    if (data.detected && data.confidence >= 88) {
+    if (verificationMode !== 'live') return;
+
+    if (data.detected && data.confidence >= 84) {
       if (faceSystemStatus === 'scanning' && !isPosSearchingRef.current) {
         posFaceDebounceRef.current++;
         if (posFaceDebounceRef.current >= 4) {
           posFaceDebounceRef.current = 0;
-          executeLiveSystemSearch(simulatedRegistrationStatus);
+          executeLiveSystemSearch('live');
         }
       }
     } else {
@@ -326,16 +378,18 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     }).filter(Boolean) as any);
   };
 
-  // CONFIRM TRANSACTION (ONLY WHEN CUSTOMER IS MATCHED & VERIFIED)
-  const handleConfirmTransaction = () => {
+  // CONFIRM TRANSACTION (ONLY WHEN CUSTOMER IS MATCHED & VERIFIED + PIN FOR CASH-OUT)
+  const handleConfirmTransaction = async () => {
     if (!matchedCustomer || isConfirmingTx) return;
 
     let transactionAmount = 0;
     let operationTitle = '';
+    let opType: 'deposit' | 'withdraw' | 'merchant_pos' = 'deposit';
 
     if (operation === 'face_deposit') {
       transactionAmount = depositAmount;
       operationTitle = 'Wakala Kuweka Pesa (Cash-In)';
+      opType = 'deposit';
       if (transactionAmount <= 0) {
         toast.error("Weka kiasi sahihi cha kuweka!");
         return;
@@ -347,6 +401,7 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     } else if (operation === 'face_withdraw') {
       transactionAmount = withdrawAmount;
       operationTitle = 'Wakala Kutoa Pesa (Cash-Out)';
+      opType = 'withdraw';
       if (transactionAmount <= 0) {
         toast.error("Weka kiasi sahihi cha kutoa!");
         return;
@@ -355,11 +410,23 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
         toast.error(`Salio la mteja halitoshi! (Salio: TZS ${matchedCustomer.walletBalance.toLocaleString()})`);
         return;
       }
+      const expectedPin = String(matchedCustomer.pin || '1234').trim();
+      if (customerPinInput.trim() !== expectedPin) {
+        toast.error('Ingiza PIN sahihi ya tarakimu 4 ya mteja ili kutoa pesa!');
+        speak('Tafadhali weka PIN ya siri ya mteja.');
+        triggerHapticTap();
+        return;
+      }
     } else {
       transactionAmount = cartTotal;
       operationTitle = `Malipo ya ${businessType === 'duka' ? 'Duka' : businessType === 'mgahawa' ? 'Mgahawa' : 'Hotel'}`;
+      opType = 'merchant_pos';
       if (transactionAmount <= 0) {
         toast.error("Weka bidhaa au huduma kwenye bili!");
+        return;
+      }
+      if (matchedCustomer.walletBalance < transactionAmount) {
+        toast.error(`Salio la mteja halitoshi kulipia bili! (Salio: TZS ${matchedCustomer.walletBalance.toLocaleString()})`);
         return;
       }
     }
@@ -367,35 +434,67 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
     setIsConfirmingTx(true);
     speak("Inathibitisha muamala kwa bayometriki ya uso...");
 
-    setTimeout(() => {
-      setIsConfirmingTx(false);
+    try {
+      const commission = Math.round(transactionAmount * 0.012);
+      const newBalance =
+        operation === 'face_deposit'
+          ? matchedCustomer.walletBalance + transactionAmount
+          : Math.max(0, matchedCustomer.walletBalance - transactionAmount);
+      const newTxId = `POS-TX-${Date.now().toString().slice(-6)}`;
+
+      await recordWakalaFaceTransaction({
+        customer: {
+          id: matchedCustomer.id,
+          uid: matchedCustomer.uid,
+          name: matchedCustomer.name,
+          phone: matchedCustomer.phone,
+          normalizedPhone: matchedCustomer.normalizedPhone || normalizeTzPhone(matchedCustomer.phone),
+          walletBalance: matchedCustomer.walletBalance,
+          faceEmbeddingId: matchedCustomer.faceEmbeddingId,
+          faceDescriptor: matchedCustomer.faceDescriptor,
+          photoUrl: matchedCustomer.avatar,
+          isRegistered: true,
+          pin: matchedCustomer.pin,
+          source: matchedCustomer.source
+        },
+        txId: newTxId,
+        type: opType,
+        typeLabel: operationTitle,
+        amount: transactionAmount,
+        commission,
+        newBalance,
+        wakalaId,
+        wakalaName: businessName,
+        securityMethod: operation === 'face_withdraw' ? 'AI Face ID + PIN' : 'AI Face ID 1:N',
+        faceConfidence: matchedCustomer.matchConfidence
+      });
+
       setTxSuccess(true);
       playPaymentChime();
       triggerHapticTap();
-
-      const commission = Math.round(transactionAmount * 0.012);
       setTotalCommissionEarned(prev => prev + commission);
+      setCustomerPinInput('');
 
       if (operation === 'face_deposit') {
         setWakalaFloatBalance(prev => prev - transactionAmount + commission);
-        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: prev.walletBalance + transactionAmount }) : null);
+        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: newBalance }) : null);
         if (onBalanceDeposit) onBalanceDeposit(transactionAmount, matchedCustomer.name);
         speak(`Pesa shilingi ${transactionAmount.toLocaleString()} zimewekwa kikamilifu kwenye akaunti ya ${matchedCustomer.name.split(' ')[0]}.`);
         toast.success(`TZS ${transactionAmount.toLocaleString()} Zimewekwa kwa Uso!`, { icon: '💰' });
       } else if (operation === 'face_withdraw') {
         setWakalaFloatBalance(prev => prev + transactionAmount + commission);
-        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: prev.walletBalance - transactionAmount }) : null);
+        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: newBalance }) : null);
         if (onBalanceWithdraw) onBalanceWithdraw(transactionAmount, matchedCustomer.name);
         speak(`Kutoa pesa shilingi ${transactionAmount.toLocaleString()} kumethibitishwa. Mkabidhi mteja pesa taslimu.`);
         toast.success(`Kutoa Pesa Kumethibitishwa!`, { icon: '💵' });
       } else {
-        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: Math.max(0, prev.walletBalance - transactionAmount) }) : null);
+        setMatchedCustomer(prev => prev ? ({ ...prev, walletBalance: newBalance }) : null);
         speak(`Malipo ya bili ya shilingi ${transactionAmount.toLocaleString()} yamethibitishwa.`);
         toast.success(`Bili ya TZS ${transactionAmount.toLocaleString()} Imelipwa!`, { icon: '✨' });
       }
 
       setLastReceipt({
-        id: `TX-${Date.now().toString().slice(-6)}`,
+        id: newTxId,
         title: operationTitle,
         customerName: matchedCustomer.name,
         customerPhone: matchedCustomer.phone,
@@ -408,29 +507,48 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
       });
 
       setTimeout(() => setTxSuccess(false), 3000);
-    }, 1400);
+    } catch (err) {
+      console.error('POS tx error:', err);
+      toast.error('Hitilafu imetokea wakati wa kuthibitisha muamala.');
+    } finally {
+      setIsConfirmingTx(false);
+    }
   };
 
   // When Face Registration succeeds
-  const handleEnrollSuccess = (data: { name: string; phone: string; embeddingId: string; photoUrl?: string }) => {
+  const handleEnrollSuccess = (data: {
+    name: string;
+    phone: string;
+    embeddingId: string;
+    photoUrl?: string;
+    faceDescriptor?: number[];
+    pin?: string;
+    customer?: RegisteredFaceCustomer;
+  }) => {
     setIsFaceEnrollOpen(false);
-    toast.success(`Hongera ${data.name}! Uso wako umesajiliwa kikamilifu.`, { icon: '🎉' });
-    setSimulatedRegistrationStatus('registered');
+    setVerificationMode('live');
 
-    // Immediately trigger live recognition for the newly enrolled person
+    const c = data.customer;
     const newCust: VerifiedCustomer = {
-      id: 'cust_' + Date.now(),
-      name: data.name,
-      phone: data.phone,
-      walletBalance: 500000,
-      faceEmbeddingId: data.embeddingId,
-      avatar: data.photoUrl || DEFAULT_VERIFIED_CUSTOMER.avatar,
-      isRegistered: true
+      id: c?.id || `cust_${Date.now()}`,
+      uid: c?.uid,
+      name: c?.name || data.name,
+      phone: c?.phone || data.phone,
+      normalizedPhone: c?.normalizedPhone || normalizeTzPhone(data.phone),
+      walletBalance: c?.walletBalance ?? 0,
+      faceEmbeddingId: c?.faceEmbeddingId || data.embeddingId,
+      faceDescriptor: c?.faceDescriptor || data.faceDescriptor,
+      avatar: c?.photoUrl || data.photoUrl || DEFAULT_DEMO_CUSTOMER.avatar,
+      isRegistered: true,
+      pin: c?.pin || data.pin || '1234',
+      matchConfidence: 99.6,
+      source: 'firestore'
     };
     setMatchedCustomer(newCust);
     setFaceSystemStatus('matched');
     playPaymentChime();
-    speak(`Uso wako sasa upo kwenye mfumo, ${data.name.split(' ')[0]}. Sasa unaweza kuthibitisha kuweka pesa.`);
+    toast.success(`Hongera ${newCust.name}! Uso umesajiliwa na kutambuliwa.`, { icon: '🎉' });
+    speak(`Uso wako sasa upo kwenye mfumo, ${newCust.name.split(' ')[0]}. Sasa unaweza kuweka au kutoa pesa.`);
   };
 
   if (!isOpen) return null;
@@ -638,7 +756,7 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                 }
                 isUnregistered={faceSystemStatus === 'unregistered'}
                 hudMode={hudMode}
-                faceConfidence={faceSystemStatus === 'matched' ? 99.8 : liveConfidence}
+                faceConfidence={faceSystemStatus === 'matched' ? (matchedCustomer?.matchConfidence ?? liveConfidence) : liveConfidence}
                 lightingQuality={liveLux}
                 distanceCm={liveDistance}
                 headYaw={liveYaw}
@@ -664,7 +782,7 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                     {faceSystemStatus === 'querying'
                       ? 'Inatafuta kwenye mfumo...'
                       : faceSystemStatus === 'matched'
-                      ? 'Sura Imethibitishwa 99.8%'
+                      ? `Sura Imethibitishwa ${(matchedCustomer?.matchConfidence ?? 99.0).toFixed(1)}%`
                       : faceSystemStatus === 'unregistered'
                       ? 'Sura Haipo Kwenye Mfumo ⚠️'
                       : 'Inasoma Sura kwa Kamera'}
@@ -735,7 +853,7 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                     MUAMALA UMEKAMILIKA!
                   </h3>
                   <p className="text-emerald-300 text-xs font-bold mt-1">
-                    {matchedCustomer?.name} &bull; Uthibitisho wa Uso 99.8%
+                    {matchedCustomer?.name} &bull; Uthibitisho {(matchedCustomer?.matchConfidence ?? 99.0).toFixed(1)}%
                   </p>
                 </motion.div>
               )}
@@ -774,12 +892,12 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
               )}
             </div>
 
-            {/* LIVE SYSTEM CONTROLS & TEST SWITCH (CLEAN, NO DUMMY SIMULATOR) */}
+            {/* LIVE SYSTEM CONTROLS & MODE SWITCHER */}
             <div className="w-full bg-neutral-900/60 p-3.5 rounded-2xl border border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => executeLiveSystemSearch(simulatedRegistrationStatus)}
+                  onClick={() => executeLiveSystemSearch(verificationMode)}
                   className="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-300 font-bold flex items-center gap-1.5 transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -798,36 +916,51 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                 )}
               </div>
 
-              {/* Test toggle between Registered vs Unregistered flows */}
-              <div className="flex items-center gap-1.5 bg-black/50 p-1 rounded-xl border border-white/10 text-[11px]">
-                <span className="text-neutral-400 px-1 font-mono">Mtihani:</span>
+              {/* Mode toggle: Live 1:N Biometrics vs Demo tests */}
+              <div className="flex items-center gap-1 bg-black/50 p-1 rounded-xl border border-white/10 text-[11px]">
                 <button
                   type="button"
                   onClick={() => {
-                    setSimulatedRegistrationStatus('registered');
-                    executeLiveSystemSearch('registered');
+                    setVerificationMode('live');
+                    setMatchedCustomer(null);
+                    setFaceSystemStatus('scanning');
+                    toast.info('Hali ya Kamera Halisi (1:N Face ID) imewashwa.');
                   }}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                    simulatedRegistrationStatus === 'registered'
-                      ? 'bg-emerald-500 text-neutral-950'
+                    verificationMode === 'live'
+                      ? 'bg-cyan-500 text-neutral-950'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  Sura Iliyosajiliwa
+                  Kamera Halisi
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setSimulatedRegistrationStatus('unregistered');
-                    executeLiveSystemSearch('unregistered');
+                    setVerificationMode('demo_registered');
+                    executeLiveSystemSearch('demo_registered');
                   }}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                    simulatedRegistrationStatus === 'unregistered'
+                    verificationMode === 'demo_registered'
+                      ? 'bg-emerald-500 text-neutral-950'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Demo Aliyesajiliwa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVerificationMode('demo_unregistered');
+                    executeLiveSystemSearch('demo_unregistered');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                    verificationMode === 'demo_unregistered'
                       ? 'bg-amber-500 text-neutral-950'
                       : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  Sura Isiyosajiliwa (Mpya)
+                  Demo Mgeni
                 </button>
               </div>
             </div>
@@ -1020,26 +1153,43 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                 </div>
 
                 {matchedCustomer && faceSystemStatus === 'matched' ? (
-                  <div className="p-4 rounded-2xl bg-black/50 border border-amber-500/40 space-y-2 text-xs">
-                    <div className="flex justify-between items-center text-neutral-400">
-                      <span>Mteja Aliyetambuliwa:</span>
-                      <span className="font-bold text-white text-sm">{matchedCustomer.name}</span>
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-black/50 border border-amber-500/40 space-y-2 text-xs">
+                      <div className="flex justify-between items-center text-neutral-400">
+                        <span>Mteja Aliyetambuliwa:</span>
+                        <span className="font-bold text-white text-sm">{matchedCustomer.name}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Namba ya Simu:</span>
+                        <span className="font-mono text-cyan-300 font-bold">{matchedCustomer.phone}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Salio la Sasa:</span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          TZS {matchedCustomer.walletBalance.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Kamisheni ya Wakala (1.2%):</span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          +TZS {Math.round(withdrawAmount * 0.012).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-neutral-400">
-                      <span>Namba ya Simu:</span>
-                      <span className="font-mono text-cyan-300 font-bold">{matchedCustomer.phone}</span>
-                    </div>
-                    <div className="flex justify-between text-neutral-400">
-                      <span>Salio la Sasa:</span>
-                      <span className="font-mono font-bold text-emerald-400">
-                        TZS {matchedCustomer.walletBalance.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-neutral-400">
-                      <span>Kamisheni ya Wakala (1.2%):</span>
-                      <span className="font-mono font-bold text-emerald-400">
-                        +TZS {Math.round(withdrawAmount * 0.012).toLocaleString()}
-                      </span>
+
+                    <div className="p-3 rounded-2xl bg-black/50 border border-amber-500/30 space-y-1.5">
+                      <label className="text-[11px] font-bold text-amber-300 block">
+                        PIN ya Siri ya Mteja (Tarakimu 4) *
+                      </label>
+                      <input
+                        type="password"
+                        maxLength={4}
+                        inputMode="numeric"
+                        value={customerPinInput}
+                        onChange={(e) => setCustomerPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        placeholder="Ingiza PIN (mf. 1234)"
+                        className="w-full bg-black/70 border border-amber-500/30 px-3.5 py-2.5 rounded-xl text-sm font-mono font-black text-amber-300 tracking-[0.4em] text-center focus:outline-none focus:border-amber-400"
+                      />
                     </div>
                   </div>
                 ) : faceSystemStatus === 'unregistered' ? (
@@ -1062,13 +1212,13 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
                 {matchedCustomer && faceSystemStatus === 'matched' ? (
                   <button
                     type="button"
-                    disabled={isConfirmingTx}
+                    disabled={isConfirmingTx || customerPinInput.length < 4}
                     onClick={handleConfirmTransaction}
                     className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-60"
                   >
                     {isConfirmingTx ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Coins className="w-5 h-5" />}
                     <span>
-                      {isConfirmingTx ? 'Inathibitisha Kutoa Pesa...' : `Thibitisha Kutoa TZS ${withdrawAmount.toLocaleString()} kwa Uso`}
+                      {isConfirmingTx ? 'Inathibitisha Kutoa Pesa...' : `Thibitisha Kutoa TZS ${withdrawAmount.toLocaleString()} (Face + PIN)`}
                     </span>
                   </button>
                 ) : faceSystemStatus === 'unregistered' ? (
@@ -1260,8 +1410,9 @@ export const PapoPayWakalaPOS: React.FC<PapoPayWakalaPOSProps> = ({
         isOpen={isFaceEnrollOpen}
         onClose={() => setIsFaceEnrollOpen(false)}
         onSuccess={handleEnrollSuccess}
-        initialName="Mteja Mpya"
-        initialPhone="0755 000 111"
+        initialName=""
+        initialPhone=""
+        setAsCurrentDeviceProfile={false}
       />
     </div>
   );

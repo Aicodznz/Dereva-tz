@@ -269,16 +269,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fullName: extraData?.fullName || '',
         photoURL: '',
         role: role,
+        walletBalance: typeof extraData?.walletBalance === 'number' ? extraData.walletBalance : 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
       
       const dbFields = [
-        'phoneNumber', 'phone', 'gender', 'city', 'address', 'approvalStatus', 'status', 
+        'phoneNumber', 'phone', 'normalizedPhone', 'gender', 'city', 'address', 'approvalStatus', 'status', 
         'driverType', 'vehicleType', 'vehicleBrand', 'vehicleModel', 'vehicleColor', 
         'licensePlate', 'vehicleYear', 'carryingCapacity', 'category', 'businessName', 
-        'tinNumber', 'hotelDescription', 'location', 'nidaNumber', 'licenseNumber',
-        'hasFaceEnrolled', 'facePhotoUrl', 'faceEmbeddingId', 'faceRegisteredAt', 'faceDailyLimit'
+        'tinNumber', 'hotelDescription', 'location', 'nidaNumber', 'licenseNumber', 'pin',
+        'hasFaceEnrolled', 'facePhotoUrl', 'faceEmbeddingId', 'faceDescriptor', 'faceRegisteredAt', 'faceDailyLimit'
       ];
       if (extraData) {
         Object.keys(extraData).forEach(key => {
