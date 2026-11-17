@@ -250,13 +250,13 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
                 const isSelected = basemap === id;
                 const displayLabel =
                   isMapboxEnabled && id === 'street_3d'
-                    ? 'Standard 3D'
+                    ? 'Mitaa 3D'
                     : isMapboxEnabled && id === 'satellite'
-                    ? 'Standard Satellite'
+                    ? 'Satelaiti'
                     : isMapboxEnabled && id === 'night'
-                    ? 'Dark'
+                    ? 'Usiku (Nav)'
                     : isMapboxEnabled && id === 'lite'
-                    ? 'Light'
+                    ? 'Mwanga Wepesi'
                     : cfg.shortLabel;
                 return (
                   <button

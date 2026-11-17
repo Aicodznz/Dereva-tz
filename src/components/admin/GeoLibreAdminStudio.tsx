@@ -240,8 +240,10 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
       setMapReady(true);
       syncZoneLayers(map);
     });
-    map.on('style.load', () => syncZoneLayers(map));
-    map.on('styledata', () => syncZoneLayers(map));
+    map.on('style.load', () => {
+      setMapReady(true);
+      syncZoneLayers(map);
+    });
 
     map.on('click', (e: any) => {
       const lat = Number(e.lngLat.lat.toFixed(6));
@@ -273,10 +275,12 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     map.flyTo({ center: [center[1] || 39.2083, center[0] || -6.7924], zoom: 11.8, duration: 500 });
   }, [cityName]);
 
-  // Swap basemap
+  const prevBasemapRef = useRef<GeoLibreBasemapId>(basemap);
+  // Swap basemap only when user selects a different style
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || prevBasemapRef.current === basemap) return;
+    prevBasemapRef.current = basemap;
     map.setStyle(useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style);
   }, [basemap, useMapbox]);
 

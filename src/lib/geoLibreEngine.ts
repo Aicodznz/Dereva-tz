@@ -172,11 +172,11 @@ export function getMapboxToken(): string {
 }
 
 export const MAPBOX_STYLE_URLS: Record<GeoLibreBasemapId, string> = {
-  street_3d: 'mapbox://styles/mapbox/standard',
-  satellite: 'mapbox://styles/mapbox/standard-satellite',
-  night: 'mapbox://styles/mapbox/dark-v11',
+  street_3d: 'mapbox://styles/mapbox/streets-v12',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  night: 'mapbox://styles/mapbox/navigation-night-v1',
   lite: 'mapbox://styles/mapbox/light-v11',
-  bright: 'mapbox://styles/mapbox/streets-v12',
+  bright: 'mapbox://styles/mapbox/navigation-day-v1',
 };
 
 export function getMapboxRasterTileStyle(

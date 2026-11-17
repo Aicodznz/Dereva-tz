@@ -69,7 +69,6 @@ import {
   GEOLIBRE_BASEMAPS,
   MAPBOX_STYLE_URLS,
   MapProjectionMode,
-  MapboxLightPreset,
   getMapboxToken,
   evaluateVendorOpenStatus,
   haversineKm,
@@ -193,8 +192,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   const initLng = Number(initialLocation?.lng) || 39.2083;
 
   const [basemap, setBasemap] = useState<GeoLibreBasemapId>('street_3d');
-  const [projection, setProjection] = useState<MapProjectionMode>('globe');
-  const [lightPreset, setLightPreset] = useState<MapboxLightPreset>('day');
+  const [projection, setProjection] = useState<MapProjectionMode>('mercator');
   const [pitch, setPitch] = useState<number>(48);
   const [bearing, setBearing] = useState<number>(0);
   const [mapReady, setMapReady] = useState(false);
@@ -566,15 +564,54 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     (map: any) => {
       if (!map || !map.isStyleLoaded?.()) return;
 
-      // 1. 3D Buildings & Standard Lighting
+      // 1. 3D Buildings (Mapbox composite or OpenMapTiles)
       if (useMapbox) {
         try {
-          if (basemap === 'street_3d' && typeof map.setConfigProperty === 'function') {
-            map.setConfigProperty('basemap', 'lightPreset', lightPreset);
-            map.setConfigProperty('basemap', 'show3dObjects', layers.show3DBuildings);
-            map.setConfigProperty('basemap', 'showPointOfInterestLabels', true);
-            map.setConfigProperty('basemap', 'showRoadLabels', true);
-            map.setConfigProperty('basemap', 'showPlaceLabels', true);
+          const styleLayers = map.getStyle()?.layers || [];
+          const labelLayerId = styleLayers.find(
+            (l: any) => l.type === 'symbol' && l.layout?.['text-field']
+          )?.id;
+
+          if (layers.show3DBuildings && basemap !== 'satellite' && map.getSource('composite')) {
+            if (!map.getLayer('papomap-3d-buildings')) {
+              map.addLayer(
+                {
+                  id: 'papomap-3d-buildings',
+                  source: 'composite',
+                  'source-layer': 'building',
+                  filter: ['==', 'extrude', 'true'],
+                  type: 'fill-extrusion',
+                  minzoom: 14,
+                  paint: {
+                    'fill-extrusion-color': basemap === 'night' ? '#334155' : '#CBD5E1',
+                    'fill-extrusion-height': [
+                      'interpolate',
+                      ['linear'],
+                      ['zoom'],
+                      14,
+                      0,
+                      14.5,
+                      ['get', 'height'],
+                    ],
+                    'fill-extrusion-base': [
+                      'interpolate',
+                      ['linear'],
+                      ['zoom'],
+                      14,
+                      0,
+                      14.5,
+                      ['get', 'min_height'],
+                    ],
+                    'fill-extrusion-opacity': 0.65,
+                  },
+                },
+                labelLayerId
+              );
+            } else {
+              map.setLayoutProperty('papomap-3d-buildings', 'visibility', 'visible');
+            }
+          } else if (map.getLayer('papomap-3d-buildings')) {
+            map.setLayoutProperty('papomap-3d-buildings', 'visibility', 'none');
           }
         } catch {}
 
@@ -587,34 +624,39 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
             });
           }
           if (!map.getLayer('papomap-traffic-layer')) {
-            map.addLayer({
-              id: 'papomap-traffic-layer',
-              type: 'line',
-              source: 'mapbox-traffic',
-              'source-layer': 'traffic',
-              minzoom: 9,
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round',
+            const styleLayers = map.getStyle()?.layers || [];
+            const firstSymbolId = styleLayers.find((l: any) => l.type === 'symbol')?.id;
+            map.addLayer(
+              {
+                id: 'papomap-traffic-layer',
+                type: 'line',
+                source: 'mapbox-traffic',
+                'source-layer': 'traffic',
+                minzoom: 9,
+                layout: {
+                  'line-join': 'round',
+                  'line-cap': 'round',
+                },
+                paint: {
+                  'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.8, 14, 3.8, 17, 6.5],
+                  'line-opacity': 0.85,
+                  'line-color': [
+                    'match',
+                    ['get', 'congestion'],
+                    'low',
+                    '#10B981',
+                    'moderate',
+                    '#F59E0B',
+                    'heavy',
+                    '#EF4444',
+                    'severe',
+                    '#991B1B',
+                    '#10B981',
+                  ],
+                },
               },
-              paint: {
-                'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.8, 14, 3.8, 17, 6.5],
-                'line-opacity': 0.85,
-                'line-color': [
-                  'match',
-                  ['get', 'congestion'],
-                  'low',
-                  '#10B981',
-                  'moderate',
-                  '#F59E0B',
-                  'heavy',
-                  '#EF4444',
-                  'severe',
-                  '#991B1B',
-                  '#10B981',
-                ],
-              },
-            });
+              firstSymbolId
+            );
           }
           if (map.getLayer('papomap-traffic-layer')) {
             map.setLayoutProperty(
@@ -879,7 +921,6 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     [
       useMapbox,
       basemap,
-      lightPreset,
       layers,
       geofencesGeoJson,
       demandData,
@@ -890,19 +931,25 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     ]
   );
 
-  // Initialize Mapbox Standard GL JS (or MapLibre fallback)
+  const prevBasemapRef = useRef<GeoLibreBasemapId>(basemap);
+  const fallbackAppliedRef = useRef<boolean>(false);
+
+  // Initialize Mapbox GL JS (or MapLibre fallback)
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
     setWebglLost(false);
+    fallbackAppliedRef.current = false;
+    prevBasemapRef.current = basemap;
 
     let map: any;
     if (useMapbox) {
+      mapboxgl.accessToken = mapboxToken;
       map = new mapboxgl.Map({
         accessToken: mapboxToken,
         container: containerRef.current,
         style: MAPBOX_STYLE_URLS[basemap],
         center: [initLng, initLat],
-        zoom: 14.5,
+        zoom: 14.2,
         pitch,
         bearing,
         projection,
@@ -914,7 +961,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         container: containerRef.current,
         style: GEOLIBRE_BASEMAPS[basemap].style,
         center: [initLng, initLat],
-        zoom: 13.5,
+        zoom: 13.8,
         pitch,
         bearing,
         maxPitch: 75,
@@ -935,12 +982,27 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     map.on('load', () => {
       setMapReady(true);
       syncMapLayers(map);
+      try {
+        map.resize();
+      } catch {}
     });
     map.on('style.load', () => {
+      setMapReady(true);
       syncMapLayers(map);
     });
-    map.on('styledata', () => {
-      syncMapLayers(map);
+    map.on('error', (err: any) => {
+      const msg = String(err?.error?.message || err?.message || '');
+      const status = Number(err?.error?.status || 0);
+      if (
+        !fallbackAppliedRef.current &&
+        useMapbox &&
+        (status === 401 || status === 403 || status === 404 || msg.toLowerCase().includes('style'))
+      ) {
+        fallbackAppliedRef.current = true;
+        try {
+          map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
+        } catch {}
+      }
     });
     map.on('rotate', () => setBearing(Math.round(map.getBearing())));
     map.on('pitch', () => setPitch(Math.round(map.getPitch())));
@@ -990,7 +1052,19 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       ? new mapboxgl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map)
       : new maplibregl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map);
 
+    // Keep canvas sized cleanly on mobile viewport / orientation changes
+    let resizeObs: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObs = new ResizeObserver(() => {
+        try {
+          map.resize();
+        } catch {}
+      });
+      resizeObs.observe(containerRef.current);
+    }
+
     return () => {
+      resizeObs?.disconnect();
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       vendorMarkersRef.current.forEach((m) => m.remove());
@@ -1006,11 +1080,12 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Update basemap style cleanly when user picks another style
+  // Update basemap style cleanly only when user picks a different basemap
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (useMapbox) {
+    if (!map || prevBasemapRef.current === basemap) return;
+    prevBasemapRef.current = basemap;
+    if (useMapbox && !fallbackAppliedRef.current) {
       map.setStyle(MAPBOX_STYLE_URLS[basemap]);
     } else {
       map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
@@ -1917,7 +1992,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       {/* Live Traffic Legend HUD + GPS Speedometer */}
       <div
         className={`absolute left-3 z-20 flex flex-col gap-1.5 pointer-events-none ${
-          isNavActive ? 'bottom-24' : 'bottom-16'
+          isNavActive ? 'bottom-28 sm:bottom-24' : 'bottom-24 sm:bottom-16'
         }`}
       >
         {(hasGpsFix || isNavActive) && (
@@ -2884,8 +2959,6 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         }}
         projection={projection}
         onProjectionChange={setProjection}
-        lightPreset={lightPreset}
-        onLightPresetChange={setLightPreset}
         isMapboxEnabled={useMapbox}
       />
     </div>,
