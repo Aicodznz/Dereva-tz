@@ -1,38 +1,14 @@
-import * as maplibregl from 'maplibre-gl';
-import { Protocol } from 'pmtiles';
+import type * as mapboxgl from 'mapbox-gl';
 import { CITY_HEAT_ZONES, HeatZone } from '../components/map/AISmartHeatMap';
 
 let geoLibreInitialized = false;
 
 /**
- * Configures MapLibre GL JS Web Worker & registers the PMTiles protocol once per app lifecycle.
+ * Legacy compatibility hook (mapbox-gl manages its own isolated Web Worker pool cleanly without global classRegistry collisions).
  */
 export function ensureMapLibreGeoLibreSetup(): void {
   if (geoLibreInitialized || typeof window === 'undefined') return;
   geoLibreInitialized = true;
-
-  try {
-    if (typeof (maplibregl as any).setWorkerUrl === 'function') {
-      const workerUrl = window.location?.origin
-        ? `${window.location.origin}/maplibre-gl-worker.mjs`
-        : '/maplibre-gl-worker.mjs';
-      (maplibregl as any).setWorkerUrl(workerUrl);
-      if (typeof (maplibregl as any).setWorkerCount === 'function') {
-        (maplibregl as any).setWorkerCount(2);
-      }
-    }
-  } catch (err) {
-    console.warn('MapLibre worker setup notice:', err);
-  }
-
-  try {
-    const protocol = new Protocol();
-    if (typeof (maplibregl as any).addProtocol === 'function') {
-      (maplibregl as any).addProtocol('pmtiles', protocol.tile);
-    }
-  } catch (err) {
-    console.warn('PMTiles protocol registration notice:', err);
-  }
 }
 
 export type GeoLibreBasemapId =
@@ -51,13 +27,13 @@ export interface GeoLibreBasemapConfig {
   supports3D: boolean;
   isDark: boolean;
   isDataSaver: boolean;
-  style: string | maplibregl.StyleSpecification;
+  style: string | mapboxgl.StyleSpecification;
 }
 
 /**
- * Custom ESRI World Imagery Satellite + CartoDB Reference Labels style (Zero API key required).
+ * Custom ESRI World Imagery Satellite + Reference Labels style (Zero API key required).
  */
-export const SATELLITE_HYBRID_STYLE: maplibregl.StyleSpecification = {
+export const SATELLITE_HYBRID_STYLE: mapboxgl.StyleSpecification = {
   version: 8,
   name: 'GeoLibre Satellite Hybrid',
   sources: {
@@ -162,13 +138,20 @@ export const GEOLIBRE_BASEMAPS: Record<GeoLibreBasemapId, GeoLibreBasemapConfig>
 export type MapProjectionMode = 'globe' | 'mercator';
 export type MapboxLightPreset = 'day' | 'dusk' | 'dawn' | 'night';
 
+export const DEFAULT_FALLBACK_MAPBOX_TOKEN = 'pk.geolibre-openfreemap-fallback';
+
 export function getMapboxToken(): string {
   try {
-    const t = (import.meta as any)?.env?.VITE_MAPBOX_TOKEN;
+    const t = import.meta.env.VITE_MAPBOX_TOKEN;
     return typeof t === 'string' ? t.trim() : '';
   } catch {
     return '';
   }
+}
+
+export function resolveMapboxAccessToken(token?: string): string {
+  const clean = (token ?? getMapboxToken()).trim();
+  return clean || DEFAULT_FALLBACK_MAPBOX_TOKEN;
 }
 
 export const MAPBOX_STYLE_URLS: Record<GeoLibreBasemapId, string> = {
@@ -182,7 +165,7 @@ export const MAPBOX_STYLE_URLS: Record<GeoLibreBasemapId, string> = {
 export function getMapboxRasterTileStyle(
   styleId: 'streets-v12' | 'satellite-streets-v12' | 'dark-v11' | 'light-v11',
   token: string
-): maplibregl.StyleSpecification {
+): mapboxgl.StyleSpecification {
   return {
     version: 8,
     name: `Mapbox ${styleId}`,

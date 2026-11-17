@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import * as maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   MapPin,
   Undo2,
@@ -23,12 +21,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  ensureMapLibreGeoLibreSetup,
   GeoLibreBasemapId,
   GEOLIBRE_BASEMAPS,
   MAPBOX_STYLE_URLS,
   MapProjectionMode,
   getMapboxToken,
+  resolveMapboxAccessToken,
   normalizeLatLngList,
   toFirestoreLatLngList,
   calculatePathDistanceKm,
@@ -186,7 +184,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
             },
           });
         } else {
-          (map.getSource('geolibre-editor-shape') as maplibregl.GeoJSONSource).setData(activeGeoJson);
+          (map.getSource('geolibre-editor-shape') as mapboxgl.GeoJSONSource).setData(activeGeoJson);
           if (map.getLayer('geolibre-editor-fill')) {
             map.setPaintProperty('geolibre-editor-fill', 'fill-color', fillColor);
           }
@@ -213,27 +211,17 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let map: any;
-    if (useMapbox) {
-      map = new mapboxgl.Map({
-        accessToken: mapboxToken,
-        container: containerRef.current,
-        style: MAPBOX_STYLE_URLS[basemap],
-        center: [center[1] || 39.2083, center[0] || -6.7924],
-        zoom: 11.8,
-        projection,
-        attributionControl: false,
-      });
-    } else {
-      ensureMapLibreGeoLibreSetup();
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: GEOLIBRE_BASEMAPS[basemap].style,
-        center: [center[1] || 39.2083, center[0] || -6.7924],
-        zoom: 11.2,
-        attributionControl: false,
-      });
-    }
+    const accessToken = resolveMapboxAccessToken(mapboxToken);
+    mapboxgl.accessToken = accessToken;
+    const map = new mapboxgl.Map({
+      accessToken,
+      container: containerRef.current,
+      style: (useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any,
+      center: [center[1] || 39.2083, center[0] || -6.7924],
+      zoom: useMapbox ? 11.8 : 11.2,
+      projection,
+      attributionControl: false,
+    });
     mapRef.current = map;
 
     map.on('load', () => {
@@ -281,7 +269,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     const map = mapRef.current;
     if (!map || prevBasemapRef.current === basemap) return;
     prevBasemapRef.current = basemap;
-    map.setStyle(useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style);
+    map.setStyle((useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any);
   }, [basemap, useMapbox]);
 
   // Toggle Globe / Mercator projection
@@ -310,9 +298,9 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     if (mode === 'circle') {
       const el = document.createElement('div');
       el.innerHTML = `<div style="width:22px;height:22px;border-radius:9999px;background:#EA580C;border:3px solid #FFF;box-shadow:0 4px 12px rgba(0,0,0,0.45);cursor:grab;"></div>`;
-      const m: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([center[1], center[0]]).addTo(map)
-        : new maplibregl.Marker({ element: el, draggable: true }).setLngLat([center[1], center[0]]).addTo(map);
+      const m = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat([center[1], center[0]])
+        .addTo(map);
       m.on('dragend', () => {
         const ll = m.getLngLat();
         onCenterChange([Number(ll.lat.toFixed(6)), Number(ll.lng.toFixed(6))]);
@@ -324,9 +312,9 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     activeVertices.forEach((pt, idx) => {
       const el = document.createElement('div');
       el.innerHTML = `<div style="min-width:22px;height:22px;padding:0 5px;border-radius:9999px;background:${mode === 'route' ? '#2563EB' : '#EA580C'};color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,0.4);cursor:grab;">${idx + 1}</div>`;
-      const m: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([pt[1], pt[0]]).addTo(map)
-        : new maplibregl.Marker({ element: el, draggable: true }).setLngLat([pt[1], pt[0]]).addTo(map);
+      const m = new mapboxgl.Marker({ element: el, draggable: true })
+        .setLngLat([pt[1], pt[0]])
+        .addTo(map);
       m.on('dragend', () => {
         const ll = m.getLngLat();
         const cloned = [...activeVertices];
@@ -495,8 +483,8 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
   orders,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
 
   const [basemap, setBasemap] = useState<GeoLibreBasemapId>('night');
   const [mapReady, setMapReady] = useState(false);
@@ -543,7 +531,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
   }, [pricingRules]);
 
   const syncAnalyticsLayers = useCallback(
-    (map: maplibregl.Map) => {
+    (map: mapboxgl.Map) => {
       if (!map.isStyleLoaded()) return;
 
       // Geofences
@@ -563,7 +551,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
             paint: { 'line-color': '#F97316', 'line-width': 2 },
           });
         } else {
-          (map.getSource('admin-gf-src') as maplibregl.GeoJSONSource).setData(geofencesGeoJson);
+          (map.getSource('admin-gf-src') as mapboxgl.GeoJSONSource).setData(geofencesGeoJson);
         }
         const gfVis = showGeofencesLayer ? 'visible' : 'none';
         map.setLayoutProperty('admin-gf-fill', 'visibility', gfVis);
@@ -600,7 +588,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
             },
           });
         } else {
-          (map.getSource('admin-heat-src') as maplibregl.GeoJSONSource).setData(demandData.heatPoints);
+          (map.getSource('admin-heat-src') as mapboxgl.GeoJSONSource).setData(demandData.heatPoints);
         }
         if (!map.getSource('admin-hex-src')) {
           map.addSource('admin-hex-src', { type: 'geojson', data: demandData.hexColumns });
@@ -616,7 +604,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
             },
           });
         } else {
-          (map.getSource('admin-hex-src') as maplibregl.GeoJSONSource).setData(demandData.hexColumns);
+          (map.getSource('admin-hex-src') as mapboxgl.GeoJSONSource).setData(demandData.hexColumns);
         }
         const hVis = showHeatmap3D ? 'visible' : 'none';
         map.setLayoutProperty('admin-heat-layer', 'visibility', hVis);
@@ -628,10 +616,12 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
 
   useEffect(() => {
     if (!containerRef.current) return;
-    ensureMapLibreGeoLibreSetup();
-    const map = new maplibregl.Map({
+    const accessToken = resolveMapboxAccessToken();
+    mapboxgl.accessToken = accessToken;
+    const map = new mapboxgl.Map({
+      accessToken,
       container: containerRef.current,
-      style: GEOLIBRE_BASEMAPS[basemap].style,
+      style: GEOLIBRE_BASEMAPS[basemap].style as any,
       center: [39.24, -6.805],
       zoom: 11.4,
       pitch: 45,
@@ -655,7 +645,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
   }, []);
 
   useEffect(() => {
-    mapRef.current?.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
+    mapRef.current?.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
   }, [basemap]);
 
   useEffect(() => {
@@ -679,7 +669,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
         el.title = `${v.businessName} (${st.label})`;
         el.style.cssText = `width:10px;height:10px;border-radius:9999px;background:${st.isOpen ? '#10B981' : '#EF4444'};border:2px solid #0F172A;box-shadow:0 2px 6px rgba(0,0,0,0.45);`;
         markersRef.current.push(
-          new maplibregl.Marker({ element: el })
+          new mapboxgl.Marker({ element: el })
             .setLngLat([Number(v.location.lng), Number(v.location.lat)])
             .addTo(map)
         );
@@ -696,7 +686,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
         el.title = `${d.name || d.displayName || 'Dereva'} (${isBusy ? 'Busy' : 'Online'})`;
         el.style.cssText = `width:12px;height:12px;border-radius:9999px;background:${isBusy ? '#F59E0B' : '#38BDF8'};border:2px solid #FFFFFF;box-shadow:0 2px 8px rgba(0,0,0,0.5);`;
         markersRef.current.push(
-          new maplibregl.Marker({ element: el })
+          new mapboxgl.Marker({ element: el })
             .setLngLat([Number(pos.lng), Number(pos.lat)])
             .addTo(map)
         );

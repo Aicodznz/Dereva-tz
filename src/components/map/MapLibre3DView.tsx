@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import * as maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { 
   Compass, Eye, Sun, Moon, Sunset, Layers, 
   Car, Bike, Navigation, Volume2, VolumeX, X, 
@@ -16,15 +16,13 @@ import { toast } from 'sonner';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
-  ensureMapLibreGeoLibreSetup,
   SATELLITE_HYBRID_STYLE,
   getMapboxToken,
+  resolveMapboxAccessToken,
   getMapboxRasterTileStyle,
   buildSpatialDemandLayersData,
   evaluateVendorOpenStatus,
 } from '../../lib/geoLibreEngine';
-
-ensureMapLibreGeoLibreSetup();
 
 export interface MapLibre3DViewProps {
   isOpen: boolean;
@@ -305,7 +303,7 @@ function projectPointOnSegment(
 }
 
 function snapToRenderedRoadInMap(
-  map: maplibregl.Map,
+  map: mapboxgl.Map,
   lng: number,
   lat: number,
   currentHeading: number,
@@ -722,10 +720,10 @@ export default function MapLibre3DView({
   theme = 'light'
 }: MapLibre3DViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<maplibregl.Map | null>(null);
-  const driverMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const customerMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const destMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const driverMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const customerMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const destMarkerRef = useRef<mapboxgl.Marker | null>(null);
   
   // Track user interaction to prevent camera fight / zoom snap-back
   const isUserInteractingRef = useRef<boolean>(false);
@@ -759,7 +757,7 @@ export default function MapLibre3DView({
   const [dataSaverMode, setDataSaverMode] = useState<boolean>(false);
   const [showDemandHeatmap, setShowDemandHeatmap] = useState<boolean>(false);
   const [showNearbyVendors, setShowNearbyVendors] = useState<boolean>(false);
-  const vendorMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const vendorMarkersRef = useRef<mapboxgl.Marker[]>([]);
 
   // Analyzer Panels & Modals
   const [showTerrainDrawer, setShowTerrainDrawer] = useState<boolean>(false);
@@ -922,9 +920,13 @@ export default function MapLibre3DView({
     const initialLat = snappedInit.lat;
     const initialHeading = snappedInit.bearing;
 
-    const map = new maplibregl.Map({
+    const accessToken = resolveMapboxAccessToken();
+    mapboxgl.accessToken = accessToken;
+
+    const map = new mapboxgl.Map({
+      accessToken,
       container: mapContainerRef.current,
-      style: activeEngine.url,
+      style: activeEngine.url as any,
       center: [initialLng, initialLat],
       zoom: 17,
       pitch: pitch,
@@ -1139,7 +1141,7 @@ export default function MapLibre3DView({
       driverEl.style.zIndex = '25';
       driverEl.innerHTML = getMapLibre3DVehicleHtml(vehicleType, isOnline);
 
-      const marker = new maplibregl.Marker({
+      const marker = new mapboxgl.Marker({
         element: driverEl,
         rotationAlignment: 'map',
         pitchAlignment: 'map',
@@ -1246,7 +1248,7 @@ export default function MapLibre3DView({
           const st = evaluateVendorOpenStatus(v.operatingHours, v.hotelStatus);
           const el = document.createElement('div');
           el.innerHTML = `<div style="background:#0F172A;color:#fff;font-size:10px;font-weight:800;padding:3px 7px;border-radius:8px;border:1.5px solid ${st.isOpen ? '#10B981' : '#EF4444'};box-shadow:0 4px 10px rgba(0,0,0,0.4);white-space:nowrap;">${st.isOpen ? '🟢' : '🔴'} ${(v.businessName || 'Duka').replace(/</g, '&lt;')}</div>`;
-          const m = new maplibregl.Marker({ element: el })
+          const m = new mapboxgl.Marker({ element: el })
             .setLngLat([Number(v.location.lng), Number(v.location.lat)])
             .addTo(mapInstanceRef.current!);
           vendorMarkersRef.current.push(m);
@@ -1300,7 +1302,7 @@ export default function MapLibre3DView({
     if (!currentTarget) {
       lastFittedTargetIdRef.current = null;
       try {
-        const source = map.getSource('active-route-source') as maplibregl.GeoJSONSource;
+        const source = map.getSource('active-route-source') as mapboxgl.GeoJSONSource;
         if (source) {
           source.setData({
             type: 'Feature',
@@ -1308,7 +1310,7 @@ export default function MapLibre3DView({
             geometry: { type: 'LineString', coordinates: [] }
           });
         }
-        const altSource = map.getSource('alt-routes-source') as maplibregl.GeoJSONSource;
+        const altSource = map.getSource('alt-routes-source') as mapboxgl.GeoJSONSource;
         if (altSource) {
           altSource.setData({
             type: 'FeatureCollection',
@@ -1370,7 +1372,7 @@ export default function MapLibre3DView({
             <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #10B981;"></div>
           </div>
         `;
-        customerMarkerRef.current = new maplibregl.Marker({ element: custEl })
+        customerMarkerRef.current = new mapboxgl.Marker({ element: custEl })
           .setLngLat(pickupLngLat)
           .addTo(map);
       } else {
@@ -1402,7 +1404,7 @@ export default function MapLibre3DView({
               <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #EF4444;"></div>
             </div>
           `;
-          destMarkerRef.current = new maplibregl.Marker({ element: destEl })
+          destMarkerRef.current = new mapboxgl.Marker({ element: destEl })
             .setLngLat(destLngLat)
             .addTo(map);
         } else {
@@ -1431,7 +1433,7 @@ export default function MapLibre3DView({
 
         // Update Primary Active Route
         try {
-          const source = map.getSource('active-route-source') as maplibregl.GeoJSONSource;
+          const source = map.getSource('active-route-source') as mapboxgl.GeoJSONSource;
           if (source) {
             source.setData({
               type: 'Feature',
@@ -1450,7 +1452,7 @@ export default function MapLibre3DView({
           }
 
           // Update Secondary Alternative Lines
-          const altSource = map.getSource('alt-routes-source') as maplibregl.GeoJSONSource;
+          const altSource = map.getSource('alt-routes-source') as mapboxgl.GeoJSONSource;
           if (altSource) {
             altSource.setData({
               type: 'FeatureCollection',
@@ -1471,7 +1473,7 @@ export default function MapLibre3DView({
         // Fit bounds once on target arrival
         if (currentTarget.id && lastFittedTargetIdRef.current !== currentTarget.id) {
           lastFittedTargetIdRef.current = currentTarget.id;
-          const bounds = new maplibregl.LngLatBounds();
+          const bounds = new mapboxgl.LngLatBounds();
           bounds.extend(driverLngLat);
           bounds.extend(pickupLngLat);
           bounds.extend(destLngLat);

@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import * as maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   X,
   Search,
@@ -64,12 +62,12 @@ import { toast } from 'sonner';
 import { db } from '../../firebase';
 import { useBusinessConfig } from '../../BusinessConfigContext';
 import {
-  ensureMapLibreGeoLibreSetup,
   GeoLibreBasemapId,
   GEOLIBRE_BASEMAPS,
   MAPBOX_STYLE_URLS,
   MapProjectionMode,
   getMapboxToken,
+  resolveMapboxAccessToken,
   evaluateVendorOpenStatus,
   haversineKm,
   buildSpatialDemandLayersData,
@@ -564,15 +562,17 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     (map: any) => {
       if (!map || !map.isStyleLoaded?.()) return;
 
-      // 1. 3D Buildings (Mapbox composite or OpenMapTiles)
-      if (useMapbox) {
-        try {
-          const styleLayers = map.getStyle()?.layers || [];
-          const labelLayerId = styleLayers.find(
-            (l: any) => l.type === 'symbol' && l.layout?.['text-field']
-          )?.id;
+      // 1. 3D Buildings (Mapbox composite or OpenMapTiles) & Mapbox Live Traffic
+      try {
+        const hasComposite = Boolean(map.getSource('composite'));
+        const hasOpenMapTiles = Boolean(map.getSource('openmaptiles'));
+        const styleLayers = map.getStyle()?.layers || [];
+        const labelLayerId = styleLayers.find(
+          (l: any) => l.type === 'symbol' && l.layout?.['text-field']
+        )?.id;
 
-          if (layers.show3DBuildings && basemap !== 'satellite' && map.getSource('composite')) {
+        if (hasComposite) {
+          if (layers.show3DBuildings && basemap !== 'satellite') {
             if (!map.getLayer('papomap-3d-buildings')) {
               map.addLayer(
                 {
@@ -613,9 +613,47 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
           } else if (map.getLayer('papomap-3d-buildings')) {
             map.setLayoutProperty('papomap-3d-buildings', 'visibility', 'none');
           }
-        } catch {}
+        } else if (hasOpenMapTiles) {
+          const cfg = GEOLIBRE_BASEMAPS[basemap];
+          if (cfg.supports3D && layers.show3DBuildings) {
+            if (!map.getLayer('geolibre-3d-buildings')) {
+              map.addLayer(
+                {
+                  id: 'geolibre-3d-buildings',
+                  source: 'openmaptiles',
+                  'source-layer': 'building',
+                  type: 'fill-extrusion',
+                  minzoom: 13.5,
+                  paint: {
+                    'fill-extrusion-color': [
+                      'interpolate',
+                      ['linear'],
+                      ['get', 'render_height'],
+                      0,
+                      '#CBD5E1',
+                      40,
+                      '#94A3B8',
+                      90,
+                      '#64748B',
+                    ],
+                    'fill-extrusion-height': ['get', 'render_height'],
+                    'fill-extrusion-base': ['get', 'render_min_height'],
+                    'fill-extrusion-opacity': 0.72,
+                  },
+                },
+                labelLayerId
+              );
+            } else {
+              map.setLayoutProperty('geolibre-3d-buildings', 'visibility', 'visible');
+            }
+          } else if (map.getLayer('geolibre-3d-buildings')) {
+            map.setLayoutProperty('geolibre-3d-buildings', 'visibility', 'none');
+          }
+        }
+      } catch {}
 
-        // 1B. Mapbox Live Traffic Vector Layer (mapbox-traffic-v1)
+      // 1B. Mapbox Live Traffic Vector Layer (works over both Mapbox and OpenFreeMap basemaps when token is present)
+      if (useMapbox) {
         try {
           if (!map.getSource('mapbox-traffic')) {
             map.addSource('mapbox-traffic', {
@@ -664,46 +702,6 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
               'visibility',
               layers.showTraffic ? 'visible' : 'none'
             );
-          }
-        } catch {}
-      } else {
-        const cfg = GEOLIBRE_BASEMAPS[basemap];
-        try {
-          if (cfg.supports3D && layers.show3DBuildings) {
-            const styleLayers = map.getStyle().layers || [];
-            const labelLayerId = styleLayers.find(
-              (l: any) => l.type === 'symbol' && l.layout?.['text-field']
-            )?.id;
-            if (!map.getLayer('geolibre-3d-buildings') && map.getSource('openmaptiles')) {
-              map.addLayer(
-                {
-                  id: 'geolibre-3d-buildings',
-                  source: 'openmaptiles',
-                  'source-layer': 'building',
-                  type: 'fill-extrusion',
-                  minzoom: 13.5,
-                  paint: {
-                    'fill-extrusion-color': [
-                      'interpolate',
-                      ['linear'],
-                      ['get', 'render_height'],
-                      0,
-                      '#CBD5E1',
-                      40,
-                      '#94A3B8',
-                      90,
-                      '#64748B',
-                    ],
-                    'fill-extrusion-height': ['get', 'render_height'],
-                    'fill-extrusion-base': ['get', 'render_min_height'],
-                    'fill-extrusion-opacity': 0.72,
-                  },
-                },
-                labelLayerId
-              );
-            }
-          } else if (map.getLayer('geolibre-3d-buildings')) {
-            map.removeLayer('geolibre-3d-buildings');
           }
         } catch {}
       }
@@ -934,40 +932,28 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   const prevBasemapRef = useRef<GeoLibreBasemapId>(basemap);
   const fallbackAppliedRef = useRef<boolean>(false);
 
-  // Initialize Mapbox GL JS (or MapLibre fallback)
+  // Initialize Mapbox GL JS (supports both Mapbox styles and OpenFreeMap/ESRI fallbacks in one isolated engine)
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
     setWebglLost(false);
     fallbackAppliedRef.current = false;
     prevBasemapRef.current = basemap;
 
-    let map: any;
-    if (useMapbox) {
-      mapboxgl.accessToken = mapboxToken;
-      map = new mapboxgl.Map({
-        accessToken: mapboxToken,
-        container: containerRef.current,
-        style: MAPBOX_STYLE_URLS[basemap],
-        center: [initLng, initLat],
-        zoom: 14.2,
-        pitch,
-        bearing,
-        projection,
-        attributionControl: false,
-      });
-    } else {
-      ensureMapLibreGeoLibreSetup();
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: GEOLIBRE_BASEMAPS[basemap].style,
-        center: [initLng, initLat],
-        zoom: 13.8,
-        pitch,
-        bearing,
-        maxPitch: 75,
-        attributionControl: false,
-      });
-    }
+    const accessToken = resolveMapboxAccessToken(mapboxToken);
+    mapboxgl.accessToken = accessToken;
+
+    const map = new mapboxgl.Map({
+      accessToken,
+      container: containerRef.current,
+      style: (useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any,
+      center: [initLng, initLat],
+      zoom: useMapbox ? 14.2 : 13.8,
+      pitch,
+      bearing,
+      maxPitch: 75,
+      projection,
+      attributionControl: false,
+    });
     mapRef.current = map;
 
     const canvas = map.getCanvas();
@@ -991,16 +977,16 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       syncMapLayers(map);
     });
     map.on('error', (err: any) => {
-      const msg = String(err?.error?.message || err?.message || '');
+      const msg = String(err?.error?.message || err?.message || '').toLowerCase();
       const status = Number(err?.error?.status || 0);
-      if (
-        !fallbackAppliedRef.current &&
-        useMapbox &&
-        (status === 401 || status === 403 || status === 404 || msg.toLowerCase().includes('style'))
-      ) {
+      const isStyleOrAuthFailure =
+        status === 401 ||
+        status === 403 ||
+        (err?.sourceId === undefined && (msg.includes('style') || msg.includes('unauthorized')));
+      if (!fallbackAppliedRef.current && useMapbox && isStyleOrAuthFailure) {
         fallbackAppliedRef.current = true;
         try {
-          map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
+          map.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
         } catch {}
       }
     });
@@ -1048,9 +1034,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     // User GPS Blue Dot Marker
     const userEl = document.createElement('div');
     userEl.innerHTML = `<div style="width:18px;height:18px;border-radius:9999px;background:#2563EB;border:3px solid #FFFFFF;box-shadow:0 0 0 7px rgba(37,99,235,0.28);"></div>`;
-    userMarkerRef.current = useMapbox
-      ? new mapboxgl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map)
-      : new maplibregl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map);
+    userMarkerRef.current = new mapboxgl.Marker({ element: userEl }).setLngLat([initLng, initLat]).addTo(map);
 
     // Keep canvas sized cleanly on mobile viewport / orientation changes
     let resizeObs: ResizeObserver | null = null;
@@ -1086,9 +1070,9 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     if (!map || prevBasemapRef.current === basemap) return;
     prevBasemapRef.current = basemap;
     if (useMapbox && !fallbackAppliedRef.current) {
-      map.setStyle(MAPBOX_STYLE_URLS[basemap]);
+      map.setStyle(MAPBOX_STYLE_URLS[basemap] as any);
     } else {
-      map.setStyle(GEOLIBRE_BASEMAPS[basemap].style);
+      map.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
     }
   }, [basemap, useMapbox]);
 
@@ -1117,14 +1101,10 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
 
     const el = document.createElement('div');
     el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;"><div style="width:36px;height:36px;border-radius:9999px;background:#EA580C;border:3px solid #FFFFFF;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,0.45);">🏁</div></div>`;
-    destMarkerRef.current = useMapbox
-      ? new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([routeDestination.lng, routeDestination.lat])
-          .addTo(map)
-      : new maplibregl.Marker({ element: el, anchor: 'bottom' })
-          .setLngLat([routeDestination.lng, routeDestination.lat])
-          .addTo(map);
-  }, [routeDestination, useMapbox]);
+    destMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([routeDestination.lng, routeDestination.lat])
+      .addTo(map);
+  }, [routeDestination]);
 
   // Render Vendor DOM Markers (Open Green vs Closed Red)
   useEffect(() => {
@@ -1168,16 +1148,12 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         });
       };
 
-      const marker: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat([Number(v.location.lng), Number(v.location.lat)])
-            .addTo(map)
-        : new maplibregl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat([Number(v.location.lng), Number(v.location.lat)])
-            .addTo(map);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([Number(v.location.lng), Number(v.location.lat)])
+        .addTo(map);
       vendorMarkersRef.current.push(marker);
     }
-  }, [filteredVendors, layers.showVendors, useMapbox]);
+  }, [filteredVendors, layers.showVendors]);
 
   // Render Live Driver Markers (Online Green vs Busy Amber)
   useEffect(() => {
@@ -1208,12 +1184,12 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         setSelectedDriver(drv);
         map.flyTo({ center: [drv.lng, drv.lat], zoom: Math.max(map.getZoom(), 16), duration: 600 });
       };
-      const marker: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([drv.lng, drv.lat]).addTo(map)
-        : new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([drv.lng, drv.lat]).addTo(map);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([drv.lng, drv.lat])
+        .addTo(map);
       driverMarkersRef.current.push(marker);
     }
-  }, [liveDrivers, layers.showDrivers, useMapbox]);
+  }, [liveDrivers, layers.showDrivers]);
 
   // Render Community Road Alert Markers
   useEffect(() => {
@@ -1247,12 +1223,12 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         setSelectedReport(rep);
         map.flyTo({ center: [rep.lng, rep.lat], zoom: Math.max(map.getZoom(), 15.5), duration: 550 });
       };
-      const marker: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([rep.lng, rep.lat]).addTo(map)
-        : new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([rep.lng, rep.lat]).addTo(map);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([rep.lng, rep.lat])
+        .addTo(map);
       roadReportMarkersRef.current.push(marker);
     }
-  }, [roadReports, layers.showRoadReports, useMapbox]);
+  }, [roadReports, layers.showRoadReports]);
 
   // Render Nearby Essentials Markers (Fuel, Hospital, ATM)
   useEffect(() => {
@@ -1286,13 +1262,13 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
           address: item.address,
         });
       };
-      const marker: any = useMapbox
-        ? new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([item.lng, item.lat]).addTo(map)
-        : new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([item.lng, item.lat]).addTo(map);
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([item.lng, item.lat])
+        .addTo(map);
       essentialMarkersRef.current.push(marker);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [essentialResults, useMapbox]);
+  }, [essentialResults]);
 
   // Debounced Place Search (/api/geo/search)
   useEffect(() => {
