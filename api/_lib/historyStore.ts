@@ -1,8 +1,23 @@
 import fs from 'fs';
 import path from 'path';
 
-const historyPath = path.join(process.cwd(), 'meta_chat_history.json');
-const clearedPath = path.join(process.cwd(), 'logs_cleared.txt');
+function getHistoryPath(): string | null {
+  if (typeof window !== 'undefined') return null;
+  try {
+    return path.join(process.cwd(), 'meta_chat_history.json');
+  } catch {
+    return null;
+  }
+}
+
+function getClearedPath(): string | null {
+  if (typeof window !== 'undefined') return null;
+  try {
+    return path.join(process.cwd(), 'logs_cleared.txt');
+  } catch {
+    return null;
+  }
+}
 
 export interface ChatMessage {
   id: string;
@@ -15,6 +30,9 @@ export interface ChatMessage {
 
 export function getHistory(): ChatMessage[] {
   try {
+    const clearedPath = getClearedPath();
+    const historyPath = getHistoryPath();
+    if (!clearedPath || !historyPath) return [];
     if (fs.existsSync(clearedPath)) {
       return [];
     }
@@ -30,6 +48,10 @@ export function getHistory(): ChatMessage[] {
 
 export function addMessageToHistory(channel: string, senderId: string, message: string, reply: string) {
   try {
+    const clearedPath = getClearedPath();
+    const historyPath = getHistoryPath();
+    if (!clearedPath || !historyPath) return;
+
     // Delete logs_cleared flag if a new real chat comes in
     if (fs.existsSync(clearedPath)) {
       try {
@@ -68,6 +90,10 @@ export function addMessageToHistory(channel: string, senderId: string, message: 
 
 export function clearHistory() {
   try {
+    const clearedPath = getClearedPath();
+    const historyPath = getHistoryPath();
+    if (!clearedPath || !historyPath) return;
+
     if (fs.existsSync(historyPath)) {
       fs.writeFileSync(historyPath, '[]', 'utf8');
     }
@@ -79,7 +105,8 @@ export function clearHistory() {
 
 export function removeSenderFromHistory(channel: string, senderId: string) {
   try {
-    if (!fs.existsSync(historyPath)) return;
+    const historyPath = getHistoryPath();
+    if (!historyPath || !fs.existsSync(historyPath)) return;
     const raw = fs.readFileSync(historyPath, 'utf8');
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return;
