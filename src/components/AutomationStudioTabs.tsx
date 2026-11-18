@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { doc, setDoc } from 'firebase/firestore';
+import { WhatsAppCustomersManager } from './admin/WhatsAppCustomersManager';
 import { 
   Brain, 
   Send, 
@@ -530,45 +531,8 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 p-5 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800 rounded-2xl space-y-4">
-              <h5 className="font-extrabold text-xs uppercase text-neutral-800 dark:text-neutral-200 pb-2 border-b">Session Active Contacts (Simulator Cache)</h5>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-neutral-200 text-[9px] font-black uppercase tracking-wider text-neutral-400">
-                      <th className="pb-2">Jina la Mteja</th>
-                      <th className="pb-2">Mtandao (Channel)</th>
-                      <th className="pb-2">Namba / ID</th>
-                      <th className="pb-2">Mwisho Kuonekana</th>
-                      <th className="pb-2">Hali</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800 text-[10.5px]">
-                    <tr>
-                      <td className="py-2.5 font-bold text-neutral-700 dark:text-neutral-200">Kassid Salim</td>
-                      <td className="py-2.5 text-neutral-500"><span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded text-[9px] font-bold">WhatsApp</span></td>
-                      <td className="py-2.5 font-mono text-neutral-400">255716543xxx</td>
-                      <td className="py-2.5 text-neutral-500">Sasa hivi</td>
-                      <td className="py-2.5"><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 font-bold text-neutral-700 dark:text-neutral-200">Mwajuma Omari</td>
-                      <td className="py-2.5 text-neutral-500"><span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded text-[9px] font-bold">Facebook</span></td>
-                      <td className="py-2.5 font-mono text-neutral-400">fb_usr_902</td>
-                      <td className="py-2.5 text-neutral-500">Mst 15 uliopita</td>
-                      <td className="py-2.5"><span className="inline-block w-2 h-2 rounded-full bg-neutral-400" /> Idle</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 font-bold text-neutral-700 dark:text-neutral-200">Iddi Hamis</td>
-                      <td className="py-2.5 text-neutral-500"><span className="px-1.5 py-0.5 bg-pink-500/10 text-pink-600 rounded text-[9px] font-bold">Instagram</span></td>
-                      <td className="py-2.5 font-mono text-neutral-400">ig_hamis_tz</td>
-                      <td className="py-2.5 text-neutral-500">Mst 40 uliopita</td>
-                      <td className="py-2.5"><span className="inline-block w-2 h-2 rounded-full bg-neutral-400" /> Idle</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <div className="lg:col-span-2">
+              <WhatsAppCustomersManager compact />
             </div>
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-2xl space-y-4">

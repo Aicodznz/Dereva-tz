@@ -9,7 +9,9 @@ import {
   getDocs as firestoreGetDocs, 
   setDoc as firestoreSetDoc, 
   updateDoc as firestoreUpdateDoc, 
+  deleteDoc as firestoreDeleteDoc,
   addDoc as firestoreAddDoc, 
+  writeBatch as firestoreWriteBatch,
   query as firestoreQuery, 
   where as firestoreWhere, 
   orderBy as firestoreOrderBy, 
@@ -118,6 +120,7 @@ export function getFirestoreDb() {
         const col = getMemoryCollection(colPath);
         let docs = Array.from(col.entries()).map(([id, data]) => ({
           id,
+          ref: buildRef([...pathSegments, id]),
           data: () => data
         }));
 
@@ -213,6 +216,7 @@ export function getFirestoreDb() {
               const snap = await withTimeout(firestoreGetDocs(q), 2500, `getDocs(${colPath})`);
               const docs = snap.docs.map((doc: any) => ({
                 id: doc.id,
+                ref: buildRef([...pathSegments, doc.id]),
                 data: () => doc.data()
               }));
               return {
@@ -334,12 +338,101 @@ export function getFirestoreDb() {
             data: () => col.get(finalId) || data
           })
         };
-      }
+      },
+
+      delete: async () => {
+        if (isCollection) {
+          throw new Error(`Cannot delete a collection reference directly: ${colPath}`);
+        }
+        const docId = pathSegments[pathSegments.length - 1];
+        const parentColPath = pathSegments.slice(0, -1).join('/');
+        const col = getMemoryCollection(parentColPath);
+        col.delete(docId);
+
+        if (authPromise) {
+          try {
+            await authPromise;
+          } catch (e: any) {
+            console.warn("[getFirestoreDb] Failed awaiting authPromise in delete():", e?.message || e);
+          }
+        }
+        if (realDb) {
+          try {
+            const docRef = firestoreDoc(realDb, colPath);
+            await withTimeout(firestoreDeleteDoc(docRef), 2500, `deleteDoc(${colPath})`);
+          } catch (err: any) {
+            console.warn(`[getFirestoreDb] Real DB delete() failed for ${colPath}:`, err?.message || err);
+          }
+        }
+      },
+
+      _pathSegments: pathSegments,
+      _colPath: colPath
     };
   };
 
   return {
-    collection: (colName: string) => buildRef([colName])
+    collection: (colName: string) => buildRef([colName]),
+    batch: () => {
+      const ops: Array<{ type: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any }> = [];
+      return {
+        set: (ref: any, data: any, options?: any) => {
+          ops.push({ type: 'set', ref, data, options });
+        },
+        update: (ref: any, data: any) => {
+          ops.push({ type: 'update', ref, data });
+        },
+        delete: (ref: any) => {
+          ops.push({ type: 'delete', ref });
+        },
+        commit: async () => {
+          // 1. Apply to in-memory store immediately
+          for (const op of ops) {
+            const segs: string[] | undefined = op.ref?._pathSegments;
+            if (!Array.isArray(segs) || segs.length < 2) continue;
+            const docId = segs[segs.length - 1];
+            const parentColPath = segs.slice(0, -1).join('/');
+            const col = getMemoryCollection(parentColPath);
+            if (op.type === 'delete') {
+              col.delete(docId);
+            } else if (op.type === 'set') {
+              const cleanData = cleanUndefined(op.data);
+              if (op.options?.merge && col.has(docId)) {
+                col.set(docId, { ...col.get(docId), ...cleanData });
+              } else {
+                col.set(docId, { ...cleanData });
+              }
+            } else if (op.type === 'update') {
+              const cleanData = cleanUndefined(op.data);
+              col.set(docId, { ...(col.get(docId) || {}), ...cleanData });
+            }
+          }
+
+          // 2. Apply to real Firestore
+          if (authPromise) {
+            try {
+              await authPromise;
+            } catch {}
+          }
+          if (realDb && ops.length > 0) {
+            try {
+              const b = firestoreWriteBatch(realDb);
+              for (const op of ops) {
+                const docPath = op.ref?._colPath;
+                if (!docPath) continue;
+                const docRef = firestoreDoc(realDb, docPath);
+                if (op.type === 'delete') b.delete(docRef);
+                else if (op.type === 'set') b.set(docRef, cleanUndefined(op.data), op.options);
+                else if (op.type === 'update') b.update(docRef, cleanUndefined(op.data));
+              }
+              await withTimeout(b.commit(), 3000, 'batch.commit()');
+            } catch (err: any) {
+              console.warn('[getFirestoreDb] Real DB batch.commit() warning:', err?.message || err);
+            }
+          }
+        }
+      };
+    }
   };
 }
 

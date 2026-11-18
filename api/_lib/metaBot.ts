@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolvePlace, getRoadDistanceAndDuration, SEED_PLACES } from './geocoder.js';
 import { cleanUndefined } from './getFirestoreDb.js';
+import { removeSenderFromHistory } from './historyStore.js';
 
 export interface MetaHistoryEntry {
   step: MetaSession['step'];
@@ -235,6 +236,11 @@ export interface MetaCustomerProfile {
   phone: string;
   lang?: 'sw' | 'en';
   lastLocation?: MetaSavedLocation;
+  blocked?: boolean;
+  status?: 'active' | 'blocked';
+  blockedReason?: string;
+  blockedAt?: number | null;
+  updatedAt?: number;
   createdAt: number;
 }
 
@@ -351,21 +357,39 @@ async function resolveGpsLocationPin(rawInput: string): Promise<{
   };
 }
 
+function readLocalMetaCustomersMap(): Record<string, MetaCustomerProfile> {
+  try {
+    const localPath = path.join(process.cwd(), 'meta_customers_store.json');
+    if (fs.existsSync(localPath)) {
+      const parsed = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch {}
+  return {};
+}
+
+function writeLocalMetaCustomersMap(mapObj: Record<string, MetaCustomerProfile>): void {
+  try {
+    const localPath = path.join(process.cwd(), 'meta_customers_store.json');
+    fs.writeFileSync(localPath, JSON.stringify(mapObj, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[Meta Customers] Local store write warning:', err);
+  }
+}
+
 async function getMetaCustomerProfile(
   senderId: string,
   channel: 'whatsapp' | 'messenger' | 'instagram',
   dbAdmin: any
 ): Promise<MetaCustomerProfile | null> {
   const key = `${channel}:${senderId}`;
-  const cached = metaCustomers.get(key);
-  if (cached) return cached;
 
   if (dbAdmin) {
     try {
       const snap = await dbAdmin.collection('meta_customers').doc(key).get();
       if (snap.exists) {
         const data = snap.data() as MetaCustomerProfile;
-        if (data?.name) {
+        if (data?.name || data?.blocked || data?.status === 'blocked') {
           metaCustomers.set(key, data);
           return data;
         }
@@ -380,12 +404,13 @@ async function getMetaCustomerProfile(
           if (!uSnap.empty) {
             const uData = uSnap.docs[0].data();
             const resolvedName = uData?.displayName || uData?.name;
-            if (resolvedName) {
+            if (resolvedName || uData?.status === 'blocked') {
               const profile: MetaCustomerProfile = {
                 senderId,
                 channel,
-                name: resolvedName,
+                name: resolvedName || senderId,
                 phone: uData.phone || `+${cleanDigits}`,
+                ...(uData?.status === 'blocked' ? { blocked: true, status: 'blocked' } : {}),
                 createdAt: Date.now(),
               };
               metaCustomers.set(key, profile);
@@ -398,6 +423,16 @@ async function getMetaCustomerProfile(
       console.warn('[Meta Bot] Customer lookup failed:', err);
     }
   }
+
+  const cached = metaCustomers.get(key);
+  if (cached) return cached;
+
+  const localMap = readLocalMetaCustomersMap();
+  if (localMap[key]) {
+    metaCustomers.set(key, localMap[key]);
+    return localMap[key];
+  }
+
   return null;
 }
 
@@ -406,22 +441,33 @@ async function saveMetaCustomerProfile(
   dbAdmin: any
 ): Promise<void> {
   const key = `${profile.channel}:${profile.senderId}`;
-  metaCustomers.set(key, profile);
+  const existingCached = metaCustomers.get(key);
+  const mergedProfile: MetaCustomerProfile = {
+    ...(existingCached || {}),
+    ...profile,
+    updatedAt: Date.now(),
+  };
+  metaCustomers.set(key, mergedProfile);
+  const localMap = readLocalMetaCustomersMap();
+  localMap[key] = mergedProfile;
+  writeLocalMetaCustomersMap(localMap);
+
   if (dbAdmin) {
     try {
-      await dbAdmin.collection('meta_customers').doc(key).set(cleanUndefined(profile));
+      await dbAdmin.collection('meta_customers').doc(key).set(cleanUndefined(mergedProfile), { merge: true });
       const cleanId = profile.senderId.replace(/[^a-zA-Z0-9]/g, '');
       const userId = `meta-${profile.channel}-${cleanId}`;
       const fallbackEmail = `${cleanId || 'guest'}@${profile.channel}.papohapo.tz`;
       await dbAdmin.collection('users').doc(userId).set(
         cleanUndefined({
-          displayName: profile.name,
-          name: profile.name,
+          displayName: mergedProfile.name,
+          name: mergedProfile.name,
           email: fallbackEmail,
-          phone: profile.phone,
+          phone: mergedProfile.phone,
           role: 'customer',
-          channel: profile.channel,
-          metaSenderId: profile.senderId,
+          channel: mergedProfile.channel,
+          metaSenderId: mergedProfile.senderId,
+          ...(mergedProfile.blocked ? { status: 'blocked' } : {}),
           updatedAt: new Date(),
         }),
         { merge: true }
@@ -2725,11 +2771,18 @@ export function generateDynamicWelcomeMessage(
   liveStatusMap?: Record<string, MetaServiceLiveStatus>
 ): string {
   const isEn = lang === 'en';
+  const cleanCustomerName = (() => {
+    const raw = String(customerName || '').trim();
+    if (!raw) return '';
+    if (raw === 'Mteja wa WhatsApp' || raw === 'Mteja wa Papo Hapo' || raw === 'Mteja') return '';
+    if (/^\+?\d{7,15}$/.test(raw.replace(/[\s-]/g, ''))) return '';
+    return raw;
+  })();
   if (customWelcome && !isEn) {
     const replaced = customWelcome.replace(/{channel}/g, chSymbol);
     const applied = applyBusinessConfigToWelcomeText(replaced, servicesConfig, 'sw', liveStatusMap);
-    return customerName && !applied.includes(customerName)
-      ? `Habari *${customerName}* 👋\n\n${applied}`
+    return cleanCustomerName && !applied.includes(cleanCustomerName)
+      ? `Habari *${cleanCustomerName}* 👋\n\n${applied}`
       : applied;
   }
 
@@ -2751,7 +2804,7 @@ export function generateDynamicWelcomeMessage(
 
   let welcome = '';
   if (isEn) {
-    welcome = customerName ? `Hello *${customerName}* 👋\n\n` : '';
+    welcome = cleanCustomerName ? `Hello *${cleanCustomerName}* 👋\n\n` : '';
     welcome +=
       `👋 *WELCOME TO PAPO HAPO SUPER APP!* ${badge}\n\n` +
       `I'm *Papo Hapo Assistant* 🤖. Order multiple services with ease!\n\n` +
@@ -2772,7 +2825,7 @@ export function generateDynamicWelcomeMessage(
     return welcome;
   }
 
-  welcome = customerName ? `Habari *${customerName}* 👋\n\n` : '';
+  welcome = cleanCustomerName ? `Habari *${cleanCustomerName}* 👋\n\n` : '';
   welcome +=
     `👋 *KARIBU PAPO HAPO SUPER APP!* ${badge}\n\n` +
     `Mimi ni *Papo Hapo Assistant* 🤖. Agiza huduma mbalimbali kwa urahisi!\n\n` +
@@ -4732,7 +4785,9 @@ async function processMetaInputCore(
   // --- 0B. CUSTOMER PROFILE SYNC & LANGUAGE PREFERENCE ---
   let customerProfile = await getMetaCustomerProfile(senderId, channel, dbAdmin);
   if (customerProfile) {
-    session.details.customerName = customerProfile.name;
+    if (customerProfile.name && customerProfile.name !== senderId) {
+      session.details.customerName = customerProfile.name;
+    }
     if (!session.details.phone && customerProfile.phone) {
       session.details.phone = customerProfile.phone;
     }
@@ -4745,6 +4800,15 @@ async function processMetaInputCore(
   }
 
   let lang: 'sw' | 'en' = session.details.lang || customerProfile?.lang || 'sw';
+
+  // Block / Suspend check (honors both meta_customers and Admin Users block status)
+  const blockState = await isMetaCustomerBlocked(senderId, channel, dbAdmin, customerProfile);
+  if (blockState.blocked) {
+    markSkipHistory();
+    return lang === 'en'
+      ? `[[EN_NATIVE]]⛔ *Account Suspended*\n\nSorry, your WhatsApp access to *Papo Hapo* has been temporarily blocked by the administrator.${blockState.reason ? `\nReason: _${blockState.reason}_` : ''}\n\nPlease contact customer support for assistance.`
+      : `⛔ *Akaunti Imefungiwa*\n\nSamahani, matumizi yako ya *Papo Hapo* kupitia WhatsApp yamesitishwa na Msimamizi.${blockState.reason ? `\nSababu: _${blockState.reason}_` : ''}\n\nTafadhali wasiliana na Huduma kwa Wateja kwa msaada zaidi.`;
+  }
 
   const getKnownPhone = (): string => {
     for (const cand of [session.details?.phone, customerProfile?.phone, defaultWaPhone]) {
@@ -8894,6 +8958,445 @@ export async function getMetaConversationalAutomationStatus(phoneNumberId?: stri
     resolvedPhoneNumberId,
     ...(remoteConfig ? { remoteConfig } : {}),
   };
+}
+
+export interface MetaAdminCustomerRecord {
+  id: string;
+  senderId: string;
+  channel: 'whatsapp' | 'messenger' | 'instagram';
+  name: string;
+  phone: string;
+  lang: 'sw' | 'en';
+  blocked: boolean;
+  status: 'active' | 'blocked';
+  blockedReason?: string;
+  blockedAt?: number | null;
+  step?: string;
+  service?: string;
+  lastLocationName?: string;
+  createdAt: number;
+  lastActiveAt: number;
+}
+
+export async function isMetaCustomerBlocked(
+  senderId: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin?: any,
+  existingProfile?: MetaCustomerProfile | null
+): Promise<{ blocked: boolean; reason?: string }> {
+  const key = `${channel}:${senderId}`;
+
+  if (existingProfile?.blocked || existingProfile?.status === 'blocked') {
+    return { blocked: true, reason: existingProfile.blockedReason };
+  }
+
+  const localMap = readLocalMetaCustomersMap();
+  const localRec = localMap[key];
+  if (localRec?.blocked || localRec?.status === 'blocked') {
+    return { blocked: true, reason: localRec.blockedReason };
+  }
+
+  if (dbAdmin) {
+    try {
+      const custSnap = await dbAdmin.collection('meta_customers').doc(key).get();
+      if (custSnap.exists) {
+        const d = custSnap.data() || {};
+        if (d.blocked === true || d.status === 'blocked') {
+          return { blocked: true, reason: d.blockedReason };
+        }
+      }
+      const cleanId = senderId.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleanId) {
+        const userSnap = await dbAdmin.collection('users').doc(`meta-${channel}-${cleanId}`).get();
+        if (userSnap.exists) {
+          const ud = userSnap.data() || {};
+          if (ud.status === 'blocked' || ud.blocked === true) {
+            return { blocked: true, reason: ud.blockedReason };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Meta Block Check] Firestore check warning:', err);
+    }
+  } else {
+    const cached = metaCustomers.get(key);
+    if (cached?.blocked || cached?.status === 'blocked') {
+      return { blocked: true, reason: cached.blockedReason };
+    }
+  }
+
+  return { blocked: false };
+}
+
+export async function listMetaCustomersForAdmin(
+  dbAdmin?: any,
+  opts?: { channel?: string; search?: string }
+): Promise<MetaAdminCustomerRecord[]> {
+  const records = new Map<string, MetaAdminCustomerRecord>();
+
+  const normalizeEpoch = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val?.toMillis === 'function') return val.toMillis();
+    if (typeof val?._seconds === 'number') return val._seconds * 1000;
+    const parsed = Date.parse(String(val));
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const upsertRecord = (partial: Partial<MetaAdminCustomerRecord> & { channel: 'whatsapp' | 'messenger' | 'instagram'; senderId: string }) => {
+    const id = `${partial.channel}:${partial.senderId}`;
+    const existing = records.get(id);
+    const digits = partial.senderId.replace(/\D/g, '');
+    const defaultPhone = partial.channel === 'whatsapp' && digits.length >= 9 ? `+${digits}` : partial.senderId;
+    const nextBlocked =
+      typeof partial.blocked === 'boolean'
+        ? partial.blocked
+        : existing?.blocked ?? false;
+    records.set(id, {
+      id,
+      senderId: partial.senderId,
+      channel: partial.channel,
+      name: partial.name || existing?.name || 'Mteja wa WhatsApp',
+      phone: partial.phone || existing?.phone || defaultPhone,
+      lang: (partial.lang || existing?.lang || 'sw') as 'sw' | 'en',
+      blocked: nextBlocked,
+      status: nextBlocked ? 'blocked' : 'active',
+      blockedReason: partial.blockedReason !== undefined ? partial.blockedReason : existing?.blockedReason,
+      blockedAt: partial.blockedAt !== undefined ? partial.blockedAt : existing?.blockedAt,
+      step: partial.step || existing?.step,
+      service: partial.service || existing?.service,
+      lastLocationName: partial.lastLocationName || existing?.lastLocationName,
+      createdAt: partial.createdAt || existing?.createdAt || Date.now(),
+      lastActiveAt: Math.max(partial.lastActiveAt || 0, existing?.lastActiveAt || 0, partial.createdAt || 0) || Date.now(),
+    });
+  };
+
+  // 1. Seed from local JSON store and in-memory maps
+  const localMap = readLocalMetaCustomersMap();
+  for (const prof of [...Object.values(localMap), ...Array.from(metaCustomers.values())]) {
+    if (!prof?.senderId || !prof?.channel) continue;
+    upsertRecord({
+      senderId: prof.senderId,
+      channel: prof.channel,
+      name: prof.name || (prof.channel === 'whatsapp' ? 'Mteja wa WhatsApp' : 'Mteja'),
+      phone: prof.phone || prof.senderId,
+      lang: prof.lang || 'sw',
+      blocked: Boolean(prof.blocked || prof.status === 'blocked'),
+      blockedReason: prof.blockedReason,
+      blockedAt: prof.blockedAt,
+      lastLocationName: prof.lastLocation?.name,
+      createdAt: normalizeEpoch(prof.createdAt) || Date.now(),
+      lastActiveAt: normalizeEpoch(prof.updatedAt || prof.createdAt) || Date.now(),
+    });
+  }
+
+  for (const sess of Array.from(metaSessions.values())) {
+    if (!sess?.senderId || !sess?.channel) continue;
+    upsertRecord({
+      senderId: sess.senderId,
+      channel: sess.channel,
+      name: sess.details?.customerName,
+      phone: sess.details?.phone,
+      lang: sess.details?.lang,
+      step: sess.step,
+      service: sess.service,
+      lastLocationName: sess.details?.lastLocation?.name,
+      lastActiveAt: normalizeEpoch(sess.lastUpdated),
+    });
+  }
+
+  // 2. Merge Firestore collections (authoritative when dbAdmin exists)
+  if (dbAdmin) {
+    try {
+      const [custSnap, sessSnap, usersSnap] = await Promise.all([
+        dbAdmin.collection('meta_customers').limit(400).get(),
+        dbAdmin.collection('meta_sessions').limit(400).get(),
+        dbAdmin.collection('users').where('channel', 'in', ['whatsapp', 'messenger', 'instagram']).limit(400).get().catch(() => ({ docs: [] })),
+      ]);
+
+      for (const docItem of custSnap.docs) {
+        const d = docItem.data() || {};
+        const docId = String(docItem.id || '');
+        const splitIdx = docId.indexOf(':');
+        const ch = (d.channel || (splitIdx > 0 ? docId.slice(0, splitIdx) : 'whatsapp')) as 'whatsapp' | 'messenger' | 'instagram';
+        const sid = String(d.senderId || (splitIdx > 0 ? docId.slice(splitIdx + 1) : docId)).trim();
+        if (!sid || docId.startsWith('dedup_')) continue;
+        upsertRecord({
+          senderId: sid,
+          channel: ch,
+          name: d.name,
+          phone: d.phone,
+          lang: d.lang,
+          blocked: Boolean(d.blocked === true || d.status === 'blocked'),
+          blockedReason: d.blockedReason,
+          blockedAt: normalizeEpoch(d.blockedAt) || null,
+          lastLocationName: d.lastLocation?.name,
+          createdAt: normalizeEpoch(d.createdAt),
+          lastActiveAt: normalizeEpoch(d.updatedAt || d.createdAt),
+        });
+      }
+
+      for (const docItem of sessSnap.docs) {
+        const docId = String(docItem.id || '');
+        if (docId.startsWith('dedup_')) continue;
+        const d = docItem.data() || {};
+        if (d.type === 'webhook_dedup') continue;
+        const splitIdx = docId.indexOf(':');
+        const ch = (d.channel || (splitIdx > 0 ? docId.slice(0, splitIdx) : 'whatsapp')) as 'whatsapp' | 'messenger' | 'instagram';
+        const sid = String(d.senderId || (splitIdx > 0 ? docId.slice(splitIdx + 1) : docId)).trim();
+        if (!sid) continue;
+        upsertRecord({
+          senderId: sid,
+          channel: ch,
+          name: d.details?.customerName,
+          phone: d.details?.phone,
+          lang: d.details?.lang,
+          step: d.step,
+          service: d.service,
+          lastLocationName: d.details?.lastLocation?.name,
+          lastActiveAt: normalizeEpoch(d.lastUpdated),
+        });
+      }
+
+      for (const uDoc of usersSnap.docs) {
+        const u = uDoc.data() || {};
+        const sid = String(u.metaSenderId || '').trim();
+        const ch = (u.channel || 'whatsapp') as 'whatsapp' | 'messenger' | 'instagram';
+        if (!sid) continue;
+        const id = `${ch}:${sid}`;
+        const existing = records.get(id);
+        upsertRecord({
+          senderId: sid,
+          channel: ch,
+          name: existing?.name || u.displayName || u.name,
+          phone: existing?.phone || u.phone,
+          blocked: existing ? (existing.blocked || u.status === 'blocked') : (u.status === 'blocked'),
+          lastActiveAt: existing?.lastActiveAt || normalizeEpoch(u.updatedAt),
+        });
+      }
+    } catch (err) {
+      console.warn('[Meta Customers List] Firestore read warning:', err);
+    }
+  }
+
+  let list = Array.from(records.values());
+  if (opts?.channel && opts.channel !== 'all') {
+    list = list.filter((c) => c.channel === opts.channel);
+  }
+  if (opts?.search && opts.search.trim()) {
+    const q = opts.search.trim().toLowerCase();
+    list = list.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q) ||
+        c.senderId.toLowerCase().includes(q)
+    );
+  }
+
+  return list.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+}
+
+export async function setMetaCustomerBlockedState(
+  params: {
+    channel: 'whatsapp' | 'messenger' | 'instagram';
+    senderId: string;
+    blocked: boolean;
+    reason?: string;
+  },
+  dbAdmin?: any
+): Promise<MetaAdminCustomerRecord> {
+  const { channel, senderId, blocked, reason } = params;
+  const key = `${channel}:${senderId}`;
+  const cleanDigits = senderId.replace(/\D/g, '');
+  const defaultPhone = channel === 'whatsapp' && cleanDigits.length >= 9 ? `+${cleanDigits}` : senderId;
+
+  const existingProfile = await getMetaCustomerProfile(senderId, channel, dbAdmin);
+  const existingSession = metaSessions.get(key) || (await getMetaSession(senderId, channel, dbAdmin).catch(() => null));
+  const rawCandidateName = String(existingProfile?.name || existingSession?.details?.customerName || '').trim();
+  const isRawPhone = /^\+?\d{7,15}$/.test(rawCandidateName.replace(/[\s-]/g, ''));
+  const resolvedName =
+    rawCandidateName && !isRawPhone
+      ? rawCandidateName
+      : channel === 'whatsapp'
+      ? 'Mteja wa WhatsApp'
+      : 'Mteja';
+  const resolvedPhone = existingProfile?.phone || existingSession?.details?.phone || defaultPhone;
+  const cleanReason = typeof reason === 'string' && reason.trim() ? reason.trim().slice(0, 240) : undefined;
+
+  const nextProfile: MetaCustomerProfile = {
+    ...(existingProfile || {}),
+    senderId,
+    channel,
+    name: resolvedName,
+    phone: resolvedPhone,
+    lang: existingProfile?.lang || existingSession?.details?.lang || 'sw',
+    blocked,
+    status: blocked ? 'blocked' : 'active',
+    blockedReason: blocked ? cleanReason || 'Imesitishwa na Admin' : undefined,
+    blockedAt: blocked ? Date.now() : null,
+    createdAt: existingProfile?.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  metaCustomers.set(key, nextProfile);
+  const localMap = readLocalMetaCustomersMap();
+  localMap[key] = nextProfile;
+  writeLocalMetaCustomersMap(localMap);
+
+  if (dbAdmin) {
+    try {
+      await dbAdmin.collection('meta_customers').doc(key).set(
+        cleanUndefined({
+          ...nextProfile,
+          ...(blocked ? {} : { blockedReason: null, blockedAt: null }),
+        }),
+        { merge: true }
+      );
+      const cleanId = senderId.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleanId) {
+        const userRef = dbAdmin.collection('users').doc(`meta-${channel}-${cleanId}`);
+        const userSnap = await userRef.get();
+        if (userSnap.exists) {
+          await userRef.set(
+            {
+              status: blocked ? 'blocked' : 'active',
+              blocked,
+              ...(blocked && cleanReason ? { blockedReason: cleanReason } : { blockedReason: null }),
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Meta Customer Block] Firestore update warning:', err);
+    }
+  }
+
+  return {
+    id: key,
+    senderId,
+    channel,
+    name: nextProfile.name,
+    phone: nextProfile.phone,
+    lang: (nextProfile.lang || 'sw') as 'sw' | 'en',
+    blocked: Boolean(nextProfile.blocked),
+    status: nextProfile.blocked ? 'blocked' : 'active',
+    blockedReason: nextProfile.blockedReason,
+    blockedAt: nextProfile.blockedAt,
+    step: existingSession?.step,
+    service: existingSession?.service,
+    lastLocationName: nextProfile.lastLocation?.name || existingSession?.details?.lastLocation?.name,
+    createdAt: nextProfile.createdAt,
+    lastActiveAt: Date.now(),
+  };
+}
+
+export async function deleteMetaCustomerCompletely(
+  params: {
+    channel: 'whatsapp' | 'messenger' | 'instagram';
+    senderId: string;
+  },
+  dbAdmin?: any
+): Promise<{ deleted: boolean; key: string }> {
+  const { channel, senderId } = params;
+  const trimmedSender = String(senderId || '').trim();
+  const key = `${channel}:${trimmedSender}`;
+  const digits = trimmedSender.replace(/\D/g, '');
+  const candidateSenders = Array.from(
+    new Set([
+      trimmedSender,
+      ...(channel === 'whatsapp' && digits.length >= 9 ? [digits, `+${digits}`] : []),
+    ])
+  ).filter(Boolean);
+  const candidateKeys = Array.from(new Set(candidateSenders.map((sid) => `${channel}:${sid}`)));
+
+  for (const candKey of candidateKeys) {
+    metaCustomers.delete(candKey);
+    metaSessions.delete(candKey);
+  }
+  if (digits.length >= 9) {
+    for (const [k, v] of Array.from(metaCustomers.entries())) {
+      if (v?.channel === channel && String(v?.senderId || '').replace(/\D/g, '') === digits) {
+        metaCustomers.delete(k);
+      }
+    }
+    for (const [k, v] of Array.from(metaSessions.entries())) {
+      if (v?.channel === channel && String(v?.senderId || '').replace(/\D/g, '') === digits) {
+        metaSessions.delete(k);
+      }
+    }
+  }
+
+  const localMap = readLocalMetaCustomersMap();
+  let localChanged = false;
+  for (const [lk, lv] of Object.entries(localMap)) {
+    const sameKey = candidateKeys.includes(lk);
+    const sameDigits =
+      digits.length >= 9 &&
+      lv?.channel === channel &&
+      String(lv?.senderId || '').replace(/\D/g, '') === digits;
+    if (sameKey || sameDigits) {
+      delete localMap[lk];
+      localChanged = true;
+    }
+  }
+  if (localChanged) {
+    writeLocalMetaCustomersMap(localMap);
+  }
+
+  removeSenderFromHistory(channel, trimmedSender);
+
+  if (dbAdmin) {
+    try {
+      const directDeletes: Promise<any>[] = [];
+      for (const candKey of candidateKeys) {
+        directDeletes.push(dbAdmin.collection('meta_customers').doc(candKey).delete());
+        directDeletes.push(dbAdmin.collection('meta_sessions').doc(candKey).delete());
+      }
+      for (const candSender of candidateSenders) {
+        const cleanId = candSender.replace(/[^a-zA-Z0-9]/g, '');
+        if (cleanId) {
+          directDeletes.push(dbAdmin.collection('users').doc(`meta-${channel}-${cleanId}`).delete());
+        }
+      }
+      await Promise.allSettled(directDeletes);
+
+      // Query & delete any remaining docs matched by senderId / metaSenderId across collections
+      for (const candSender of candidateSenders) {
+        const [custQ, sessQ, usersQ, chatsQ] = await Promise.all([
+          dbAdmin.collection('meta_customers').where('senderId', '==', candSender).limit(20).get().catch(() => null),
+          dbAdmin.collection('meta_sessions').where('senderId', '==', candSender).limit(20).get().catch(() => null),
+          dbAdmin.collection('users').where('metaSenderId', '==', candSender).limit(20).get().catch(() => null),
+          dbAdmin.collection('meta_chats').where('senderId', '==', candSender).limit(50).get().catch(() => null),
+        ]);
+
+        const batch = typeof dbAdmin.batch === 'function' ? dbAdmin.batch() : null;
+        const refsToDelete: any[] = [];
+        for (const snap of [custQ, sessQ, usersQ, chatsQ]) {
+          if (!snap || snap.empty) continue;
+          for (const d of snap.docs) {
+            const dChan = d.data()?.channel;
+            if (!dChan || dChan === channel) {
+              refsToDelete.push(d.ref);
+            }
+          }
+        }
+        if (refsToDelete.length > 0) {
+          if (batch) {
+            refsToDelete.forEach((ref) => batch.delete(ref));
+            await batch.commit().catch(() => {});
+          } else {
+            await Promise.allSettled(refsToDelete.map((ref) => ref.delete?.()));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Meta Customer Delete] Firestore delete warning:', err);
+    }
+  }
+
+  return { deleted: true, key };
 }
 
 /**

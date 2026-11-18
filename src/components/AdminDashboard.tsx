@@ -32,6 +32,7 @@ import { useLanguage } from '../LanguageContext';
 import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } from '../utils/soundAlert';
 import { TwilioResponderTab } from './TwilioResponderTab';
 import { MetaMcpHub } from './admin/MetaMcpHub';
+import { WhatsAppCustomersManager } from './admin/WhatsAppCustomersManager';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
 import { AppModulesStudio } from './admin/AppModulesStudio';
@@ -918,6 +919,21 @@ export default function AdminDashboard() {
     const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
     try {
       await updateDoc(doc(db, 'users', id), { status: newStatus });
+      const targetUser: any = allUsers.find((u: any) => u.id === id);
+      const metaSenderId = targetUser?.metaSenderId || (id.startsWith('meta-whatsapp-') ? id.replace('meta-whatsapp-', '') : '');
+      const metaChannel = targetUser?.channel || (id.startsWith('meta-') ? id.split('-')[1] : '');
+      if (metaSenderId && (metaChannel === 'whatsapp' || metaChannel === 'messenger' || metaChannel === 'instagram')) {
+        fetch('/api/meta/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: newStatus === 'blocked' ? 'block' : 'unblock',
+            channel: metaChannel,
+            senderId: metaSenderId,
+            blocked: newStatus === 'blocked',
+          }),
+        }).catch(() => {});
+      }
       toast.success(`User ${newStatus === 'blocked' ? 'blocked' : 'unblocked'}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
@@ -926,7 +942,21 @@ export default function AdminDashboard() {
 
   const handleDeleteUser = async (id: string) => {
     try {
+      const targetUser: any = allUsers.find((u: any) => u.id === id);
+      const metaSenderId = targetUser?.metaSenderId || (id.startsWith('meta-whatsapp-') ? id.replace('meta-whatsapp-', '') : '');
+      const metaChannel = targetUser?.channel || (id.startsWith('meta-') ? id.split('-')[1] : '');
       await deleteDoc(doc(db, 'users', id));
+      if (metaSenderId && (metaChannel === 'whatsapp' || metaChannel === 'messenger' || metaChannel === 'instagram')) {
+        fetch('/api/meta/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete',
+            channel: metaChannel,
+            senderId: metaSenderId,
+          }),
+        }).catch(() => {});
+      }
       toast.success('User deleted successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
@@ -1656,6 +1686,8 @@ export default function AdminDashboard() {
                 </table>
               </div>
             </Card>
+
+            <WhatsAppCustomersManager defaultChannelFilter="whatsapp" />
           </motion.div>
         )}
 

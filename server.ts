@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -539,6 +539,66 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Meta Clear Logs Server] Error:", error);
       res.status(500).json({ error: "Failed to clear logs", details: error.message });
+    }
+  });
+
+  // List WhatsApp / Meta customers for Admin CRM (active & blocked)
+  app.get("/api/meta/customers", async (req, res) => {
+    try {
+      const channel = typeof req.query.channel === 'string' ? req.query.channel : 'all';
+      const search = typeof req.query.search === 'string' ? req.query.search : '';
+      const customers = await listMetaCustomersForAdmin(dbAdmin, { channel, search });
+      return res.json({ status: "ok", customers });
+    } catch (error: any) {
+      console.error("[Meta Customers GET] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to list customers" });
+    }
+  });
+
+  // Block, Unblock, or Delete a WhatsApp / Meta customer
+  app.post("/api/meta/customers", async (req, res) => {
+    try {
+      const { action, channel = 'whatsapp', senderId, blocked, reason } = req.body || {};
+      const cleanSenderId = String(senderId || '').trim();
+      const validChannel = (channel === 'messenger' || channel === 'instagram' ? channel : 'whatsapp') as
+        | 'whatsapp'
+        | 'messenger'
+        | 'instagram';
+
+      if (!cleanSenderId) {
+        return res.status(400).json({ error: "senderId is required" });
+      }
+
+      if (action === 'delete') {
+        const result = await deleteMetaCustomerCompletely(
+          { channel: validChannel, senderId: cleanSenderId },
+          dbAdmin
+        );
+        return res.json({ status: "ok", action: "delete", ...result });
+      }
+
+      if (action === 'block' || action === 'unblock' || typeof blocked === 'boolean') {
+        const nextBlocked = action === 'block' ? true : action === 'unblock' ? false : Boolean(blocked);
+        const customer = await setMetaCustomerBlockedState(
+          {
+            channel: validChannel,
+            senderId: cleanSenderId,
+            blocked: nextBlocked,
+            reason,
+          },
+          dbAdmin
+        );
+        return res.json({
+          status: "ok",
+          action: nextBlocked ? "block" : "unblock",
+          customer,
+        });
+      }
+
+      return res.status(400).json({ error: "Unsupported action. Use block, unblock, or delete." });
+    } catch (error: any) {
+      console.error("[Meta Customers POST] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to update customer" });
     }
   });
 

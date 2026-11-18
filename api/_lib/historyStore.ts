@@ -76,3 +76,26 @@ export function clearHistory() {
     console.warn("[historyStore] Error clearing history:", err);
   }
 }
+
+export function removeSenderFromHistory(channel: string, senderId: string) {
+  try {
+    if (!fs.existsSync(historyPath)) return;
+    const raw = fs.readFileSync(historyPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    const targetDigits = String(senderId || '').replace(/\D/g, '');
+    const filtered = parsed.filter((item: any) => {
+      if (channel && item?.channel && item.channel !== channel) return true;
+      const itemSender = String(item?.senderId || '').trim();
+      if (itemSender === senderId) return false;
+      if (targetDigits.length >= 9 && itemSender.replace(/\D/g, '') === targetDigits) return false;
+      return true;
+    });
+    if (filtered.length !== parsed.length) {
+      fs.writeFileSync(historyPath, JSON.stringify(filtered, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.warn("[historyStore] Error removing sender history:", err);
+  }
+}
+
