@@ -138,7 +138,15 @@ export default function ServiceDetail() {
         bookingRef: refCode
       };
 
-      await addDoc(collection(db, 'orders'), bookingData);
+      const bookingRefDoc = await addDoc(collection(db, 'orders'), bookingData);
+      fetch('/api/meta/vendor-order-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: bookingRefDoc.id,
+          orderData: { ...bookingData, id: bookingRefDoc.id, bookingCode: refCode, totalAmount: bookingData.total }
+        })
+      }).catch(() => {});
       setConfirmedBookingRef(refCode);
       toast.success(`Booking ya ${subInfo?.label || 'Fundi'} imethibitishwa! Ref: ${refCode}`);
     } catch (err: any) {

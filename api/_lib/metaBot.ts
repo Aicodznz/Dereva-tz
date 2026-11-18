@@ -660,7 +660,17 @@ async function triggerAutomatedOrder(
       ...extraFields
     });
     const ref = await dbAdmin.collection('orders').add(orderData);
-    console.log(`[Meta Bot] Automatic order created in DB for vendor: ${vendorId} from ${source}`);
+    console.log(`[Meta Bot] Automatic order created in DB for vendor: ${vendorId} from ${source} (orderId=${ref?.id})`);
+    if (ref?.id) {
+      try {
+        await notifyVendorNewOrderToWhatsApp(
+          { orderId: ref.id, orderData: { ...orderData, id: ref.id } },
+          dbAdmin
+        );
+      } catch (notifyErr: any) {
+        console.warn('[Meta Bot] Non-fatal vendor WhatsApp notify warning:', notifyErr?.message || notifyErr);
+      }
+    }
     return ref?.id || null;
   } catch (err) {
     console.error("[Meta Bot] Error creating order:", err);
@@ -4643,6 +4653,13 @@ async function processMetaInputCore(
     } catch {
       return `⚠️ Imeshindikana kusoma fomu. Tafadhali andika ujumbe wako hapa:`;
     }
+  }
+
+  // --- 0V. VENDOR WHATSAPP ORDER ACCEPT / REJECT HANDLER ---
+  const vendorDecisionReply = await handleVendorWhatsAppOrderDecision(senderId, cleanInput, channel, dbAdmin);
+  if (vendorDecisionReply) {
+    markSkipHistory();
+    return vendorDecisionReply;
   }
 
   // --- 0A. POST-TRIP DRIVER RATING INTERCEPTOR ---
@@ -9181,6 +9198,708 @@ export async function notifyRideStatusToMeta(
   }
 }
 
+// ============================================================================
+// VENDOR WHATSAPP ORDER/BOOKING NOTIFICATION & INTERACTIVE ACCEPT/REJECT FLOW
+// ============================================================================
+
+const notifiedVendorNewOrders = new Set<string>();
+const inFlightVendorOrderNotifications = new Set<string>();
+const notifiedOrderCustomerStatuses = new Set<string>();
+const inFlightOrderCustomerNotifications = new Set<string>();
+
+export function normalizeWhatsAppRecipientDigits(rawPhone?: string): string {
+  const digits = String(rawPhone || '').replace(/\D/g, '');
+  if (!digits || digits.length < 9) return '';
+  if (digits.startsWith('0') && digits.length >= 10) return `255${digits.slice(1)}`;
+  if (digits.length === 9 && (digits.startsWith('6') || digits.startsWith('7'))) return `255${digits}`;
+  return digits;
+}
+
+function phoneLast9(rawPhone?: string): string {
+  const digits = String(rawPhone || '').replace(/\D/g, '');
+  return digits.length >= 9 ? digits.slice(-9) : digits;
+}
+
+async function resolveVendorWhatsAppContact(
+  dbAdmin: any,
+  vendorId: string,
+  orderData?: any
+): Promise<{
+  whatsappPhone: string;
+  allLast9: string[];
+  vendorName: string;
+  ownerUid?: string;
+}> {
+  const candidates: string[] = [];
+  let vendorName = String(orderData?.vendorName || '').trim() || 'Biashara ya Papo Hapo';
+  let ownerUid: string | undefined = orderData?.vendorOwnerUid || undefined;
+  const orderCategory = String(orderData?.type || orderData?.vendorCategory || '').toLowerCase();
+  const isFood = orderCategory === 'restaurant' || orderCategory === 'food' || Boolean(orderData?.isTableBooking);
+
+  if (dbAdmin && vendorId) {
+    try {
+      const vSnap = await dbAdmin.collection('vendors').doc(vendorId).get();
+      if (vSnap?.exists) {
+        const v = vSnap.data() || {};
+        vendorName = String(v.businessName || v.name || vendorName).trim();
+        ownerUid = ownerUid || v.ownerUid;
+
+        const orderedFields = isFood
+          ? [
+              v.kitchenWhatsappPhone,
+              v.socialLinks?.whatsapp,
+              v.ownerInfo?.whatsapp,
+              v.whatsappNumber,
+              v.whatsapp,
+              v.phoneNumber,
+              v.ownerInfo?.phone,
+              v.managerWhatsappPhone,
+            ]
+          : [
+              v.socialLinks?.whatsapp,
+              v.ownerInfo?.whatsapp,
+              v.whatsappNumber,
+              v.whatsapp,
+              v.kitchenWhatsappPhone,
+              v.phoneNumber,
+              v.ownerInfo?.phone,
+              v.managerWhatsappPhone,
+            ];
+
+        for (const f of orderedFields) {
+          const norm = normalizeWhatsAppRecipientDigits(f);
+          if (norm && !candidates.includes(norm)) candidates.push(norm);
+        }
+      }
+
+      if (ownerUid) {
+        try {
+          const uSnap = await dbAdmin.collection('users').doc(ownerUid).get();
+          if (uSnap?.exists) {
+            const u = uSnap.data() || {};
+            for (const f of [u.whatsapp, u.phoneNumber, u.phone]) {
+              const norm = normalizeWhatsAppRecipientDigits(f);
+              if (norm && !candidates.includes(norm)) candidates.push(norm);
+            }
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('[Vendor WA Resolve] Lookup warning:', err);
+    }
+  }
+
+  for (const f of [orderData?.kitchenWhatsappPhone, orderData?.vendorWhatsapp, orderData?.vendorPhone, orderData?.vendorWaNotifiedPhone]) {
+    const norm = normalizeWhatsAppRecipientDigits(f);
+    if (norm && !candidates.includes(norm)) candidates.push(norm);
+  }
+
+  const allLast9 = Array.from(new Set(candidates.map(phoneLast9).filter((x) => x.length >= 9)));
+  return {
+    whatsappPhone: candidates[0] || '',
+    allLast9,
+    vendorName,
+    ownerUid,
+  };
+}
+
+function getOrderCategoryMeta(order: any): { emoji: string; title: string } {
+  if (order?.isTableBooking || order?.subType === 'table_booking') {
+    return { emoji: '🪑', title: 'BOOKING MPYA YA MEZA' };
+  }
+  const t = String(order?.type || order?.vendorCategory || '').toLowerCase();
+  switch (t) {
+    case 'restaurant':
+    case 'food':
+      return { emoji: '🍔', title: 'ODA MPYA YA CHAKULA' };
+    case 'hotel':
+      return { emoji: '🏨', title: 'BOOKING MPYA YA HOTELI' };
+    case 'salon':
+      return { emoji: '💇‍♀️', title: 'MIADI MPYA YA SALUNI' };
+    case 'car_rental':
+      return { emoji: '🚗', title: 'OMBI LA KUKODI GARI' };
+    case 'pharmacy':
+      return { emoji: '💊', title: 'AGIZO JIPYA LA DAWA' };
+    case 'grocery':
+      return { emoji: '🥦', title: 'ODA MPYA YA SOKONI' };
+    case 'handyman':
+      return { emoji: '🛠️', title: 'OMBI JIPYA LA FUNDI' };
+    case 'bus_ticket':
+      return { emoji: '🚌', title: 'TIKETI MPYA YA BASI' };
+    case 'events':
+      return { emoji: '🎟️', title: 'TIKETI YA TUKIO' };
+    default:
+      return { emoji: '🛍️', title: 'ODA MPYA YA MTEJA' };
+  }
+}
+
+export async function notifyVendorNewOrderToWhatsApp(
+  params: { orderId: string; orderData?: any },
+  dbAdmin: any
+): Promise<{ notified: boolean; reason?: string; vendorPhone?: string }> {
+  const { orderId, orderData: incomingOrder } = params;
+  if (!orderId) return { notified: false, reason: 'Missing orderId' };
+
+  if (notifiedVendorNewOrders.has(orderId)) {
+    return { notified: false, reason: 'Vendor already notified for this order' };
+  }
+  if (inFlightVendorOrderNotifications.has(orderId)) {
+    return { notified: false, reason: 'Vendor notification already in flight' };
+  }
+
+  inFlightVendorOrderNotifications.add(orderId);
+  try {
+    let dbOrder: any = null;
+    if (dbAdmin) {
+      try {
+        const snap = await dbAdmin.collection('orders').doc(orderId).get();
+        if (snap?.exists) dbOrder = snap.data();
+      } catch {}
+    }
+
+    const order: any = dbOrder || incomingOrder ? { ...(incomingOrder || {}), ...(dbOrder || {}) } : null;
+    if (!order) return { notified: false, reason: 'Order not found' };
+
+    if (order.vendorWaNotified === true) {
+      notifiedVendorNewOrders.add(orderId);
+      return { notified: false, reason: 'Order already marked vendorWaNotified in DB' };
+    }
+
+    const statusLower = String(order.status || 'pending').toLowerCase();
+    if (statusLower !== 'pending') {
+      return { notified: false, reason: `Order status is ${statusLower}, not pending` };
+    }
+
+    const createdMs = normalizeEpochMs(order.createdAt);
+    if (createdMs > 0 && Date.now() - createdMs > 15 * 60 * 1000) {
+      return { notified: false, reason: 'Historical order (>15m old) skipped' };
+    }
+
+    const vendorId = String(order.vendorId || '').trim();
+    const { whatsappPhone, vendorName } = await resolveVendorWhatsAppContact(dbAdmin, vendorId, order);
+    if (!whatsappPhone) {
+      return { notified: false, reason: `Vendor (${vendorId || 'unknown'}) has no WhatsApp/phone configured` };
+    }
+
+    const shortCode = String(order.bookingCode || order.bookingRef || orderId.slice(-6)).toUpperCase().replace(/^#/, '');
+    const { emoji, title } = getOrderCategoryMeta(order);
+    const sourceRaw = String(order.orderSource || order.channel || 'App').toLowerCase();
+    const sourceLabel =
+      sourceRaw === 'whatsapp'
+        ? '🟢 WhatsApp'
+        : sourceRaw === 'instagram'
+        ? '📸 Instagram'
+        : sourceRaw === 'messenger'
+        ? '🔵 Messenger'
+        : '📱 Papo Hapo App';
+
+    const itemsArr = Array.isArray(order.items) ? order.items : [];
+    const itemsLines = itemsArr
+      .slice(0, 6)
+      .map((it: any) => {
+        const nm = it.name || it.productName || 'Bidhaa';
+        const q = Number(it.quantity || 1);
+        const p = Number(it.price || 0) * q;
+        return `• *${q}x* ${nm}${p > 0 ? ` (TZS ${p.toLocaleString()})` : ''}`;
+      })
+      .join('\n');
+    const extraItemsCount = itemsArr.length > 6 ? `\n• _...na vitu ${itemsArr.length - 6} vingine_` : '';
+
+    const totalAmt = Number(order.totalAmount ?? order.total ?? 0);
+    const payLabel = order.paymentMethodLabel || order.paymentMethod || 'Cash';
+    const payDone = String(order.paymentStatus || '').toLowerCase() === 'paid';
+    const payState = payDone ? '✅ IMELIPWA' : '⏳ Haijalipwa';
+
+    const locationOrTableLine = order.isTableBooking
+      ? `🪑 *Meza:* #${order.tableNumber || '-'} (Viti *${order.peopleCount || 2}*) • *Muda:* ${order.reservationTime || 'Leo'}`
+      : order.deliveryAddress
+      ? `📍 *Eneo:* ${order.deliveryAddress}`
+      : order.tableNumber
+      ? `🍽️ *Meza:* #${order.tableNumber}`
+      : order.orderType === 'pickup'
+      ? `🛍️ *Aina:* Kujichukulia Mgahawani (Pickup)`
+      : '';
+
+    const notesLine = order.notes ? `📝 *Maelezo:* ${String(order.notes).slice(0, 140)}\n` : '';
+
+    const bodyText =
+      `${emoji} *${title}*\n` +
+      `🏪 *${vendorName}*\n` +
+      `🔖 Rejea: *#${shortCode}* • Kupitia: ${sourceLabel}\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *Mteja:* ${order.customerName || 'Mteja'} (${order.customerPhone || '-'})\n` +
+      (locationOrTableLine ? `${locationOrTableLine}\n` : '') +
+      (itemsLines ? `\n*ORODHA:*\n${itemsLines}${extraItemsCount}\n` : '') +
+      notesLine +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      (totalAmt > 0 ? `💰 *Jumla:* *TZS ${totalAmt.toLocaleString()}/=*\n` : '') +
+      `💳 *Malipo:* ${payLabel} (${payState})\n\n` +
+      `👇 Bonyeza *Kubali* au *Kataa* hapa chini (au jibu *KUBALI ${shortCode}* / *KATAA ${shortCode}*):`;
+
+    const interactive = sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: `🔔 ${title}`.slice(0, 60) },
+      body: { text: bodyText },
+      footer: { text: `Papo Hapo • #${shortCode}`.slice(0, 60) },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: `VENDOR_ACCEPT:${orderId}`, title: '✅ Kubali Oda' } },
+          { type: 'reply', reply: { id: `VENDOR_REJECT:${orderId}`, title: '❌ Kataa Oda' } },
+        ],
+      },
+    });
+
+    const phoneNumberId =
+      String(process.env.META_WHATSAPP_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID || globalLastWhatsAppPhoneNumberId || '').trim() || undefined;
+
+    const sendRes = await sendMetaOutboundMessage({
+      channel: 'whatsapp',
+      recipientId: whatsappPhone,
+      text: bodyText,
+      phoneNumberId,
+      interactive,
+    });
+
+    if (sendRes.sent) {
+      notifiedVendorNewOrders.add(orderId);
+      if (dbAdmin) {
+        try {
+          await dbAdmin.collection('orders').doc(orderId).update({
+            vendorWaNotified: true,
+            vendorWaNotifiedAt: new Date(),
+            vendorWaNotifiedPhone: whatsappPhone,
+          });
+        } catch {}
+        try {
+          await dbAdmin.collection('meta_chats').add({
+            channel: 'whatsapp',
+            senderId: whatsappPhone,
+            message: `[VENDOR_NEW_ORDER:#${shortCode}] ${vendorName}`,
+            reply: bodyText,
+            timestamp: new Date(),
+          });
+        } catch {}
+      }
+      console.log(`[Vendor WA Notify] Sent order alert #${shortCode} (${orderId}) to vendor ${vendorName} (${whatsappPhone})`);
+      return { notified: true, vendorPhone: whatsappPhone };
+    }
+
+    console.warn(`[Vendor WA Notify] Failed sending alert for ${orderId} to ${whatsappPhone}: ${sendRes.reason}`);
+    return { notified: false, reason: sendRes.reason, vendorPhone: whatsappPhone };
+  } catch (err: any) {
+    console.error('[Vendor WA Notify] Error:', err?.message || err);
+    return { notified: false, reason: err?.message || String(err) };
+  } finally {
+    inFlightVendorOrderNotifications.delete(orderId);
+  }
+}
+
+function normalizeCanonicalOrderStatus(rawStatus: string): 'accepted' | 'ready' | 'delivering' | 'completed' | 'cancelled' | '' {
+  const s = String(rawStatus || '').trim().toLowerCase();
+  if (s === 'accepted' || s === 'preparing' || s === 'confirmed') return 'accepted';
+  if (s === 'prepared' || s === 'ready') return 'ready';
+  if (s === 'out_for_delivery' || s === 'picked_up' || s === 'in_transit') return 'delivering';
+  if (s === 'completed' || s === 'delivered') return 'completed';
+  if (s === 'cancelled' || s === 'rejected') return 'cancelled';
+  return '';
+}
+
+function resolveOrderCustomerMetaRecipient(order: any): {
+  channel: 'whatsapp' | 'messenger' | 'instagram' | '';
+  recipientId: string;
+  phoneNumberId?: string;
+} {
+  if (!order || typeof order !== 'object') return { channel: '', recipientId: '' };
+  const rawChannel = String(order.metaChannel || order.orderSource || order.channel || '').trim().toLowerCase();
+  const customerIdStr = String(order.customerId || '').trim();
+
+  let channel: 'whatsapp' | 'messenger' | 'instagram' | '' = '';
+  if (rawChannel === 'whatsapp' || rawChannel === 'messenger' || rawChannel === 'instagram') {
+    channel = rawChannel;
+  } else if (customerIdStr.startsWith('whatsapp-client-')) {
+    channel = 'whatsapp';
+  } else if (customerIdStr.startsWith('messenger-client-')) {
+    channel = 'messenger';
+  } else if (customerIdStr.startsWith('instagram-client-')) {
+    channel = 'instagram';
+  }
+
+  let recipientId = String(order.metaSenderId || '').trim();
+  if (!recipientId) {
+    for (const prefix of ['meta-client-', 'whatsapp-client-', 'messenger-client-', 'instagram-client-']) {
+      if (customerIdStr.startsWith(prefix)) {
+        recipientId = customerIdStr.slice(prefix.length).trim();
+        break;
+      }
+    }
+  }
+
+  if (channel === 'whatsapp') {
+    const normCust = normalizeWhatsAppRecipientDigits(recipientId || order.customerPhone);
+    if (normCust) recipientId = normCust;
+  }
+
+  if (!channel || !recipientId) return { channel: '', recipientId: '' };
+  return {
+    channel,
+    recipientId,
+    phoneNumberId: String(order.metaPhoneNumberId || senderWhatsAppPhoneNumberIds.get(recipientId) || '').trim() || undefined,
+  };
+}
+
+export async function notifyCustomerOrderStatusToMeta(
+  params: { orderId: string; status: string; orderData?: any; vendorName?: string; reason?: string },
+  dbAdmin: any
+): Promise<{ notified: boolean; reason?: string }> {
+  const { orderId, status, orderData: incomingOrder, vendorName: incomingVendorName, reason } = params;
+  if (!orderId || !status) return { notified: false, reason: 'Missing orderId or status' };
+
+  const canonical = normalizeCanonicalOrderStatus(status);
+  if (!canonical) return { notified: false, reason: `Unsupported order status: ${status}` };
+
+  const dedupKey = `${orderId}:${canonical}`;
+  if (notifiedOrderCustomerStatuses.has(dedupKey)) {
+    return { notified: false, reason: 'Status already notified to customer' };
+  }
+  if (inFlightOrderCustomerNotifications.has(dedupKey)) {
+    return { notified: false, reason: 'Notification already in flight' };
+  }
+
+  inFlightOrderCustomerNotifications.add(dedupKey);
+  try {
+    let dbOrder: any = null;
+    if (dbAdmin) {
+      try {
+        const snap = await dbAdmin.collection('orders').doc(orderId).get();
+        if (snap?.exists) dbOrder = snap.data();
+      } catch {}
+    }
+
+    const order: any = dbOrder || incomingOrder ? { ...(incomingOrder || {}), ...(dbOrder || {}) } : null;
+    if (!order) return { notified: false, reason: 'Order not found' };
+
+    const alreadyDb = normalizeCanonicalOrderStatus(String(order.lastMetaCustomerNotifiedStatus || ''));
+    if (alreadyDb === canonical) {
+      notifiedOrderCustomerStatuses.add(dedupKey);
+      return { notified: false, reason: 'Already notified in DB' };
+    }
+
+    const { channel, recipientId, phoneNumberId } = resolveOrderCustomerMetaRecipient(order);
+    if (!channel || !recipientId) {
+      return { notified: false, reason: 'Order did not originate from WhatsApp/Meta' };
+    }
+
+    const shortCode = String(order.bookingCode || order.bookingRef || orderId.slice(-6)).toUpperCase().replace(/^#/, '');
+    const vendorName = incomingVendorName || order.vendorName || 'Biashara ya Papo Hapo';
+    const orderTypeLower = String(order.type || order.vendorCategory || '').toLowerCase();
+    const isTable = Boolean(order.isTableBooking || order.subType === 'table_booking');
+    const isHotel = orderTypeLower === 'hotel';
+    const isFood = orderTypeLower === 'restaurant' || orderTypeLower === 'food';
+    const trackUrl = buildOrdersTrackingUrl(order.customerPhone || recipientId, shortCode);
+    const totalAmt = Number(order.totalAmount ?? order.total ?? 0);
+
+    let msg = '';
+    if (canonical === 'accepted') {
+      if (isTable) {
+        msg =
+          `🎉 *Booking Yako ya Meza Imekubaliwa!* (#${shortCode})\n\n` +
+          `🏠 *Mgahawa:* ${vendorName}\n` +
+          `🪑 *Meza:* #${order.tableNumber || '-'} (Viti ${order.peopleCount || 2})\n` +
+          `🕒 *Muda:* ${order.reservationTime || 'Leo'}\n\n` +
+          `Meza yako imethibitishwa! Tunakusubiri kwa hamu. 🙏`;
+      } else if (isHotel) {
+        msg =
+          `🎉 *Booking Yako ya Chumba Imekubaliwa!* (#${shortCode})\n\n` +
+          `🏨 *Hoteli:* ${vendorName}\n` +
+          (totalAmt > 0 ? `💰 *Bei:* TZS ${totalAmt.toLocaleString()}/=\n` : '') +
+          `\nChumba chako kimethibitishwa na hoteli! Karibu sana. ✨`;
+      } else if (isFood) {
+        msg =
+          `🎉 *Oda Yako Imekubaliwa na Jiko!* (#${shortCode})\n\n` +
+          `🏠 *Mgahawa:* ${vendorName}\n` +
+          (totalAmt > 0 ? `💰 *Jumla:* TZS ${totalAmt.toLocaleString()}/=\n` : '') +
+          `\n👨‍🍳 Mpishi amepokea oda yako na ameanza kuiandaa sasa hivi!\n🔗 Fuatilia: ${trackUrl}`;
+      } else {
+        msg =
+          `🎉 *Oda / Ombi Lako Limekubaliwa!* (#${shortCode})\n\n` +
+          `🏪 *Biashara:* ${vendorName}\n` +
+          (totalAmt > 0 ? `💰 *Jumla:* TZS ${totalAmt.toLocaleString()}/=\n` : '') +
+          `\n✅ Mtoa huduma amekubali ombi lako na anashughulikia sasa!\n🔗 Fuatilia: ${trackUrl}`;
+      }
+    } else if (canonical === 'ready') {
+      msg =
+        `🍲 *Oda Yako Iko Tayari!* (#${shortCode})\n\n` +
+        `🏠 *${vendorName}* imemaliza kuandaa oda yako.\n` +
+        (order.orderType === 'pickup'
+          ? `🛍️ Unaweza kufika kuchukua oda yako sasa hivi!`
+          : `🛵 Inasubiri/inaondoka kukufikia muda si mrefu!`) +
+        `\n🔗 Fuatilia: ${trackUrl}`;
+    } else if (canonical === 'delivering') {
+      msg =
+        `🛵 *Oda Yako Iko Njiani!* (#${shortCode})\n\n` +
+        `Dereva wa *${vendorName}* yuko njiani kuleta oda yako.\n🔗 Fuatilia: ${trackUrl}`;
+    } else if (canonical === 'completed') {
+      msg =
+        `✅ *Oda Imekamilika!* (#${shortCode})\n\n` +
+        `Asante kwa kuchagua *${vendorName}* kupitia Papo Hapo! Karibu tena. 🙏✨`;
+    } else if (canonical === 'cancelled') {
+      msg =
+        `❌ *Samahani, Oda Imekataliwa / Imeghairiwa* (#${shortCode})\n\n` +
+        `🏠 *${vendorName}* imeshindwa kukubali oda hii kwa sasa` +
+        (reason ? ` (${reason})` : '') +
+        `.\n\nAndika *Menu* kuchagua mgahawa au huduma nyingine papo hapo.`;
+    }
+
+    if (!msg) return { notified: false, reason: 'No message template' };
+
+    let interactive: WhatsAppInteractivePayload | undefined;
+    if (channel === 'whatsapp') {
+      if (canonical === 'cancelled') {
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'button',
+          body: { text: msg },
+          action: {
+            buttons: [{ type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } }],
+          },
+        });
+      } else if (canonical !== 'completed') {
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'cta_url',
+          header: { type: 'text', text: isTable || isHotel ? '✅ Booking Imethibitishwa' : '🔔 Taarifa ya Oda' },
+          body: { text: msg },
+          footer: { text: `Papo Hapo • #${shortCode}` },
+          action: {
+            name: 'cta_url',
+            parameters: { display_text: '🔗 Fuatilia Oda', url: trackUrl },
+          },
+        });
+      }
+    }
+
+    const res = await sendMetaOutboundMessage({
+      channel,
+      recipientId,
+      text: msg,
+      phoneNumberId,
+      interactive,
+    });
+
+    if (res.sent) {
+      notifiedOrderCustomerStatuses.add(dedupKey);
+      if (dbAdmin) {
+        try {
+          await dbAdmin.collection('orders').doc(orderId).update({
+            lastMetaCustomerNotifiedStatus: canonical,
+            lastMetaCustomerNotifiedAt: new Date(),
+          });
+        } catch {}
+        try {
+          await dbAdmin.collection('meta_chats').add({
+            channel,
+            senderId: recipientId,
+            message: `[ORDER_STATUS:${canonical.toUpperCase()}] #${shortCode}`,
+            reply: msg,
+            timestamp: new Date(),
+          });
+        } catch {}
+      }
+    }
+    return { notified: res.sent, reason: res.reason };
+  } catch (err: any) {
+    console.error('[Customer Order Notify] Error:', err?.message || err);
+    return { notified: false, reason: err?.message || String(err) };
+  } finally {
+    inFlightOrderCustomerNotifications.delete(dedupKey);
+  }
+}
+
+async function handleVendorWhatsAppOrderDecision(
+  senderId: string,
+  cleanInput: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin: any
+): Promise<string | null> {
+  if (channel !== 'whatsapp' || !dbAdmin) return null;
+
+  const trimmed = cleanInput.trim();
+  const btnMatch = trimmed.match(/^(?:CMD:)?VENDOR_(ACCEPT|REJECT):([A-Za-z0-9_-]+)$/i);
+  const txtMatch = !btnMatch
+    ? trimmed.match(/^(kubali|accept|thibitisha|kataa|reject|ghairi)(?:\s+#?([A-Za-z0-9_-]{3,40}))?$/i)
+    : null;
+
+  if (!btnMatch && !txtMatch) return null;
+
+  const senderLast9 = phoneLast9(senderId);
+  if (!senderLast9 || senderLast9.length < 9) return null;
+
+  let action: 'accept' | 'reject';
+  let orderId = '';
+  let orderDoc: any = null;
+
+  if (btnMatch) {
+    action = btnMatch[1].toUpperCase() === 'ACCEPT' ? 'accept' : 'reject';
+    orderId = btnMatch[2].trim();
+    try {
+      const snap = await dbAdmin.collection('orders').doc(orderId).get();
+      if (snap?.exists) orderDoc = snap.data();
+    } catch {}
+  } else if (txtMatch) {
+    const verb = txtMatch[1].toLowerCase();
+    action = ['kubali', 'accept', 'thibitisha'].includes(verb) ? 'accept' : 'reject';
+    const refToken = (txtMatch[2] || '').trim().toUpperCase().replace(/^#/, '');
+
+    if (refToken) {
+      // Lookup by bookingCode, bookingRef, or direct doc ID
+      try {
+        const directSnap = await dbAdmin.collection('orders').doc(txtMatch[2]!.trim()).get();
+        if (directSnap?.exists) {
+          orderId = directSnap.id;
+          orderDoc = directSnap.data();
+        }
+      } catch {}
+
+      if (!orderDoc) {
+        try {
+          const codeSnap = await dbAdmin.collection('orders').where('bookingCode', '==', refToken).limit(3).get();
+          if (!codeSnap.empty) {
+            orderId = codeSnap.docs[0].id;
+            orderDoc = codeSnap.docs[0].data();
+          }
+        } catch {}
+      }
+
+      if (!orderDoc) {
+        try {
+          const recentSnap = await dbAdmin.collection('orders').where('status', '==', 'pending').limit(25).get();
+          for (const d of recentSnap.docs) {
+            if (d.id.slice(-refToken.length).toUpperCase() === refToken) {
+              orderId = d.id;
+              orderDoc = d.data();
+              break;
+            }
+          }
+        } catch {}
+      }
+    } else {
+      // Bare "KUBALI" / "KATAA": ONLY intercept if this WhatsApp number actually has a pending order notified to it
+      try {
+        const normSender = normalizeWhatsAppRecipientDigits(senderId);
+        const pSnap = await dbAdmin
+          .collection('orders')
+          .where('vendorWaNotifiedPhone', '==', normSender)
+          .where('status', '==', 'pending')
+          .limit(10)
+          .get();
+        if (pSnap.empty) {
+          return null; // Let customer flow (e.g. CONFIRMING_TRIP) handle bare "kubali"
+        }
+        const sorted = pSnap.docs
+          .map((d: any) => ({ id: d.id, data: d.data(), ts: normalizeEpochMs(d.data()?.createdAt) }))
+          .sort((a: any, b: any) => b.ts - a.ts);
+        orderId = sorted[0].id;
+        orderDoc = sorted[0].data;
+      } catch {
+        return null;
+      }
+    }
+  } else {
+    return null;
+  }
+
+  if (!orderDoc || !orderId) {
+    return btnMatch
+      ? `⚠️ Samahani, oda hii haikupatikana tena kwenye mfumo.`
+      : `⚠️ Hatukupata oda yenye namba *#${txtMatch?.[2] || ''}*. Angalia namba ya oda kisha jaribu tena.`;
+  }
+
+  const vendorId = String(orderDoc.vendorId || '').trim();
+  const { allLast9, vendorName } = await resolveVendorWhatsAppContact(dbAdmin, vendorId, orderDoc);
+  const notifiedLast9 = phoneLast9(orderDoc.vendorWaNotifiedPhone);
+  const isAuthorized = allLast9.includes(senderLast9) || (Boolean(notifiedLast9) && notifiedLast9 === senderLast9);
+
+  if (!isAuthorized) {
+    return `⚠️ Huna ruhusa ya kuthibitisha au kukataa oda hii kutoka kwenye namba hii ya WhatsApp.`;
+  }
+
+  const shortCode = String(orderDoc.bookingCode || orderDoc.bookingRef || orderId.slice(-6)).toUpperCase().replace(/^#/, '');
+  const currentStatus = String(orderDoc.status || 'pending').toLowerCase();
+
+  if (currentStatus !== 'pending') {
+    if (currentStatus === 'cancelled' || currentStatus === 'rejected') {
+      return `ℹ️ Oda *#${shortCode}* tayari ilishakataliwa / kughairiwa.`;
+    }
+    return `ℹ️ Oda *#${shortCode}* tayari ilishakubaliwa (Hali: *${currentStatus.toUpperCase()}*).`;
+  }
+
+  const orderCat = String(orderDoc.type || orderDoc.vendorCategory || '').toLowerCase();
+  const isTable = Boolean(orderDoc.isTableBooking || orderDoc.subType === 'table_booking');
+  const nextStatus =
+    action === 'reject'
+      ? 'cancelled'
+      : (orderCat === 'restaurant' || orderCat === 'food') && !isTable
+      ? 'preparing'
+      : 'accepted';
+
+  await dbAdmin.collection('orders').doc(orderId).update({
+    status: nextStatus,
+    ...(action === 'accept'
+      ? { acceptedVia: 'whatsapp', acceptedAt: new Date() }
+      : { rejectedVia: 'whatsapp', rejectedAt: new Date() }),
+    vendorDecisionByPhone: senderId,
+    updatedAt: new Date(),
+  });
+
+  if (isTable && orderDoc.bookingCode) {
+    try {
+      await dbAdmin.collection('tables').doc(orderDoc.bookingCode).set(
+        {
+          ...(action === 'reject' ? { status: 'cancelled' } : { vendorAccepted: true, vendorAcceptedVia: 'whatsapp' }),
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+      if (action === 'reject' && vendorId && orderDoc.tableId) {
+        await dbAdmin
+          .collection('vendors')
+          .doc(vendorId)
+          .collection('sections')
+          .doc(orderDoc.tableId)
+          .set({ status: 'available', reservation: null }, { merge: true });
+      }
+    } catch (tblErr) {
+      console.warn('[Vendor WA Decision] Table sync warning:', tblErr);
+    }
+  }
+
+  await notifyCustomerOrderStatusToMeta(
+    {
+      orderId,
+      status: nextStatus,
+      orderData: { ...orderDoc, status: nextStatus },
+      vendorName,
+    },
+    dbAdmin
+  ).catch((err) => console.warn('[Vendor WA Decision] Customer notify warning:', err));
+
+  const totalAmt = Number(orderDoc.totalAmount ?? orderDoc.total ?? 0);
+  if (action === 'accept') {
+    return (
+      `✅ *Umekubali Oda #${shortCode}!*\n` +
+      `🏪 *${vendorName}*\n` +
+      `👤 *Mteja:* ${orderDoc.customerName || 'Mteja'} (${orderDoc.customerPhone || '-'})\n` +
+      (totalAmt > 0 ? `💰 *Jumla:* TZS ${totalAmt.toLocaleString()}/=\n` : '') +
+      `\n📲 Mteja amepokea ujumbe wa uthibitisho kwenye WhatsApp yake na oda imesasishwa kwenye Dashibodi yako.`
+    );
+  }
+
+  return (
+    `❌ *Umekataa Oda #${shortCode}.*\n` +
+    `🏪 *${vendorName}*\n` +
+    `👤 *Mteja:* ${orderDoc.customerName || 'Mteja'}\n\n` +
+    `📲 Mteja amejulishwa kwenye WhatsApp yake na oda imefungwa kwenye Dashibodi.`
+  );
+}
+
 export interface ExtractedMetaWebhookMessage {
   channel: 'whatsapp' | 'messenger' | 'instagram';
   senderId: string;
@@ -9235,7 +9954,9 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             }
             if (
               normalizedRid &&
-              (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(normalizedRid) || normalizedRid.startsWith('CMD:'))
+              (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
+                /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                normalizedRid.startsWith('CMD:'))
             ) {
               return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;
             }

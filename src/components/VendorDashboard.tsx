@@ -2525,6 +2525,8 @@ export default function VendorDashboard() {
         logoUrl: vendorProfile.logoUrl || '',
         bannerUrl: vendorProfile.bannerUrl || '',
         operatingHours: vendorProfile.operatingHours || '',
+        kitchenWhatsappPhone: vendorProfile.kitchenWhatsappPhone || '',
+        managerWhatsappPhone: vendorProfile.managerWhatsappPhone || '',
         location: vendorProfile.location || { lat: -6.7924, lng: 39.2083 },
         socialLinks: vendorProfile.socialLinks || {
           whatsapp: '',
@@ -3613,6 +3615,16 @@ export default function VendorDashboard() {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
+      fetch('/api/meta/order-status-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          status: newStatus,
+          orderData: currentOrder,
+          vendorName: vendorProfile?.businessName
+        })
+      }).catch(() => {});
       const alertMsg = newStatus === 'accepted' ? 'Order Accepted' : (newStatus === 'cancelled' ? 'Order Cancelled' : `Order #${orderId.slice(-4)} moved to ${newStatus}`);
       toast.success(alertMsg);
     } catch (error) {
@@ -3643,6 +3655,16 @@ export default function VendorDashboard() {
       }
 
       await updateDoc(doc(db, 'orders', selectedOrder.id!), updateData);
+      fetch('/api/meta/order-status-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: selectedOrder.id,
+          status: 'preparing',
+          orderData: selectedOrder,
+          vendorName: vendorProfile?.businessName
+        })
+      }).catch(() => {});
       toast.success('Oda imethibitishwa!');
       setSelectedOrder(null);
       setPrepTime('');

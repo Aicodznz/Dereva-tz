@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -318,6 +318,39 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Meta Ride Status Notify] Error:", err);
       return res.status(500).json({ error: err?.message || "Failed to send ride status notification" });
+    }
+  });
+
+  // Notify vendor on WhatsApp with interactive Kubali / Kataa buttons when a new order/booking arrives
+  app.post("/api/meta/vendor-order-notify", async (req, res) => {
+    try {
+      const { orderId, orderData } = req.body || {};
+      if (!orderId) {
+        return res.status(400).json({ error: "orderId is required" });
+      }
+      const result = await notifyVendorNewOrderToWhatsApp({ orderId, orderData }, dbAdmin);
+      return res.json({ status: "ok", ...result });
+    } catch (err: any) {
+      console.error("[Meta Vendor Order Notify] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to notify vendor on WhatsApp" });
+    }
+  });
+
+  // Notify Meta/WhatsApp customer when vendor accepts, prepares, completes, or rejects an order
+  app.post("/api/meta/order-status-notify", async (req, res) => {
+    try {
+      const { orderId, status, orderData, vendorName, reason } = req.body || {};
+      if (!orderId || !status) {
+        return res.status(400).json({ error: "orderId and status are required" });
+      }
+      const result = await notifyCustomerOrderStatusToMeta(
+        { orderId, status, orderData, vendorName, reason },
+        dbAdmin
+      );
+      return res.json({ status: "ok", ...result });
+    } catch (err: any) {
+      console.error("[Meta Order Status Notify] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to send order status notification" });
     }
   });
 
@@ -2052,6 +2085,53 @@ The JSON output must contain the following keys:
             dbAdmin
           ).catch((err) => {
             console.warn('[Meta Ride Watcher] Notification warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Real-time Firestore watcher for new pending orders -> notify vendor on WhatsApp with Kubali/Kataa buttons
+    subscribeCollectionChanges(
+      'orders',
+      [{ field: 'status', op: '==', value: 'pending' }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added') continue;
+          const order = change.data || {};
+          if (order.vendorWaNotified === true) continue;
+          notifyVendorNewOrderToWhatsApp(
+            { orderId: change.id, orderData: order },
+            dbAdmin
+          ).catch((err) => {
+            console.warn('[Meta Vendor Order Watcher] Notification warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Real-time Firestore watcher for vendor order status updates -> notify WhatsApp/Meta customer
+    subscribeCollectionChanges(
+      'orders',
+      [{ field: 'status', op: 'in', value: ['accepted', 'preparing', 'prepared', 'ready', 'out_for_delivery', 'completed', 'cancelled', 'rejected'] }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+          const order = change.data || {};
+          const src = String(order.metaChannel || order.orderSource || order.channel || '').toLowerCase();
+          const cid = String(order.customerId || '');
+          const isMetaOrder = Boolean(
+            order.metaSenderId ||
+            src === 'whatsapp' || src === 'messenger' || src === 'instagram' ||
+            cid.startsWith('meta-client-') || cid.startsWith('whatsapp-client-')
+          );
+          if (!isMetaOrder) continue;
+          notifyCustomerOrderStatusToMeta(
+            { orderId: change.id, status: order.status, orderData: order },
+            dbAdmin
+          ).catch((err) => {
+            console.warn('[Meta Customer Order Watcher] Notification warning:', err?.message || err);
           });
         }
       }

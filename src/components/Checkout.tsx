@@ -319,6 +319,14 @@ export default function Checkout() {
       };
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
+      fetch('/api/meta/vendor-order-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderRef.id,
+          orderData: { ...orderData, id: orderRef.id, orderSource: 'app' }
+        })
+      }).catch(() => {});
       
       // Process Loyalty Stamps and Points
       if (primaryVendorId && phoneNumber) {

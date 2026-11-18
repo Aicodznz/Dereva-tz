@@ -679,6 +679,11 @@ export default function ProductDetail() {
 
       const orderRef = await addDoc(collection(db, 'orders'), orderData);
       const orderId = orderRef.id;
+      fetch('/api/meta/vendor-order-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, orderData: { ...orderData, id: orderId } })
+      }).catch(() => {});
       
       const formattedPhone = buyerPhone.startsWith('0') 
         ? '255' + buyerPhone.substring(1) 
