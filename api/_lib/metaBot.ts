@@ -3537,6 +3537,9 @@ export function buildWhatsAppInteractive(
 
     const menuPage = Number(session?.details?.menuPage || 1);
     const cName = session?.details?.customerName;
+    const customIntro = typeof session?.details?.customWelcomeIntro === 'string'
+      ? session.details.customWelcomeIntro.trim()
+      : '';
     const greetingLine = cName
       ? isEn
         ? `Hello *${cName}* 👋`
@@ -3545,14 +3548,24 @@ export function buildWhatsAppInteractive(
       ? `Hello! 👋`
       : `Habari! 👋`;
 
+    const buildMenuBody = (fallbackEn: string, fallbackSw: string) => {
+      if (!customIntro) return isEn ? fallbackEn : fallbackSw;
+      const prefix = cName && !customIntro.includes(cName) ? `${greetingLine}\n\n` : '';
+      const tapHint = isEn
+        ? `Tap *📋 Choose Service* below or reply with a number (*1–${allMenuRows.length}*).`
+        : `Bonyeza *📋 Chagua Huduma* chini au andika namba (*1–${allMenuRows.length}*).`;
+      return `${prefix}${customIntro}\n\n${tapHint}`;
+    };
+
     if (allMenuRows.length <= 10) {
       return sanitizeWhatsAppInteractivePayload({
         type: 'list',
         header: { type: 'text', text: '🟢 Papo Hapo Super App' },
         body: {
-          text: isEn
-            ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`
-            : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`,
+          text: buildMenuBody(
+            `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
+            `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
+          ),
         },
         footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
         action: {
@@ -3612,9 +3625,10 @@ export function buildWhatsAppInteractive(
       type: 'list',
       header: { type: 'text', text: '🟢 Papo Hapo Super App' },
       body: {
-        text: isEn
-          ? `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type any service/number (*1–${allMenuRows.length}*).`
-          : `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* chini au andika huduma/namba (*1–${allMenuRows.length}*).`,
+        text: buildMenuBody(
+          `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type any service/number (*1–${allMenuRows.length}*).`,
+          `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* chini au andika huduma/namba (*1–${allMenuRows.length}*).`
+        ),
       },
       footer: { text: isEn ? 'Page 1/2 • Type "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
       action: {
@@ -4408,6 +4422,7 @@ function preserveCustomerFields(
   if (cLang) next.lang = cLang;
   if (cLoc) next.lastLocation = cLoc;
   if (details?.adVisitor) next.adVisitor = true;
+  if (details?.welcomedFirstOpen) next.welcomedFirstOpen = true;
   return next;
 }
 
@@ -4541,8 +4556,8 @@ async function processMetaInputCore(
   mediaCollector: MetaMediaAttachment[] | undefined,
   markSkipHistory: () => void
 ): Promise<string> {
-  const cleanInput = textBody.trim();
-  const cleanedLower = cleanInput.toLowerCase();
+  let cleanInput = textBody.trim();
+  let cleanedLower = cleanInput.toLowerCase();
   
   // Quick channel-specific visual prefixes for beautiful formatting
   const chSymbol = channel === 'whatsapp' ? '🟢 WhatsApp' : channel === 'instagram' ? '📸 Instagram' : '🔵 Messenger';
@@ -4895,7 +4910,78 @@ async function processMetaInputCore(
     return `${headlinePart}${bodyPart}Karibu${cName ? ` *${cName}*` : ''}! Sogeza kadi zetu za ofa hapo chini na ubonyeze *🔥 Agiza Sasa* kupata huduma moja kwa moja WhatsApp:`;
   }
 
-  if (!customerProfile && !session.details.customerName && !session.details.adVisitor) {
+  // --- 0B1b. WHATSAPP FIRST-OPEN REQUEST_WELCOME, ICE BREAKERS & /COMMANDS ---
+  const welcomeSettings = await getMetaWelcomeSettings(dbAdmin);
+  const configuredIceBreakers = (welcomeSettings.iceBreakers || []).map((p) => p.trim().toLowerCase()).filter(Boolean);
+  const isFirstOpenWelcome = cleanInput === '__REQUEST_WELCOME__';
+  const strippedLeadingEmoji = cleanInput.replace(/^[📋🍔🚖🏨🎟️💊🚌📦🛠️💳🌐🛒🔥⭐]+\s*/u, '').trim();
+  const slashCmdMatch = cleanInput.match(/^\/([a-z0-9_-]+)$/i);
+  const isIceBreakerPrompt =
+    configuredIceBreakers.includes(cleanedLower) ||
+    /^(?:📋\s*menyu\s*kuu|🍔\s*agiza\s*chakula|🚖\s*omba\s*usafiri|🏨\s*booking\s*ya\s*hoteli)$/i.test(cleanInput);
+
+  if (isFirstOpenWelcome || isIceBreakerPrompt || Boolean(slashCmdMatch)) {
+    session.details.welcomedFirstOpen = true;
+  }
+
+  if (slashCmdMatch) {
+    const cmd = slashCmdMatch[1].toLowerCase();
+    if (cmd === 'menu' || cmd === 'start' || cmd === 'help' || cmd === 'menyu') {
+      cleanInput = 'menu';
+    } else if (cmd === 'chakula' || cmd === 'food') {
+      cleanInput = 'chakula';
+    } else if (cmd === 'usafiri' || cmd === 'taxi' || cmd === 'ride') {
+      cleanInput = 'taxi';
+    } else if (cmd === 'hoteli' || cmd === 'hotel') {
+      cleanInput = 'hoteli';
+    } else if (cmd === 'oda' || cmd === 'orders' || cmd === 'track') {
+      cleanInput = 'oda zangu';
+    } else {
+      cleanInput = cmd;
+    }
+    cleanedLower = cleanInput.toLowerCase();
+  } else if (isIceBreakerPrompt && strippedLeadingEmoji) {
+    if (/^(menyu\s*kuu|main\s*menu|menu)$/i.test(strippedLeadingEmoji)) {
+      cleanInput = 'menu';
+    } else if (/agiza\s*chakula|order\s*food/i.test(strippedLeadingEmoji)) {
+      cleanInput = 'chakula';
+    } else if (/omba\s*usafiri|request\s*ride|book\s*ride/i.test(strippedLeadingEmoji)) {
+      cleanInput = 'taxi';
+    } else if (/booking\s*ya\s*hoteli|book\s*hotel/i.test(strippedLeadingEmoji)) {
+      cleanInput = 'hoteli';
+    } else {
+      cleanInput = strippedLeadingEmoji;
+    }
+    cleanedLower = cleanInput.toLowerCase();
+  }
+
+  if (isFirstOpenWelcome || (cleanInput === 'menu' && !customerProfile && !session.details.customerName)) {
+    const cName = customerProfile?.name || session.details?.customerName;
+    const customIntro =
+      welcomeSettings.enableWelcomeMessage !== false
+        ? (lang === 'en' ? welcomeSettings.welcomeIntroEn : welcomeSettings.welcomeIntroSw).trim()
+        : '';
+    session.history = [];
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = {
+      ...preserveCustomerFields(session.details, lang, customerProfile),
+      welcomedFirstOpen: true,
+      ...(customIntro ? { customWelcomeIntro: customIntro } : {}),
+    };
+    const { servicesCfg, liveStatusMap } = await loadServicesConfigWithStatus();
+    const menuText = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, cName, lang, liveStatusMap);
+    const combinedText = customIntro
+      ? `${customIntro}\n\n${menuText}`
+      : menuText;
+    const wrappedMenu = lang === 'en' ? `[[EN_NATIVE]]${combinedText}` : combinedText;
+    session.lastPrompt = wrappedMenu;
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+    return wrappedMenu;
+  }
+
+  if (!customerProfile && !session.details.customerName && !session.details.adVisitor && !session.details.welcomedFirstOpen) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
@@ -8490,6 +8576,326 @@ export function recordInboundMetaPhoneNumberId(senderId?: string, phoneNumberId?
   }
 }
 
+export interface MetaWelcomeCommand {
+  command_name: string;
+  command_description: string;
+}
+
+export interface MetaWelcomeSettings {
+  enableWelcomeMessage: boolean;
+  welcomeIntroSw: string;
+  welcomeIntroEn: string;
+  iceBreakers: string[];
+  commands: MetaWelcomeCommand[];
+  phoneNumberId?: string;
+  lastSyncedAt?: number;
+  lastSyncStatus?: 'synced' | 'local_only' | 'error';
+  lastSyncMessage?: string;
+  updatedAt?: number;
+}
+
+export const DEFAULT_META_WELCOME_SETTINGS: MetaWelcomeSettings = {
+  enableWelcomeMessage: true,
+  welcomeIntroSw:
+    '👋 Karibu *Papo Hapo*! Mimi ni Msaidizi wako wa papo hapo.\nAgiza Chakula 🍔, Usafiri 🚖, Hoteli 🏨, Dawa 💊 au Tiketi 🎟️ moja kwa moja hapa WhatsApp.',
+  welcomeIntroEn:
+    '👋 Welcome to *Papo Hapo*! Your instant super-app assistant.\nOrder Food 🍔, Rides 🚖, Hotels 🏨, Pharmacy 💊 or Tickets 🎟️ right here on WhatsApp.',
+  iceBreakers: [
+    '📋 Menyu Kuu',
+    '🍔 Agiza Chakula',
+    '🚖 Omba Usafiri',
+    '🏨 Booking ya Hoteli',
+  ],
+  commands: [
+    { command_name: 'menu', command_description: 'Fungua menyu kuu ya huduma zote za Papo Hapo' },
+    { command_name: 'chakula', command_description: 'Agiza chakula moto au weka meza ya mgahawa' },
+    { command_name: 'usafiri', command_description: 'Omba Boda, Bajaji au Taxi karibu nawe' },
+    { command_name: 'hoteli', command_description: 'Tafuta na uweke booking ya chumba cha hoteli' },
+    { command_name: 'oda', command_description: 'Fuatilia hali ya oda au booking zako' },
+  ],
+};
+
+function sanitizeWelcomeSettings(raw: Partial<MetaWelcomeSettings> | undefined | null): MetaWelcomeSettings {
+  const data = raw && typeof raw === 'object' ? raw : {};
+  const rawPrompts = Array.isArray(data.iceBreakers)
+    ? data.iceBreakers
+    : DEFAULT_META_WELCOME_SETTINGS.iceBreakers;
+  const cleanPrompts = rawPrompts
+    .map((p) => String(p || '').replace(/\s+/g, ' ').trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const rawCommands = Array.isArray(data.commands) && data.commands.length > 0
+    ? data.commands
+    : DEFAULT_META_WELCOME_SETTINGS.commands;
+  const cleanCommands = rawCommands
+    .map((c) => ({
+      command_name: String(c?.command_name || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, '')
+        .slice(0, 32),
+      command_description: String(c?.command_description || '').trim().slice(0, 256),
+    }))
+    .filter((c) => c.command_name && c.command_description)
+    .slice(0, 30);
+
+  return {
+    enableWelcomeMessage:
+      typeof data.enableWelcomeMessage === 'boolean'
+        ? data.enableWelcomeMessage
+        : DEFAULT_META_WELCOME_SETTINGS.enableWelcomeMessage,
+    welcomeIntroSw:
+      typeof data.welcomeIntroSw === 'string' && data.welcomeIntroSw.trim()
+        ? data.welcomeIntroSw.trim().slice(0, 1000)
+        : DEFAULT_META_WELCOME_SETTINGS.welcomeIntroSw,
+    welcomeIntroEn:
+      typeof data.welcomeIntroEn === 'string' && data.welcomeIntroEn.trim()
+        ? data.welcomeIntroEn.trim().slice(0, 1000)
+        : DEFAULT_META_WELCOME_SETTINGS.welcomeIntroEn,
+    iceBreakers: cleanPrompts.length > 0 ? cleanPrompts : [...DEFAULT_META_WELCOME_SETTINGS.iceBreakers],
+    commands: cleanCommands.length > 0 ? cleanCommands : [...DEFAULT_META_WELCOME_SETTINGS.commands],
+    ...(typeof data.phoneNumberId === 'string' && data.phoneNumberId.trim()
+      ? { phoneNumberId: data.phoneNumberId.trim() }
+      : {}),
+    ...(typeof data.lastSyncedAt === 'number' ? { lastSyncedAt: data.lastSyncedAt } : {}),
+    ...(data.lastSyncStatus ? { lastSyncStatus: data.lastSyncStatus } : {}),
+    ...(typeof data.lastSyncMessage === 'string' ? { lastSyncMessage: data.lastSyncMessage } : {}),
+    ...(typeof data.updatedAt === 'number' ? { updatedAt: data.updatedAt } : {}),
+  };
+}
+
+export async function getMetaWelcomeSettings(dbAdmin?: any): Promise<MetaWelcomeSettings> {
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('config').doc('meta_welcome').get();
+      if (snap.exists) {
+        return sanitizeWelcomeSettings(snap.data());
+      }
+    } catch (err) {
+      console.warn('[Meta Welcome Config] Firestore read warning:', err);
+    }
+  }
+  try {
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    if (fs.existsSync(localPath)) {
+      const parsed = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      if (parsed?.welcomeSettings) {
+        return sanitizeWelcomeSettings(parsed.welcomeSettings);
+      }
+    }
+  } catch (err) {
+    console.warn('[Meta Welcome Config] Local file read warning:', err);
+  }
+  return sanitizeWelcomeSettings(DEFAULT_META_WELCOME_SETTINGS);
+}
+
+export async function saveMetaWelcomeSettings(
+  partial: Partial<MetaWelcomeSettings>,
+  dbAdmin?: any
+): Promise<MetaWelcomeSettings> {
+  const current = await getMetaWelcomeSettings(dbAdmin);
+  const merged = sanitizeWelcomeSettings({
+    ...current,
+    ...partial,
+    updatedAt: Date.now(),
+  });
+
+  if (dbAdmin) {
+    try {
+      await dbAdmin.collection('config').doc('meta_welcome').set(cleanUndefined(merged), { merge: true });
+    } catch (err) {
+      console.warn('[Meta Welcome Config] Firestore save warning:', err);
+    }
+  }
+
+  try {
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    let existing: Record<string, any> = {};
+    if (fs.existsSync(localPath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(localPath, 'utf8')) || {};
+      } catch {
+        existing = {};
+      }
+    }
+    existing.welcomeSettings = merged;
+    fs.writeFileSync(localPath, JSON.stringify(existing, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[Meta Welcome Config] Local save warning:', err);
+  }
+
+  return merged;
+}
+
+export async function syncMetaConversationalAutomation(
+  params: Partial<MetaWelcomeSettings> & { phoneNumberId?: string },
+  dbAdmin?: any
+): Promise<{
+  settings: MetaWelcomeSettings;
+  synced: boolean;
+  status: 'synced' | 'local_only' | 'error';
+  message: string;
+  phoneNumberId?: string;
+  metaResponse?: any;
+}> {
+  const saved = await saveMetaWelcomeSettings(params, dbAdmin);
+
+  const accessToken = (
+    process.env.META_WHATSAPP_ACCESS_TOKEN ||
+    process.env.WHATSAPP_ACCESS_TOKEN ||
+    process.env.META_ACCESS_TOKEN ||
+    ''
+  ).trim();
+
+  const resolvedPhoneId = (
+    params.phoneNumberId ||
+    saved.phoneNumberId ||
+    process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID ||
+    globalLastWhatsAppPhoneNumberId ||
+    ''
+  ).trim();
+
+  if (!accessToken || !resolvedPhoneId) {
+    const msg = !accessToken
+      ? 'Mipangilio imehifadhiwa kwenye mfumo. Ili iwashwe moja kwa moja kwenye Meta WhatsApp, weka META_WHATSAPP_ACCESS_TOKEN kwenye Environment Variables za server.'
+      : 'Mipangilio imehifadhiwa kwenye mfumo. Weka WhatsApp Phone Number ID (META_WHATSAPP_PHONE_NUMBER_ID) ili kuwasha kwenye Meta WhatsApp.';
+    const updated = await saveMetaWelcomeSettings(
+      {
+        lastSyncStatus: 'local_only',
+        lastSyncMessage: msg,
+        ...(resolvedPhoneId ? { phoneNumberId: resolvedPhoneId } : {}),
+      },
+      dbAdmin
+    );
+    return {
+      settings: updated,
+      synced: false,
+      status: 'local_only',
+      message: msg,
+      ...(resolvedPhoneId ? { phoneNumberId: resolvedPhoneId } : {}),
+    };
+  }
+
+  try {
+    const payload = {
+      enable_welcome_message: Boolean(saved.enableWelcomeMessage),
+      prompts: saved.iceBreakers.slice(0, 4),
+      commands: saved.commands.slice(0, 30),
+    };
+    const resp = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(resolvedPhoneId)}/conversational_automation`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    const metaData = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const errMsg = metaData?.error?.message || `Meta API HTTP ${resp.status}`;
+      const updated = await saveMetaWelcomeSettings(
+        {
+          phoneNumberId: resolvedPhoneId,
+          lastSyncStatus: 'error',
+          lastSyncMessage: errMsg,
+        },
+        dbAdmin
+      );
+      return {
+        settings: updated,
+        synced: false,
+        status: 'error',
+        message: errMsg,
+        phoneNumberId: resolvedPhoneId,
+        metaResponse: metaData,
+      };
+    }
+
+    const okMsg = 'Ujumbe wa Karibu (Welcome Message) na Ice Breakers zimewashwa moja kwa moja kwenye Meta WhatsApp Cloud API!';
+    const updated = await saveMetaWelcomeSettings(
+      {
+        phoneNumberId: resolvedPhoneId,
+        lastSyncedAt: Date.now(),
+        lastSyncStatus: 'synced',
+        lastSyncMessage: okMsg,
+      },
+      dbAdmin
+    );
+    return {
+      settings: updated,
+      synced: true,
+      status: 'synced',
+      message: okMsg,
+      phoneNumberId: resolvedPhoneId,
+      metaResponse: metaData,
+    };
+  } catch (err: any) {
+    const errMsg = err?.message || 'Network error calling Meta Graph API';
+    const updated = await saveMetaWelcomeSettings(
+      {
+        phoneNumberId: resolvedPhoneId,
+        lastSyncStatus: 'error',
+        lastSyncMessage: errMsg,
+      },
+      dbAdmin
+    );
+    return {
+      settings: updated,
+      synced: false,
+      status: 'error',
+      message: errMsg,
+      phoneNumberId: resolvedPhoneId,
+    };
+  }
+}
+
+export async function getMetaConversationalAutomationStatus(phoneNumberId?: string): Promise<{
+  hasAccessToken: boolean;
+  hasPhoneNumberId: boolean;
+  resolvedPhoneNumberId: string;
+  remoteConfig?: any;
+}> {
+  const accessToken = (
+    process.env.META_WHATSAPP_ACCESS_TOKEN ||
+    process.env.WHATSAPP_ACCESS_TOKEN ||
+    process.env.META_ACCESS_TOKEN ||
+    ''
+  ).trim();
+  const resolvedPhoneNumberId = (
+    phoneNumberId ||
+    process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID ||
+    globalLastWhatsAppPhoneNumberId ||
+    ''
+  ).trim();
+
+  let remoteConfig: any = undefined;
+  if (accessToken && resolvedPhoneNumberId) {
+    try {
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${encodeURIComponent(resolvedPhoneNumberId)}?fields=conversational_automation,verified_name,display_phone_number`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      if (resp.ok) {
+        remoteConfig = await resp.json().catch(() => undefined);
+      }
+    } catch {}
+  }
+
+  return {
+    hasAccessToken: Boolean(accessToken),
+    hasPhoneNumberId: Boolean(resolvedPhoneNumberId),
+    resolvedPhoneNumberId,
+    ...(remoteConfig ? { remoteConfig } : {}),
+  };
+}
+
 /**
  * Sends a real outbound reply (optional image cards + text) via Meta Graph API
  * (WhatsApp Cloud API / Messenger / Instagram)
@@ -9906,6 +10312,7 @@ export interface ExtractedMetaWebhookMessage {
   textBody: string;
   phoneNumberId: string;
   messageId: string;
+  senderName?: string;
 }
 
 const processedMetaMessageIds = new Map<string, number>();
@@ -9932,9 +10339,20 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
           continue;
         }
         const phoneNumberId = String(value?.metadata?.phone_number_id || '');
+        const contactNameMap = new Map<string, string>();
+        if (Array.isArray(value.contacts)) {
+          for (const contact of value.contacts) {
+            const waId = String(contact?.wa_id || '').trim();
+            const profileName = String(contact?.profile?.name || '').trim();
+            if (waId && profileName) {
+              contactNameMap.set(waId, profileName);
+            }
+          }
+        }
         for (const message of value.messages) {
           const senderId = String(message?.from || '').trim();
           const messageId = String(message?.id || '').trim();
+          const senderName = contactNameMap.get(senderId) || '';
 
           const pickInteractiveReply = (replyObj?: { id?: string; title?: string }): string => {
             if (!replyObj) return '';
@@ -9974,9 +10392,11 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
 
           const nfmRaw = message?.interactive?.nfm_reply?.response_json;
           const nfmText = typeof nfmRaw === 'string' && nfmRaw.trim() ? `__FLOW_DATA__:${nfmRaw.trim()}` : '';
+          const isWelcomeRequest = String(message?.type || '').toLowerCase() === 'request_welcome';
 
           const rawTextOrInteractive = String(
-            message?.text?.body ||
+            (isWelcomeRequest ? '__REQUEST_WELCOME__' : '') ||
+              message?.text?.body ||
               pickInteractiveReply(message?.interactive?.button_reply) ||
               pickInteractiveReply(message?.interactive?.list_reply) ||
               nfmText ||
@@ -10001,6 +10421,7 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               textBody,
               phoneNumberId,
               messageId,
+              ...(senderName ? { senderName } : {}),
             });
           }
         }

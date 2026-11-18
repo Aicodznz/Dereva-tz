@@ -49,6 +49,7 @@ import { db } from '../firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { Sparkles } from 'lucide-react';
 import { AutomationStudioTabs } from './AutomationStudioTabs';
+import { WhatsAppWelcomeSettingsCard } from './admin/WhatsAppWelcomeSettingsCard';
 import { handleMetaInput } from '../lib/metaBot';
 import { handleSMSInput } from '../lib/smsBot';
 
@@ -1867,6 +1868,15 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                 </div>
               </CardContent>
             </Card>
+
+            {/* WhatsApp First-Open Welcome (request_welcome) & Ice Breakers Card */}
+            <WhatsAppWelcomeSettingsCard
+              defaultPhoneNumberId={metaPhoneNumberId}
+              onSimulateFirstOpen={() => {
+                setMetaChannel('whatsapp');
+                sendSimulatedMetaMessage('__REQUEST_WELCOME__');
+              }}
+            />
 
             {/* Automation Studio (Visual Workflow Builder) Card */}
             <Card className="border border-neutral-100 dark:border-neutral-800 shadow-sm">

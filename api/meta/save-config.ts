@@ -28,7 +28,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const localPath = path.join(process.cwd(), 'meta_config.json');
-    fs.writeFileSync(localPath, JSON.stringify(config, null, 2), 'utf8');
+    let existing: Record<string, any> = {};
+    if (fs.existsSync(localPath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(localPath, 'utf8')) || {};
+      } catch {
+        existing = {};
+      }
+    }
+    const merged = {
+      ...existing,
+      ...config,
+      ...(existing.welcomeSettings && !config.welcomeSettings ? { welcomeSettings: existing.welcomeSettings } : {}),
+    };
+    fs.writeFileSync(localPath, JSON.stringify(merged, null, 2), 'utf8');
 
     console.log("[Meta Config Save] Config successfully saved locally:", localPath);
     return res.status(200).json({ status: "success", message: "Config saved successfully" });

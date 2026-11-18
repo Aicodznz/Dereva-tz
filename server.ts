@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 
@@ -461,7 +461,7 @@ async function startServer() {
     }
   });
 
-  // Save Meta Automation config locally
+  // Save Meta Automation config locally (preserving welcomeSettings if already stored)
   app.post("/api/meta/save-config", (req, res) => {
     try {
       const config = req.body;
@@ -469,12 +469,64 @@ async function startServer() {
         return res.status(400).json({ error: "Missing config body" });
       }
       const localPath = path.join(process.cwd(), 'meta_config.json');
-      fs.writeFileSync(localPath, JSON.stringify(config, null, 2), 'utf8');
+      let existing: Record<string, any> = {};
+      if (fs.existsSync(localPath)) {
+        try {
+          existing = JSON.parse(fs.readFileSync(localPath, 'utf8')) || {};
+        } catch {
+          existing = {};
+        }
+      }
+      const merged = {
+        ...existing,
+        ...config,
+        ...(existing.welcomeSettings && !config.welcomeSettings ? { welcomeSettings: existing.welcomeSettings } : {}),
+      };
+      fs.writeFileSync(localPath, JSON.stringify(merged, null, 2), 'utf8');
       console.log("[Meta Config Server] Config saved locally to:", localPath);
       res.json({ status: "success", message: "Config saved successfully" });
     } catch (error: any) {
       console.error("[Meta Config Server] Error saving:", error);
       res.status(500).json({ error: "Failed to save config", details: error.message });
+    }
+  });
+
+  // Get WhatsApp Welcome Message & Ice Breakers config (+ Meta Conversational Automation status)
+  app.get("/api/meta/welcome-config", async (req, res) => {
+    try {
+      const settings = await getMetaWelcomeSettings(dbAdmin);
+      const phoneId = typeof req.query.phoneNumberId === 'string' ? req.query.phoneNumberId : settings.phoneNumberId;
+      const metaStatus = await getMetaConversationalAutomationStatus(phoneId);
+      return res.json({ status: "ok", settings, metaStatus });
+    } catch (err: any) {
+      console.error("[Meta Welcome Config GET] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to load welcome config" });
+    }
+  });
+
+  // Save WhatsApp Welcome Message & Ice Breakers and optionally sync to Meta Cloud API
+  app.post("/api/meta/welcome-config", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const syncToMeta = body.syncToMeta !== false;
+      if (syncToMeta) {
+        const result = await syncMetaConversationalAutomation(body, dbAdmin);
+        const metaStatus = await getMetaConversationalAutomationStatus(result.phoneNumberId || result.settings.phoneNumberId);
+        return res.json({ status: "ok", ...result, metaStatus });
+      }
+      const settings = await saveMetaWelcomeSettings(body, dbAdmin);
+      const metaStatus = await getMetaConversationalAutomationStatus(settings.phoneNumberId);
+      return res.json({
+        status: "ok",
+        settings,
+        synced: false,
+        syncState: "local_only",
+        message: "Mipangilio ya ujumbe wa karibu imehifadhiwa kwenye mfumo.",
+        metaStatus,
+      });
+    } catch (err: any) {
+      console.error("[Meta Welcome Config POST] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to save welcome config" });
     }
   });
 

@@ -38,6 +38,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { WhatsAppWelcomeSettingsCard } from './WhatsAppWelcomeSettingsCard';
 
 interface McpServer {
   id: string;
@@ -572,7 +573,9 @@ export const MetaMcpHub: React.FC = () => {
 
       {/* TAB 3: WORKFLOWS */}
       {activeTab === 'workflows' && (
-        <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-xl">
+        <div className="space-y-6">
+          <WhatsAppWelcomeSettingsCard />
+          <Card className="bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-xl">
           <CardHeader>
             <CardTitle className="text-lg font-black text-neutral-900 dark:text-white flex items-center gap-2">
               <Workflow className="w-5 h-5 text-indigo-500" />
@@ -649,6 +652,7 @@ export const MetaMcpHub: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* TAB 4: TESTER / CONSOLE */}

@@ -1,0 +1,38 @@
+{
+  "welcomeSettings": {
+    "enableWelcomeMessage": true,
+    "welcomeIntroSw": "👋 Karibu *Papo Hapo*! Mimi ni Msaidizi wako wa papo hapo.\nAgiza Chakula 🍔, Usafiri 🚖, Hoteli 🏨, Dawa 💊 au Tiketi 🎟️ moja kwa moja hapa WhatsApp.",
+    "welcomeIntroEn": "👋 Welcome to *Papo Hapo*! Your instant super-app assistant.\nOrder Food 🍔, Rides 🚖, Hotels 🏨, Pharmacy 💊 or Tickets 🎟️ right here on WhatsApp.",
+    "iceBreakers": [
+      "📋 Menyu Kuu",
+      "🍔 Agiza Chakula",
+      "🚖 Omba Usafiri",
+      "🏨 Booking ya Hoteli"
+    ],
+    "commands": [
+      {
+        "command_name": "menu",
+        "command_description": "Fungua menyu kuu ya huduma zote za Papo Hapo"
+      },
+      {
+        "command_name": "chakula",
+        "command_description": "Agiza chakula moto au weka meza ya mgahawa"
+      },
+      {
+        "command_name": "usafiri",
+        "command_description": "Omba Boda, Bajaji au Taxi karibu nawe"
+      },
+      {
+        "command_name": "hoteli",
+        "command_description": "Tafuta na uweke booking ya chumba cha hoteli"
+      },
+      {
+        "command_name": "oda",
+        "command_description": "Fuatilia hali ya oda au booking zako"
+      }
+    ],
+    "lastSyncStatus": "local_only",
+    "lastSyncMessage": "Mipangilio imehifadhiwa kwenye mfumo. Weka WhatsApp Phone Number ID (META_WHATSAPP_PHONE_NUMBER_ID) ili kuwasha kwenye Meta WhatsApp.",
+    "updatedAt": 1795036108614
+  }
+}
