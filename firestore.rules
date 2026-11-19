@@ -195,6 +195,14 @@ service cloud.firestore {
       }
     }
 
+    // 26. LIVE USER PRESENCE & IN-APP ACTIVITY AUDIT LOGS
+    match /user_presence/{uid} {
+      allow read, write: if true;
+    }
+    match /user_activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
     // Default deny for safety
     match /{document=**} {
       allow read, write: if isSignedIn() && isAdmin();

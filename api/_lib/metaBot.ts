@@ -9,6 +9,12 @@ import {
   isMobileMoneyPaymentMethod,
   isMongikeLiveConfigured,
 } from './mongike.js';
+import {
+  executeDirectPapoWalletPayment,
+  findOrEnsureWalletUser,
+  resolvePayeeTarget,
+  settlePaidMongikeOrder,
+} from './papoWalletSettlement.js';
 
 export interface MetaHistoryEntry {
   step: MetaSession['step'];
@@ -64,8 +70,11 @@ export interface MetaSession {
     | 'EVENT_SELECT_TIER'
     | 'EVENT_QUANTITY'
     | 'PAPOPAY_MENU'
+    | 'PAPOPAY_TOPUP_AMOUNT'
+    | 'PAPOPAY_TOPUP_PHONE'
     | 'PAPOPAY_PAY_TARGET'
-    | 'PAPOPAY_PAY_AMOUNT';
+    | 'PAPOPAY_PAY_AMOUNT'
+    | 'PAPOPAY_PAY_METHOD';
   service?:
     | 'taxi'
     | 'food'
@@ -8491,16 +8500,28 @@ async function routeToServiceFlow(
     }
   }
 
-  // PAPOPAY (WALLET, LIPA PAPO & WAKALA FLOW)
+  // PAPOPAY (WALLET TOP-UP VIA MONGIKE, LIPA DEREVA/MGAHAWA & WAKALA FLOW)
   if (service === 'papopay') {
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
-    const inPayStep = ['PAPOPAY_MENU', 'PAPOPAY_PAY_TARGET', 'PAPOPAY_PAY_AMOUNT', 'COLLECTING_PHONE'].includes(session.step);
+    const inPayStep = [
+      'PAPOPAY_MENU',
+      'PAPOPAY_TOPUP_AMOUNT',
+      'PAPOPAY_TOPUP_PHONE',
+      'PAPOPAY_PAY_TARGET',
+      'PAPOPAY_PAY_AMOUNT',
+      'PAPOPAY_PAY_METHOD',
+      'COLLECTING_PHONE',
+    ].includes(session.step);
 
-    const finalizePapoPay = async (payPhone: string) => {
-      const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
-      const amt = session.details.payAmount || 5000;
-      const target = session.details.payTarget || 'PapoPay Merchant';
-      const custName = session.details.customerName || 'Meta PapoPay Client';
+    const finalizePapoPayTopUp = async (payPhone: string) => {
+      const ppCode = `WT-${Math.floor(1000 + Math.random() * 9000)}`;
+      const amt = Number(session.details.topUpAmount || 5000);
+      const custName = session.details.customerName || 'Mteja wa PapoWallet';
+      const walletUser = await findOrEnsureWalletUser(dbAdmin, {
+        phone: payPhone,
+        displayName: custName,
+        createIfMissing: true,
+      });
 
       session.step = 'START';
       delete session.service;
@@ -8509,31 +8530,165 @@ async function routeToServiceFlow(
 
       await triggerAutomatedOrder(
         dbAdmin,
-        'papopay-express',
+        'papopay-wallet',
         'papopay',
-        [{ name: `PapoPay Payment: ${target}`, price: amt, quantity: 1 }],
+        [{ name: `Weka Pesa PapoWallet`, price: amt, quantity: 1 }],
         amt,
         payPhone,
         custName,
-        `PapoPay #${ppCode} | Target: ${target}`,
+        `PapoWallet TopUp #${ppCode}`,
         session.channel,
         {
           bookingCode: ppCode,
-          vendorName: 'PapoPay Express',
-          service: 'PapoPay',
-          deliveryAddress: target,
-          orderType: 'payment'
+          vendorName: 'PapoWallet Deposit',
+          service: 'PapoWallet TopUp',
+          deliveryAddress: 'PapoWallet',
+          orderType: 'wallet_topup',
+          paymentPurpose: 'wallet_topup',
+          payerUid: walletUser?.uid || null,
+          paymentMethod: 'mongike',
+          paymentMethodLabel: 'Mongike Mobile Money',
+          paymentStatus: 'pending',
         }
       );
 
       return (
-        `📲 *OMBI LA MALIPO LA PAPOPAY LIMETUMWA!*\n` +
+        `📥 *OMBI LA KUWEKA PESA KWENYE PAPOWALLET LIMETUMWA!*\n` +
         `🔖 Rejea: *#${ppCode}*\n\n` +
-        `- Mpokeaji / Bili: *${target}*\n` +
-        `- Kiasi: *TZS ${amt.toLocaleString()}*\n` +
-        `- Simu ya Malipo: *${payPhone}*\n\n` +
+        `- Kiasi cha Kuweka: *TZS ${amt.toLocaleString()}/=*\n` +
+        `- Simu ya Malipo: *${payPhone}*\n` +
+        `- Njia: *Mongike Mobile Money Push*${isMongikeLiveConfigured() ? '' : ' (Sandbox Test Mode)'}\n\n` +
+        `🔐 *Ingiza PIN yako* kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}*.\n` +
+        `Salio lako litaongezeka na utapokea risiti hapa WhatsApp mara moja baada ya kuthibitisha!`
+      );
+    };
+
+    const finalizePapoPay = async (payPhone: string, mode: 'mongike' | 'papowallet' = 'mongike') => {
+      const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
+      const amt = Number(session.details.payAmount || 5000);
+      const payee = session.details.resolvedPayee || {
+        kind: 'bill',
+        targetUid: null,
+        vendorId: null,
+        displayName: session.details.payTarget || 'PapoPay Merchant',
+        phone: '',
+        subtitle: 'Malipo ya Bili',
+      };
+      const targetName = payee.displayName || session.details.payTarget || 'PapoPay Merchant';
+      const custName = session.details.customerName || 'Meta PapoPay Client';
+      const purpose =
+        payee.kind === 'driver'
+          ? 'pay_driver'
+          : payee.kind === 'vendor'
+          ? 'pay_vendor'
+          : 'pay_bill';
+
+      const payerUser = await findOrEnsureWalletUser(dbAdmin, {
+        phone: payPhone,
+        displayName: custName,
+        createIfMissing: false,
+      });
+
+      if (mode === 'papowallet') {
+        if (!payerUser) {
+          return (
+            `⚠️ Huna akaunti yenye salio la PapoWallet kwa namba *${payPhone}*.\n\n` +
+            `Chagua *2* kuweka pesa kwenye PapoWallet kwanza au tuma *1* kulipa moja kwa moja kwa simu (Mongike Push).`
+          );
+        }
+        const currBal = Number(payerUser.data?.walletBalance || 0);
+        if (currBal < amt) {
+          return (
+            `⚠️ Salio lako la PapoWallet halitoshi (Una *TZS ${currBal.toLocaleString()}*, unahitaji *TZS ${amt.toLocaleString()}*).\n\n` +
+            `Andika *1* kulipa moja kwa moja kwa simu (*Mongike Push*) au andika *00* kurudi kwenye Menu kuweka pesa.`
+          );
+        }
+      }
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      const createdOrderId = await triggerAutomatedOrder(
+        dbAdmin,
+        payee.vendorId || 'papopay-express',
+        'papopay',
+        [{ name: `PapoPay Payment: ${targetName}`, price: amt, quantity: 1 }],
+        amt,
+        payPhone,
+        custName,
+        `PapoPay #${ppCode} | Target: ${targetName}`,
+        session.channel,
+        {
+          bookingCode: ppCode,
+          vendorName: targetName,
+          service: 'PapoPay',
+          deliveryAddress: targetName,
+          orderType: 'payment',
+          paymentPurpose: purpose,
+          payerUid: payerUser?.uid || null,
+          payeeUid: payee.targetUid || null,
+          payeeName: targetName,
+          payeePhone: payee.phone || '',
+          payeeKind: payee.kind || 'bill',
+          paymentMethod: mode === 'papowallet' ? 'papowallet' : 'mongike',
+          paymentMethodLabel: mode === 'papowallet' ? 'PapoWallet Salio' : 'Mongike Mobile Money',
+          paymentStatus: mode === 'papowallet' ? 'paid' : 'pending',
+        }
+      );
+
+      if (mode === 'papowallet' && payerUser && createdOrderId) {
+        const execRes = await executeDirectPapoWalletPayment(dbAdmin, {
+          payerUid: payerUser.uid,
+          payerPhone: payPhone,
+          payerName: custName,
+          amount: amt,
+          payee,
+          bookingCode: ppCode,
+          orderId: createdOrderId,
+        });
+
+        if (!execRes.ok) {
+          return `⚠️ Malipo hayakufanikiwa: ${execRes.reason}`;
+        }
+
+        // Notify Driver / Restaurant directly via WhatsApp if phone exists
+        if (payee.phone && dbAdmin) {
+          const recipientPhoneDigits = payee.phone.replace(/\D/g, '');
+          if (recipientPhoneDigits.length >= 9) {
+            const recipientMsg =
+              `💰 *UMEPOKEA MALIPO YA PAPOPAY!*\n` +
+              `🔖 Rejea: *#${ppCode}*\n\n` +
+              `- Mteja: *${custName}* (${payPhone})\n` +
+              `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+              `- Njia: *PapoWallet (Yameingia Papo Hapo)* ✅`;
+            sendMetaOutboundMessage({
+              channel: 'whatsapp',
+              recipientId: recipientPhoneDigits,
+              text: recipientMsg,
+            }).catch(() => {});
+          }
+        }
+
+        return (
+          `✅ *MALIPO YA PAPOWALLET YAMEKAMILIKA!* 💚\n` +
+          `🔖 Rejea: *#${ppCode}*\n\n` +
+          `- Mpokeaji: *${targetName}* (${payee.subtitle})\n` +
+          `- Kiasi Kilicholipwa: *TZS ${amt.toLocaleString()}/=*\n` +
+          `- Salio Jipya la PapoWallet: *TZS ${Number(execRes.newPayerBalance || 0).toLocaleString()}/=*\n\n` +
+          `🔗 *Risiti & Historia:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}`
+        );
+      }
+
+      return (
+        `📲 *OMBI LA MALIPO YA MONGIKE LIMETUMWA!*\n` +
+        `🔖 Rejea: *#${ppCode}*\n\n` +
+        `- Mpokeaji / Bili: *${targetName}* (${payee.subtitle})\n` +
+        `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+        `- Simu ya Malipo: *${payPhone}*${isMongikeLiveConfigured() ? '' : ' (Sandbox Test Mode)'}\n\n` +
         `🔗 *Fuatilia Muamala & Risiti Zako:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}\n\n` +
-        `Ingiza PIN yako kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}* kukamilisha malipo. 🔐`
+        `🔐 *Ingiza PIN yako* kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}* kukamilisha malipo.`
       );
     };
 
@@ -8543,10 +8698,11 @@ async function routeToServiceFlow(
       return (
         `💳 *PapoPay — Lipa Papo & PapoWallet*\n\nChagua huduma ya malipo unayohitaji:\n\n` +
         `1. 💰 *Angalia Salio la PapoWallet & Pointi*\n` +
-        `2. 📲 *Lipa Dereva / Mgahawa / Bili (PapoPay)*\n` +
-        `3. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
-        `4. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
-        `Andika namba (*1–4*):`
+        `2. 📥 *Weka Pesa Kwenye PapoWallet (Mongike Push)*\n` +
+        `3. 📲 *Lipa Dereva / Mgahawa / Bili (PapoPay)*\n` +
+        `4. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
+        `5. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
+        `Andika namba (*1–5*):`
       );
     }
 
@@ -8554,24 +8710,12 @@ async function routeToServiceFlow(
       const choice = input.trim();
       if (choice === '1') {
         const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
-        let walletBalance = 0;
-        let points = 0;
-        let foundUser = false;
-        if (dbAdmin && lookupPhone) {
-          const { phoneVariants } = buildPhoneVariants(lookupPhone);
-          for (const field of ['phone', 'phoneNumber']) {
-            if (foundUser || phoneVariants.length === 0) break;
-            try {
-              const uSnap = await dbAdmin.collection('users').where(field, 'in', phoneVariants).limit(1).get();
-              if (!uSnap.empty) {
-                const u = uSnap.docs[0].data() || {};
-                walletBalance = Number(u.walletBalance || 0);
-                points = Number(u.points || 0);
-                foundUser = true;
-              }
-            } catch {}
-          }
-        }
+        const foundRec = lookupPhone
+          ? await findOrEnsureWalletUser(dbAdmin, { phone: lookupPhone, createIfMissing: false })
+          : null;
+        const walletBalance = Number(foundRec?.data?.walletBalance || 0);
+        const points = Number(foundRec?.data?.points || 0);
+
         session.step = 'START';
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
@@ -8582,18 +8726,27 @@ async function routeToServiceFlow(
           `- Simu: *${lookupPhone || 'Bila namba'}*\n` +
           `- Salio la PapoWallet: *TZS ${walletBalance.toLocaleString()}*\n` +
           `- PapoPoints: *${points.toLocaleString()} pts*\n` +
-          `${!foundUser ? `\n_Kumbuka: Unaweza kuweka pesa kupitia Wakala wa PapoPay au app kuongeza salio lako._\n` : ''}` +
+          `${!foundRec ? `\n_Bonyeza Menu -> PapoPay -> 2 kuweka pesa sasa kupitia Mongike Push._\n` : ''}` +
           `\n🔗 *Dhibiti Wallet yako:* ${publicBaseUrl}/papopay\n\n_(Andika *00* au *Hi* kurudi kwenye Menu)_`
         );
       }
 
       if (choice === '2') {
-        session.step = 'PAPOPAY_PAY_TARGET';
+        session.step = 'PAPOPAY_TOPUP_AMOUNT';
         await saveMetaSession(session, dbAdmin);
-        return `📲 *Lipa Kupitia PapoPay*\n\nTafadhali andika *Jina/Namba ya Biashara, Dereva au Bili* unayolipia (Mfano: *LUKU 142536*, *Mgahawa Kisinia*, au *0712345678*):`;
+        return (
+          `📥 *Weka Pesa Kwenye PapoWallet (Mongike Push)*\n\n` +
+          `💰 Andika *kiasi cha TZS* unachotaka kuweka kwenye pochi yako (Mfano: *5000*, *20000*, au *50000*):`
+        );
       }
 
       if (choice === '3') {
+        session.step = 'PAPOPAY_PAY_TARGET';
+        await saveMetaSession(session, dbAdmin);
+        return `📲 *Lipa Kupitia PapoPay*\n\nTafadhali andika *Jina/Namba ya Mgahawa, Duka, Dereva, Namba ya Gari au Bili* unayolipia (Mfano: *Mgahawa Kisinia*, *0712345678*, au *LUKU 142536*):`;
+      }
+
+      if (choice === '4') {
         let wakalaMsg = `🏪 *MAWAKALA WA PAPOPAY KARIBU NAWE*\n\n`;
         let foundAny = false;
         if (dbAdmin) {
@@ -8618,7 +8771,7 @@ async function routeToServiceFlow(
         return `${wakalaMsg}🔗 *Tafuta Wakala & Lipa Mtandaoni:* ${publicBaseUrl}/papopay`;
       }
 
-      if (choice === '4') {
+      if (choice === '5') {
         session.step = 'START';
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
@@ -8626,14 +8779,50 @@ async function routeToServiceFlow(
         return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na kuhamisha pesa:\n👉 ${publicBaseUrl}/papopay`;
       }
 
-      return `⚠️ Tafadhali chagua *1*, *2*, *3* au *4*:`;
+      return `⚠️ Tafadhali chagua *1*, *2*, *3*, *4* au *5*:`;
+    }
+
+    if (session.step === 'PAPOPAY_TOPUP_AMOUNT') {
+      const amt = parseInt(input.replace(/\D/g, ''), 10);
+      if (!amt || amt < 500) {
+        return `⚠️ Tafadhali weka kiasi sahihi kuanzia TZS 500 (Mfano: *5000* au *20000*):`;
+      }
+      session.details.topUpAmount = amt;
+      if (knownPhone) {
+        return await finalizePapoPayTopUp(knownPhone);
+      }
+      session.step = 'PAPOPAY_TOPUP_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `📥 Kiasi cha kuweka: *TZS ${amt.toLocaleString()}/=*\n\n` +
+        `📞 Andika *namba yako ya simu* (M-Pesa / Mixx by Yas / Airtel Money / Halopesa) kupokea ombi la PIN (Mfano: *0712345678*):`
+      );
+    }
+
+    if (session.step === 'PAPOPAY_TOPUP_PHONE') {
+      let topPhone = input.trim();
+      if ((topPhone === '1' || topPhone.toUpperCase() === 'NDIO') && waDigitsFallback.length >= 9) {
+        topPhone = `+${waDigitsFallback}`;
+      }
+      if (topPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
+      }
+      await savePhonePref(topPhone);
+      return await finalizePapoPayTopUp(topPhone);
     }
 
     if (session.step === 'PAPOPAY_PAY_TARGET') {
-      session.details.payTarget = input.trim();
+      const resolved = await resolvePayeeTarget(dbAdmin, input.trim());
+      session.details.payTarget = resolved.displayName;
+      session.details.resolvedPayee = resolved;
       session.step = 'PAPOPAY_PAY_AMOUNT';
       await saveMetaSession(session, dbAdmin);
-      return `✅ Unalipia: *${session.details.payTarget}*\n\n💰 Andika *kiasi cha TZS* unacholipa (Mfano: *5000* au *25000*):`;
+      return (
+        `✅ Mpokeaji aliyechaguliwa:\n` +
+        `🏷️ *${resolved.displayName}*\n` +
+        `📌 Aina: _${resolved.subtitle}_\n\n` +
+        `💰 Andika *kiasi cha TZS* unacholipa (Mfano: *5000* au *25000*):`
+      );
     }
 
     if (session.step === 'PAPOPAY_PAY_AMOUNT') {
@@ -8642,12 +8831,40 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka kiasi sahihi kwa tarakimu (Mfano: *5000*):`;
       }
       session.details.payAmount = amt;
+
+      const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      const payerRec = lookupPhone
+        ? await findOrEnsureWalletUser(dbAdmin, { phone: lookupPhone, createIfMissing: false })
+        : null;
+      const walletBal = Number(payerRec?.data?.walletBalance || 0);
+
+      session.step = 'PAPOPAY_PAY_METHOD';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `💳 Kiasi: *TZS ${amt.toLocaleString()}/=* kwenda *${session.details.payTarget}*\n\n` +
+        `Chagua njia ya malipo:\n` +
+        `1. 📱 *Lipa kwa Simu (Mongike USSD Push)* — M-Pesa / Mixx by Yas / Airtel Money\n` +
+        `2. 💰 *Lipa Kutoka PapoWallet* (Salio lako: *TZS ${walletBal.toLocaleString()}*)\n\n` +
+        `Andika *1* au *2*:`
+      );
+    }
+
+    if (session.step === 'PAPOPAY_PAY_METHOD') {
+      const c = input.trim();
+      if (c !== '1' && c !== '2') {
+        return `⚠️ Tafadhali chagua *1* (Mongike Push) au *2* (PapoWallet):`;
+      }
+      const mode: 'mongike' | 'papowallet' = c === '2' ? 'papowallet' : 'mongike';
+      session.details.payMode = mode;
+
       if (knownPhone) {
-        return await finalizePapoPay(knownPhone);
+        return await finalizePapoPay(knownPhone, mode);
       }
       session.step = 'COLLECTING_PHONE';
       await saveMetaSession(session, dbAdmin);
-      return `💳 Kiasi: *TZS ${amt.toLocaleString()}* kwenda *${session.details.payTarget}*\n\n📞 Andika *namba yako ya simu* kupokea ombi la malipo (Mfano: *0712345678*):`;
+      return mode === 'papowallet'
+        ? `📞 Andika *namba ya simu* ya akaunti yako ya PapoWallet (Mfano: *0712345678*):`
+        : `📞 Andika *namba yako ya simu* kupokea ombi la PIN la Mongike (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'COLLECTING_PHONE') {
@@ -8659,7 +8876,9 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
       }
       await savePhonePref(payPhone);
-      return await finalizePapoPay(payPhone);
+      const mode: 'mongike' | 'papowallet' =
+        session.details.payMode === 'papowallet' ? 'papowallet' : 'mongike';
+      return await finalizePapoPay(payPhone, mode);
     }
   }
 
@@ -10697,7 +10916,15 @@ export async function notifyMongikePaymentPaidToWhatsApp(
   try {
     const snap = await dbAdmin.collection(targetType).doc(String(targetId)).get().catch(() => null);
     if (!snap?.exists) return { customerNotified: false, vendorNotified: false };
-    const rec = snap.data() || {};
+    const settledInfo = await settlePaidMongikeOrder(dbAdmin, {
+      targetId,
+      targetType,
+      amount,
+      gatewayRef,
+    }).catch(() => null);
+
+    const freshSnap = await dbAdmin.collection(targetType).doc(String(targetId)).get().catch(() => null);
+    const rec = freshSnap?.exists ? freshSnap.data() || {} : snap.data() || {};
     if (rec.paymentWaNotified === true) {
       notifiedMongikePaidTargets.add(dedupKey);
       return { customerNotified: false, vendorNotified: false };
@@ -10707,8 +10934,9 @@ export async function notifyMongikePaymentPaidToWhatsApp(
     const shortCode = String(rec.bookingCode || rec.bookingId || rec.bookingRef || String(targetId).slice(-6))
       .toUpperCase()
       .replace(/^#/, '');
-    const vendorName = rec.vendorName || 'Papo Hapo';
+    const vendorName = rec.vendorName || rec.payeeName || 'Papo Hapo';
     const refText = gatewayRef ? `\n🔖 Kumbukumbu: *${gatewayRef}*` : '';
+    const purpose = String(rec.paymentPurpose || settledInfo?.purpose || '');
 
     // 1. Notify Customer if WhatsApp channel or WhatsApp phone exists
     const custPhone = rec.customerPhone || rec.customerInfo?.phone || '';
@@ -10717,9 +10945,19 @@ export async function notifyMongikePaymentPaidToWhatsApp(
       customerPhone: custPhone,
     });
     if (custTarget.recipientId && custTarget.channel === 'whatsapp') {
-      const custMsg =
-        `✅ *MALIPO YAMEPOKELEWA!* 💚\n\n` +
-        `Asante *${rec.customerName || rec.customerInfo?.name || 'Mteja'}*, malipo yako ya *TZS ${paidAmt.toLocaleString()}/=* kupitia *Mongike Mobile Money* kwa oda *#${shortCode}* (${vendorName}) yamekamilika kikamilifu.${refText}`;
+      let custMsg = '';
+      if (purpose === 'wallet_topup') {
+        const newBal = Number(rec.newWalletBalance ?? settledInfo?.newPayerBalance ?? paidAmt);
+        custMsg =
+          `✅ *WEKA PESA PAPOWALLET IMEKAMILIKA!* 💚\n\n` +
+          `Asante *${rec.customerName || 'Mteja'}*, kiasi cha *TZS ${paidAmt.toLocaleString()}/=* kupitia *Mongike Mobile Money* kimeongezwa kwenye PapoWallet yako.\n` +
+          `💰 *Salio Jipya:* *TZS ${newBal.toLocaleString()}/=*` +
+          `${refText}`;
+      } else {
+        custMsg =
+          `✅ *MALIPO YAMEPOKELEWA!* 💚\n\n` +
+          `Asante *${rec.customerName || rec.customerInfo?.name || 'Mteja'}*, malipo yako ya *TZS ${paidAmt.toLocaleString()}/=* kupitia *Mongike Mobile Money* kwa oda *#${shortCode}* (${vendorName}) yamekamilika kikamilifu.${refText}`;
+      }
       const resCust = await sendMetaOutboundMessage({
         channel: 'whatsapp',
         recipientId: custTarget.recipientId,
@@ -10729,22 +10967,46 @@ export async function notifyMongikePaymentPaidToWhatsApp(
       customerNotified = resCust.sent;
     }
 
-    // 2. Notify Shop/Vendor Owner if this is an order with a vendor WhatsApp number
-    if (targetType === 'orders' && rec.vendorId) {
+    // 2. Notify Shop/Vendor Owner or Driver / Payee
+    let notifiedPayeePhoneDigits = '';
+    if (targetType === 'orders' && rec.vendorId && rec.vendorId !== 'papopay-express' && rec.vendorId !== 'papopay-wallet') {
       const { whatsappPhone } = await resolveVendorWhatsAppContact(dbAdmin, String(rec.vendorId), rec);
       if (whatsappPhone) {
+        notifiedPayeePhoneDigits = whatsappPhone.replace(/\D/g, '').slice(-9);
         const vendorMsg =
           `💰 *MALIPO YAMETHIBITISHWA KWA ODA #${shortCode}!*\n` +
           `🏪 *${vendorName}*\n` +
           `👤 *Mteja:* ${rec.customerName || 'Mteja'} (${custPhone || '-'})\n` +
           `💵 *Kiasi Kilicholipwa:* *TZS ${paidAmt.toLocaleString()}/=* (Mongike Mobile Money)${refText}\n\n` +
-          `✅ Unaweza kuendelea kuandaa oda hii kwa uhakika!`;
+          `✅ Salio lako limesasishwa na unaweza kuendelea kuhudumia!`;
         const resVen = await sendMetaOutboundMessage({
           channel: 'whatsapp',
           recipientId: whatsappPhone,
           text: vendorMsg,
         });
         vendorNotified = resVen.sent;
+      }
+    }
+
+    if (
+      !vendorNotified &&
+      (purpose === 'pay_driver' || purpose === 'pay_vendor' || purpose === 'pay_bill') &&
+      rec.payeePhone
+    ) {
+      const pDigits = String(rec.payeePhone).replace(/\D/g, '');
+      if (pDigits.length >= 9 && pDigits.slice(-9) !== notifiedPayeePhoneDigits) {
+        const payeeMsg =
+          `💰 *UMEPOKEA MALIPO YA PAPOPAY!*\n` +
+          `🔖 Rejea: *#${shortCode}*\n\n` +
+          `👤 *Mteja:* ${rec.customerName || 'Mteja'} (${custPhone || '-'})\n` +
+          `💵 *Kiasi Kilicholipwa:* *TZS ${paidAmt.toLocaleString()}/=* (Mongike Mobile Money)${refText}\n\n` +
+          `✅ Pesa imeongezwa kwenye pochi yako ya PapoWallet!`;
+        const resPayee = await sendMetaOutboundMessage({
+          channel: 'whatsapp',
+          recipientId: pDigits,
+          text: payeeMsg,
+        });
+        vendorNotified = resPayee.sent;
       }
     }
 

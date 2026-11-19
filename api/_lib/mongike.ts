@@ -1,4 +1,5 @@
 import { cleanUndefined } from './getFirestoreDb.js';
+import { settlePaidMongikeOrder } from './papoWalletSettlement.js';
 
 export const MONGIKE_TANZANIA_MOMO_ENDPOINT =
   'https://mongike.com/api/v1/payments/mobile-money/tanzania';
@@ -169,18 +170,26 @@ export async function initiateMongikePayment(
             }),
             { merge: true }
           );
-          if (opts?.onSimulatedPaid) {
-            await opts.onSimulatedPaid({
+            await settlePaidMongikeOrder(dbAdmin, {
               targetId: String(orderId),
               targetType: collection,
               amount: numericAmount,
               gatewayRef,
+            }).catch((sErr) => {
+              console.warn('[Mongike Sandbox] Wallet settlement warning:', sErr);
             });
+            if (opts?.onSimulatedPaid) {
+              await opts.onSimulatedPaid({
+                targetId: String(orderId),
+                targetType: collection,
+                amount: numericAmount,
+                gatewayRef,
+              });
+            }
+          } catch (err) {
+            console.warn('[Mongike Sandbox] Simulation callback warning:', err);
           }
-        } catch (err) {
-          console.warn('[Mongike Sandbox] Simulation callback warning:', err);
-        }
-      }, 2500);
+        }, 2500);
     }
 
     return simulatedResponse;
@@ -323,6 +332,15 @@ export async function processMongikeWebhook(
           }),
           { merge: true }
         );
+
+        await settlePaidMongikeOrder(dbAdmin, {
+          targetId: realOrderId,
+          targetType,
+          amount: numericAmount,
+          gatewayRef,
+        }).catch((sErr) => {
+          console.warn('[Mongike Webhook] Wallet settlement warning:', sErr);
+        });
       }
 
       await dbAdmin.collection('payment_callbacks').doc(realOrderId).set(

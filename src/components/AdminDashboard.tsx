@@ -23,7 +23,7 @@ import {
   Package, Undo2, Bike, Trophy, Wallet, MessageSquare, Globe, Clock, Coins, Moon, Loader2, Zap,
   Bed, Wifi, Wind, Monitor, Car, Waves, MapPin, Mail, Phone, PhoneCall, FileText, User, Camera,
   Menu, MoreHorizontal, MoreVertical, LayoutGrid, LogOut, ArrowUp, ArrowDown,
-  Volume2, Play, Upload, Smartphone, Sparkles
+  Volume2, Play, Upload, Smartphone, Sparkles, Activity
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ import { TwilioResponderTab } from './TwilioResponderTab';
 import { MetaMcpHub } from './admin/MetaMcpHub';
 import { WhatsAppCustomersManager } from './admin/WhatsAppCustomersManager';
 import { MongikeGatewayCard } from './admin/MongikeGatewayCard';
+import { LiveUsersMonitor } from './admin/LiveUsersMonitor';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
 import { AppModulesStudio } from './admin/AppModulesStudio';
@@ -411,9 +412,7 @@ export default function AdminDashboard() {
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [monitorSearchQuery, setMonitorSearchQuery] = useState('');
-  const [monitorMapStyle, setMonitorMapStyle] = useState<'street' | 'satellite' | 'night'>('street');
-  const [mapPanTo, setMapPanTo] = useState<{ lat: number; lng: number } | null>(null);
+  const [monitorSelectedUserId, setMonitorSelectedUserId] = useState<string | null>(null);
   const [selectedVendorForReview, setSelectedVendorForReview] = useState<VendorProfile | null>(null);
   
   // Modals
@@ -1039,7 +1038,7 @@ export default function AdminDashboard() {
     { id: 'notifications', label: t('admin_broadcast'), icon: Bell },
     { id: 'meta_mcp', label: 'Meta MCP Hub', icon: Zap },
     { id: 'twilio_responder', label: 'Meta Bot Studio', icon: MessageSquare },
-    { id: 'live_map', label: 'Monitor', icon: Globe },
+    { id: 'live_map', label: 'Monitor & Ramani', icon: Globe },
     { id: 'payouts', label: 'Payouts', icon: Wallet },
     { id: 'analytics', label: 'Insights', icon: BarChart3 },
     { id: 'settings', label: t('admin_settings'), icon: Settings },
@@ -1050,7 +1049,7 @@ export default function AdminDashboard() {
       title: "Kuu (Core)",
       items: [
         { id: 'overview', label: t('admin_overview') || 'Overview', icon: BarChart3 },
-        { id: 'live_map', label: 'Monitor', icon: Globe },
+        { id: 'live_map', label: 'Monitor & Ramani', icon: Globe },
         { id: 'analytics', label: 'Insights', icon: BarChart3 },
       ]
     },
@@ -1667,6 +1666,18 @@ export default function AdminDashboard() {
                                    </Button>
                                 </a>
                              )}
+                             <Button
+                               onClick={() => {
+                                 setMonitorSelectedUserId(user.id);
+                                 setActiveTab('live_map');
+                               }}
+                               size="icon"
+                               variant="ghost"
+                               className="rounded-xl text-blue-600 hover:bg-blue-50"
+                               title="Tazama Online, Ramani & Historia"
+                             >
+                               <Activity className="w-5 h-5" />
+                             </Button>
                              <Button 
                                onClick={() => handleBlockUser(user.id, user.status)}
                                size="icon" 
@@ -1749,342 +1760,23 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'live_map' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-[75vh]">
-            {/* Sidebar with Driver Directory */}
-            <Card className="xl:col-span-4 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 p-6 flex flex-col h-full overflow-hidden">
-               {/* Search & Header */}
-               <div className="space-y-4 mb-4">
-                  <div className="flex items-center justify-between">
-                     <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white">Madereva wote</h3>
-                     <Badge className="bg-orange-600 text-white font-black text-[10px] py-0.5 px-2 rounded-full">
-                        {allUsers.filter(u => {
-                          if (u.role !== 'rider') return false;
-                          const telemetry = driverLocations.find(d => d.id === u.id);
-                          return telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
-                        }).length} Madereva Active
-                     </Badge>
-                  </div>
-                  
-                  <div className="relative">
-                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-                     <Input
-                       placeholder="Tafuta jina, namba au gari..."
-                       value={monitorSearchQuery}
-                       onChange={(e) => setMonitorSearchQuery(e.target.value)}
-                       className="pl-9 rounded-xl border-neutral-200 dark:border-neutral-700 font-medium text-xs bg-neutral-50 dark:bg-neutral-800 w-full"
-                     />
-                  </div>
-               </div>
-
-               {/* Drivers Scrollable List */}
-               <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
-                  {allUsers
-                    .filter(u => u.role === 'rider')
-                    .filter(u => {
-                      const telemetry = driverLocations.find(d => d.id === u.id);
-                      const isOnline = telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
-                      return isOnline;
-                    })
-                    .filter(u => {
-                      if (!monitorSearchQuery) return true;
-                      const query = monitorSearchQuery.toLowerCase();
-                      return (
-                        (u.displayName || '').toLowerCase().includes(query) ||
-                        (u.phone || '').toLowerCase().includes(query) ||
-                        (u.licensePlate || '').toLowerCase().includes(query) ||
-                        (u.driverType || '').toLowerCase().includes(query)
-                      );
-                    })
-                    .map((rider, idx) => {
-                      const telemetry = driverLocations.find(d => d.id === rider.id);
-                      const pos = telemetry?.location || telemetry?.currentPosition;
-                      const isOnline = telemetry?.networkStatus === 'online' || telemetry?.status === 'online' || telemetry?.isOnline === true;
-                      const hasLocation = !!pos;
-                      
-                      return (
-                         <div 
-                           key={rider.id || `mon-driver-${idx}`}
-                           className="p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50 hover:bg-neutral-100/50 dark:hover:bg-neutral-800 transition-colors space-y-3"
-                         >
-                            <div className="flex items-start justify-between gap-2">
-                               <div 
-                                 className="flex items-center gap-3 cursor-pointer group/item"
-                                 onClick={() => {
-                                   setSelectedDriverForDetail(rider);
-                                   setActiveTab('drivers');
-                                   setDriverSubTab('profile');
-                                 }}
-                               >
-                                  <div className="relative group-hover/item:scale-105 transition-transform duration-200">
-                                     <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center font-black text-orange-600 text-sm">
-                                        {(rider.displayName || 'D')[0]}
-                                     </div>
-                                     <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-300'}`} />
-                                  </div>
-                                  <div>
-                                     <h4 className="font-black text-sm text-neutral-900 dark:text-white uppercase leading-tight group-hover/item:text-orange-600 transition-colors">{rider.displayName}</h4>
-                                     <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-semibold">{rider.phone || 'Namba haipo'}</p>
-                                  </div>
-                               </div>
-                               <Badge className={`font-bold text-[8px] uppercase ${isOnline ? 'bg-green-100 text-green-700 border-none' : 'bg-neutral-100 text-neutral-500 border-none'}`}>
-                                  {isOnline ? 'Online' : 'Offline'}
-                               </Badge>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-dashed border-neutral-200 dark:border-neutral-700 pt-2 font-medium">
-                               <div>
-                                  <span className="text-neutral-400 block text-[8px] uppercase font-bold">Chombo / Plate</span>
-                                  <span className="text-neutral-700 dark:text-neutral-300 font-bold uppercase">{rider.driverType || 'taxi'} • {rider.licensePlate || 'N/A'}</span>
-                               </div>
-                               <div>
-                                  <span className="text-neutral-400 block text-[8px] uppercase font-bold">Battery & Speed</span>
-                                  <span className="text-neutral-700 dark:text-neutral-300 font-bold">
-                                     {isOnline ? `${telemetry?.battery || 100}% • ${Math.round(telemetry?.speed || 0)} km/h` : 'N/A'}
-                                  </span>
-                               </div>
-                            </div>
-
-                            {hasLocation && (
-                               <Button
-                                 size="sm"
-                                 onClick={() => {
-                                    if (pos) {
-                                       setMapPanTo({ lat: pos.lat, lng: pos.lng });
-                                    }
-                                 }}
-                                 className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-black uppercase h-8 flex items-center justify-center gap-2"
-                               >
-                                  <MapPin className="w-3 h-3" />
-                                  Tazama Kwenye Ramani
-                               </Button>
-                            )}
-                         </div>
-                      );
-                    })}
-
-                  {allUsers.filter(u => u.role === 'rider').length === 0 && (
-                     <div className="text-center py-12 text-neutral-400 italic text-xs font-bold">
-                        Hakuna dereva yeyote aliyesajiliwa.
-                     </div>
-                  )}
-               </div>
-            </Card>
-
-            {/* Map Area */}
-            <motion.div key="live_map" className="xl:col-span-8 rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white relative h-full">
-              <MapContainer 
-               center={[-6.7924, 39.2083]} 
-               zoom={12} 
-               maxZoom={22}
-               className="w-full h-full z-0"
-               scrollWheelZoom
-             >
-                {mapPanTo && <MapPanController panTo={[mapPanTo.lat, mapPanTo.lng]} />}
-                {monitorMapStyle === 'street' && (
-                  <TileLayer
-                    url="https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                    subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-                    maxZoom={22}
-                    maxNativeZoom={19}
-                    attribution="&copy; Google Maps"
-                  />
-                )}
-                {monitorMapStyle === 'night' && (
-                  <TileLayer
-                    url="https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                    maxZoom={16}
-                    attribution="&copy; Esri"
-                  />
-                )}
-                {monitorMapStyle === 'satellite' && (
-                  <TileLayer
-                    url="https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-                    subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-                    maxZoom={22}
-                    maxNativeZoom={19}
-                    attribution="&copy; Google Maps"
-                  />
-                )}
-
-                {/* Active City Geofence Overlays */}
-                {Object.entries(businessConfig.pricingRules || DEFAULT_PRICING_RULES).map(([cityKey, c]: [string, any]) => {
-                  if (c?.geofenceActive === false) return null;
-                  const poly = normalizeLatLngList(c?.geofencePolygon);
-                  if ((c?.geofenceType || 'circle') === 'polygon' && poly.length >= 3) {
-                    return (
-                      <Polygon
-                        key={`mon-gf-${cityKey}`}
-                        positions={poly}
-                        pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.08, weight: 2, dashArray: '5, 5' }}
-                      />
-                    );
-                  }
-                  const cLat = c?.geofenceCenter?.lat ?? c?.lat;
-                  const cLng = c?.geofenceCenter?.lng ?? c?.lng;
-                  if (typeof cLat === 'number' && typeof cLng === 'number') {
-                    return (
-                      <Circle
-                        key={`mon-gf-${cityKey}`}
-                        center={[cLat, cLng]}
-                        radius={c?.geofenceRadius || 15000}
-                        pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.06, weight: 1.5, dashArray: '5, 5' }}
-                      />
-                    );
-                  }
-                  return null;
-                })}
-                
-                {/* Active Drivers */}
-                {driverLocations.map((driver, idx) => {
-                  const pos = driver.location || driver.currentPosition;
-                  const isOnline = driver.networkStatus === 'online' || driver.status === 'online' || driver.isOnline === true;
-                  
-                  if (!pos || !isOnline) return null;
-
-                  const driverUser = allUsers.find(u => u.id === driver.id);
-                  const driverName = driverUser?.displayName || driver.displayName || driver.name || 'Dereva';
-                  const initials = driverName.substring(0, 2);
-                  const licensePlate = driverUser?.licensePlate || driver.licensePlate || driver.vehicle?.plate || 'No Plate';
-                  const vType = driver.vehicleType || driverUser?.vehicleType || driver.vehicle?.type || 'mini';
-                  const dType = driverUser?.driverType || driver.driverType || 'taxi';
-                  const heading = driver.heading || driver.vehicleHeading || 0;
-
-                  // Determine vehicle label in Swahili & English
-                  let vehicleLabel = "Gari / Taxi";
-                  if (vType.includes('bike') || vType.includes('pikipiki') || vType.includes('motorcycle') || vType.includes('boda')) {
-                    vehicleLabel = "Pikipiki / Boda";
-                  } else if (vType.includes('bajaj') || vType.includes('bajaji') || vType.includes('tuktuk')) {
-                    vehicleLabel = "Bajaji";
-                  } else if (vType.includes('baskeli')) {
-                    vehicleLabel = "Baskeli";
-                  } else if (dType === 'delivery') {
-                    vehicleLabel = "Usafirishaji / Delivery";
-                  }
-
-                  const vehicleDetails = [
-                    driverUser?.vehicleColor,
-                    driverUser?.vehicleBrand,
-                    driverUser?.vehicleModel
-                  ].filter(Boolean).join(' ');
-
-                  const isDark = document.documentElement.classList.contains('dark');
-                  const markerIcon = createDriverMarkerIcon(
-                    initials,
-                    isOnline,
-                    heading,
-                    vType,
-                    isDark ? 'dark' : 'light',
-                    heading
-                  );
-                  
-                  return (
-                    <Marker 
-                      key={driver.id || `driver-${idx}`} 
-                      position={[pos.lat, pos.lng]} 
-                      icon={markerIcon}
-                    >
-                       <Popup className="rounded-2xl overflow-hidden">
-                          <div className="p-2 space-y-2">
-                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center font-bold text-orange-600">
-                                   {initials[0]}
-                                </div>
-                                <div>
-                                   <p className="font-black text-xs uppercase leading-none">{driverName}</p>
-                                   <p className="text-[10px] text-neutral-400 font-bold">{licensePlate}</p>
-                                </div>
-                             </div>
-                             
-                             <div className="p-1.5 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-between">
-                                <span className="text-[9px] font-black uppercase text-neutral-400">Chombo / Vehicle</span>
-                                <Badge className="bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-[8px] uppercase">{vehicleLabel}</Badge>
-                             </div>
-
-                             {vehicleDetails && (
-                                <p className="text-[9px] text-neutral-500 font-medium italic text-center">
-                                   {vehicleDetails}
-                                </p>
-                             )}
-
-                             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-neutral-100">
-                                <div className="p-2 bg-neutral-50 rounded-xl">
-                                   <p className="text-[8px] font-black uppercase text-neutral-400">Battery</p>
-                                   <p className="font-black text-xs">{driver.battery || 0}%</p>
-                                </div>
-                                <div className="p-2 bg-neutral-50 rounded-xl">
-                                   <p className="text-[8px] font-black uppercase text-neutral-400">Speed</p>
-                                   <p className="font-black text-xs">{Math.round(driver.speed || 0)} km/h</p>
-                                </div>
-                             </div>
-                             {isOnline ? (
-                               <Badge className="w-full justify-center bg-green-100 text-green-600 font-black uppercase text-[8px] py-1">Online</Badge>
-                             ) : (
-                               <Badge className="w-full justify-center bg-red-100 text-red-600 font-black uppercase text-[8px] py-1">Offline</Badge>
-                             )}
-                          </div>
-                       </Popup>
-                    </Marker>
-                  );
-                })}
-
-                {/* Active Rides/Users */}
-                {activeRides.map((ride, idx) => (
-                  ride.pickup && (
-                    <Marker 
-                      key={ride.id || `ride-${idx}`} 
-                      position={[ride.pickup.lat, ride.pickup.lng]} 
-                      icon={USER_ICON}
-                    >
-                       <Popup>
-                          <div className="p-1">
-                             <p className="font-black text-xs uppercase tracking-tight">Active Request</p>
-                             <p className="text-[10px] text-orange-600 font-black italic">{ride.status.toUpperCase()}</p>
-                             <p className="text-[9px] mt-2 opacity-60">To: {ride.destinationAddress?.substring(0, 30)}...</p>
-                          </div>
-                       </Popup>
-                    </Marker>
-                  )
-                ))}
-
-                <MapBoundsUpdater drivers={driverLocations} rides={activeRides} />
-             </MapContainer>
-             
-             {/* Floating Controls */}
-             <div className="absolute top-6 left-16 z-[1000] flex items-center gap-1 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-neutral-200 dark:border-neutral-800">
-                {([
-                  { id: 'street', label: 'Mitaa' },
-                  { id: 'satellite', label: 'Satelaiti' },
-                  { id: 'night', label: 'Usiku' },
-                ] as const).map((st) => (
-                  <button
-                    key={st.id}
-                    type="button"
-                    onClick={() => setMonitorMapStyle(st.id)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                      monitorMapStyle === st.id
-                        ? 'bg-orange-600 text-white'
-                        : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                    }`}
-                  >
-                    {st.label}
-                  </button>
-                ))}
-             </div>
-
-             <div className="absolute top-6 right-6 z-[1000] space-y-2">
-                <Card className="p-4 bg-white/90 backdrop-blur shadow-2xl rounded-[2rem] border-none flex items-center gap-4">
-                   <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase text-neutral-400">Live Traffic</span>
-                      <span className="text-xl font-black uppercase italic leading-none tabular-nums">{driverLocations.filter(d => d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true).length} Nodes</span>
-                   </div>
-                   <div className="w-12 h-12 rounded-2xl bg-orange-600 flex items-center justify-center text-white">
-                      <Globe className="animate-spin-slow" />
-                   </div>
-                </Card>
-             </div>
+          <motion.div key="live_map">
+            <LiveUsersMonitor
+              allUsers={allUsers}
+              driverLocations={driverLocations}
+              activeRides={activeRides}
+              orders={allOrders}
+              vendors={vendors}
+              pricingRules={businessConfig.pricingRules || DEFAULT_PRICING_RULES}
+              initialSelectedUserId={monitorSelectedUserId}
+              onSelectDriver={(driver) => {
+                setSelectedDriverForDetail(driver);
+                setActiveTab('drivers');
+                setDriverSubTab('profile');
+              }}
+            />
           </motion.div>
-        </div>
-      )}
+        )}
 
         {activeTab === 'payouts' && (
            <motion.div key="payouts" className="space-y-8">

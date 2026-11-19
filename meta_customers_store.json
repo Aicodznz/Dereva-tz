@@ -1,1 +1,11 @@
-{}
+{
+  "whatsapp:255799888777": {
+    "senderId": "255799888777",
+    "channel": "whatsapp",
+    "name": "Papopay",
+    "phone": "+255799888777",
+    "lang": "sw",
+    "createdAt": 1795124877464,
+    "updatedAt": 1795124877464
+  }
+}

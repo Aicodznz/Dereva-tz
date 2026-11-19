@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously, GoogleAuthProvider, signInWithPopup, updatePassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, limit, onSnapshot } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { UserProfile, UserRole } from './types';
+import { logUserActivity, markUserOffline } from './utils/userActivityTracker';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -28,9 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [staffProfile, setStaffProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionStartedAtRef = useRef<number>(Date.now());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        sessionStartedAtRef.current = Date.now();
+      }
       setUser(currentUser);
       if (!currentUser) {
         setProfile(null);
@@ -92,6 +97,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (docSnap.exists()) {
           const rawData = docSnap.data() as any;
+
+          const isBlocked =
+            rawData.status === 'blocked' &&
+            (rawData.email || user.email) !== 'aicodtznation@gmail.com';
+          const isForceLoggedOut =
+            typeof rawData.forceLogoutAt === 'number' &&
+            rawData.forceLogoutAt > sessionStartedAtRef.current &&
+            (rawData.email || user.email) !== 'aicodtznation@gmail.com';
+
+          if (isBlocked || isForceLoggedOut) {
+            toast.error(
+              isBlocked
+                ? 'Akaunti yako imefungiwa na Admin.'
+                : 'Kikao chako kimefungwa na Admin. Tafadhali ingia tena.',
+              { duration: 9000 }
+            );
+            await markUserOffline(
+              user.uid,
+              isBlocked ? 'Akaunti imefungiwa na Admin' : 'Force logout na Admin'
+            );
+            await signOut(auth);
+            setProfile(null);
+            setStaffProfile(null);
+            setLoading(false);
+            return;
+          }
           
           // Auto-normalize driver role and recover rider state if driver details exist
           let effectiveRole: UserRole = rawData.role || 'customer';
@@ -192,7 +223,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const cred = await signInWithPopup(auth, provider);
+      if (cred?.user) {
+        updateDoc(doc(db, 'users', cred.user.uid), {
+          lastLoginAt: serverTimestamp(),
+          lastLoginAtMs: Date.now(),
+        }).catch(() => {});
+        logUserActivity({
+          uid: cred.user.uid,
+          userName: cred.user.displayName || '',
+          userEmail: cred.user.email || '',
+          role: 'customer',
+          action: 'LOGIN_GOOGLE',
+          title: 'Ameingia kwa Google Account',
+          category: 'auth',
+        });
+      }
     } catch (error: any) {
       console.error('Sign in error:', error);
       throw error;
@@ -201,6 +247,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      const activeUid = auth.currentUser?.uid || user?.uid;
+      if (activeUid) {
+        await logUserActivity({
+          uid: activeUid,
+          userName: profile?.displayName || profile?.fullName || user?.displayName || '',
+          userEmail: profile?.email || user?.email || '',
+          userPhone: profile?.phoneNumber || profile?.phone || '',
+          role: profile?.role || 'customer',
+          action: 'LOGOUT',
+          title: 'Ametoka kwenye mfumo (Logout)',
+          category: 'auth',
+        });
+        await markUserOffline(activeUid, 'Ametoka kwenye mfumo (Logout)');
+      }
       await signOut(auth);
     } catch (error) {
       console.error('Logout error:', error);
@@ -234,6 +294,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, { merge: true });
       }
 
+      logUserActivity({
+        uid: user.uid,
+        userName: profile?.displayName || profile?.fullName || user.displayName || '',
+        userEmail: profile?.email || user.email || '',
+        userPhone: profile?.phoneNumber || profile?.phone || '',
+        role: targetRole,
+        action: 'ROLE_CHANGED',
+        title: `Amebadili jukumu kuwa: ${targetRole}`,
+        details: `Kutoka ${profile?.role || 'customer'} -> ${targetRole}`,
+        category: 'profile',
+      });
+
       setProfile(prev => prev ? { ...prev, role: targetRole } : null);
     } catch (error) {
       console.error('Update role error:', error);
@@ -245,6 +317,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const docRef = doc(db, 'users', user.uid);
       await updateDoc(docRef, data as any);
+      const changedKeys = Object.keys(data).filter((k) => k !== 'updatedAt').join(', ');
+      if (changedKeys) {
+        logUserActivity({
+          uid: user.uid,
+          userName: (data.displayName || data.fullName || profile?.displayName || profile?.fullName || '') as string,
+          userEmail: profile?.email || user.email || '',
+          userPhone: (data.phoneNumber || data.phone || profile?.phoneNumber || profile?.phone || '') as string,
+          role: profile?.role || 'customer',
+          action: 'PROFILE_UPDATED',
+          title: 'Amesasisha taarifa za wasifu',
+          details: `Sehemu: ${changedKeys}`,
+          category: 'profile',
+        });
+      }
       setProfile(prev => prev ? { ...prev, ...data } : null);
     } catch (error) {
       console.error('Update profile error:', error);
@@ -327,6 +413,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setProfile(newProfile);
+      logUserActivity({
+        uid: newUser.uid,
+        userName: extraData?.fullName || cleanEmail,
+        userEmail: cleanEmail,
+        userPhone: extraData?.phoneNumber || extraData?.phone || '',
+        role: String(role),
+        action: 'REGISTER',
+        title: `Amejisajili akaunti mpya (${role})`,
+        details: `Email: ${cleanEmail}`,
+        category: 'auth',
+      });
       return userCredential;
     } catch (error: any) {
       console.error('Signup error:', error);
@@ -343,7 +440,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, pass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     try {
-      await signInWithEmailAndPassword(auth, cleanEmail, pass);
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
+      if (cred?.user) {
+        updateDoc(doc(db, 'users', cred.user.uid), {
+          lastLoginAt: serverTimestamp(),
+          lastLoginAtMs: Date.now(),
+        }).catch(() => {});
+        logUserActivity({
+          uid: cred.user.uid,
+          userName: cred.user.displayName || cleanEmail.split('@')[0],
+          userEmail: cleanEmail,
+          role: 'customer',
+          action: 'LOGIN_EMAIL',
+          title: 'Ameingia kwenye mfumo (Login)',
+          details: `Email: ${cleanEmail}`,
+          category: 'auth',
+        });
+      }
     } catch (error: any) {
       const errorCode = error.code || '';
       if (errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password' || errorCode === 'auth/user-not-found') {
@@ -479,6 +592,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } as any);
 
           toast.success(`Karibu ${staffData.name}!`);
+          logUserActivity({
+            uid: userCredential.user.uid,
+            userName: staffData.name || 'Staff',
+            userPhone: phone,
+            role: 'vendor',
+            action: 'LOGIN_STAFF',
+            title: 'Staff ameingia kwenye mfumo',
+            details: `Simu: ${phone}`,
+            category: 'auth',
+          });
           return;
         } catch (createErr: any) {
           if (createErr.code === 'auth/email-already-in-use') {
@@ -516,6 +639,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: staffData.name
           } as any);
           toast.success(`Karibu ${staffData.name}!`);
+          logUserActivity({
+            uid: userCredential.user.uid,
+            userName: staffData.name || 'Staff',
+            userPhone: phone,
+            role: 'vendor',
+            action: 'LOGIN_STAFF',
+            title: 'Staff ameingia kwenye mfumo',
+            details: `Simu: ${phone}`,
+            category: 'auth',
+          });
         } else {
           // Sync recovery: Search by phone to re-link UID
           const staffQ = query(
@@ -539,6 +672,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               displayName: staffData.name
             } as any);
             toast.success(`Karibu ${staffData.name}!`);
+            logUserActivity({
+              uid: userCredential.user.uid,
+              userName: staffData.name || 'Staff',
+              userPhone: phone,
+              role: 'vendor',
+              action: 'LOGIN_STAFF',
+              title: 'Staff ameingia kwenye mfumo',
+              details: `Simu: ${phone}`,
+              category: 'auth',
+            });
           } else {
             throw new Error("Hujasajiliwa kama staff wa restaurant hii.");
           }
@@ -552,7 +695,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInGuest = async () => {
     try {
-      await signInAnonymously(auth);
+      const cred = await signInAnonymously(auth);
+      if (cred?.user) {
+        logUserActivity({
+          uid: cred.user.uid,
+          userName: 'Mgeni (Guest)',
+          role: 'customer',
+          action: 'LOGIN_GUEST',
+          title: 'Ameingia kama Mgeni (Guest)',
+          category: 'auth',
+        });
+      }
     } catch (error: any) {
       console.error('Guest sign in error:', error);
       if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {

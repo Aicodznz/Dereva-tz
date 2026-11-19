@@ -16,6 +16,17 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import {
+  addDoc,
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  where,
+} from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../AuthContext';
 import { useLanguage } from '../../LanguageContext';
 import { FacePaymentModal } from '../tegex/FacePaymentModal';
@@ -100,23 +111,23 @@ export default function PapoPayHome() {
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Balance state synced with localStorage & profile
+  // Balance state synced with Firestore profile (fallback localStorage)
   const [balanceTZS, setBalanceTZS] = useState<number>(() => {
     try {
+      if (typeof profile?.walletBalance === 'number') return profile.walletBalance;
       const saved = localStorage.getItem('papopay_wallet_balance');
       if (saved) return Number(saved);
-      if (profile?.walletBalance !== undefined) return profile.walletBalance;
     } catch {}
-    return 3450000;
+    return 0;
   });
 
   const [coinsBalance, setCoinsBalance] = useState<number>(() => {
     try {
+      if (typeof profile?.points === 'number') return profile.points;
       const saved = localStorage.getItem('papopay_coins_balance');
       if (saved) return Number(saved);
-      if (profile?.points !== undefined) return profile.points;
     } catch {}
-    return 240;
+    return 0;
   });
 
   const [showBalance, setShowBalance] = useState(true);
@@ -130,6 +141,26 @@ export default function PapoPayHome() {
     } catch {}
   }, [balanceTZS, coinsBalance]);
 
+  // Live Firestore sync for logged-in user's PapoWallet & points
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.data() as any;
+        if (typeof d.walletBalance === 'number') {
+          setBalanceTZS(d.walletBalance);
+        }
+        if (typeof d.points === 'number') {
+          setCoinsBalance(d.points);
+        }
+      },
+      () => {}
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
   // Modals state
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -139,8 +170,16 @@ export default function PapoPayHome() {
   // Top Up form state
   const [topUpAmount, setTopUpAmount] = useState('25000');
   const [topUpMethod, setTopUpMethod] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'>('mpesa');
-  const [topUpPhone, setTopUpPhone] = useState(profile?.phoneNumber || '0754 123 456');
+  const [topUpPhone, setTopUpPhone] = useState(profile?.phoneNumber || profile?.phone || '');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
+  const [topUpStatusNote, setTopUpStatusNote] = useState('');
+
+  useEffect(() => {
+    const p = profile?.phoneNumber || profile?.phone;
+    if (p && !topUpPhone) {
+      setTopUpPhone(p);
+    }
+  }, [profile?.phoneNumber, profile?.phone]);
 
   // NFC & Face Payment Interactive state
   const [nfcSubCategory, setNfcSubCategory] = useState<'restaurant' | 'services' | 'transit' | 'face' | 'vision_checkout'>('restaurant');
@@ -382,6 +421,48 @@ export default function PapoPayHome() {
     } catch {}
   }, [transactions]);
 
+  // Subscribe to live Firestore payment history for current user (syncs WhatsApp & App top-ups/payments)
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, 'payments'), where('uid', '==', user.uid), limit(50));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        if (snap.empty) return;
+        const dbRows: TransactionItem[] = snap.docs
+          .map((d) => {
+            const p = d.data() as any;
+            const createdMs =
+              Number(p.createdAtMs || 0) ||
+              (typeof p.createdAt?.toMillis === 'function' ? p.createdAt.toMillis() : Date.parse(String(p.createdAt || '')) || 0);
+            const dt = createdMs ? new Date(createdMs) : new Date();
+            return {
+              id: d.id,
+              title: p.title || 'Muamala wa PapoPay',
+              subtitle: p.subtitle || 'PAPOWALLET • COMPLETED',
+              amount: Number(p.amount || 0),
+              type: p.type === 'debit' ? 'debit' : 'credit',
+              category: p.category || 'topup',
+              date: dt.toLocaleDateString(),
+              time: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              refCode: p.refCode ? `TRX: ${p.refCode}` : `TRX: ${d.id.slice(-8).toUpperCase()}`,
+              status: p.status === 'pending' ? 'pending' : 'completed',
+              meta: { createdMs },
+            } as TransactionItem;
+          })
+          .sort((a, b) => Number(b.meta?.createdMs || 0) - Number(a.meta?.createdMs || 0));
+
+        setTransactions((prev) => {
+          const seen = new Set(dbRows.map((r) => r.id));
+          const merged = [...dbRows, ...prev.filter((p) => !seen.has(p.id))];
+          return merged.slice(0, 60);
+        });
+      },
+      () => {}
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
   const toggleMenu = (menuKey: string) => {
     setExpandedMenus(prev => ({
       ...prev,
@@ -398,38 +479,103 @@ export default function PapoPayHome() {
     return `TZS ${amtTZS.toLocaleString()}`;
   };
 
-  // Top Up Handler
-  const handleExecuteTopUp = () => {
-    const val = Number(topUpAmount);
-    if (!val || val <= 0) {
-      toast.error('Tafadhali ingiza kiasi sahihi.');
+  // Top Up Handler via Mongike Mobile Money USSD Push + Webhook/Settlement Listener
+  const handleExecuteTopUp = async () => {
+    const val = Math.round(Number(topUpAmount));
+    const cleanPhone = topUpPhone.trim();
+    if (!val || val < 500) {
+      toast.error('Tafadhali ingiza kiasi sahihi kuanzia TZS 500.');
       return;
     }
+    if (cleanPhone.replace(/\D/g, '').length < 9) {
+      toast.error('Tafadhali weka namba sahihi ya simu ya Tanzania (mf. 0712345678).');
+      return;
+    }
+
     setIsProcessingTopUp(true);
+    setTopUpStatusNote('Inatuma ombi la Mongike USSD Push kwenye simu yako...');
 
-    setTimeout(() => {
-      setBalanceTZS(prev => prev + val);
-      const earnedCoins = Math.floor(val / 1000) * 5;
-      setCoinsBalance(prev => prev + earnedCoins);
+    try {
+      const orderRef = await addDoc(collection(db, 'orders'), {
+        customerId: user?.uid || `web-${cleanPhone.replace(/\D/g, '')}`,
+        payerUid: user?.uid || null,
+        customerName: profile?.displayName || profile?.fullName || user?.displayName || 'Mteja wa PapoPay',
+        customerPhone: cleanPhone,
+        vendorId: 'papopay-wallet',
+        vendorName: 'PapoWallet Deposit',
+        service: 'PapoWallet TopUp',
+        orderType: 'wallet_topup',
+        paymentPurpose: 'wallet_topup',
+        paymentMethod: topUpMethod === 'card' ? 'mongike' : topUpMethod,
+        paymentMethodLabel: `Mongike (${topUpMethod.toUpperCase()})`,
+        paymentStatus: 'pending',
+        status: 'pending',
+        totalAmount: val,
+        subtotal: val,
+        items: [{ name: 'Weka Pesa PapoWallet', price: val, quantity: 1 }],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
-      const newTx: TransactionItem = {
-        id: `tx_${Date.now()}`,
-        title: `Cash-in received from ${topUpMethod.toUpperCase()}`,
-        subtitle: `AGENT CASH IN • COMPLETED (${topUpPhone})`,
-        amount: val,
-        type: 'credit',
-        category: 'topup',
-        date: 'Leo',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        refCode: `TRX: TXN${Math.floor(100000000 + Math.random() * 900000000)}`,
-        status: 'completed'
-      };
+      const resp = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderRef.id,
+          amount: val,
+          buyer_phone: cleanPhone,
+          fee_payer: 'CUSTOMER',
+          collection: 'orders',
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
 
-      setTransactions(prev => [newTx, ...prev]);
+      if (!resp.ok || json.status === 'error') {
+        setIsProcessingTopUp(false);
+        setTopUpStatusNote('');
+        toast.error(json?.message || 'Mongike imekataa ombi la malipo. Hakiki akaunti au jaribu tena.');
+        return;
+      }
+
+      setTopUpStatusNote(
+        json.sandbox
+          ? 'Ombi la majaribio (Sandbox) limetumwa! Inasubiri uthibitisho wa malipo...'
+          : 'USSD Push imetumwa! Ingiza PIN kwenye simu yako kukamilisha.'
+      );
+      toast.info('Ombi la malipo limetumwa kwenye simu yako! Ingiza PIN kukamilisha.');
+
+      let unsubWatch: (() => void) | null = null;
+      const timeoutHandle = window.setTimeout(() => {
+        if (unsubWatch) unsubWatch();
+        setIsProcessingTopUp(false);
+        setTopUpStatusNote('');
+      }, 90000);
+
+      unsubWatch = onSnapshot(
+        doc(db, 'orders', orderRef.id),
+        (snap) => {
+          if (!snap.exists()) return;
+          const d = snap.data() as any;
+          if (String(d.paymentStatus || '').toLowerCase() === 'paid') {
+            window.clearTimeout(timeoutHandle);
+            if (unsubWatch) unsubWatch();
+            if (!user?.uid) {
+              setBalanceTZS((prev) => prev + val);
+              setCoinsBalance((prev) => prev + Math.floor(val / 1000) * 5);
+            }
+            setIsProcessingTopUp(false);
+            setTopUpStatusNote('');
+            setIsTopUpModalOpen(false);
+            toast.success(`🎉 TZS ${val.toLocaleString()} zimewekwa kwenye PapoWallet yako kupitia Mongike!`);
+          }
+        },
+        () => {}
+      );
+    } catch (err: any) {
       setIsProcessingTopUp(false);
-      setIsTopUpModalOpen(false);
-      toast.success(`🎉 TZS ${val.toLocaleString()} zimewekwa kwenye pochi yako ya PapoPay!`);
-    }, 1200);
+      setTopUpStatusNote('');
+      toast.error('Hitilafu ya mtandao: ' + (err?.message || 'Jaribu tena.'));
+    }
   };
 
   // Restaurant NFC Table Tap Handler
@@ -3029,6 +3175,31 @@ export default function PapoPayHome() {
               </div>
 
               <div>
+                <label className="text-[10px] font-bold uppercase text-neutral-400 block mb-1.5">
+                  Chagua Mtandao (Mongike Push)
+                </label>
+                <div className="grid grid-cols-4 gap-1.5 mb-3">
+                  {([
+                    { id: 'mpesa', label: 'M-Pesa' },
+                    { id: 'tigopesa', label: 'Mixx / Tigo' },
+                    { id: 'airtel', label: 'Airtel' },
+                    { id: 'halopesa', label: 'Halopesa' },
+                  ] as const).map((net) => (
+                    <button
+                      key={net.id}
+                      type="button"
+                      onClick={() => setTopUpMethod(net.id)}
+                      className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                        topUpMethod === net.id
+                          ? 'bg-[#3b66f5] text-white border-[#3b66f5]'
+                          : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
+                      }`}
+                    >
+                      {net.label}
+                    </button>
+                  ))}
+                </div>
+
                 <label className="text-[10px] font-bold uppercase text-neutral-400 block mb-1">
                   Namba ya Simu ya Malipo
                 </label>
@@ -3036,21 +3207,33 @@ export default function PapoPayHome() {
                   type="tel"
                   value={topUpPhone}
                   onChange={(e) => setTopUpPhone(e.target.value)}
+                  placeholder="0712345678"
                   className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold"
                 />
               </div>
 
+              {topUpStatusNote && (
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                  <span>{topUpStatusNote}</span>
+                </div>
+              )}
+
               <button
                 disabled={isProcessingTopUp}
                 onClick={handleExecuteTopUp}
-                className="w-full py-3.5 rounded-2xl bg-[#3b66f5] hover:bg-[#2f55e0] text-white font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-2xl bg-[#3b66f5] hover:bg-[#2f55e0] disabled:opacity-60 text-white font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isProcessingTopUp ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <Lock className="w-4 h-4" />
                 )}
-                <span>Weka TZS {Number(topUpAmount || 0).toLocaleString()} Sasa</span>
+                <span>
+                  {isProcessingTopUp
+                    ? 'Inasubiri PIN ya Mongike...'
+                    : `Tuma Push ya TZS ${Number(topUpAmount || 0).toLocaleString()}`}
+                </span>
               </button>
             </motion.div>
           </div>

@@ -53,6 +53,7 @@ import PublicLiveTripTracker from './components/tegex/PublicLiveTripTracker';
 import ScrollToTop from './components/ScrollToTop';
 import DaladalaHome from './components/daladala/DaladalaHome';
 import PapoPayHome from './components/papopay/PapoPayHome';
+import { PresenceAndActivityMonitor } from './components/PresenceAndActivityMonitor';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -92,6 +93,7 @@ function AppContent() {
 
   return (
     <>
+      <PresenceAndActivityMonitor />
       <ScrollToTop />
       <Routes>
         {/* Auth & Public Standalone Routes (No Layout) */}
