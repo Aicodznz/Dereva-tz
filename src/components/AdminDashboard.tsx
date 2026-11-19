@@ -33,6 +33,7 @@ import { playSyntheticNormal, playSyntheticImportant, playSyntheticCritical } fr
 import { TwilioResponderTab } from './TwilioResponderTab';
 import { MetaMcpHub } from './admin/MetaMcpHub';
 import { WhatsAppCustomersManager } from './admin/WhatsAppCustomersManager';
+import { MongikeGatewayCard } from './admin/MongikeGatewayCard';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
 import { AppModulesStudio } from './admin/AppModulesStudio';
@@ -1322,6 +1323,10 @@ export default function AdminDashboard() {
                 <p className="text-white/40 text-[10px] font-bold uppercase">Successful conversions</p>
               </CardContent>
             </Card>
+
+            <div className="md:col-span-2 lg:col-span-4">
+              <MongikeGatewayCard />
+            </div>
           </motion.div>
         )}
 

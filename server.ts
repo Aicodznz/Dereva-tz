@@ -4,9 +4,10 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
+import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
 
 dotenv.config();
 
@@ -986,120 +987,65 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     }
   });
 
+  // Mongike Integration Status & Recent Callbacks (no API key exposed)
+  app.get("/api/payments/status", async (_req, res) => {
+    try {
+      const configured = isMongikeLiveConfigured();
+      let recentCallbacks: any[] = [];
+      if (dbAdmin) {
+        try {
+          const snap = await dbAdmin.collection("payment_callbacks").limit(15).get();
+          recentCallbacks = (snap.docs || [])
+            .map((d: any) => ({ id: d.id, ...(d.data() || {}) }))
+            .sort((a: any, b: any) => {
+              const ta = Date.parse(String(a.updated_at || 0)) || 0;
+              const tb = Date.parse(String(b.updated_at || 0)) || 0;
+              return tb - ta;
+            })
+            .slice(0, 8);
+        } catch {}
+      }
+      return res.json({
+        provider: "mongike",
+        configured,
+        mode: configured ? "live" : "sandbox",
+        endpoint: MONGIKE_TANZANIA_MOMO_ENDPOINT,
+        webhookPath: "/api/payments/webhook",
+        recentCallbacks,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || "Failed to read Mongike status" });
+    }
+  });
+
   // Mongike Payment Initiation Proxy
   app.post("/api/payments/initiate", async (req, res) => {
-    const { order_id, amount, buyer_phone, fee_payer } = req.body;
-    const apiKey = process.env.MONGIKE_API_KEY;
-
-    // Normalize and clean the phone number in the backend for ultimate reliability
-    let rawPhone = (buyer_phone || "").trim();
-    let formattedPhone = rawPhone;
-    if (rawPhone.startsWith("0")) {
-      formattedPhone = "255" + rawPhone.substring(1);
-    } else if (rawPhone.startsWith("+")) {
-      formattedPhone = rawPhone.substring(1);
-    } else if (!rawPhone.startsWith("255") && rawPhone.replace(/[^0-9]/g, "").length === 9) {
-      formattedPhone = "255" + rawPhone;
-    }
-    const cleanPhone = formattedPhone.replace(/[^0-9]/g, "");
-
-    const isSandbox = !apiKey || 
-                      apiKey.trim() === "" || 
-                      apiKey.toLowerCase().includes("your_") || 
-                      apiKey.toLowerCase().includes("weka_") || 
-                      apiKey.toLowerCase().includes("placeholder") || 
-                      apiKey.toLowerCase().includes("enter_") || 
-                      apiKey.length < 10;
-
-    if (isSandbox) {
-      console.warn("MONGIKE_API_KEY is missing or is placeholder. Running in high-fidelity sandbox simulation mode!");
-      
-      const simulatedResponse = {
-        status: "success",
-        message: "Ombi la malipo limetumwa (Sandbox Mode)",
-        data: {
-          id: `sim_pay_${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
-          order_id: order_id,
-          gateway_ref: `sim_ref_${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
-          amount: Number(amount) || 0,
-          status: "PENDING",
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
-        }
-      };
-
-      // Automatically trigger simulated webhook callback after 2.5 seconds to transition the order to 'paid'
-      if (dbAdmin && order_id) {
-        setTimeout(async () => {
-          try {
-            console.log(`[Sandbox Payment Webhook] Simulating successful payment completion for order: ${order_id}`);
-            
-            // 1. Update the order document
-            await dbAdmin.collection("orders").doc(String(order_id)).update({
-              paymentStatus: "paid",
-              updatedAt: new Date().toISOString(),
-              gatewayRef: simulatedResponse.data.gateway_ref
-            });
-
-            // 2. Write to the payment_callbacks collection
-            await dbAdmin.collection("payment_callbacks").doc(String(order_id)).set({
-              order_id: order_id,
-              status: "COMPLETED",
-              reference_id: simulatedResponse.data.gateway_ref,
-              amount: Number(amount) || 0,
-              raw_payload: {
-                order_id: order_id,
-                status: "COMPLETED",
-                gateway_ref: simulatedResponse.data.gateway_ref,
-                reference_id: simulatedResponse.data.gateway_ref,
-                amount: Number(amount) || 0,
-                is_simulated: true
-              },
-              updated_at: new Date()
-            }, { merge: true });
-
-            console.log(`[Sandbox Payment Webhook] Order ${order_id} marked as PAID.`);
-          } catch (err) {
-            console.error("[Sandbox Payment Webhook] Error simulating payment success:", err);
-          }
-        }, 2500);
+    const { order_id, amount, buyer_phone, fee_payer, collection } = req.body || {};
+    const result = await initiateMongikePayment(
+      {
+        orderId: String(order_id || ""),
+        amount: Number(amount) || 0,
+        buyerPhone: String(buyer_phone || ""),
+        feePayer: fee_payer === "CUSTOMER" ? "CUSTOMER" : "MERCHANT",
+        collection: collection === "rides" ? "rides" : "orders",
+      },
+      dbAdmin,
+      {
+        autoSimulateWebhook: true,
+        onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
       }
+    );
 
-      return res.status(201).json(simulatedResponse);
+    if (result.status === "error") {
+      return res.status(result.httpStatus || 500).json(result.error || { status: "error", message: result.message });
     }
 
-    try {
-      const uniqueOrderId = `${order_id}-${Date.now()}`;
-      console.log(`[Payment Proxy] Initiating real payment with Mongike. Order: ${order_id} -> Reference: ${uniqueOrderId}`);
-      
-      const response = await fetch("https://mongike.com/api/v1/payments/mobile-money/tanzania", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          order_id: uniqueOrderId,
-          amount,
-          buyer_phone: cleanPhone,
-          fee_payer: fee_payer || "MERCHANT"
-        })
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        console.error("Mongike API error:", data);
-        return res.status(response.status).json(data);
-      }
-
-      res.status(201).json(data);
-    } catch (error) {
-      console.error("Payment initiation failed:", error);
-      res.status(500).json({ 
-        status: "error", 
-        message: "Failed to initiate payment. Please try again later." 
-      });
-    }
+    return res.status(result.httpStatus || 201).json({
+      status: result.status,
+      message: result.message,
+      sandbox: result.sandbox,
+      data: result.data,
+    });
   });
 
   // Mobile Money / Mongike Payment Webhook Callback Endpoint
@@ -1108,45 +1054,22 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     console.log("[Payment Webhook] Received payment callback notification:", JSON.stringify(payload));
 
     try {
-      // Process transaction status from provider callback payload
-      const { order_id, status, reference_id, gateway_ref, amount } = payload;
-
-      // Extract real Firestore order_id from potential suffix/timestamp used to ensure unique payment references
-      let realOrderId = order_id;
-      if (order_id && typeof order_id === 'string') {
-        if (order_id.includes("-")) {
-          realOrderId = order_id.split("-")[0];
-        } else if (order_id.includes("_")) {
-          realOrderId = order_id.split("_")[0];
-        }
+      const outcome = await processMongikeWebhook(payload, dbAdmin);
+      if (outcome.isPaid && outcome.realOrderId && dbAdmin) {
+        await notifyMongikePaymentPaidToWhatsApp(
+          {
+            targetId: outcome.realOrderId,
+            targetType: outcome.targetType,
+            amount: outcome.amount,
+            gatewayRef: outcome.gatewayRef,
+          },
+          dbAdmin
+        ).catch((notifyErr) => {
+          console.warn("[Payment Webhook] WhatsApp payment notify warning:", notifyErr);
+        });
       }
 
-      if (dbAdmin && realOrderId) {
-        // Update the order document if status indicates success
-        const normalStatus = String(status || "").toUpperCase();
-        const isPaid = ["COMPLETED", "SUCCESS", "PAID"].includes(normalStatus);
-        
-        if (isPaid) {
-          await dbAdmin.collection("orders").doc(String(realOrderId)).update({
-            paymentStatus: "paid",
-            updatedAt: new Date().toISOString(),
-            gatewayRef: gateway_ref || reference_id || null
-          });
-          console.log(`[Payment Webhook] Successfully marked order ${realOrderId} as PAID (extracted from ${order_id}).`);
-        }
-
-        await dbAdmin.collection("payment_callbacks").doc(String(realOrderId)).set({
-          order_id: realOrderId,
-          status: status || "SUCCESS",
-          reference_id: gateway_ref || reference_id || "",
-          amount: amount || 0,
-          raw_payload: payload,
-          updated_at: new Date()
-        }, { merge: true });
-        console.log(`[Payment Webhook] Successfully recorded payment callback for order ${realOrderId}`);
-      }
-
-      res.status(200).json({ status: "SUCCESS", message: "Webhook received successfully" });
+      res.status(200).json({ status: "SUCCESS", message: "Webhook received successfully", ...outcome });
     } catch (err: any) {
       console.error("[Payment Webhook] Error processing payment callback:", err);
       res.status(500).json({ status: "ERROR", message: err.message });

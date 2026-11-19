@@ -4,6 +4,11 @@ import path from 'path';
 import { resolvePlace, getRoadDistanceAndDuration, SEED_PLACES } from './geocoder.js';
 import { cleanUndefined } from './getFirestoreDb.js';
 import { removeSenderFromHistory } from './historyStore.js';
+import {
+  initiateMongikePayment,
+  isMobileMoneyPaymentMethod,
+  isMongikeLiveConfigured,
+} from './mongike.js';
 
 export interface MetaHistoryEntry {
   step: MetaSession['step'];
@@ -715,6 +720,28 @@ async function triggerAutomatedOrder(
         );
       } catch (notifyErr: any) {
         console.warn('[Meta Bot] Non-fatal vendor WhatsApp notify warning:', notifyErr?.message || notifyErr);
+      }
+      if (
+        String(orderData.paymentStatus || '').toLowerCase() !== 'paid' &&
+        total > 0 &&
+        isMobileMoneyPaymentMethod(orderData.paymentMethod)
+      ) {
+        initiateMongikePayment(
+          {
+            orderId: ref.id,
+            amount: total,
+            buyerPhone: customerPhone,
+            feePayer: 'MERCHANT',
+            collection: 'orders',
+          },
+          dbAdmin,
+          {
+            autoSimulateWebhook: true,
+            onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+          }
+        ).catch((payErr: any) => {
+          console.warn('[Meta Bot] Mongike auto-push warning:', payErr?.message || payErr);
+        });
       }
     }
     return ref?.id || null;
@@ -6299,6 +6326,22 @@ async function routeToServiceFlow(
           });
           if (rideRef?.id) {
             createdRideId = rideRef.id;
+            if (isMobileMoneyPaymentMethod(paymentMethod) && Number(fare) > 0) {
+              initiateMongikePayment(
+                {
+                  orderId: rideRef.id,
+                  amount: Number(fare),
+                  buyerPhone: phoneNum,
+                  feePayer: 'MERCHANT',
+                  collection: 'rides',
+                },
+                dbAdmin,
+                {
+                  autoSimulateWebhook: true,
+                  onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+                }
+              ).catch(() => {});
+            }
           }
         } catch (e) {
           console.warn("Could not insert ride request from Meta", e);
@@ -6307,6 +6350,12 @@ async function routeToServiceFlow(
 
       const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
       const trackingUrl = `${publicBaseUrl}/track/${createdRideId}`;
+      const mongikeRideNoteEn = isMobileMoneyPaymentMethod(paymentMethod)
+        ? `\n📲 *Mongike Mobile Money:* A payment prompt has been sent to *${phoneNum}*${isMongikeLiveConfigured() ? ' — enter your PIN to pay.' : ' (Sandbox Test Mode).'}`
+        : '';
+      const mongikeRideNoteSw = isMobileMoneyPaymentMethod(paymentMethod)
+        ? `\n📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye simu *${phoneNum}*${isMongikeLiveConfigured() ? ' — thibitisha kulipa.' : ' (Sandbox Mode).'}`
+        : '';
 
       if (isEn) {
         const statusNoteEn =
@@ -6320,7 +6369,7 @@ async function routeToServiceFlow(
                `🔖 *${bookingCode}* • *${typeName}*\n` +
                `📍 *${pickupName}* ➜ *${destName}*\n` +
                `📏 *${distanceKm} km* (~${durationMin} min) • *TZS ${fare?.toLocaleString()}*\n` +
-               `💳 ${paymentMethodLabel} • 📞 ${phoneNum}\n\n` +
+               `💳 ${paymentMethodLabel} • 📞 ${phoneNum}${mongikeRideNoteEn}\n\n` +
                `${statusNoteEn}\n\n` +
                `🗺️ Live Map: ${trackingUrl}\n` +
                `📋 My Orders: ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
@@ -6338,7 +6387,7 @@ async function routeToServiceFlow(
              `🔖 *${bookingCode}* • *${typeName}*\n` +
              `📍 *${pickupName}* ➜ *${destName}*\n` +
              `📏 *${distanceKm} km* (~${durationMin} dk) • *TZS ${fare?.toLocaleString()}*\n` +
-             `💳 ${paymentMethodLabel} • 📞 ${phoneNum}\n\n` +
+             `💳 ${paymentMethodLabel} • 📞 ${phoneNum}${mongikeRideNoteSw}\n\n` +
              `${statusNote}\n\n` +
              `🗺️ Ramani: ${trackingUrl}\n` +
              `📋 Oda zako: ${buildOrdersTrackingUrl(phoneNum, bookingCode)}\n\n` +
@@ -6628,12 +6677,16 @@ async function routeToServiceFlow(
       );
 
       const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
+      const mongikeFoodNote =
+        isMobileMoneyPaymentMethod(paymentMethod) && total > 0
+          ? `\n📲 *Malipo ya Mongike:* Ombi la kuweka PIN limetumwa kwenye namba *${phoneNum}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
+          : '';
       return `🎉 *ODA YA CHAKULA IMEPOKELEWA!* ${foodMode === 'takeaway' ? '🥡' : '🍔🛵'}\n` +
              `🔖 Namba ya Oda: *#${randCode}*\n` +
              `🏠 Mgahawa: *${vendorName}*\n\n` +
              `${itemsSummary}\n\n` +
              `💰 *Jumla ya Kulipa: TZS ${total.toLocaleString()}/=*\n` +
-             `💳 Malipo: *${paymentMethodLabel}*\n` +
+             `💳 Malipo: *${paymentMethodLabel}*${mongikeFoodNote}\n` +
              `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
              `📞 Simu: *${phoneNum}*\n\n` +
              `🔗 *Fuatilia oda hii & oda zako zote:*\n${buildOrdersTrackingUrl(phoneNum, randCode)}\n` +
@@ -8099,6 +8152,10 @@ async function routeToServiceFlow(
         }
       );
 
+      const mongikeMallNote =
+        isMobileMoneyPaymentMethod(payMethod) && totalAmt > 0
+          ? `\n- 📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye *${mallPhone}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
+          : '';
       return (
         `🎉 *ODA YA PAPOMALL IMEPOKELEWA!* 🛒\n` +
         `🔖 Namba ya Oda: *#${mlCode}*\n\n` +
@@ -8106,7 +8163,7 @@ async function routeToServiceFlow(
         `- Jumla: *TZS ${totalAmt.toLocaleString()}*\n` +
         `- Malipo: *${payMethodLabel}*\n` +
         `- Eneo: *${deliveryAddr}*\n` +
-        `- Simu: *${mallPhone}*\n\n` +
+        `- Simu: *${mallPhone}*${mongikeMallNote}\n\n` +
         `🔗 *Fuatilia oda yako & oda zako zote:*\n${buildOrdersTrackingUrl(mallPhone, mlCode)}\n\n` +
         `Duka limepokea oda yako na linaandaa usafirishaji sasa! 🙏`
       );
@@ -10620,6 +10677,90 @@ export async function notifyCustomerOrderStatusToMeta(
   } finally {
     inFlightOrderCustomerNotifications.delete(dedupKey);
   }
+}
+
+const notifiedMongikePaidTargets = new Set<string>();
+
+export async function notifyMongikePaymentPaidToWhatsApp(
+  params: { targetId: string; targetType?: 'orders' | 'rides'; amount?: number; gatewayRef?: string },
+  dbAdmin: any
+): Promise<{ customerNotified: boolean; vendorNotified: boolean }> {
+  const { targetId, targetType = 'orders', amount, gatewayRef } = params;
+  if (!targetId || !dbAdmin) return { customerNotified: false, vendorNotified: false };
+  const dedupKey = `${targetType}:${targetId}`;
+  if (notifiedMongikePaidTargets.has(dedupKey)) {
+    return { customerNotified: false, vendorNotified: false };
+  }
+
+  let customerNotified = false;
+  let vendorNotified = false;
+  try {
+    const snap = await dbAdmin.collection(targetType).doc(String(targetId)).get().catch(() => null);
+    if (!snap?.exists) return { customerNotified: false, vendorNotified: false };
+    const rec = snap.data() || {};
+    if (rec.paymentWaNotified === true) {
+      notifiedMongikePaidTargets.add(dedupKey);
+      return { customerNotified: false, vendorNotified: false };
+    }
+
+    const paidAmt = Number(amount || rec.totalAmount || rec.total || rec.fare || 0);
+    const shortCode = String(rec.bookingCode || rec.bookingId || rec.bookingRef || String(targetId).slice(-6))
+      .toUpperCase()
+      .replace(/^#/, '');
+    const vendorName = rec.vendorName || 'Papo Hapo';
+    const refText = gatewayRef ? `\n🔖 Kumbukumbu: *${gatewayRef}*` : '';
+
+    // 1. Notify Customer if WhatsApp channel or WhatsApp phone exists
+    const custPhone = rec.customerPhone || rec.customerInfo?.phone || '';
+    const custTarget = resolveOrderCustomerMetaRecipient({
+      ...rec,
+      customerPhone: custPhone,
+    });
+    if (custTarget.recipientId && custTarget.channel === 'whatsapp') {
+      const custMsg =
+        `✅ *MALIPO YAMEPOKELEWA!* 💚\n\n` +
+        `Asante *${rec.customerName || rec.customerInfo?.name || 'Mteja'}*, malipo yako ya *TZS ${paidAmt.toLocaleString()}/=* kupitia *Mongike Mobile Money* kwa oda *#${shortCode}* (${vendorName}) yamekamilika kikamilifu.${refText}`;
+      const resCust = await sendMetaOutboundMessage({
+        channel: 'whatsapp',
+        recipientId: custTarget.recipientId,
+        text: custMsg,
+        phoneNumberId: custTarget.phoneNumberId,
+      });
+      customerNotified = resCust.sent;
+    }
+
+    // 2. Notify Shop/Vendor Owner if this is an order with a vendor WhatsApp number
+    if (targetType === 'orders' && rec.vendorId) {
+      const { whatsappPhone } = await resolveVendorWhatsAppContact(dbAdmin, String(rec.vendorId), rec);
+      if (whatsappPhone) {
+        const vendorMsg =
+          `💰 *MALIPO YAMETHIBITISHWA KWA ODA #${shortCode}!*\n` +
+          `🏪 *${vendorName}*\n` +
+          `👤 *Mteja:* ${rec.customerName || 'Mteja'} (${custPhone || '-'})\n` +
+          `💵 *Kiasi Kilicholipwa:* *TZS ${paidAmt.toLocaleString()}/=* (Mongike Mobile Money)${refText}\n\n` +
+          `✅ Unaweza kuendelea kuandaa oda hii kwa uhakika!`;
+        const resVen = await sendMetaOutboundMessage({
+          channel: 'whatsapp',
+          recipientId: whatsappPhone,
+          text: vendorMsg,
+        });
+        vendorNotified = resVen.sent;
+      }
+    }
+
+    notifiedMongikePaidTargets.add(dedupKey);
+    await dbAdmin.collection(targetType).doc(String(targetId)).set(
+      {
+        paymentWaNotified: true,
+        paymentWaNotifiedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    ).catch(() => {});
+  } catch (err) {
+    console.warn('[Mongike WA Notify] Warning:', err);
+  }
+
+  return { customerNotified, vendorNotified };
 }
 
 async function handleVendorWhatsAppOrderDecision(
