@@ -1,4 +1,5 @@
 import type * as mapboxgl from 'mapbox-gl';
+import { PMTiles } from 'pmtiles';
 import { CITY_HEAT_ZONES, HeatZone } from '../components/map/AISmartHeatMap';
 
 let geoLibreInitialized = false;
@@ -829,3 +830,760 @@ export function computeSpatialCityAnalytics(params: {
     },
   };
 }
+
+// ============================================================================
+// CLOUD-NATIVE GIS & GEOLIBRE WORKBENCH (NGIS 2026 WORKSHOP MODULES 1/8 - 5/8)
+// ============================================================================
+
+export type VendorSymbologyMode = 'status' | 'category' | 'orders_graduated';
+
+export interface GeoLibreSymbologyLegendItem {
+  label: string;
+  color: string;
+  sizePx?: number;
+}
+
+export const VENDOR_CATEGORY_COLORS: Record<string, string> = {
+  restaurant: '#F97316',
+  food: '#F97316',
+  grocery: '#10B981',
+  pharmacy: '#06B6D4',
+  salon: '#EC4899',
+  hotel: '#8B5CF6',
+  bus_ticket: '#3B82F6',
+  car_rental: '#EAB308',
+  ecommerce: '#6366F1',
+};
+
+export function resolveVendorSymbologyStyle(
+  vendor: any,
+  mode: VendorSymbologyMode,
+  orderCount = 0
+): { color: string; sizePx: number; categoryLabel: string; isOpen: boolean; statusLabel: string } {
+  const st = evaluateVendorOpenStatus(vendor?.operatingHours, vendor?.hotelStatus);
+  const rawCat = String(vendor?.category || vendor?.serviceType || 'restaurant').toLowerCase();
+
+  if (mode === 'category') {
+    const color = VENDOR_CATEGORY_COLORS[rawCat] || '#94A3B8';
+    return {
+      color,
+      sizePx: 12,
+      categoryLabel: rawCat,
+      isOpen: st.isOpen,
+      statusLabel: st.label,
+    };
+  }
+
+  if (mode === 'orders_graduated') {
+    const cnt = Number(orderCount || vendor?.ordersCount || 0);
+    const color = cnt >= 15 ? '#DC2626' : cnt >= 5 ? '#F97316' : cnt >= 1 ? '#FACC15' : '#38BDF8';
+    const sizePx = cnt >= 15 ? 18 : cnt >= 5 ? 15 : cnt >= 1 ? 12 : 9;
+    return {
+      color,
+      sizePx,
+      categoryLabel: rawCat,
+      isOpen: st.isOpen,
+      statusLabel: st.label,
+    };
+  }
+
+  return {
+    color: st.isOpen ? '#10B981' : '#EF4444',
+    sizePx: 11,
+    categoryLabel: rawCat,
+    isOpen: st.isOpen,
+    statusLabel: st.label,
+  };
+}
+
+export function getSymbologyLegend(mode: VendorSymbologyMode): GeoLibreSymbologyLegendItem[] {
+  if (mode === 'category') {
+    return [
+      { label: 'Chakula / Mgahawa', color: '#F97316', sizePx: 10 },
+      { label: 'Grocery / Soko', color: '#10B981', sizePx: 10 },
+      { label: 'Dawa / Pharmacy', color: '#06B6D4', sizePx: 10 },
+      { label: 'Hoteli / Stay', color: '#8B5CF6', sizePx: 10 },
+      { label: 'Saluni / Urembo', color: '#EC4899', sizePx: 10 },
+      { label: 'Mabasi & Kukodi', color: '#3B82F6', sizePx: 10 },
+    ];
+  }
+  if (mode === 'orders_graduated') {
+    return [
+      { label: 'Oda 15+ (Mahitaji Juu)', color: '#DC2626', sizePx: 14 },
+      { label: 'Oda 5–14 (Kati)', color: '#F97316', sizePx: 12 },
+      { label: 'Oda 1–4 (Chache)', color: '#FACC15', sizePx: 10 },
+      { label: '0 Oda (Bila Oda)', color: '#38BDF8', sizePx: 8 },
+    ];
+  }
+  return [
+    { label: 'Duka Wazi (Open UTC+3)', color: '#10B981', sizePx: 10 },
+    { label: 'Duka Limefungwa', color: '#EF4444', sizePx: 10 },
+    { label: 'Dereva Online', color: '#38BDF8', sizePx: 10 },
+    { label: 'Dereva Safari (Busy)', color: '#F59E0B', sizePx: 10 },
+  ];
+}
+
+// --- Module 1/8: Cloud-Native Project Save & Reopen ---
+export interface GeoLibreProjectState {
+  version: 'geolibre-ngis-v1';
+  savedAt: string;
+  basemap: GeoLibreBasemapId;
+  projection: MapProjectionMode;
+  camera: { center: [number, number]; zoom: number; pitch: number; bearing: number };
+  symbologyMode: VendorSymbologyMode;
+  layers: {
+    showHeatmap3D: boolean;
+    showVendorsLayer: boolean;
+    showDriversLayer: boolean;
+    showGeofencesLayer: boolean;
+    showDaladalaLayer: boolean;
+  };
+  cloudLayers: Array<{
+    id: string;
+    name: string;
+    kind: 'geojson' | 'xyz' | 'pmtiles';
+    url: string;
+    opacity?: number;
+  }>;
+  sqlQuery?: string;
+}
+
+export function parseGeoLibreProject(rawJson: string): GeoLibreProjectState | null {
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.basemap || !parsed.camera) return null;
+    return parsed as GeoLibreProjectState;
+  } catch {
+    return null;
+  }
+}
+
+// --- Module 2/8: Bringing in Cloud-Hosted Data (GeoJSON, XYZ Raster/COG, PMTiles HTTP Range) ---
+export interface CloudPmTilesInspection {
+  url: string;
+  minZoom: number;
+  maxZoom: number;
+  bounds: [number, number, number, number]; // [minLon, minLat, maxLon, maxLat]
+  centerLon: number;
+  centerLat: number;
+  tileTypeLabel: string;
+  metadataName?: string;
+  vectorLayers?: string[];
+}
+
+export async function inspectPmTilesRemote(url: string): Promise<CloudPmTilesInspection> {
+  const archive = new PMTiles(url);
+  const header = await archive.getHeader();
+  let meta: any = {};
+  try {
+    meta = (await archive.getMetadata()) || {};
+  } catch {}
+
+  const tileTypeMap: Record<number, string> = {
+    1: 'MVT Vector Tiles',
+    2: 'PNG Raster',
+    3: 'JPEG Raster',
+    4: 'WebP Raster',
+    5: 'AVIF Raster',
+  };
+
+  const vectorLayers = Array.isArray(meta?.vector_layers)
+    ? meta.vector_layers.map((vl: any) => String(vl?.id || '')).filter(Boolean)
+    : undefined;
+
+  return {
+    url,
+    minZoom: Number(header.minZoom || 0),
+    maxZoom: Number(header.maxZoom || 14),
+    bounds: [
+      Number(header.minLon ?? 29),
+      Number(header.minLat ?? -12),
+      Number(header.maxLon ?? 41),
+      Number(header.maxLat ?? -1),
+    ],
+    centerLon: Number(header.centerLon ?? (header.minLon + header.maxLon) / 2),
+    centerLat: Number(header.centerLat ?? (header.minLat + header.maxLat) / 2),
+    tileTypeLabel: tileTypeMap[Number(header.tileType)] || `TileType #${header.tileType}`,
+    metadataName: meta?.name || meta?.description || undefined,
+    vectorLayers,
+  };
+}
+
+export async function fetchCloudGeoJsonSource(url: string): Promise<GeoJSON.FeatureCollection> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} (${res.statusText || 'Failed to fetch cloud dataset'})`);
+  }
+  const data = await res.json();
+  if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
+    return data as GeoJSON.FeatureCollection;
+  }
+  if (data?.type === 'Feature' && data.geometry) {
+    return { type: 'FeatureCollection', features: [data as GeoJSON.Feature] };
+  }
+  if (data?.type && data?.coordinates) {
+    return {
+      type: 'FeatureCollection',
+      features: [{ type: 'Feature', properties: {}, geometry: data }],
+    };
+  }
+  throw new Error('Faili halina muundo halali wa GeoJSON FeatureCollection.');
+}
+
+export function computeGeoJsonBounds(fc: GeoJSON.FeatureCollection): [[number, number], [number, number]] | null {
+  let minLng = Infinity;
+  let minLat = Infinity;
+  let maxLng = -Infinity;
+  let maxLat = -Infinity;
+
+  const visitCoords = (coords: any) => {
+    if (!Array.isArray(coords)) return;
+    if (coords.length >= 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+      const [lng, lat] = coords;
+      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+        minLng = Math.min(minLng, lng);
+        minLat = Math.min(minLat, lat);
+        maxLng = Math.max(maxLng, lng);
+        maxLat = Math.max(maxLat, lat);
+      }
+      return;
+    }
+    for (const c of coords) visitCoords(c);
+  };
+
+  for (const f of fc.features || []) {
+    if (f?.geometry && 'coordinates' in f.geometry) {
+      visitCoords((f.geometry as any).coordinates);
+    }
+  }
+  if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return null;
+  return [
+    [minLng, minLat],
+    [maxLng, maxLat],
+  ];
+}
+
+export const CLOUD_NATIVE_SAMPLE_DATASETS: Array<{
+  id: string;
+  name: string;
+  kind: 'geojson' | 'xyz' | 'pmtiles';
+  url: string;
+  description: string;
+}> = [
+  {
+    id: 'osm-dar-roads-xyz',
+    name: 'OpenStreetMap Standard Tiles (XYZ Cloud Stream)',
+    kind: 'xyz',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    description: 'Safu ya moja kwa moja ya XYZ Tiles bila kupakua faili kubwa',
+  },
+  {
+    id: 'protomaps-dar-pmtiles',
+    name: 'Overture / Protomaps Africa PMTiles (HTTP Range Inspector)',
+    kind: 'pmtiles',
+    url: 'https://demo-bucket.protomaps.com/v4.pmtiles',
+    description: 'Ukaguzi wa Cloud-Native PMTiles kupitia HTTP Range Requests',
+  },
+  {
+    id: 'usgs-eq-geojson',
+    name: 'USGS Live Feed (Cloud GeoJSON Stream)',
+    kind: 'geojson',
+    url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson',
+    description: 'Mfano halisi wa Live Cloud GeoJSON kutoka seva ya kimataifa',
+  },
+];
+
+// --- Module 4/8: Attribute Table & In-Browser Spatial SQL Engine ---
+export type SpatialDatasetName = 'vendors' | 'drivers' | 'orders' | 'cities' | 'cloud';
+
+export interface SpatialAttributeRow {
+  id: string;
+  dataset: SpatialDatasetName;
+  name: string;
+  category: string;
+  status: string;
+  city: string;
+  amount: number;
+  lat: number | null;
+  lng: number | null;
+  inside_geofence: boolean;
+  distance_dar_km: number | null;
+  area_km2?: number;
+  online?: boolean;
+  phone?: string;
+}
+
+function isCoordInsideAnyCity(lat: number, lng: number, pricingRules: Record<string, any>): { inside: boolean; cityName: string } {
+  for (const [cityName, city] of Object.entries(pricingRules || {})) {
+    if (!city) continue;
+    if ((city.geofenceType || 'circle') === 'polygon') {
+      const poly = normalizeLatLngList(city.geofencePolygon);
+      if (poly.length >= 3 && isPointInPolygon(lat, lng, poly)) {
+        return { inside: true, cityName };
+      }
+    }
+    const cLat = Number(city.geofenceCenter?.lat ?? city.lat);
+    const cLng = Number(city.geofenceCenter?.lng ?? city.lng);
+    const radKm = Number(city.geofenceRadius || 15000) / 1000;
+    if (Number.isFinite(cLat) && Number.isFinite(cLng) && haversineKm(lat, lng, cLat, cLng) <= radKm) {
+      return { inside: true, cityName };
+    }
+  }
+  return { inside: false, cityName: 'Nje ya Mpaka' };
+}
+
+export function buildAttributeRows(params: {
+  dataset: SpatialDatasetName;
+  pricingRules: Record<string, any>;
+  vendors: any[];
+  drivers: any[];
+  orders: any[];
+  cloudFc?: GeoJSON.FeatureCollection | null;
+}): SpatialAttributeRow[] {
+  const { dataset, pricingRules = {}, vendors = [], drivers = [], orders = [], cloudFc } = params;
+  const DAR_CENTER: [number, number] = [-6.805, 39.24];
+
+  if (dataset === 'vendors') {
+    const orderCountMap = new Map<string, number>();
+    for (const o of orders) {
+      const vid = String(o?.vendorId || '');
+      if (vid) orderCountMap.set(vid, (orderCountMap.get(vid) || 0) + 1);
+    }
+    return vendors.map((v, idx) => {
+      const st = evaluateVendorOpenStatus(v.operatingHours, v.hotelStatus);
+      const lat = Number.isFinite(Number(v?.location?.lat)) ? Number(v.location.lat) : null;
+      const lng = Number.isFinite(Number(v?.location?.lng)) ? Number(v.location.lng) : null;
+      const gf = lat !== null && lng !== null ? isCoordInsideAnyCity(lat, lng, pricingRules) : { inside: false, cityName: v.city || '-' };
+      return {
+        id: String(v.id || `vendor-${idx}`),
+        dataset: 'vendors',
+        name: String(v.businessName || v.name || 'Duka'),
+        category: String(v.category || 'restaurant'),
+        status: st.isOpen ? 'open' : 'closed',
+        city: String(v.city || gf.cityName || 'Dar es Salaam'),
+        amount: orderCountMap.get(String(v.id)) || 0,
+        lat,
+        lng,
+        inside_geofence: gf.inside,
+        distance_dar_km: lat !== null && lng !== null ? Number(haversineKm(lat, lng, DAR_CENTER[0], DAR_CENTER[1]).toFixed(2)) : null,
+        phone: String(v.phoneNumber || v.socialLinks?.whatsapp || ''),
+      };
+    });
+  }
+
+  if (dataset === 'drivers') {
+    return drivers.map((d, idx) => {
+      const on = d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true;
+      const isBusy = d.receiving === false || Boolean(d.activeRideId);
+      const pos = d.location || d.currentPosition;
+      const lat = pos && Number.isFinite(Number(pos.lat)) ? Number(pos.lat) : null;
+      const lng = pos && Number.isFinite(Number(pos.lng)) ? Number(pos.lng) : null;
+      const gf = lat !== null && lng !== null ? isCoordInsideAnyCity(lat, lng, pricingRules) : { inside: false, cityName: '-' };
+      return {
+        id: String(d.id || d.uid || `driver-${idx}`),
+        dataset: 'drivers',
+        name: String(d.name || d.displayName || d.fullName || 'Dereva'),
+        category: String(d.driverType || d.vehicleType || 'taxi'),
+        status: !on ? 'offline' : isBusy ? 'busy' : 'online',
+        city: String(d.city || gf.cityName || 'Dar es Salaam'),
+        amount: Number(d.totalEarnings || d.walletBalance || 0),
+        lat,
+        lng,
+        inside_geofence: gf.inside,
+        distance_dar_km: lat !== null && lng !== null ? Number(haversineKm(lat, lng, DAR_CENTER[0], DAR_CENTER[1]).toFixed(2)) : null,
+        online: on,
+        phone: String(d.phoneNumber || d.phone || ''),
+      };
+    });
+  }
+
+  if (dataset === 'orders') {
+    return orders.slice(0, 250).map((o, idx) => {
+      const loc = o?.deliveryLocation || o?.customerLocation || o?.pickup;
+      const lat = loc && Number.isFinite(Number(loc.lat)) ? Number(loc.lat) : null;
+      const lng = loc && Number.isFinite(Number(loc.lng)) ? Number(loc.lng) : null;
+      const gf = lat !== null && lng !== null ? isCoordInsideAnyCity(lat, lng, pricingRules) : { inside: false, cityName: '-' };
+      return {
+        id: String(o.id || o.bookingCode || `order-${idx}`),
+        dataset: 'orders',
+        name: String(o.customerName || o.bookingCode || `Oda #${String(o.id || idx).slice(-5)}`),
+        category: String(o.service || o.orderType || 'order'),
+        status: String(o.status || 'pending'),
+        city: String(o.city || gf.cityName || '-'),
+        amount: Number(o.totalAmount || o.total || o.fare || 0),
+        lat,
+        lng,
+        inside_geofence: gf.inside,
+        distance_dar_km: lat !== null && lng !== null ? Number(haversineKm(lat, lng, DAR_CENTER[0], DAR_CENTER[1]).toFixed(2)) : null,
+        phone: String(o.customerPhone || ''),
+      };
+    });
+  }
+
+  if (dataset === 'cities') {
+    const cityStats = computeSpatialCityAnalytics({ pricingRules, vendors, drivers, orders }).cityMetrics;
+    return cityStats.map((m) => {
+      const c = pricingRules[m.cityName] || {};
+      const lat = Number.isFinite(Number(c.geofenceCenter?.lat ?? c.lat)) ? Number(c.geofenceCenter?.lat ?? c.lat) : -6.8;
+      const lng = Number.isFinite(Number(c.geofenceCenter?.lng ?? c.lng)) ? Number(c.geofenceCenter?.lng ?? c.lng) : 39.24;
+      return {
+        id: m.cityName,
+        dataset: 'cities',
+        name: m.cityName,
+        category: m.geofenceType,
+        status: m.active ? 'active' : 'inactive',
+        city: m.cityName,
+        amount: m.revenueInside,
+        lat,
+        lng,
+        inside_geofence: true,
+        distance_dar_km: Number(haversineKm(lat, lng, DAR_CENTER[0], DAR_CENTER[1]).toFixed(2)),
+        area_km2: Number(m.areaKm2.toFixed(2)),
+      };
+    });
+  }
+
+  if (dataset === 'cloud' && cloudFc) {
+    return (cloudFc.features || []).slice(0, 250).map((f, idx) => {
+      const props = f?.properties || {};
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if (f?.geometry?.type === 'Point' && Array.isArray(f.geometry.coordinates)) {
+        lng = Number(f.geometry.coordinates[0]);
+        lat = Number(f.geometry.coordinates[1]);
+      }
+      return {
+        id: String(f.id ?? props.id ?? `cloud-${idx}`),
+        dataset: 'cloud',
+        name: String(props.name || props.title || props.place || `Feature #${idx + 1}`),
+        category: String(f.geometry?.type || 'Geometry'),
+        status: String(props.status || props.type || 'streamed'),
+        city: String(props.city || props.region || '-'),
+        amount: Number(props.mag || props.value || props.amount || 0),
+        lat: Number.isFinite(lat) ? lat : null,
+        lng: Number.isFinite(lng) ? lng : null,
+        inside_geofence: lat !== null && lng !== null ? isCoordInsideAnyCity(lat, lng, pricingRules).inside : false,
+        distance_dar_km:
+          lat !== null && lng !== null
+            ? Number(haversineKm(lat, lng, DAR_CENTER[0], DAR_CENTER[1]).toFixed(2))
+            : null,
+      };
+    });
+  }
+
+  return [];
+}
+
+export interface SpatialSqlResult {
+  ok: boolean;
+  dataset: SpatialDatasetName;
+  columns: string[];
+  rows: Record<string, any>[];
+  matchedLatLngIds: string[];
+  error?: string;
+}
+
+export function executeSpatialSqlQuery(
+  rawSql: string,
+  allDatasets: Record<SpatialDatasetName, SpatialAttributeRow[]>
+): SpatialSqlResult {
+  const sql = rawSql.trim().replace(/;+$/, '');
+  const match = sql.match(
+    /^SELECT\s+(.+?)\s+FROM\s+(vendors|drivers|orders|cities|cloud)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+([a-zA-Z0-9_]+)(?:\s+(ASC|DESC))?)?(?:\s+LIMIT\s+(\d+))?$/i
+  );
+
+  if (!match) {
+    return {
+      ok: false,
+      dataset: 'vendors',
+      columns: [],
+      rows: [],
+      matchedLatLngIds: [],
+      error:
+        "Muundo sahihi: SELECT * FROM vendors|drivers|orders|cities WHERE <sharti> ORDER BY <safu> DESC LIMIT 20",
+    };
+  }
+
+  const selectPart = match[1].trim();
+  const table = match[2].toLowerCase() as SpatialDatasetName;
+  const wherePart = match[3]?.trim();
+  const orderCol = match[4]?.trim();
+  const orderDir = (match[5] || 'ASC').toUpperCase();
+  const limitVal = match[6] ? Math.max(1, Math.min(500, parseInt(match[6], 10))) : 100;
+
+  let working = [...(allDatasets[table] || [])];
+
+  if (wherePart) {
+    const orGroups = wherePart.split(/\s+OR\s+/i);
+    working = working.filter((row: any) =>
+      orGroups.some((group) => {
+        const andConds = group.split(/\s+AND\s+/i);
+        return andConds.every((cond) => {
+          const m = cond.trim().match(/^([a-zA-Z0-9_]+)\s*(=|!=|<>|>=|<=|>|<|LIKE)\s*(.+)$/i);
+          if (!m) return true;
+          const field = m[1];
+          const op = m[2].toUpperCase();
+          let rawVal = m[3].trim();
+          if ((rawVal.startsWith("'") && rawVal.endsWith("'")) || (rawVal.startsWith('"') && rawVal.endsWith('"'))) {
+            rawVal = rawVal.slice(1, -1);
+          }
+
+          const cell = row[field];
+          if (rawVal.toLowerCase() === 'true' || rawVal.toLowerCase() === 'false') {
+            const b = rawVal.toLowerCase() === 'true';
+            return op === '=' ? Boolean(cell) === b : Boolean(cell) !== b;
+          }
+          const numTarget = Number(rawVal);
+          const numCell = Number(cell);
+          if (!Number.isNaN(numTarget) && rawVal !== '' && cell !== null && cell !== undefined && !Number.isNaN(numCell)) {
+            if (op === '=') return numCell === numTarget;
+            if (op === '!=' || op === '<>') return numCell !== numTarget;
+            if (op === '>') return numCell > numTarget;
+            if (op === '<') return numCell < numTarget;
+            if (op === '>=') return numCell >= numTarget;
+            if (op === '<=') return numCell <= numTarget;
+          }
+
+          const strCell = String(cell ?? '').toLowerCase();
+          const strTarget = rawVal.toLowerCase();
+          if (op === 'LIKE') {
+            const needle = strTarget.replace(/%/g, '');
+            return strCell.includes(needle);
+          }
+          if (op === '=') return strCell === strTarget;
+          if (op === '!=' || op === '<>') return strCell !== strTarget;
+          return strCell.includes(strTarget);
+        });
+      })
+    );
+  }
+
+  if (orderCol) {
+    working.sort((a: any, b: any) => {
+      const va = a[orderCol] ?? '';
+      const vb = b[orderCol] ?? '';
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return orderDir === 'DESC' ? vb - va : va - vb;
+      }
+      return orderDir === 'DESC'
+        ? String(vb).localeCompare(String(va))
+        : String(va).localeCompare(String(vb));
+    });
+  }
+
+  const limited = working.slice(0, limitVal);
+  const cols =
+    selectPart === '*'
+      ? ['id', 'name', 'category', 'status', 'city', 'amount', 'inside_geofence', 'distance_dar_km']
+      : selectPart.split(',').map((c) => c.trim()).filter(Boolean);
+
+  const projected = limited.map((r: any) => {
+    const out: Record<string, any> = { _lat: r.lat, _lng: r.lng, _id: r.id };
+    for (const c of cols) out[c] = r[c] ?? null;
+    return out;
+  });
+
+  return {
+    ok: true,
+    dataset: table,
+    columns: cols,
+    rows: projected,
+    matchedLatLngIds: limited.map((r) => r.id),
+  };
+}
+
+// --- Module 5/8: Geoprocessing Toolbox (Buffer, Spatial Join, Nearest Neighbor) ---
+export interface BufferAnalysisResult {
+  buffersFc: GeoJSON.FeatureCollection;
+  bufferCount: number;
+  radiusKm: number;
+  ordersTotal: number;
+  ordersCovered: number;
+  driversCovered: number;
+  coveragePct: number;
+}
+
+export function runGeodesicBufferAnalysis(params: {
+  sourceType: 'open_vendors' | 'brt_stops' | 'city_centers';
+  radiusKm: number;
+  vendors: any[];
+  drivers: any[];
+  orders: any[];
+  pricingRules: Record<string, any>;
+}): BufferAnalysisResult {
+  const { sourceType, radiusKm, vendors, drivers, orders, pricingRules } = params;
+  const centers: Array<{ name: string; lat: number; lng: number }> = [];
+
+  if (sourceType === 'open_vendors') {
+    for (const v of vendors) {
+      const st = evaluateVendorOpenStatus(v.operatingHours, v.hotelStatus);
+      const lat = Number(v?.location?.lat);
+      const lng = Number(v?.location?.lng);
+      if (st.isOpen && Number.isFinite(lat) && Number.isFinite(lng)) {
+        centers.push({ name: v.businessName || 'Duka', lat, lng });
+      }
+    }
+  } else if (sourceType === 'brt_stops') {
+    for (const f of DALADALA_STOPS_GEOJSON.features) {
+      if (f.geometry.type === 'Point') {
+        const [lng, lat] = f.geometry.coordinates;
+        centers.push({ name: String(f.properties?.name || 'Kituo'), lat, lng });
+      }
+    }
+  } else {
+    for (const [name, city] of Object.entries(pricingRules || {})) {
+      const lat = Number(city?.geofenceCenter?.lat ?? city?.lat);
+      const lng = Number(city?.geofenceCenter?.lng ?? city?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        centers.push({ name, lat, lng });
+      }
+    }
+  }
+
+  const bufferFeatures = centers.map((c) => {
+    const poly = buildCircleGeoJsonPolygon(c.lat, c.lng, radiusKm * 1000, 48);
+    poly.properties = { name: `${c.name} (${radiusKm} km Buffer)`, radiusKm };
+    return poly;
+  });
+
+  const isInsideAnyBuffer = (lat: number, lng: number) =>
+    centers.some((c) => haversineKm(lat, lng, c.lat, c.lng) <= radiusKm);
+
+  let ordersTotal = 0;
+  let ordersCovered = 0;
+  for (const o of orders) {
+    const loc = o?.deliveryLocation || o?.customerLocation || o?.pickup;
+    const lat = Number(loc?.lat);
+    const lng = Number(loc?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    ordersTotal += 1;
+    if (isInsideAnyBuffer(lat, lng)) ordersCovered += 1;
+  }
+
+  let driversCovered = 0;
+  for (const d of drivers) {
+    const on = d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true;
+    const pos = d.location || d.currentPosition;
+    const lat = Number(pos?.lat);
+    const lng = Number(pos?.lng);
+    if (on && Number.isFinite(lat) && Number.isFinite(lng) && isInsideAnyBuffer(lat, lng)) {
+      driversCovered += 1;
+    }
+  }
+
+  return {
+    buffersFc: { type: 'FeatureCollection', features: bufferFeatures },
+    bufferCount: bufferFeatures.length,
+    radiusKm,
+    ordersTotal,
+    ordersCovered,
+    driversCovered,
+    coveragePct: ordersTotal > 0 ? Math.round((ordersCovered / ordersTotal) * 100) : 0,
+  };
+}
+
+export interface NearestDriverLink {
+  id: string;
+  name: string;
+  vehicle: string;
+  distanceKm: number;
+  etaMins: number;
+  lat: number;
+  lng: number;
+}
+
+export function computeNearestDriversSpider(params: {
+  targetLat: number;
+  targetLng: number;
+  targetName: string;
+  drivers: any[];
+  limit?: number;
+}): {
+  links: NearestDriverLink[];
+  spiderGeoJson: GeoJSON.FeatureCollection;
+} {
+  const { targetLat, targetLng, targetName, drivers, limit = 5 } = params;
+  const candidates: NearestDriverLink[] = [];
+
+  for (const d of drivers) {
+    const on = d.networkStatus === 'online' || d.status === 'online' || d.isOnline === true;
+    const pos = d.location || d.currentPosition;
+    const lat = Number(pos?.lat);
+    const lng = Number(pos?.lng);
+    if (!on || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const distanceKm = haversineKm(targetLat, targetLng, lat, lng);
+    candidates.push({
+      id: String(d.id || d.uid || candidates.length),
+      name: String(d.name || d.displayName || 'Dereva'),
+      vehicle: String(d.driverType || d.vehicleType || 'taxi'),
+      distanceKm: Number(distanceKm.toFixed(2)),
+      etaMins: Math.max(2, Math.round((distanceKm / 26) * 60)),
+      lat,
+      lng,
+    });
+  }
+
+  candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  const top = candidates.slice(0, limit);
+
+  const features: GeoJSON.Feature<GeoJSON.LineString>[] = top.map((drv) => ({
+    type: 'Feature',
+    properties: {
+      name: `${targetName} → ${drv.name}`,
+      distanceKm: drv.distanceKm,
+      etaMins: drv.etaMins,
+    },
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [targetLng, targetLat],
+        [drv.lng, drv.lat],
+      ],
+    },
+  }));
+
+  return {
+    links: top,
+    spiderGeoJson: { type: 'FeatureCollection', features },
+  };
+}
+
+export const NGIS_WORKSHOP_MODULES_1_TO_5 = [
+  {
+    num: '1/8',
+    title: 'Getting Started with GeoLibre & Cloud-Native GIS',
+    swTitle: 'Kuanza na GeoLibre, Projection (Globe/Mercator) & Kuhifadhi Mradi',
+    videoUrl: 'https://youtu.be/luH-qzkIsU0',
+    workbenchTarget: 'project' as const,
+  },
+  {
+    num: '2/8',
+    title: 'Bringing in Cloud-Hosted Data',
+    swTitle: 'Kupakia Data Kutoka Wingu (GeoJSON, XYZ/COG Tiles & PMTiles Range)',
+    videoUrl: 'https://youtu.be/yamrtUICBoU',
+    workbenchTarget: 'cloud' as const,
+  },
+  {
+    num: '3/8',
+    title: 'Visualization and Styling',
+    swTitle: 'Rangi za Symbology, Popups za Taarifa, Legend & Picha ya Ramani (PNG)',
+    videoUrl: 'https://youtu.be/2uWzNPHbbOE',
+    workbenchTarget: 'symbology' as const,
+  },
+  {
+    num: '4/8',
+    title: 'Attributes, Editing, and Spatial SQL',
+    swTitle: 'Jedwali la Sifa (Attribute Table), Spatial SQL & Kuhamisha CSV/GeoJSON',
+    videoUrl: 'https://youtu.be/uEdoKROdutg',
+    workbenchTarget: 'sql' as const,
+  },
+  {
+    num: '5/8',
+    title: 'Analysis and Processing',
+    swTitle: 'Uchakataji wa Ramani (Buffer Zones, Spatial Join & Nearest Drivers)',
+    videoUrl: 'https://youtu.be/_urA2ZWx6Ks',
+    workbenchTarget: 'geoprocessing' as const,
+  },
+];
+

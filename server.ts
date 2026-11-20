@@ -2078,14 +2078,25 @@ The JSON output must contain the following keys:
     }
   });
 
-  // Vite middleware for development
+  // Vite middleware for development (initialize asynchronously so port 3000 binds immediately)
   if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
+    const viteReadyPromise = import("vite").then(({ createServer: createViteServer }) =>
+      createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      })
+    );
+    viteReadyPromise.catch((err) => {
+      console.error("[Vite Middleware] Failed to initialize Vite dev server:", err);
     });
-    app.use(vite.middlewares);
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await viteReadyPromise;
+        return vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));

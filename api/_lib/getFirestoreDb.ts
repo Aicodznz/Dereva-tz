@@ -2,7 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  getFirestore,
+  initializeFirestore,
+  setLogLevel,
   collection as firestoreCollection, 
   doc as firestoreDoc, 
   getDoc as firestoreGetDoc, 
@@ -15,8 +17,7 @@ import {
   query as firestoreQuery, 
   where as firestoreWhere, 
   orderBy as firestoreOrderBy, 
-  limit as firestoreLimit,
-  onSnapshot as firestoreOnSnapshot
+  limit as firestoreLimit
 } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
@@ -65,11 +66,21 @@ let realDb: any = null;
 let appInstance: any = null;
 let authPromise: Promise<any> | null = null;
 try {
+  // Suppress noisy transient gRPC Listen/transport warn logs on Node.js cloud containers
+  setLogLevel('error');
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   if (fs.existsSync(configPath)) {
     const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    realDb = getFirestore(appInstance);
+    try {
+      realDb = initializeFirestore(
+        appInstance,
+        { ignoreUndefinedProperties: true },
+        firebaseConfig.firestoreDatabaseId || '(default)'
+      );
+    } catch {
+      realDb = getFirestore(appInstance);
+    }
     console.log("[getFirestoreDb] Real JS Client Firestore instance initialized successfully on server-side!");
 
     // Automatically sign in the server-side client as the guest staff to avoid permission denied
@@ -445,49 +456,93 @@ export function subscribeCollectionChanges(
     return () => {};
   }
   let isInitialSnapshot = true;
-  let unsub: (() => void) | null = null;
   let cancelled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const knownDocs = new Map<string, string>();
+  const POLL_INTERVAL_MS = 45000;
 
-  (async () => {
-    if (authPromise) {
-      try {
-        await authPromise;
-      } catch {}
-    }
-    if (cancelled) return;
+  const signatureFor = (data: any): string => {
     try {
-      const colRef = firestoreCollection(realDb, colPath);
-      const queryParams = whereRules.map((r) => firestoreWhere(r.field, r.op as any, r.value));
-      const q = queryParams.length > 0 ? firestoreQuery(colRef, ...queryParams) : colRef;
-      unsub = firestoreOnSnapshot(
-        q,
-        (snap: any) => {
-          const changes = snap.docChanges().map((c: any) => ({
-            type: c.type as 'added' | 'modified' | 'removed',
-            id: c.doc.id,
-            data: c.doc.data(),
-          }));
-          const initial = isInitialSnapshot;
-          isInitialSnapshot = false;
-          if (changes.length > 0) {
-            onChanges(changes, initial);
-          }
-        },
-        (err: any) => {
-          console.warn(`[getFirestoreDb] Real-time listener warning for ${colPath}:`, err?.message || err);
-        }
-      );
-    } catch (err: any) {
-      console.warn(`[getFirestoreDb] Failed to subscribe to ${colPath}:`, err?.message || err);
+      return JSON.stringify({
+        status: data?.status ?? null,
+        paymentStatus: data?.paymentStatus ?? null,
+        vendorWaNotified: data?.vendorWaNotified ?? null,
+        driverId: data?.driverId ?? data?.driverInfo?.id ?? null,
+        updatedAt: data?.updatedAt ?? null,
+      });
+    } catch {
+      return String(data?.status || '');
     }
-  })();
+  };
+
+  const pollOnce = async () => {
+    if (cancelled || !realDb) return;
+    try {
+      if (authPromise) {
+        try {
+          await authPromise;
+        } catch {}
+      }
+      if (cancelled) return;
+
+      const colRef = firestoreCollection(realDb, colPath);
+      const queryParams: any[] = whereRules.map((r) => firestoreWhere(r.field, r.op as any, r.value));
+      queryParams.push(firestoreLimit(35));
+      const q = firestoreQuery(colRef, ...queryParams);
+
+      const snap = await withTimeout(firestoreGetDocs(q), 5000, `poll(${colPath})`);
+      if (cancelled) return;
+
+      const changes: Array<{ type: 'added' | 'modified' | 'removed'; id: string; data: any }> = [];
+      const seenIds = new Set<string>();
+
+      for (const docSnap of snap.docs) {
+        const id = docSnap.id;
+        const data = docSnap.data();
+        const sig = signatureFor(data);
+        seenIds.add(id);
+
+        if (!knownDocs.has(id)) {
+          knownDocs.set(id, sig);
+          changes.push({ type: 'added', id, data });
+        } else if (knownDocs.get(id) !== sig) {
+          knownDocs.set(id, sig);
+          changes.push({ type: 'modified', id, data });
+        }
+      }
+
+      for (const oldId of Array.from(knownDocs.keys())) {
+        if (!seenIds.has(oldId)) {
+          knownDocs.delete(oldId);
+          changes.push({ type: 'removed', id: oldId, data: {} });
+        }
+      }
+
+      const initial = isInitialSnapshot;
+      isInitialSnapshot = false;
+      if (changes.length > 0) {
+        onChanges(changes, initial);
+      }
+    } catch (err: any) {
+      // Silently ignore transient network hiccups on backup polling
+      const msg = String(err?.message || err || '');
+      if (!msg.includes('timed out') && !msg.includes('ECONNRESET') && !msg.includes('UNAVAILABLE')) {
+        console.warn(`[getFirestoreDb] Backup poll notice for ${colPath}:`, msg);
+      }
+    } finally {
+      if (!cancelled) {
+        timer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+      }
+    }
+  };
+
+  timer = setTimeout(pollOnce, 2000);
 
   return () => {
     cancelled = true;
-    if (unsub) {
-      try {
-        unsub();
-      } catch {}
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
   };
 }

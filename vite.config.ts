@@ -46,12 +46,24 @@ export default defineConfig(({mode}) => {
       dedupe: ['react', 'react-dom'],
     },
     optimizeDeps: {
+      entries: ['index.html'],
       include: ['react', 'react-dom', 'motion/react', 'lucide-react', 'react-router-dom'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      watch:
+        process.env.DISABLE_HMR === 'true'
+          ? { ignored: ['**/*'] }
+          : {
+              ignored: [
+                '**/papo_hapo_grocery_vendor/**',
+                '**/dist/**',
+                '**/.aistudio/**',
+                '**/node_modules/**',
+              ],
+            },
       allowedHosts: true,
     },
   };
