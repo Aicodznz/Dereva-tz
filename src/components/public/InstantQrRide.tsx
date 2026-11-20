@@ -592,6 +592,7 @@ export default function InstantQrRide() {
               zoom={14}
               className="w-full h-full"
               zoomControl={false}
+              attributionControl={false}
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -1043,6 +1044,7 @@ export default function InstantQrRide() {
                     zoom={13}
                     className="w-full h-full"
                     zoomControl={false}
+                    attributionControl={false}
                   >
                     <TileLayer
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

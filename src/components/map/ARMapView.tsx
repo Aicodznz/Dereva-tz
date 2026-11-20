@@ -2473,6 +2473,7 @@ export default function ARMapView({ vendors, initialTargetVendorId, onClose, use
                 maxZoom={22}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
+                attributionControl={false}
                 dragging={true}
                 doubleClickZoom={true}
                 scrollWheelZoom={true}

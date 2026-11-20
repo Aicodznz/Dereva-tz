@@ -477,6 +477,7 @@ export default function OrderTracker({ order, onBack }: OrderTrackerProps) {
            zoom={13} 
            className="w-full h-full"
            zoomControl={false}
+           attributionControl={false}
          >
            <TileLayer 
               url={isSatellite ? "https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" : "https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"} 

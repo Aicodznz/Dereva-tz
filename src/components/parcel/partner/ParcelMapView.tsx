@@ -98,6 +98,7 @@ const ParcelMapView: React.FC<Props> = ({ destination, isDashed = false, routeCo
         zoom={15} 
         maxZoom={22}
         zoomControl={false}
+        attributionControl={false}
         className="w-full h-full"
       >
         <TileLayer

@@ -528,6 +528,7 @@ export default function PublicLiveTripTracker() {
           center={[mapCenterLat, mapCenterLng]}
           zoom={15}
           zoomControl={false}
+          attributionControl={false}
           className="w-full h-full z-0"
         >
           {/* Fast, reliable Google Maps Tile Layer */}

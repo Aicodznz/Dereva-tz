@@ -160,6 +160,7 @@ export default function DaladalaOwnerFleetMap({
         zoom={12}
         className="w-full h-full"
         zoomControl={false}
+        attributionControl={false}
       >
         <TileLayer
           attribution='&copy; OpenStreetMap contributors, HOT'

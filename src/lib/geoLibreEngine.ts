@@ -1587,3 +1587,46 @@ export const NGIS_WORKSHOP_MODULES_1_TO_5 = [
   },
 ];
 
+/**
+ * Strips any Mapbox GL / MapLibre GL / Leaflet logo or attribution watermark elements
+ * from a map instance or DOM container, including empty bottom-left/right control shells.
+ */
+export function stripMapWatermarks(mapOrContainer: any): void {
+  if (typeof document === 'undefined' || !mapOrContainer) return;
+  try {
+    const container: HTMLElement | null =
+      typeof mapOrContainer.getContainer === 'function'
+        ? mapOrContainer.getContainer()
+        : mapOrContainer instanceof HTMLElement
+        ? mapOrContainer
+        : null;
+    if (!container) return;
+
+    const selectors = [
+      '.mapboxgl-ctrl-logo',
+      '.mapboxgl-ctrl-attrib',
+      '.mapboxgl-ctrl-attrib-inner',
+      '.mapboxgl-ctrl-attrib-button',
+      '.maplibregl-ctrl-logo',
+      '.maplibregl-ctrl-attrib',
+      '.maplibregl-ctrl-attrib-inner',
+      '.maplibregl-ctrl-attrib-button',
+      '.leaflet-control-attribution',
+    ].join(', ');
+
+    container.querySelectorAll(selectors).forEach((el) => {
+      try {
+        const parentCtrl = el.closest('.mapboxgl-ctrl, .maplibregl-ctrl');
+        el.remove();
+        if (parentCtrl && parentCtrl.children.length === 0) {
+          parentCtrl.remove();
+        }
+      } catch {
+        // ignore
+      }
+    });
+  } catch {
+    // ignore
+  }
+}
+

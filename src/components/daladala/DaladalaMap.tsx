@@ -813,6 +813,7 @@ export default function DaladalaMap({
         className="w-full h-full z-0"
         scrollWheelZoom={true}
         zoomControl={false}
+        attributionControl={false}
         ref={(instance) => {
           if (instance) {
             (window as any).__papoDaladalaMap = instance;

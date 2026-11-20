@@ -51,6 +51,7 @@ import {
   getMapboxToken,
   normalizeLatLngList,
   resolveMapboxAccessToken,
+  stripMapWatermarks,
 } from '../../lib/geoLibreEngine';
 import { GeoLibreBasemapPillBar } from '../map/GeoLibreControls';
 import { logUserActivity } from '../../utils/userActivityTracker';
@@ -584,9 +585,16 @@ export const LiveUsersMonitor: React.FC<LiveUsersMonitorProps> = ({
     });
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
     mapRef.current = map;
+    stripMapWatermarks(map);
 
-    map.on('load', () => setMapReady(true));
-    map.on('style.load', () => setMapReady(true));
+    map.on('load', () => {
+      stripMapWatermarks(map);
+      setMapReady(true);
+    });
+    map.on('style.load', () => {
+      stripMapWatermarks(map);
+      setMapReady(true);
+    });
 
     return () => {
       markersRef.current.forEach((m) => m.remove());

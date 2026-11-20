@@ -449,18 +449,43 @@
   background-color: #0d0d12 !important; /* Elegant off-black fallback background */
 }
 
-/* Hide Leaflet Attribution banner & Compass/Rotate Controls */
+/* Hide Leaflet, Mapbox GL & MapLibre GL Logos, Attribution Watermarks & Rotate Controls */
 .leaflet-control-attribution,
 .leaflet-bottom.leaflet-right .leaflet-control-attribution,
+.leaflet-bottom.leaflet-left .leaflet-control-attribution,
 .leaflet-control-rotate,
 .leaflet-control-compass,
 .leaflet-control-bearing,
 .leaflet-rotate-control,
 [class*="leaflet-control-rotate"],
-[class*="leaflet-control-compass"] {
+[class*="leaflet-control-compass"],
+a.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib-inner,
+.mapboxgl-ctrl-attrib-button,
+.mapboxgl-ctrl:has(> a.mapboxgl-ctrl-logo),
+.mapboxgl-ctrl:has(> .mapboxgl-ctrl-logo),
+.mapboxgl-ctrl-bottom-left .mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-bottom-right .mapboxgl-ctrl-attrib,
+a.maplibregl-ctrl-logo,
+.maplibregl-ctrl-logo,
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib-inner,
+.maplibregl-ctrl-attrib-button,
+.maplibregl-ctrl:has(> a.maplibregl-ctrl-logo),
+.maplibregl-ctrl:has(> .maplibregl-ctrl-logo),
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-logo,
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-attrib,
+.gm-style-cc {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
   pointer-events: none !important;
 }
 

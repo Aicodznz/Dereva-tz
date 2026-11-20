@@ -1619,6 +1619,7 @@ export function DriverProfileDetails({
                   center={center} 
                   zoom={14} 
                   maxZoom={22}
+                  attributionControl={false}
                   className="w-full h-full z-0"
                   scrollWheelZoom
                 >

@@ -69,6 +69,7 @@ import {
   computeNearestDriversSpider,
   NearestDriverLink,
   NGIS_WORKSHOP_MODULES_1_TO_5,
+  stripMapWatermarks,
 } from '../../lib/geoLibreEngine';
 import { GeoLibreBasemapPillBar } from '../map/GeoLibreControls';
 
@@ -255,13 +256,16 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
       attributionControl: false,
     });
     mapRef.current = map;
+    stripMapWatermarks(map);
 
     map.on('load', () => {
       setMapReady(true);
+      stripMapWatermarks(map);
       syncZoneLayers(map);
     });
     map.on('style.load', () => {
       setMapReady(true);
+      stripMapWatermarks(map);
       syncZoneLayers(map);
     });
 
@@ -850,12 +854,17 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
       attributionControl: false,
     });
     mapRef.current = map;
+    stripMapWatermarks(map);
 
     map.on('load', () => {
       setMapReady(true);
+      stripMapWatermarks(map);
       syncAnalyticsLayers(map);
     });
-    map.on('styledata', () => syncAnalyticsLayers(map));
+    map.on('styledata', () => {
+      stripMapWatermarks(map);
+      syncAnalyticsLayers(map);
+    });
 
     // Interactive Popups for Daladala Corridors & Cloud Features (Module 3/8)
     map.on('click', 'admin-brt-line', (e) => {

@@ -75,6 +75,7 @@ import {
   normalizeLatLngList,
   DALADALA_CORRIDORS_GEOJSON,
   DALADALA_STOPS_GEOJSON,
+  stripMapWatermarks,
 } from '../../lib/geoLibreEngine';
 import {
   GeoLibreBasemapPillBar,
@@ -955,6 +956,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       attributionControl: false,
     });
     mapRef.current = map;
+    stripMapWatermarks(map);
 
     const canvas = map.getCanvas();
     const handleContextLost = (e: Event) => {
@@ -967,6 +969,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
 
     map.on('load', () => {
       setMapReady(true);
+      stripMapWatermarks(map);
       syncMapLayers(map);
       try {
         map.resize();
@@ -974,6 +977,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     });
     map.on('style.load', () => {
       setMapReady(true);
+      stripMapWatermarks(map);
       syncMapLayers(map);
     });
     map.on('error', (err: any) => {

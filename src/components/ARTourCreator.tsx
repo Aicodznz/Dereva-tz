@@ -781,7 +781,7 @@ export default function ARTourCreator({ vendorProfile }: ARTourCreatorProps) {
               </div>
 
               <div className="h-96 w-full rounded-2xl overflow-hidden relative z-0 border border-neutral-200 dark:border-neutral-800">
-                <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
+                <MapContainer center={mapCenter} zoom={13} attributionControl={false} className="h-full w-full">
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

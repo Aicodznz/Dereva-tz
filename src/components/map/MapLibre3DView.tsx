@@ -22,6 +22,7 @@ import {
   getMapboxRasterTileStyle,
   buildSpatialDemandLayersData,
   evaluateVendorOpenStatus,
+  stripMapWatermarks,
 } from '../../lib/geoLibreEngine';
 
 export interface MapLibre3DViewProps {
@@ -939,6 +940,7 @@ export default function MapLibre3DView({
     });
 
     mapInstanceRef.current = map;
+    stripMapWatermarks(map);
 
     // Allow driver to tap anywhere on the street to smoothly reposition vehicle on the road
     map.on('click', (e) => {
@@ -1005,6 +1007,7 @@ export default function MapLibre3DView({
     });
 
     map.on('load', () => {
+      stripMapWatermarks(map);
       // 1. Add 3D Extruded Buildings Layer from OpenFreeMap vector tiles
       if (activeEngine.supports3D && !dataSaverMode) {
         try {

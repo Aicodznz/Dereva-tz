@@ -617,6 +617,7 @@ const TaxiHistory: React.FC = () => {
                             zoom={12} 
                             maxZoom={22}
                             zoomControl={false}
+                            attributionControl={false}
                             dragging={false}
                             scrollWheelZoom={false}
                             touchZoom={false}
@@ -766,6 +767,7 @@ const TaxiHistory: React.FC = () => {
                        zoom={13} 
                        maxZoom={22}
                        zoomControl={false}
+                       attributionControl={false}
                        dragging={true}
                        scrollWheelZoom={false}
                        className="h-full w-full"

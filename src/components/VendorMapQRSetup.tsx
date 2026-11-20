@@ -423,6 +423,7 @@ export default function VendorMapQRSetup({ vendorProfile }: VendorMapQRSetupProp
                   <MapContainer 
                     center={[lat, lng]} 
                     zoom={16} 
+                    attributionControl={false}
                     className="w-full h-full"
                   >
                     <TileLayer
