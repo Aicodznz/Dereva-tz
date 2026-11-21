@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
@@ -23,8 +23,8 @@ async function startServer() {
       ? parseInt(process.env.PORT, 10)
       : 3000;
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
   // Chat history log using local historyStore file
   const recordMetaChatInMemory = (channel: string, senderId: string, message: string, reply: string) => {
@@ -275,8 +275,24 @@ async function startServer() {
         }
 
         recordInboundMetaPhoneNumberId(msg.senderId, msg.phoneNumberId);
+        if (msg.channel === 'whatsapp' && msg.messageId) {
+          void sendWhatsAppReadAndTyping({
+            phoneNumberId: msg.phoneNumberId,
+            messageId: msg.messageId,
+            senderId: msg.senderId,
+          });
+        }
         console.log(`[Meta Webhook] Incoming message on ${msg.channel} from ${msg.senderId} (id=${msg.messageId || 'none'}): "${msg.textBody}"`);
-        const { text: reply, media, interactive } = await handleMetaInputWithMedia(msg.senderId, msg.textBody, msg.channel, dbAdmin);
+        const { text: reply, media, interactive } = await handleMetaInputWithMedia(
+          msg.senderId,
+          msg.textBody,
+          msg.channel,
+          dbAdmin,
+          {
+            mediaAttachment: msg.mediaAttachment,
+            catalogOrder: msg.catalogOrder,
+          }
+        );
         console.log(`[Meta Webhook] Responding to ${msg.channel}:${msg.senderId} (${media.length} photo(s)${interactive ? `, interactive=${interactive.type}` : ''}) -> "${reply}"`);
 
         await sendMetaOutboundMessage({
@@ -363,17 +379,28 @@ async function startServer() {
 
   // Meta Omni-Channel Simulator endpoint for front-end testing
   app.post("/api/meta/simulate", async (req, res) => {
-    const { senderId, message, channel } = req.body;
-    if (!senderId || !message || !channel) {
-      return res.status(400).json({ error: "senderId, message, and channel are required parameters." });
+    const { senderId, message, channel, audioBase64, imageBase64, mimeType, caption, catalogOrder } = req.body || {};
+    const effectiveMessage =
+      message ||
+      (audioBase64 ? "__WA_VOICE_NOTE__" : "") ||
+      (imageBase64 ? (caption ? `__WA_IMAGE__:${caption}` : "__WA_IMAGE__") : "") ||
+      (catalogOrder ? `__WA_CATALOG_ORDER__:${JSON.stringify(catalogOrder)}` : "");
+    if (!senderId || !effectiveMessage || !channel) {
+      return res.status(400).json({ error: "senderId, channel, and message (or audio/image/catalog payload) are required parameters." });
     }
     
-    console.log(`[Meta Simulator] Received simulated message from ${channel}:${senderId}: "${message}"`);
+    console.log(`[Meta Simulator] Received simulated message from ${channel}:${senderId}: "${effectiveMessage}"`);
     
     try {
-      const { text: reply, media, interactive } = await handleMetaInputWithMedia(senderId, message, channel, dbAdmin);
+      const { text: reply, media, interactive } = await handleMetaInputWithMedia(
+        senderId,
+        effectiveMessage,
+        channel,
+        dbAdmin,
+        { audioBase64, imageBase64, mimeType, caption, catalogOrder }
+      );
       
-      recordMetaChatInMemory(channel, senderId, message, reply);
+      recordMetaChatInMemory(channel, senderId, effectiveMessage, reply);
 
       // Save simulated conversation in FireStore for real-time monitoring if available
       if (dbAdmin) {
@@ -381,7 +408,7 @@ async function startServer() {
           await dbAdmin.collection('meta_chats').add({
             channel,
             senderId,
-            message,
+            message: effectiveMessage,
             reply,
             mediaCount: media.length,
             timestamp: new Date()
@@ -2078,11 +2105,19 @@ The JSON output must contain the following keys:
     }
   });
 
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ status: "ok", port: PORT });
+  });
+
   // Vite middleware for development (initialize asynchronously so port 3000 binds immediately)
   if (process.env.NODE_ENV !== "production") {
     const viteReadyPromise = import("vite").then(({ createServer: createViteServer }) =>
       createViteServer({
-        server: { middlewareMode: true },
+        server: {
+          middlewareMode: true,
+          hmr: false,
+          watch: { ignored: ["**/*"] },
+        },
         appType: "spa",
       })
     );

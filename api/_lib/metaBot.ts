@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import fs from 'fs';
 import path from 'path';
+import QRCode from 'qrcode';
 import { resolvePlace, getRoadDistanceAndDuration, SEED_PLACES } from './geocoder.js';
 import { cleanUndefined } from './getFirestoreDb.js';
 import { removeSenderFromHistory } from './historyStore.js';
@@ -235,6 +236,15 @@ export interface WhatsAppCarouselCard {
 export interface MetaMediaAttachment {
   url: string;
   caption?: string;
+}
+
+export interface MetaExtraInputPayload {
+  mediaAttachment?: ExtractedMetaWebhookMessage['mediaAttachment'];
+  audioBase64?: string;
+  imageBase64?: string;
+  mimeType?: string;
+  caption?: string;
+  catalogOrder?: ExtractedMetaWebhookMessage['catalogOrder'];
 }
 
 export interface MetaBotResponse {
@@ -586,7 +596,7 @@ export function extractRideDetailsFromText(rawText: string): {
 export async function generateContentWithRetry(params: any, maxRetries = 2) {
   let attempt = 0;
   let delay = 1000;
-  const modelsToTry = [params.model, "gemini-3.8-flash", "gemini-3.1-flash-lite"];
+  const modelsToTry = [params.model, "gemini-4-hydrogen", "gemini-3.1-flash-lite"];
   const models = Array.from(new Set(modelsToTry.filter(Boolean)));
 
   const client = getAI();
@@ -1955,7 +1965,7 @@ Response Schema:
 }`;
 
       const response = await generateContentWithRetry({
-        model: "gemini-3.8-flash",
+        model: "gemini-4-hydrogen",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -2057,7 +2067,7 @@ Instructions:
 3. Do not assume or make up facts. Only use what is in the Knowledge Base.`;
 
     const res = await generateContentWithRetry({
-      model: "gemini-3.8-flash",
+      model: "gemini-4-hydrogen",
       contents: prompt,
     });
     
@@ -2262,7 +2272,7 @@ ${intentMappings.map((m: any) => `- ID: "${m.nextNodeId}", Description/Keywords:
 Respond strictly with the matching category ID. If none fits nicely, return "default".`;
 
             const res = await generateContentWithRetry({
-              model: "gemini-3.8-flash",
+              model: "gemini-4-hydrogen",
               contents: prompt,
             });
             const ans = res.text?.trim()?.replace(/["']/g, '');
@@ -2901,7 +2911,7 @@ RULES:
 Message:
 ${clean}`;
       const res = await generateContentWithRetry({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt
       });
       const out = res?.text?.trim();
@@ -4409,7 +4419,22 @@ export function buildWhatsAppInteractive(
     }
   }
 
-  // 10. Open-Text Active Steps => Quick Reply Back & Main Menu Buttons (Zero manual typing of 0/00!)
+  // 10. Custom Quick-Reply Buttons injected dynamically (e.g. Image Analysis or Payment E-Receipt)
+  const customButtons: Array<{ id: string; title: string }> | undefined = session?.details?.quickReplyButtons;
+  if (Array.isArray(customButtons) && customButtons.length > 0 && customButtons.length <= 3 && !isValidationErrorReply(rawStripped)) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      action: {
+        buttons: customButtons.map((btn) => ({
+          type: 'reply' as const,
+          reply: { id: btn.id, title: btn.title },
+        })),
+      },
+    });
+  }
+
+  // 11. Open-Text Active Steps => Quick Reply Back & Main Menu Buttons (Zero manual typing of 0/00!)
   const inActiveEscapeStep =
     Boolean(session?.service) ||
     ['TRACKING_LOOKUP_PHONE', 'CHANGING_PHONE'].includes(session?.step || '');
@@ -4426,7 +4451,300 @@ export function buildWhatsAppInteractive(
     });
   }
 
+  // 12. Confirmation / Completed Receipts => Instant 1-tap My Orders & Main Menu buttons
+  if (/^(?:🎉|🎟️|✅)\s/.test(rawStripped) && !session?.service && rawStripped.length <= 1024) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'CMD:MY_ORDERS', title: isEn ? '📋 My Orders' : '📋 Oda Zangu' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      },
+    });
+  }
+
   return undefined;
+}
+
+function getWhatsAppAccessToken(): string {
+  return (
+    process.env.META_WHATSAPP_ACCESS_TOKEN ||
+    process.env.WHATSAPP_ACCESS_TOKEN ||
+    process.env.META_ACCESS_TOKEN ||
+    ''
+  ).trim();
+}
+
+export async function sendWhatsAppReadAndTyping(params: {
+  phoneNumberId?: string;
+  messageId?: string;
+  senderId?: string;
+}): Promise<void> {
+  const { phoneNumberId, messageId, senderId } = params;
+  const accessToken = getWhatsAppAccessToken();
+  const resolvedPhoneId = (
+    phoneNumberId ||
+    (senderId ? senderWhatsAppPhoneNumberIds.get(senderId) : '') ||
+    process.env.META_WHATSAPP_PHONE_NUMBER_ID ||
+    process.env.WHATSAPP_PHONE_NUMBER_ID ||
+    globalLastWhatsAppPhoneNumberId ||
+    ''
+  ).trim();
+
+  if (!accessToken || !resolvedPhoneId || !messageId) return;
+
+  try {
+    await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(resolvedPhoneId)}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: messageId,
+        typing_indicator: { type: 'text' },
+      }),
+    });
+  } catch (err: any) {
+    console.warn('[WhatsApp Read/Typing] Non-fatal error:', err?.message || err);
+  }
+}
+
+async function generateQrDataUrl(payload: string): Promise<string | null> {
+  try {
+    return await QRCode.toDataURL(payload, {
+      type: 'image/png',
+      width: 512,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#0B1220',
+        light: '#FFFFFF',
+      },
+    });
+  } catch (err: any) {
+    console.warn('[QR Generator] Non-fatal QR generation error:', err?.message || err);
+    return null;
+  }
+}
+
+async function downloadWhatsAppMediaAsBase64(
+  mediaId: string,
+  fallbackMimeType?: string
+): Promise<{ base64Data: string; mimeType: string } | null> {
+  const accessToken = getWhatsAppAccessToken();
+  if (!accessToken || !mediaId) return null;
+
+  try {
+    const metaResp = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(mediaId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!metaResp.ok) {
+      console.warn('[WhatsApp Media] Metadata fetch failed:', metaResp.status);
+      return null;
+    }
+    const metaJson: any = await metaResp.json().catch(() => ({}));
+    const mediaUrl = String(metaJson?.url || '').trim();
+    const mimeType = String(metaJson?.mime_type || fallbackMimeType || 'application/octet-stream')
+      .split(';')[0]
+      .trim();
+    if (!mediaUrl) return null;
+
+    const binResp = await fetch(mediaUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!binResp.ok) {
+      console.warn('[WhatsApp Media] Binary download failed:', binResp.status);
+      return null;
+    }
+    const arrBuf = await binResp.arrayBuffer();
+    const base64Data = Buffer.from(arrBuf).toString('base64');
+    return { base64Data, mimeType };
+  } catch (err: any) {
+    console.warn('[WhatsApp Media] Download error:', err?.message || err);
+    return null;
+  }
+}
+
+async function transcribeWhatsAppVoiceNote(params: {
+  base64Data: string;
+  mimeType: string;
+}): Promise<string | null> {
+  if (!process.env.GEMINI_API_KEY || !params.base64Data) return null;
+  try {
+    const cleanMime = (params.mimeType || 'audio/ogg').split(';')[0].trim() || 'audio/ogg';
+    const client = getAI();
+    const response = await client.models.generateContent({
+      model: 'gemini-3.5-transcribe',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: params.base64Data,
+              mimeType: cleanMime,
+            },
+          },
+          {
+            text: 'Transcribe this Swahili or English WhatsApp voice note accurately into clean plain text. Return ONLY the spoken words without commentary or quotes.',
+          },
+        ],
+      },
+    });
+    const transcript = String(response?.text || '').trim();
+    return transcript.length > 0 ? transcript : null;
+  } catch (err: any) {
+    console.warn('[WhatsApp Voice Transcribe] Error:', err?.message || err);
+    return null;
+  }
+}
+
+async function analyzeWhatsAppImage(params: {
+  base64Data: string;
+  mimeType: string;
+  caption?: string;
+  activeStep?: string;
+  activeService?: string;
+}): Promise<{
+  category: 'pharmacy' | 'handyman' | 'food' | 'ecommerce' | 'parcel' | 'taxi' | 'other';
+  summarySw: string;
+  summaryEn: string;
+  extractedQuery: string;
+} | null> {
+  if (!process.env.GEMINI_API_KEY || !params.base64Data) return null;
+  try {
+    const cleanMime = (params.mimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
+    const prompt = `You are the visual assistant for Papo Hapo Super App in Tanzania.
+Analyze this customer image${params.caption ? ` (with caption: "${params.caption}")` : ''}.
+Current user context: step=${params.activeStep || 'START'}, service=${params.activeService || 'none'}.
+
+Return STRICT JSON with this exact shape:
+{
+  "category": "pharmacy" | "handyman" | "food" | "ecommerce" | "parcel" | "taxi" | "other",
+  "summarySw": "Short friendly 1-2 sentence Swahili summary of what is visible and how Papo Hapo can help",
+  "summaryEn": "Short friendly 1-2 sentence English summary of what is visible",
+  "extractedQuery": "Short search keyword or problem description (e.g. 'Paracetamol 500mg' or 'Bomba la maji linavuja' or 'Biryani')"
+}
+
+Guidelines:
+- Medicine boxes, pharmacy bottles, prescriptions -> category "pharmacy"
+- Broken pipes, electrical faults, AC, home repairs -> category "handyman"
+- Meals, drinks, restaurant dishes -> category "food"
+- Shoes, electronics, gadgets, retail items -> category "ecommerce"
+- Parcels/packages/boxes to send -> category "parcel"`;
+
+    const res = await generateContentWithRetry({
+      model: 'gemini-4-hydrogen',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: params.base64Data,
+              mimeType: cleanMime,
+            },
+          },
+          { text: prompt },
+        ],
+      },
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+    const raw = String(res?.text || '{}').trim();
+    const parsed = JSON.parse(raw);
+    const validCategories = ['pharmacy', 'handyman', 'food', 'ecommerce', 'parcel', 'taxi', 'other'] as const;
+    const category = validCategories.includes(parsed?.category) ? parsed.category : 'other';
+    return {
+      category,
+      summarySw: String(parsed?.summarySw || 'Tumepokea picha yako na tumeikagua.').trim(),
+      summaryEn: String(parsed?.summaryEn || 'We received and reviewed your image.').trim(),
+      extractedQuery: String(parsed?.extractedQuery || params.caption || '').trim(),
+    };
+  } catch (err: any) {
+    console.warn('[WhatsApp Image Analysis] Error:', err?.message || err);
+    return null;
+  }
+}
+
+async function resolveWhatsAppCatalogOrderIntoSession(
+  session: MetaSession,
+  catalogOrder: NonNullable<ExtractedMetaWebhookMessage['catalogOrder']>,
+  dbAdmin: any,
+  lang: 'sw' | 'en'
+): Promise<string> {
+  const items = Array.isArray(catalogOrder?.productItems) ? catalogOrder.productItems : [];
+  if (items.length === 0) {
+    return lang === 'en'
+      ? `[[EN_NATIVE]]⚠️ Your WhatsApp catalog cart appears empty. Please select items from the catalog or type *Menu*.`
+      : `⚠️ Kikapu chako cha katalogi hakina bidhaa. Tafadhali chagua bidhaa au andika *Menu*.`;
+  }
+
+  let vendorProducts: any[] = [];
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('products').limit(150).get();
+      if (!snap.empty) {
+        vendorProducts = snap.docs.map((d: any) => ({ id: d.id, ...(d.data() || {}) }));
+      }
+    } catch {}
+  }
+
+  const resolvedCart = items.map((pi) => {
+    const rid = String(pi.product_retailer_id || '').trim();
+    const match = vendorProducts.find(
+      (vp) => vp.id === rid || vp.retailerId === rid || String(vp.sku || '').trim() === rid
+    );
+    const qty = Math.max(1, Number(pi.quantity || 1));
+    const unitPrice = Number(pi.item_price ?? match?.price ?? 0);
+    return {
+      id: match?.id || rid || `cat-${Date.now()}`,
+      vendorId: match?.vendorId || 'papo-mall-official',
+      vendorName: match?.vendorName || 'PapoMall Catalog',
+      name: match?.name || rid || 'Bidhaa ya Katalogi',
+      price: unitPrice,
+      quantity: qty,
+    };
+  });
+
+  const totalQty = resolvedCart.reduce((acc, it) => acc + it.quantity, 0);
+  const totalAmt = resolvedCart.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  const primaryVendorId = resolvedCart[0]?.vendorId || 'papo-mall-official';
+  const primaryVendorName = resolvedCart[0]?.vendorName || 'PapoMall Catalog';
+  const summaryNames = resolvedCart.map((it) => `${it.name} x${it.quantity}`).join(', ');
+
+  session.service = 'ecommerce';
+  session.details.welcomedFirstOpen = true;
+  session.details.catalogCartItems = resolvedCart;
+  session.details.selectedId = resolvedCart[0]?.id;
+  session.details.selectedVendorId = primaryVendorId;
+  session.details.selectedVendorName = primaryVendorName;
+  session.details.selectedName = summaryNames;
+  session.details.selectedPrice = totalAmt;
+  session.details.mallQty = totalQty;
+  session.details.mallTotal = totalAmt;
+  session.step = 'MALL_DELIVERY_ADDRESS';
+  await saveMetaSession(session, dbAdmin);
+
+  const lines = resolvedCart
+    .map((it, idx) => `${idx + 1}. *${it.name}* x${it.quantity}${it.price > 0 ? ` — TZS ${(it.price * it.quantity).toLocaleString()}` : ''}`)
+    .join('\n');
+
+  const savedLoc = session.details?.lastLocation;
+  if (lang === 'en') {
+    const locPrompt = savedLoc?.name
+      ? `📍 Where should we deliver?\n1. 📍 Use *${savedLoc.name}*\n_Or type another area / send 📍 Location pin:_`
+      : `📍 Please type your *delivery area/street* or send a 📍 *Location pin*:`;
+    return `[[EN_NATIVE]]🛒 *WhatsApp Catalog Order Received!*\n\n${lines}\n\n💰 *Total:* *TZS ${totalAmt.toLocaleString()}*\n\n${locPrompt}`;
+  }
+
+  const locPromptSw = savedLoc?.name
+    ? `📍 Tukuletée *eneo gani*?\n1. 📍 Tumia *${savedLoc.name}*\n_Au andika eneo jingine / tuma 📍 Location:_`
+    : `📍 Tafadhali andika *eneo/mtaa wa kuletewa* mzigo (Mfano: *Sinza Kumekucha* au tuma 📍 *Location*):`;
+
+  return `🛒 *Tumepokea Kikapu Chako cha Katalogi!*\n\n${lines}\n\n💰 *Jumla:* *TZS ${totalAmt.toLocaleString()}*\n\n${locPromptSw}`;
 }
 
 /**
@@ -4436,10 +4754,169 @@ export async function handleMetaInputWithMedia(
   senderId: string,
   textBody: string,
   channel: 'whatsapp' | 'messenger' | 'instagram',
-  dbAdmin: any
+  dbAdmin: any,
+  extra?: MetaExtraInputPayload
 ): Promise<MetaBotResponse> {
   const mediaCollector: MetaMediaAttachment[] = [];
-  let text = await handleMetaInputInternal(senderId, textBody, channel, dbAdmin, mediaCollector);
+  let effectiveInput = textBody;
+  let responsePrefix = '';
+  const initialSession = await getMetaSession(senderId, channel, dbAdmin);
+  const initialLang: 'sw' | 'en' = initialSession.details?.lang === 'en' ? 'en' : 'sw';
+
+  // 1. Handle WhatsApp Native Catalog Cart Order payload
+  let incomingCatalogOrder = extra?.catalogOrder;
+  if (!incomingCatalogOrder && typeof effectiveInput === 'string' && effectiveInput.startsWith('__WA_CATALOG_ORDER__:')) {
+    try {
+      incomingCatalogOrder = JSON.parse(effectiveInput.slice('__WA_CATALOG_ORDER__:'.length));
+    } catch {}
+  }
+  if (incomingCatalogOrder) {
+    let text = await resolveWhatsAppCatalogOrderIntoSession(initialSession, incomingCatalogOrder, dbAdmin, initialLang);
+    if (text.startsWith('[[EN_NATIVE]]')) text = text.slice('[[EN_NATIVE]]'.length);
+    const interactive = channel === 'whatsapp' ? buildWhatsAppInteractive(text, initialSession) : undefined;
+    return { text, media: mediaCollector, interactive };
+  }
+
+  // 2. Handle Voice Note Audio (__WA_VOICE_NOTE__ or audioBase64) via Gemini 3.5 Transcribe
+  const isVoicePayload =
+    effectiveInput === '__WA_VOICE_NOTE__' ||
+    extra?.mediaAttachment?.kind === 'audio' ||
+    Boolean(extra?.audioBase64);
+
+  if (isVoicePayload) {
+    let base64Data = extra?.audioBase64 || '';
+    let mimeType = extra?.mimeType || extra?.mediaAttachment?.mimeType || 'audio/ogg';
+    if (!base64Data && extra?.mediaAttachment?.mediaId) {
+      const downloaded = await downloadWhatsAppMediaAsBase64(extra.mediaAttachment.mediaId, mimeType);
+      if (downloaded) {
+        base64Data = downloaded.base64Data;
+        mimeType = downloaded.mimeType;
+      }
+    }
+    const transcript = base64Data ? await transcribeWhatsAppVoiceNote({ base64Data, mimeType }) : null;
+    if (!transcript) {
+      const failText =
+        initialLang === 'en'
+          ? `🎙️ Sorry, I could not hear your voice note clearly. Please re-record or type your request below:`
+          : `🎙️ Samahani, sikuweza kusikia vizuri ujumbe wako wa sauti. Tafadhali rekodi tena au andika ombi lako hapa chini:`;
+      const interactive =
+        channel === 'whatsapp'
+          ? sanitizeWhatsAppInteractivePayload({
+              type: 'button',
+              body: { text: failText },
+              action: { buttons: [{ type: 'reply', reply: { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' } }] },
+            })
+          : undefined;
+      return { text: failText, media: mediaCollector, interactive };
+    }
+    effectiveInput = transcript;
+    responsePrefix =
+      initialLang === 'en'
+        ? `🎙️ *Voice Note:* _"${transcript}"_\n\n`
+        : `🎙️ *Ujumbe wa Sauti:* _"${transcript}"_\n\n`;
+  }
+
+  // 3. Handle Image / Document (__WA_IMAGE__ or imageBase64) via Gemini 4 Hydrogen Multimodal
+  const isImagePayload =
+    effectiveInput.startsWith('__WA_IMAGE__') ||
+    effectiveInput.startsWith('__WA_DOCUMENT__') ||
+    extra?.mediaAttachment?.kind === 'image' ||
+    extra?.mediaAttachment?.kind === 'document' ||
+    Boolean(extra?.imageBase64);
+
+  if (isImagePayload) {
+    const caption =
+      extra?.caption ||
+      extra?.mediaAttachment?.caption ||
+      (effectiveInput.includes(':') ? effectiveInput.split(':').slice(1).join(':').trim() : '');
+    let base64Data = extra?.imageBase64 || '';
+    let mimeType = extra?.mimeType || extra?.mediaAttachment?.mimeType || 'image/jpeg';
+    if (!base64Data && extra?.mediaAttachment?.mediaId) {
+      const downloaded = await downloadWhatsAppMediaAsBase64(extra.mediaAttachment.mediaId, mimeType);
+      if (downloaded) {
+        base64Data = downloaded.base64Data;
+        mimeType = downloaded.mimeType;
+      }
+    }
+    const analysis = base64Data
+      ? await analyzeWhatsAppImage({
+          base64Data,
+          mimeType,
+          caption,
+          activeStep: initialSession.step,
+          activeService: initialSession.service,
+        })
+      : null;
+
+    if (!analysis) {
+      if (caption) {
+        effectiveInput = caption;
+      } else {
+        const failImgText =
+          initialLang === 'en'
+            ? `📸 I received your photo! Please type a quick note telling me which service you need (e.g. *Medicine*, *Handyman*, or *Food*):`
+            : `📸 Tumepokea picha yako! Tafadhali andika ujumbe mfupi ukieleza huduma unayohitaji (mfano: *Dawa*, *Fundi*, au *Chakula*):`;
+        const interactive =
+          channel === 'whatsapp'
+            ? sanitizeWhatsAppInteractivePayload({
+                type: 'button',
+                body: { text: failImgText },
+                action: { buttons: [{ type: 'reply', reply: { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' } }] },
+              })
+            : undefined;
+        return { text: failImgText, media: mediaCollector, interactive };
+      }
+    } else {
+      const summaryLine = initialLang === 'en' ? analysis.summaryEn : analysis.summarySw;
+      const inOpenDescriptionStep = ['FIX_DESCRIBE_PROBLEM', 'MALL_DELIVERY_ADDRESS', 'FOOD_DELIVERY_ADDRESS'].includes(
+        initialSession.step
+      );
+
+      if (inOpenDescriptionStep) {
+        effectiveInput = analysis.extractedQuery || summaryLine;
+        responsePrefix =
+          initialLang === 'en'
+            ? `📸 *Photo Reviewed:* ${summaryLine}\n\n`
+            : `📸 *Tumekagua Picha Yako:* ${summaryLine}\n\n`;
+      } else {
+        const catToServiceMap: Record<string, MetaSession['service']> = {
+          pharmacy: 'pharmacy',
+          handyman: 'handyman',
+          food: 'food',
+          ecommerce: 'ecommerce',
+          parcel: 'parcel',
+          taxi: 'taxi',
+        };
+        const mappedService = catToServiceMap[analysis.category];
+        if (mappedService) {
+          initialSession.service = mappedService;
+          initialSession.step = 'START';
+          initialSession.details.welcomedFirstOpen = true;
+          await saveMetaSession(initialSession, dbAdmin);
+          effectiveInput = analysis.extractedQuery || mappedService;
+          responsePrefix =
+            initialLang === 'en'
+              ? `📸 *Photo Reviewed:* ${summaryLine}\n\n`
+              : `📸 *Tumekagua Picha Yako:* ${summaryLine}\n\n`;
+        } else {
+          const imgReply =
+            initialLang === 'en'
+              ? `📸 *Photo Analysis:*\n${summaryLine}\n\nHow can we help with this today?`
+              : `📸 *Tumeona Picha Yako:*\n${summaryLine}\n\nTungependa kukusaidiaje na hili leo?`;
+          initialSession.details.quickReplyButtons = [
+            { id: 'papomed', title: initialLang === 'en' ? '💊 PapoMed' : '💊 Dawa (PapoMed)' },
+            { id: 'papofix', title: initialLang === 'en' ? '🛠️ PapoFix' : '🛠️ Fundi (PapoFix)' },
+            { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+          ];
+          const interactive = channel === 'whatsapp' ? buildWhatsAppInteractive(imgReply, initialSession) : undefined;
+          delete initialSession.details.quickReplyButtons;
+          return { text: imgReply, media: mediaCollector, interactive };
+        }
+      }
+    }
+  }
+
+  let text = await handleMetaInputInternal(senderId, effectiveInput, channel, dbAdmin, mediaCollector);
   const session = await getMetaSession(senderId, channel, dbAdmin);
   const lang = session.details?.lang || 'sw';
 
@@ -4447,6 +4924,10 @@ export async function handleMetaInputWithMedia(
     text = text.slice('[[EN_NATIVE]]'.length);
   } else if (lang === 'en') {
     text = await translateSwahiliReplyToEnglish(text);
+  }
+
+  if (responsePrefix) {
+    text = `${responsePrefix}${text}`;
   }
 
   let interactive: WhatsAppInteractivePayload | undefined;
@@ -4463,10 +4944,16 @@ export async function handleMetaInputWithMedia(
       } catch {}
     }
     interactive = buildWhatsAppInteractive(text, session, { servicesConfig, liveStatusMap });
-    if (session.details?.forceAskGpsPin || session.details?.promoCarousel || session.details?.promoLeadCmd) {
+    if (
+      session.details?.forceAskGpsPin ||
+      session.details?.promoCarousel ||
+      session.details?.promoLeadCmd ||
+      session.details?.quickReplyButtons
+    ) {
       delete session.details.forceAskGpsPin;
       delete session.details.promoCarousel;
       delete session.details.promoLeadCmd;
+      delete session.details.quickReplyButtons;
       await saveMetaSession(session, dbAdmin);
     }
   }
@@ -5081,7 +5568,7 @@ async function processMetaInputCore(
     return wrappedMenu;
   }
 
-  if (!customerProfile && !session.details.customerName && !session.details.adVisitor && !session.details.welcomedFirstOpen) {
+  if (!customerProfile && !session.details.customerName && !session.details.adVisitor && !session.details.welcomedFirstOpen && !session.service) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
@@ -5336,7 +5823,7 @@ async function processMetaInputCore(
 
   // --- 0D. GLOBAL ORDER & BOOKING TRACKING ("ODA ZANGU" / #FD-3441 / #TBL-3947 / #PFX-... / #TK-... / #ML-... / #PP-...) ---
   const codeMatch = cleanInput.match(/^#?((?:FD|TBL|PH|PR|CR|SL|SK|HT|RX|BS|TR|PFX|ML|TK|PP)-[A-Z0-9]{3,10})$/i);
-  const isTrackKeyword = /^(oda\s*zangu|fuatilia(\s+oda(\s+zangu)?)?|my\s*orders?|orders?|track(\s+orders?)?|booking\s*zangu|meza\s*zangu|safari\s*zangu|hali\s+ya\s+oda|status\s+ya\s+oda)$/i.test(cleanInput);
+  const isTrackKeyword = /^(?:📋\s*)?(oda\s*zangu|fuatilia(\s+oda(\s+zangu)?)?|my\s*orders?|orders?|track(\s+orders?)?|booking\s*zangu|meza\s*zangu|safari\s*zangu|hali\s+ya\s+oda|status\s+ya\s+oda|MY_ORDERS|CMD:MY_ORDERS)$/i.test(cleanInput);
 
   if (session.step === 'TRACKING_LOOKUP_PHONE') {
     const typedDigits = cleanInput.replace(/\D/g, '');
@@ -8124,6 +8611,7 @@ async function routeToServiceFlow(
 
     const finalizeMall = async (mallPhone: string) => {
       const mlCode = `ML-${Math.floor(1000 + Math.random() * 9000)}`;
+      const catalogCart: any[] = Array.isArray(session.details.catalogCartItems) ? session.details.catalogCartItems : [];
       const qty = session.details.mallQty || 1;
       const totalAmt = session.details.mallTotal || session.details.selectedPrice || 0;
       const vendorId = session.details.selectedVendorId || 'papo-mall-official';
@@ -8136,6 +8624,11 @@ async function routeToServiceFlow(
       const payMethodLabel = session.details.paymentMethodLabel || 'Cash';
       const custName = session.details.customerName || 'Meta PapoMall Client';
 
+      const orderItems =
+        catalogCart.length > 0
+          ? catalogCart.map((it) => ({ id: it.id, name: it.name, price: it.price, quantity: it.quantity }))
+          : [{ id: selectedId, name: selectedName, price: selectedPrice, quantity: qty }];
+
       session.step = 'START';
       delete session.service;
       session.details = preserveCustomerFields(session.details, lang);
@@ -8145,7 +8638,7 @@ async function routeToServiceFlow(
         dbAdmin,
         vendorId,
         'ecommerce',
-        [{ id: selectedId, name: selectedName, price: selectedPrice, quantity: qty }],
+        orderItems,
         totalAmt,
         mallPhone,
         custName,
@@ -8168,7 +8661,7 @@ async function routeToServiceFlow(
       return (
         `🎉 *ODA YA PAPOMALL IMEPOKELEWA!* 🛒\n` +
         `🔖 Namba ya Oda: *#${mlCode}*\n\n` +
-        `- Bidhaa: *${selectedName}* x${qty}\n` +
+        `- Bidhaa: *${selectedName}*${catalogCart.length > 0 ? '' : ` x${qty}`}\n` +
         `- Jumla: *TZS ${totalAmt.toLocaleString()}*\n` +
         `- Malipo: *${payMethodLabel}*\n` +
         `- Eneo: *${deliveryAddr}*\n` +
@@ -10955,14 +11448,32 @@ export async function notifyMongikePaymentPaidToWhatsApp(
           `${refText}`;
       } else {
         custMsg =
-          `✅ *MALIPO YAMEPOKELEWA!* 💚\n\n` +
+          `✅ *MALIPO YAMEPOKELEWA (E-RISITI)!* 💚\n\n` +
           `Asante *${rec.customerName || rec.customerInfo?.name || 'Mteja'}*, malipo yako ya *TZS ${paidAmt.toLocaleString()}/=* kupitia *Mongike Mobile Money* kwa oda *#${shortCode}* (${vendorName}) yamekamilika kikamilifu.${refText}`;
       }
+      const trackLink = buildOrdersTrackingUrl(custPhone || custTarget.recipientId, shortCode);
+      const qrDataUrl = await generateQrDataUrl(trackLink);
+      const qrMedia: MetaMediaAttachment[] = qrDataUrl
+        ? [{ url: qrDataUrl, caption: `🎫 E-Risiti ya QR • #${shortCode} • TZS ${paidAmt.toLocaleString()}/=` }]
+        : [];
+      const receiptInteractive = sanitizeWhatsAppInteractivePayload({
+        type: 'button',
+        body: { text: custMsg },
+        footer: { text: `Papo Hapo E-Receipt • #${shortCode}` },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'CMD:MY_ORDERS', title: '📋 Oda Zangu' } },
+            { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
+          ],
+        },
+      });
       const resCust = await sendMetaOutboundMessage({
         channel: 'whatsapp',
         recipientId: custTarget.recipientId,
         text: custMsg,
         phoneNumberId: custTarget.phoneNumberId,
+        media: qrMedia,
+        interactive: receiptInteractive,
       });
       customerNotified = resCust.sent;
     }
@@ -11219,6 +11730,23 @@ export interface ExtractedMetaWebhookMessage {
   phoneNumberId: string;
   messageId: string;
   senderName?: string;
+  mediaAttachment?: {
+    kind: 'audio' | 'image' | 'document';
+    mediaId: string;
+    mimeType?: string;
+    caption?: string;
+    filename?: string;
+  };
+  catalogOrder?: {
+    catalogId?: string;
+    text?: string;
+    productItems: Array<{
+      product_retailer_id: string;
+      quantity: number;
+      item_price?: number;
+      currency?: string;
+    }>;
+  };
 }
 
 const processedMetaMessageIds = new Map<string, number>();
@@ -11271,6 +11799,8 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               ASKGPSPIN: '__ASK_GPS_PIN__',
               LISTPAGENEXT: '__LIST_PAGE_NEXT__',
               LISTPAGEPREV: '__LIST_PAGE_PREV__',
+              MY_ORDERS: 'oda zangu',
+              'CMD:MY_ORDERS': 'oda zangu',
             };
             const upperNoSpace = normalizedRid.toUpperCase();
             if (legacyMap[upperNoSpace]) {
@@ -11278,7 +11808,7 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             }
             if (
               normalizedRid &&
-              (/^(\d{1,2}|M\d+|lugha|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
+              (/^(\d{1,2}|M\d+|lugha|papomed|papofix|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
                 /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 normalizedRid.startsWith('CMD:'))
             ) {
@@ -11298,7 +11828,61 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
 
           const nfmRaw = message?.interactive?.nfm_reply?.response_json;
           const nfmText = typeof nfmRaw === 'string' && nfmRaw.trim() ? `__FLOW_DATA__:${nfmRaw.trim()}` : '';
-          const isWelcomeRequest = String(message?.type || '').toLowerCase() === 'request_welcome';
+          const msgType = String(message?.type || '').toLowerCase();
+          const isWelcomeRequest = msgType === 'request_welcome';
+
+          let mediaAttachment: ExtractedMetaWebhookMessage['mediaAttachment'] | undefined;
+          let catalogOrder: ExtractedMetaWebhookMessage['catalogOrder'] | undefined;
+          let mediaOrOrderText = '';
+
+          if (message?.audio?.id || msgType === 'audio') {
+            const mediaId = String(message?.audio?.id || '').trim();
+            if (mediaId) {
+              mediaAttachment = {
+                kind: 'audio',
+                mediaId,
+                mimeType: String(message?.audio?.mime_type || 'audio/ogg').split(';')[0].trim(),
+              };
+              mediaOrOrderText = '__WA_VOICE_NOTE__';
+            }
+          } else if (message?.image?.id || msgType === 'image') {
+            const mediaId = String(message?.image?.id || '').trim();
+            if (mediaId) {
+              const caption = String(message?.image?.caption || '').trim();
+              mediaAttachment = {
+                kind: 'image',
+                mediaId,
+                mimeType: String(message?.image?.mime_type || 'image/jpeg').split(';')[0].trim(),
+                ...(caption ? { caption } : {}),
+              };
+              mediaOrOrderText = caption ? `__WA_IMAGE__:${caption}` : '__WA_IMAGE__';
+            }
+          } else if (message?.document?.id || msgType === 'document') {
+            const mediaId = String(message?.document?.id || '').trim();
+            if (mediaId) {
+              const caption = String(message?.document?.caption || message?.document?.filename || '').trim();
+              mediaAttachment = {
+                kind: 'document',
+                mediaId,
+                mimeType: String(message?.document?.mime_type || 'application/pdf').split(';')[0].trim(),
+                ...(caption ? { caption } : {}),
+                ...(message?.document?.filename ? { filename: String(message.document.filename) } : {}),
+              };
+              mediaOrOrderText = caption ? `__WA_DOCUMENT__:${caption}` : '__WA_DOCUMENT__';
+            }
+          } else if (Array.isArray(message?.order?.product_items) && message.order.product_items.length > 0) {
+            catalogOrder = {
+              catalogId: message.order.catalog_id ? String(message.order.catalog_id) : undefined,
+              text: message.order.text ? String(message.order.text) : undefined,
+              productItems: message.order.product_items.map((pi: any) => ({
+                product_retailer_id: String(pi?.product_retailer_id || '').trim(),
+                quantity: Math.max(1, Number(pi?.quantity || 1)),
+                ...(pi?.item_price !== undefined ? { item_price: Number(pi.item_price) } : {}),
+                ...(pi?.currency ? { currency: String(pi.currency) } : {}),
+              })),
+            };
+            mediaOrOrderText = `__WA_CATALOG_ORDER__:${JSON.stringify(catalogOrder)}`;
+          }
 
           const rawTextOrInteractive = String(
             (isWelcomeRequest ? '__REQUEST_WELCOME__' : '') ||
@@ -11310,6 +11894,7 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               (message?.location
                 ? `__GPS_PIN__:${message.location.latitude},${message.location.longitude}|${message.location.name || ''}|${message.location.address || ''}`
                 : '') ||
+              mediaOrOrderText ||
               ''
           ).trim();
 
@@ -11328,6 +11913,8 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               phoneNumberId,
               messageId,
               ...(senderName ? { senderName } : {}),
+              ...(mediaAttachment ? { mediaAttachment } : {}),
+              ...(catalogOrder ? { catalogOrder } : {}),
             });
           }
         }
