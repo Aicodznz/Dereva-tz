@@ -75,7 +75,12 @@ export interface MetaSession {
     | 'PAPOPAY_TOPUP_PHONE'
     | 'PAPOPAY_PAY_TARGET'
     | 'PAPOPAY_PAY_AMOUNT'
-    | 'PAPOPAY_PAY_METHOD';
+    | 'PAPOPAY_PAY_METHOD'
+    | 'VENDOR_REG_CATEGORY'
+    | 'VENDOR_REG_NAME'
+    | 'VENDOR_REG_ADDRESS'
+    | 'VENDOR_REG_PHONE'
+    | 'VENDOR_REG_ITEM';
   service?:
     | 'taxi'
     | 'food'
@@ -2800,8 +2805,8 @@ export function applyBusinessConfigToWelcomeText(
     : `📋 ${active.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
 
   const welcomeFooter = isEn
-    ? `\n✨ *Reply with a number (1–${active.length + 1}), service name, or describe what you need.*\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`
-    : `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
+    ? `\n✨ *Reply with a number (1–${active.length + 1}), service name, or describe what you need.*\n🏪 Own a shop? Reply *"Register Shop"* to list your business.\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`
+    : `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n🏪 Mfanyabiashara? Andika *"Sajili Duka"* kuweka biashara yako.\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcomeHeader + welcomeBody + welcomeFooter;
 }
 
@@ -2866,7 +2871,8 @@ export function generateDynamicWelcomeMessage(
     });
     welcome += `📋 ${activeServices.length + 1}. My Orders – Track Your Orders\n`;
     welcome +=
-      `\n✨ *Reply with a number (1–${activeServices.length + 1}), service name, or describe what you need.*\n\n` +
+      `\n✨ *Reply with a number (1–${activeServices.length + 1}), service name, or describe what you need.*\n` +
+      `🏪 Own a shop? Reply *"Register Shop"* to list your business.\n\n` +
       `*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`;
     return welcome;
   }
@@ -2887,7 +2893,8 @@ export function generateDynamicWelcomeMessage(
   });
   welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
   welcome +=
-    `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n\n` +
+    `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n` +
+    `🏪 Mfanyabiashara? Andika *"Sajili Duka"* kuweka biashara yako.\n\n` +
     `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcome;
 }
@@ -3632,6 +3639,11 @@ export function buildWhatsAppInteractive(
       title: isEn ? '📋 My Orders' : '📋 Oda Zangu',
       description: isEn ? 'Track rides, food & bookings' : 'Fuatilia oda, meza & safari zako',
     };
+    const registerShopRow = {
+      id: 'CMD:REGISTER_SHOP',
+      title: isEn ? '🏪 Register Shop' : '🏪 Sajili Duka',
+      description: isEn ? 'List your business on Papo Hapo' : 'Weka duka/biashara yako Papo Hapo',
+    };
     const allMenuRows = [...serviceRows, trackRow];
 
     const menuPage = Number(session?.details?.menuPage || 1);
@@ -3656,7 +3668,30 @@ export function buildWhatsAppInteractive(
       return `${prefix}${customIntro}\n\n${tapHint}`;
     };
 
-    if (allMenuRows.length <= 10) {
+    if (allMenuRows.length <= 9) {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'list',
+        header: { type: 'text', text: '🟢 Papo Hapo Super App' },
+        body: {
+          text: buildMenuBody(
+            `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
+            `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
+          ),
+        },
+        footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
+        action: {
+          button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+          sections: [
+            {
+              title: isEn ? 'Available Services' : 'Huduma Zote',
+              rows: [...allMenuRows, registerShopRow],
+            },
+          ],
+        },
+      });
+    }
+
+    if (allMenuRows.length === 10) {
       return sanitizeWhatsAppInteractivePayload({
         type: 'list',
         header: { type: 'text', text: '🟢 Papo Hapo Super App' },
@@ -3686,8 +3721,8 @@ export function buildWhatsAppInteractive(
         header: { type: 'text', text: isEn ? '📋 More Services' : '📋 Huduma Nyingine' },
         body: {
           text: isEn
-            ? `${greetingLine}\n\nTap *📋 More Services* below to pick *PapoTicket, PapoBus, PapoRent, PapoMall* or *PapoPay*:`
-            : `${greetingLine}\n\nBonyeza *📋 Huduma Nyingine* hapo chini kuchagua *PapoTicket, PapoBus, PapoRent, PapoMall* au *PapoPay*:`,
+            ? `${greetingLine}\n\nTap *📋 More Services* below to pick *PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay* or *Register Shop*:`
+            : `${greetingLine}\n\nBonyeza *📋 Huduma Nyingine* hapo chini kuchagua *PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay* au *Sajili Duka*:`,
         },
         footer: { text: isEn ? 'Page 2/2 • Type "SW" for Swahili' : 'Ukurasa 2/2 • Type "EN" for English' },
         action: {
@@ -3695,12 +3730,13 @@ export function buildWhatsAppInteractive(
           sections: [
             {
               title: isEn ? `More Services (9–${serviceRows.length})` : `Huduma Zaidi (9–${serviceRows.length})`,
-              rows: remainingServiceRows.slice(0, 7),
+              rows: remainingServiceRows.slice(0, 6),
             },
             {
-              title: isEn ? 'Orders & Navigation' : 'Oda & Menyu',
+              title: isEn ? 'Orders, Business & Menu' : 'Oda, Biashara & Menyu',
               rows: [
                 trackRow,
+                registerShopRow,
                 {
                   id: '__MENU_PAGE_1__',
                   title: isEn ? '⬅️ Main Services (1–8)' : '⬅️ Huduma Kuu (1–8)',
@@ -3775,9 +3811,10 @@ export function buildWhatsAppInteractive(
 
   const isLocationAskStep =
     !isValidationErrorReply(rawStripped) &&
-    ((session?.service === 'taxi' &&
-      session?.step === 'COLLECTING_ROUTE' &&
-      (session?.details?.awaitingPickup || session?.details?.awaitingDest)) ||
+    (session?.step === 'VENDOR_REG_ADDRESS' ||
+      (session?.service === 'taxi' &&
+        session?.step === 'COLLECTING_ROUTE' &&
+        (session?.details?.awaitingPickup || session?.details?.awaitingDest)) ||
       (session?.service === 'food' && session?.step === 'FOOD_DELIVERY_ADDRESS') ||
       (session?.service === 'ecommerce' && session?.step === 'MALL_DELIVERY_ADDRESS') ||
       ((session?.service === 'grocery' || session?.service === 'pharmacy') &&
@@ -4419,6 +4456,76 @@ export function buildWhatsAppInteractive(
     }
   }
 
+  // 9b. WhatsApp Self-Service Shop Registration Interactive Flows
+  if (session?.step === 'VENDOR_REG_CATEGORY' && !isValidationErrorReply(rawStripped)) {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '🏪 Register Your Shop' : '🏪 Sajili Duka / Biashara' },
+      body: { text: cleanBody },
+      footer: { text: isEn ? 'Pick a category to continue' : 'Chagua aina ya biashara yako' },
+      action: {
+        button: isEn ? '📋 Pick Category' : '📋 Chagua Kundi',
+        sections: [
+          {
+            title: isEn ? 'Business Categories' : 'Makundi ya Huduma',
+            rows: [
+              { id: '1', title: isEn ? '🍔 Restaurant / Food' : '🍔 Mgahawa (PapoFood)', description: isEn ? 'Meals, drinks & catering' : 'Chakula, vinywaji & jiko' },
+              { id: '2', title: isEn ? '🥦 Grocery / Market' : '🥦 Vyakula / Soko (PapoMart)', description: isEn ? 'Fresh produce, rice & groceries' : 'Matunda, mboga & bidhaa za soko' },
+              { id: '3', title: isEn ? '💊 Pharmacy / Meds' : '💊 Famasi / Dawa (PapoMed)', description: isEn ? 'Medicines & healthcare products' : 'Dawa & vifaa tiba' },
+              { id: '4', title: isEn ? '🛒 Retail Shop' : '🛒 Duka la Bidhaa (PapoMall)', description: isEn ? 'Shoes, clothes & electronics' : 'Viatu, nguo, simu & vifaa' },
+              { id: '5', title: isEn ? '💇 Salon & Beauty' : '💇 Saluni / Urembo (PapoStyle)', description: isEn ? 'Hair, nails, makeup & spa' : 'Nywele, kucha, makeup & spa' },
+              { id: '6', title: isEn ? '🛠️ Handyman / Fundi' : '🛠️ Fundi / Matengenezo (PapoFix)', description: isEn ? 'Plumbing, electrical & AC repair' : 'Bomba, umeme, AC & usafi' },
+              { id: '7', title: isEn ? '🏨 Hotel / Lodge' : '🏨 Hoteli / Lodge (PapoStay)', description: isEn ? 'Rooms & guest accommodation' : 'Vyumba, lodge & hoteli' },
+              { id: '8', title: isEn ? '🚗 Car Rental' : '🚗 Kukodisha Magari (PapoRent)', description: isEn ? 'Vehicles for hire' : 'Magari ya kukodisha' },
+            ],
+          },
+          {
+            title: isEn ? 'Navigation' : 'Hatua',
+            rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
+          },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'VENDOR_REG_PHONE' && !isValidationErrorReply(rawStripped)) {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    const hasQuickPhone = Boolean(session?.details?.vendorRegCandidatePhone);
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: cleanBody },
+      footer: { text: isEn ? 'Or type any phone number' : 'Au andika namba nyingine ya simu' },
+      action: {
+        buttons: hasQuickPhone
+          ? [
+              { type: 'reply', reply: { id: '1', title: isEn ? '📱 Use This Number' : '📱 Tumia Namba Hii' } },
+              { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi Nyuma' } },
+              { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+            ]
+          : [
+              { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi Nyuma' } },
+              { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+            ],
+      },
+    });
+  }
+
+  if (session?.step === 'VENDOR_REG_ITEM' && !isValidationErrorReply(rawStripped)) {
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: rawStripped },
+      footer: { text: isEn ? 'Format: Item Name - Price' : 'Mfano: Biryani Kuku - 8000' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'RUKA', title: isEn ? '⏭️ Skip & Finish' : '⏭️ Ruka & Kamilisha' } },
+          { type: 'reply', reply: { id: '0', title: isEn ? '⬅️ Back' : '⬅️ Rudi Nyuma' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      },
+    });
+  }
+
   // 10. Custom Quick-Reply Buttons injected dynamically (e.g. Image Analysis or Payment E-Receipt)
   const customButtons: Array<{ id: string; title: string }> | undefined = session?.details?.quickReplyButtons;
   if (Array.isArray(customButtons) && customButtons.length > 0 && customButtons.length <= 3 && !isValidationErrorReply(rawStripped)) {
@@ -4437,7 +4544,15 @@ export function buildWhatsAppInteractive(
   // 11. Open-Text Active Steps => Quick Reply Back & Main Menu Buttons (Zero manual typing of 0/00!)
   const inActiveEscapeStep =
     Boolean(session?.service) ||
-    ['TRACKING_LOOKUP_PHONE', 'CHANGING_PHONE'].includes(session?.step || '');
+    [
+      'TRACKING_LOOKUP_PHONE',
+      'CHANGING_PHONE',
+      'VENDOR_REG_CATEGORY',
+      'VENDOR_REG_NAME',
+      'VENDOR_REG_ADDRESS',
+      'VENDOR_REG_PHONE',
+      'VENDOR_REG_ITEM',
+    ].includes(session?.step || '');
   if (inActiveEscapeStep) {
     return sanitizeWhatsAppInteractivePayload({
       type: 'button',
@@ -5070,7 +5185,8 @@ async function handleMetaInputInternal(
     (Boolean(session.service) && session.step !== 'START') ||
     session.step === 'CHOOSING_LANGUAGE' ||
     session.step === 'TRACKING_LOOKUP_PHONE' ||
-    session.step === 'CHANGING_PHONE';
+    session.step === 'CHANGING_PHONE' ||
+    session.step.startsWith('VENDOR_REG_');
 
   if (inInteractiveFlow) {
     const stateProgressed =
@@ -5568,7 +5684,21 @@ async function processMetaInputCore(
     return wrappedMenu;
   }
 
-  if (!customerProfile && !session.details.customerName && !session.details.adVisitor && !session.details.welcomedFirstOpen && !session.service) {
+  const isVendorRegStep = session.step.startsWith('VENDOR_REG_');
+  const isVendorRegCmd =
+    /^(?:🏪\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor)|register\s*(?:shop|store|business|vendor)|become\s*a?\s*vendor|add\s*(?:shop|store)|REGISTER_SHOP|CMD:REGISTER_SHOP)$/i.test(
+      cleanInput
+    );
+
+  if (
+    !customerProfile &&
+    !session.details.customerName &&
+    !session.details.adVisitor &&
+    !session.details.welcomedFirstOpen &&
+    !session.service &&
+    !isVendorRegStep &&
+    !isVendorRegCmd
+  ) {
     if (session.step === 'REGISTERING_CUSTOMER') {
       const isGps = cleanInput.startsWith('__GPS_PIN__:');
       const isDigitOnly = /^\d+$/.test(cleanInput);
@@ -5741,6 +5871,24 @@ async function processMetaInputCore(
     }
     await persistLocationPreference(gpsLoc);
 
+    if (session.step === 'VENDOR_REG_ADDRESS') {
+      session.details.vendorRegAddress = gpsLoc.name;
+      session.details.vendorRegCoords = { lat: gpsLoc.lat, lng: gpsLoc.lng };
+      const candPhone = getKnownPhone() || defaultWaPhone;
+      if (candPhone) session.details.vendorRegCandidatePhone = candPhone;
+      else delete session.details.vendorRegCandidatePhone;
+      session.step = 'VENDOR_REG_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      if (lang === 'en') {
+        return candPhone
+          ? `[[EN_NATIVE]]📍 Location saved: *${gpsLoc.name}*\n\n📞 Confirm the *WhatsApp / Business Phone Number* where customers & orders will reach you:\n1. 📱 Use *${candPhone}*\n_Or type another number (e.g. *0712345678*):_`
+          : `[[EN_NATIVE]]📍 Location saved: *${gpsLoc.name}*\n\n📞 Enter the *WhatsApp / Business Phone Number* for orders (e.g. *0712345678*):`;
+      }
+      return candPhone
+        ? `📍 Eneo la biashara: *${gpsLoc.name}*\n\n📞 Thibitisha *Namba ya Simu / WhatsApp* itakayopokea oda za wateja:\n1. 📱 Tumia *${candPhone}*\n_Au andika namba nyingine (mf. *0712345678*):_`
+        : `📍 Eneo la biashara: *${gpsLoc.name}*\n\n📞 Andika *Namba ya Simu / WhatsApp* ya biashara yako (mf. *0712345678*):`;
+    }
+
     if (session.service === 'food' && session.step === 'FOOD_DELIVERY_ADDRESS') {
       session.details.deliveryAddress = gpsLoc.name;
       session.details.deliveryCoords = gpsLoc;
@@ -5866,6 +6014,382 @@ async function processMetaInputCore(
       senderId
     });
     return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode, lang);
+  }
+
+  // --- 0E. WHATSAPP SELF-SERVICE SHOP / VENDOR REGISTRATION ("SAJILI DUKA") ---
+  const VENDOR_REG_CATEGORIES: Array<{
+    num: string;
+    category: string;
+    serviceTitle: string;
+    labelSw: string;
+    labelEn: string;
+    keywords: RegExp;
+  }> = [
+    {
+      num: '1',
+      category: 'restaurant',
+      serviceTitle: 'PapoFood',
+      labelSw: '🍔 Mgahawa / Chakula (PapoFood)',
+      labelEn: '🍔 Restaurant / Food (PapoFood)',
+      keywords: /^(?:1|mgahawa|chakula|restaurant|food|papofood|jiko)$/i,
+    },
+    {
+      num: '2',
+      category: 'grocery',
+      serviceTitle: 'PapoMart',
+      labelSw: '🥦 Vyakula / Soko (PapoMart)',
+      labelEn: '🥦 Grocery / Market (PapoMart)',
+      keywords: /^(?:2|soko|sokoni|vyakula|mboga|grocery|mart|papomart)$/i,
+    },
+    {
+      num: '3',
+      category: 'pharmacy',
+      serviceTitle: 'PapoMed',
+      labelSw: '💊 Famasi / Duka la Dawa (PapoMed)',
+      labelEn: '💊 Pharmacy / Medicine (PapoMed)',
+      keywords: /^(?:3|famasi|dawa|pharmacy|med|papomed)$/i,
+    },
+    {
+      num: '4',
+      category: 'ecommerce',
+      serviceTitle: 'PapoMall',
+      labelSw: '🛒 Duka la Bidhaa / Maduka (PapoMall)',
+      labelEn: '🛒 Retail Shop / Mall (PapoMall)',
+      keywords: /^(?:4|duka|maduka|bidhaa|mall|shop|ecommerce|papomall)$/i,
+    },
+    {
+      num: '5',
+      category: 'salon',
+      serviceTitle: 'PapoStyle',
+      labelSw: '💇 Saluni & Urembo (PapoStyle)',
+      labelEn: '💇 Salon & Beauty (PapoStyle)',
+      keywords: /^(?:5|saluni|salon|urembo|spa|style|papostyle)$/i,
+    },
+    {
+      num: '6',
+      category: 'handyman',
+      serviceTitle: 'PapoFix',
+      labelSw: '🛠️ Fundi / Matengenezo (PapoFix)',
+      labelEn: '🛠️ Handyman / Repairs (PapoFix)',
+      keywords: /^(?:6|fundi|matengenezo|handyman|fix|papofix|usafi)$/i,
+    },
+    {
+      num: '7',
+      category: 'hotel',
+      serviceTitle: 'PapoStay',
+      labelSw: '🏨 Hoteli / Lodge (PapoStay)',
+      labelEn: '🏨 Hotel / Lodge (PapoStay)',
+      keywords: /^(?:7|hoteli|hotel|lodge|vyumba|stay|papostay)$/i,
+    },
+    {
+      num: '8',
+      category: 'car_rental',
+      serviceTitle: 'PapoRent',
+      labelSw: '🚗 Kukodisha Magari (PapoRent)',
+      labelEn: '🚗 Car Rental (PapoRent)',
+      keywords: /^(?:8|gari|magari|kukodisha|car|rent|car_rental|paporent)$/i,
+    },
+  ];
+
+  const buildVendorCategoryPrompt = (): string => {
+    if (lang === 'en') {
+      const listLines = VENDOR_REG_CATEGORIES.map((c) => `${c.num}. ${c.labelEn}`).join('\n');
+      return (
+        `[[EN_NATIVE]]🏪 *REGISTER YOUR BUSINESS ON PAPO HAPO*\n\n` +
+        `Reach customers directly on *WhatsApp* and the *Papo Hapo App*!\n\n` +
+        `Choose your business category (*1–${VENDOR_REG_CATEGORIES.length}*):\n\n` +
+        `${listLines}`
+      );
+    }
+    const listLines = VENDOR_REG_CATEGORIES.map((c) => `${c.num}. ${c.labelSw}`).join('\n');
+    return (
+      `🏪 *SAJILI DUKA / BIASHARA YAKO PAPO HAPO*\n\n` +
+      `Weka duka lako ili wateja wakupate na kuagiza moja kwa moja kupitia *WhatsApp* na *Papo Hapo App*!\n\n` +
+      `Chagua kundi la biashara yako (*1–${VENDOR_REG_CATEGORIES.length}*):\n\n` +
+      `${listLines}`
+    );
+  };
+
+  const finalizeWhatsAppVendorRegistration = async (rawItemInput: string): Promise<string> => {
+    const shopName = String(session.details.vendorRegName || 'Biashara Mpya').trim();
+    const shopCategory = String(session.details.vendorRegCategory || 'ecommerce').trim();
+    const shopCategoryLabel = String(session.details.vendorRegCategoryLabel || 'PapoMall').trim();
+    const shopAddress = String(session.details.vendorRegAddress || 'Dar es Salaam').trim();
+    const shopCoords = session.details.vendorRegCoords || { lat: -6.7924, lng: 39.2083 };
+    const shopPhone = String(session.details.vendorRegPhone || defaultWaPhone || senderId).trim();
+    const waNormalized = normalizeWhatsAppRecipientDigits(shopPhone) || waDigits;
+    const vndCode = `VND-${Math.floor(1000 + Math.random() * 9000)}`;
+    const vendorId = `wa-vnd-${Date.now().toString(36)}-${Math.floor(100 + Math.random() * 900)}`;
+    const ownerName = customerProfile?.name || session.details.customerName || shopName;
+    const cleanOwnerUid = `meta-${channel}-${senderId.replace(/[^a-zA-Z0-9]/g, '') || waNormalized || Date.now()}`;
+
+    let parsedItem: { name: string; price: number } | null = null;
+    const trimmedItem = rawItemInput.trim();
+    const isSkipItem = /^(ruka|skip|2|hapana|no|baadae|finish|kamilisha|⏭️.*)$/i.test(trimmedItem);
+    if (!isSkipItem && trimmedItem.length >= 2) {
+      const priceMatch = trimmedItem.match(/(?:[-–:|]|\btzs\b|\btsh\b)\s*([\d,]{3,})\s*$/i) || trimmedItem.match(/(\d{3,})\s*$/);
+      const parsedPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ''), 10) : 0;
+      const cleanItemName = priceMatch
+        ? trimmedItem.slice(0, priceMatch.index).replace(/[-–:|]+$/, '').trim()
+        : trimmedItem;
+      if (cleanItemName) {
+        parsedItem = {
+          name: cleanItemName,
+          price: Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : 10000,
+        };
+      }
+    }
+
+    const vendorDocPayload = cleanUndefined({
+      id: vendorId,
+      bookingCode: vndCode,
+      ownerUid: cleanOwnerUid,
+      businessName: shopName,
+      category: shopCategory,
+      description: parsedItem
+        ? `${shopCategoryLabel} • Bidhaa kuu: ${parsedItem.name} (TZS ${parsedItem.price.toLocaleString()})`
+        : `${shopCategoryLabel} iliyosajiliwa kupitia WhatsApp`,
+      tin: 'PENDING-WA',
+      address: shopAddress,
+      location: shopCoords,
+      deliveryRadius: 15,
+      status: 'pending',
+      isApproved: false,
+      phoneNumber: shopPhone,
+      whatsappNumber: waNormalized,
+      operatingHours: '08:00 - 22:00',
+      isOpen: true,
+      rating: 5.0,
+      ratingCount: 1,
+      source: 'whatsapp_self_reg',
+      metaSenderId: senderId,
+      metaChannel: channel,
+      socialLinks: {
+        whatsapp: waNormalized || shopPhone,
+      },
+      ownerInfo: {
+        firstName: ownerName,
+        lastName: '',
+        phone: shopPhone,
+        whatsapp: waNormalized || shopPhone,
+        email: '',
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    if (dbAdmin) {
+      try {
+        await dbAdmin.collection('vendors').doc(vendorId).set(vendorDocPayload);
+        if (parsedItem) {
+          const prodId = `wa-prd-${Date.now().toString(36)}`;
+          await dbAdmin.collection('products').doc(prodId).set(
+            cleanUndefined({
+              id: prodId,
+              vendorId,
+              vendorName: shopName,
+              vendorCategory: shopCategory,
+              name: parsedItem.name,
+              price: parsedItem.price,
+              description: `${parsedItem.name} kutoka ${shopName}`,
+              status: 'available',
+              hidden: false,
+              source: 'whatsapp_self_reg',
+              createdAt: new Date(),
+            })
+          );
+        }
+        await dbAdmin
+          .collection('notifications')
+          .add(
+            cleanUndefined({
+              type: 'vendor_registration',
+              title: `🏪 Duka Jipya Kutoka WhatsApp: ${shopName}`,
+              message: `${shopName} (${shopCategoryLabel}) limejisajili kutoka ${shopAddress} • Simu: ${shopPhone} (#${vndCode})`,
+              vendorId,
+              bookingCode: vndCode,
+              read: false,
+              createdAt: new Date(),
+            })
+          )
+          .catch(() => {});
+      } catch (saveVendorErr) {
+        console.warn('[Vendor WA Self-Reg] Firestore write warning:', saveVendorErr);
+      }
+    }
+
+    const adminAlertPhone = (process.env.ADMIN_WHATSAPP_PHONE || process.env.OWNER_WHATSAPP_PHONE || '').trim();
+    if (adminAlertPhone && normalizeWhatsAppRecipientDigits(adminAlertPhone) !== waNormalized) {
+      sendMetaOutboundMessage({
+        channel: 'whatsapp',
+        recipientId: adminAlertPhone,
+        text:
+          `🏪 *OMBI JIPYA LA USAJILI WA DUKA (${vndCode})*\n\n` +
+          `• *Biashara:* ${shopName}\n` +
+          `• *Kundi:* ${shopCategoryLabel}\n` +
+          `• *Eneo:* ${shopAddress}\n` +
+          `• *WhatsApp:* ${shopPhone}\n` +
+          (parsedItem ? `• *Bidhaa:* ${parsedItem.name} (TZS ${parsedItem.price.toLocaleString()})\n` : '') +
+          `\nIngia kwenye Dashibodi ya Admin -> *Vendors* kuidhinisha duka hili!`,
+      }).catch(() => {});
+    }
+
+    if (!customerProfile) {
+      await saveMetaCustomerProfile(
+        {
+          senderId,
+          channel,
+          name: ownerName,
+          phone: shopPhone,
+          lang,
+          createdAt: Date.now(),
+        },
+        dbAdmin
+      );
+    } else if (shopPhone && !customerProfile.phone) {
+      await persistPhonePreference(shopPhone);
+    }
+
+    session.step = 'COLLECTING_ROUTE';
+    delete session.service;
+    session.details = {
+      ...preserveCustomerFields(session.details, lang, customerProfile),
+      welcomedFirstOpen: true,
+      quickReplyButtons: [
+        { id: 'CMD:REGISTER_SHOP', title: lang === 'en' ? '🏪 Register Another' : '🏪 Sajili Lingine' },
+        { id: '00', title: lang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+      ],
+    };
+    markSkipHistory();
+    await saveMetaSession(session, dbAdmin);
+
+    if (lang === 'en') {
+      return (
+        `[[EN_NATIVE]]🎉 *SHOP REGISTRATION SUBMITTED!* (#${vndCode})\n\n` +
+        `🏪 *Business:* ${shopName}\n` +
+        `📂 *Category:* ${shopCategoryLabel}\n` +
+        `📍 *Location:* ${shopAddress}\n` +
+        `📞 *WhatsApp Alerts:* ${shopPhone}\n` +
+        (parsedItem ? `🏷️ *First Item:* ${parsedItem.name} (TZS ${parsedItem.price.toLocaleString()})\n` : '') +
+        `\n✅ Your shop has been sent to our Admin team for quick approval. Once approved, customers will order from you directly on *WhatsApp* & the *Papo Hapo App*!`
+      );
+    }
+
+    return (
+      `🎉 *OMBI LA USAJILI WA DUKA LIMEPOKELEWA!* (#${vndCode})\n\n` +
+      `🏪 *Jina la Duka:* ${shopName}\n` +
+      `📂 *Kundi:* ${shopCategoryLabel}\n` +
+      `📍 *Eneo:* ${shopAddress}\n` +
+      `📞 *WhatsApp ya Oda:* ${shopPhone}\n` +
+      (parsedItem ? `🏷️ *Bidhaa ya Kwanza:* ${parsedItem.name} (TZS ${parsedItem.price.toLocaleString()})\n` : '') +
+      `\n✅ Duka lako limewasilishwa kwa Msimamizi (*Admin*) kwa uthibitisho wa haraka. Likishaidhinishwa, wateja wataona bidhaa zako na kuagiza moja kwa moja hapa *WhatsApp* na kwenye *Papo Hapo App*!`
+    );
+  };
+
+  if (isVendorRegCmd) {
+    let selfRegDisabled = false;
+    if (dbAdmin) {
+      try {
+        const bizSnap = await dbAdmin.collection('config').doc('business').get();
+        if (bizSnap?.exists && bizSnap.data()?.vendorSelfRegistration === false) {
+          selfRegDisabled = true;
+        }
+      } catch {}
+    }
+    if (selfRegDisabled) {
+      markSkipHistory();
+      return lang === 'en'
+        ? `[[EN_NATIVE]]⚠️ Vendor self-registration is currently closed by the administrator. Please contact support to get your shop listed.`
+        : `⚠️ Samahani, usajili wa maduka mapya umesitishwa kwa muda na Msimamizi. Tafadhali wasiliana na Huduma kwa Wateja kwa msaada.`;
+    }
+    delete session.service;
+    session.details = {
+      ...preserveCustomerFields(session.details, lang, customerProfile),
+      welcomedFirstOpen: true,
+    };
+    session.step = 'VENDOR_REG_CATEGORY';
+    await saveMetaSession(session, dbAdmin);
+    return buildVendorCategoryPrompt();
+  }
+
+  if (isVendorRegStep) {
+    if (session.step === 'VENDOR_REG_CATEGORY') {
+      const matchedCat = VENDOR_REG_CATEGORIES.find(
+        (c) => c.num === cleanInput || c.keywords.test(cleanInput) || cleanInput.toLowerCase().includes(c.serviceTitle.toLowerCase())
+      );
+      if (!matchedCat) {
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Please select a valid category number (*1–${VENDOR_REG_CATEGORIES.length}*) from the list:`
+          : `⚠️ Tafadhali chagua namba sahihi ya kundi (*1–${VENDOR_REG_CATEGORIES.length}*) kutoka kwenye orodha:`;
+      }
+      session.details.vendorRegCategory = matchedCat.category;
+      session.details.vendorRegCategoryLabel = lang === 'en' ? matchedCat.labelEn : matchedCat.labelSw;
+      session.step = 'VENDOR_REG_NAME';
+      await saveMetaSession(session, dbAdmin);
+      return lang === 'en'
+        ? `[[EN_NATIVE]]✅ Category: *${matchedCat.labelEn}*\n\n🏪 What is your *Shop / Business Name*? _(e.g. Mama Lishe Sinza or Afya Pharmacy)_:`
+        : `✅ Kundi: *${matchedCat.labelSw}*\n\n🏪 Andika *Jina la Duka / Biashara yako* _(mfano: Mama Lishe Sinza au Afya Pharmacy)_:`;
+    }
+
+    if (session.step === 'VENDOR_REG_NAME') {
+      if (cleanInput.length < 2 || /^\d+$/.test(cleanInput)) {
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Please enter a valid shop or business name (at least 2 characters):`
+          : `⚠️ Tafadhali andika jina halisi la duka au biashara yako (angalau herufi 2):`;
+      }
+      session.details.vendorRegName = cleanInput;
+      session.step = 'VENDOR_REG_ADDRESS';
+      await saveMetaSession(session, dbAdmin);
+      return lang === 'en'
+        ? `[[EN_NATIVE]]🏪 Business: *${cleanInput}*\n\n📍 Where is your shop located? Tap *Send Location* below or type the street/area _(e.g. Kariakoo, Msimbazi)_:`
+        : `🏪 Biashara: *${cleanInput}*\n\n📍 Duka lako lipo *mtaa / eneo gani*? Bonyeza *Send Location* hapo chini au andika jina la mtaa _(mfano: Kariakoo, Msimbazi)_:`;
+    }
+
+    if (session.step === 'VENDOR_REG_ADDRESS') {
+      if (cleanInput.length < 2) {
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Please type your shop street/area or send a 📍 Location pin:`
+          : `⚠️ Tafadhali andika mtaa/eneo la duka lako au tuma 📍 Location pin:`;
+      }
+      session.details.vendorRegAddress = cleanInput;
+      const candPhone = getKnownPhone() || defaultWaPhone;
+      if (candPhone) session.details.vendorRegCandidatePhone = candPhone;
+      else delete session.details.vendorRegCandidatePhone;
+      session.step = 'VENDOR_REG_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      if (lang === 'en') {
+        return candPhone
+          ? `[[EN_NATIVE]]📍 Location: *${cleanInput}*\n\n📞 Confirm the *WhatsApp / Business Phone Number* where orders will be sent:\n1. 📱 Use *${candPhone}*\n_Or type another number (e.g. *0712345678*):_`
+          : `[[EN_NATIVE]]📍 Location: *${cleanInput}*\n\n📞 Enter the *WhatsApp / Business Phone Number* for orders (e.g. *0712345678*):`;
+      }
+      return candPhone
+        ? `📍 Eneo la biashara: *${cleanInput}*\n\n📞 Thibitisha *Namba ya Simu / WhatsApp* itakayopokea oda za wateja:\n1. 📱 Tumia *${candPhone}*\n_Au andika namba nyingine (mf. *0712345678*):_`
+        : `📍 Eneo la biashara: *${cleanInput}*\n\n📞 Andika *Namba ya Simu / WhatsApp* ya biashara yako (mf. *0712345678*):`;
+    }
+
+    if (session.step === 'VENDOR_REG_PHONE') {
+      const candPhone = String(session.details.vendorRegCandidatePhone || getKnownPhone() || defaultWaPhone || '').trim();
+      let chosenPhone = cleanInput;
+      if (cleanInput === '1' && candPhone) {
+        chosenPhone = candPhone;
+      }
+      const digits = chosenPhone.replace(/\D/g, '');
+      if (digits.length < 9) {
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Please enter a valid phone number (e.g. *0712345678*):`
+          : `⚠️ Tafadhali weka namba sahihi ya simu yenye tarakimu 9+ (mfano: *0712345678*):`;
+      }
+      session.details.vendorRegPhone = chosenPhone;
+      session.step = 'VENDOR_REG_ITEM';
+      await saveMetaSession(session, dbAdmin);
+      return lang === 'en'
+        ? `[[EN_NATIVE]]📞 Phone saved: *${chosenPhone}*\n\n🏷️ _(Optional)_ Enter *1 signature product/service and price* to display right away _(e.g. Chicken Biryani - 8000)_, or tap *Skip & Finish*:`
+        : `📞 Namba imehifadhiwa: *${chosenPhone}*\n\n🏷️ _(Hiari)_ Taja *bidhaa/huduma yako 1 maarufu na bei yake* _(mfano: Biryani Kuku - 8000)_, au bonyeza *Ruka & Kamilisha*:`;
+    }
+
+    if (session.step === 'VENDOR_REG_ITEM') {
+      return await finalizeWhatsAppVendorRegistration(cleanInput);
+    }
   }
 
   // Load custom meta config from local JSON or Firebase if database is available
@@ -11801,6 +12325,8 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               LISTPAGEPREV: '__LIST_PAGE_PREV__',
               MY_ORDERS: 'oda zangu',
               'CMD:MY_ORDERS': 'oda zangu',
+              REGISTER_SHOP: 'sajili duka',
+              'CMD:REGISTER_SHOP': 'sajili duka',
             };
             const upperNoSpace = normalizedRid.toUpperCase();
             if (legacyMap[upperNoSpace]) {
@@ -11808,7 +12334,7 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             }
             if (
               normalizedRid &&
-              (/^(\d{1,2}|M\d+|lugha|papomed|papofix|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
+              (/^(\d{1,2}|M\d+|lugha|ruka|papomed|papofix|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
                 /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 normalizedRid.startsWith('CMD:'))
             ) {

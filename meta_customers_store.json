@@ -7,5 +7,14 @@
     "lang": "sw",
     "createdAt": 1795124877464,
     "updatedAt": 1795124877464
+  },
+  "whatsapp:255712380488": {
+    "senderId": "255712380488",
+    "channel": "whatsapp",
+    "name": "Mama Ntilie Test",
+    "phone": "+255712380488",
+    "lang": "sw",
+    "createdAt": 1795227393715,
+    "updatedAt": 1795227393715
   }
 }
