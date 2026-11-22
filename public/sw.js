@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papo-hapo-v5';
+const CACHE_NAME = 'papo-hapo-v6';
 const MAP_TILE_CACHE = 'papo-map-tiles-v1';
 const MAP_STYLE_CACHE = 'papo-map-styles-v1';
 
@@ -177,10 +177,7 @@ self.addEventListener('fetch', (e) => {
 
         try {
           const networkResponse = await fetch(e.request);
-          if (
-            networkResponse &&
-            (networkResponse.status === 200 || networkResponse.type === 'opaque')
-          ) {
+          if (networkResponse && networkResponse.status === 200) {
             cache.put(e.request, networkResponse.clone()).catch(() => {});
           }
           return networkResponse;

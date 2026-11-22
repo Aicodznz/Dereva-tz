@@ -1,14 +1,17 @@
 import type * as mapboxgl from 'mapbox-gl';
 import { PMTiles } from 'pmtiles';
 import { CITY_HEAT_ZONES, HeatZone } from '../components/map/AISmartHeatMap';
+import { installMapboxSafetyPatch, patchStyleFromMap } from './mapboxSafetyPatch';
 
 let geoLibreInitialized = false;
 
 /**
- * Legacy compatibility hook (mapbox-gl manages its own isolated Web Worker pool cleanly without global classRegistry collisions).
+ * Legacy compatibility hook (ensures Mapbox GL safety patches are installed once).
  */
 export function ensureMapLibreGeoLibreSetup(): void {
-  if (geoLibreInitialized || typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return;
+  installMapboxSafetyPatch();
+  if (geoLibreInitialized) return;
   geoLibreInitialized = true;
 }
 
@@ -1628,6 +1631,22 @@ export function stripMapWatermarks(mapOrContainer: any): void {
   } catch {
     // ignore
   }
+  if (typeof mapOrContainer?.getContainer === 'function') {
+    patchMapboxInstanceSafely(mapOrContainer);
+  }
+}
+
+/**
+ * Patches Mapbox GL v3 ImageManager & Style sprite callbacks so async sprite
+ * responses arriving after `map.remove()` or `map.setStyle()` (removeScope)
+ * never throw `Cannot read properties of undefined (reading 'get')`.
+ */
+export function patchMapboxInstanceSafely(map: any): void {
+  if (typeof window === 'undefined') return;
+  installMapboxSafetyPatch();
+  if (map) {
+    patchStyleFromMap(map);
+  }
 }
 
 import { buildOffline3DStyle } from './offlineMapVectorData';
@@ -1683,6 +1702,7 @@ export function attachOffline3DFallback(
   getBasemap: () => GeoLibreBasemapId,
   onFallbackApplied?: () => void
 ): () => void {
+  patchMapboxInstanceSafely(map);
   let switched = false;
   let tileErrorCount = 0;
 

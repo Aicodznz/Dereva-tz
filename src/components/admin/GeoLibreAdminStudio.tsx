@@ -914,7 +914,10 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const prevBasemapRef = useRef<GeoLibreBasemapId>(basemap);
   useEffect(() => {
+    if (prevBasemapRef.current === basemap) return;
+    prevBasemapRef.current = basemap;
     mapRef.current?.setStyle(resolveBasemapStyleSync(basemap, false) as any);
   }, [basemap]);
 

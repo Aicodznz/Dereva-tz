@@ -945,6 +945,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   );
 
   const prevBasemapRef = useRef<GeoLibreBasemapId>(basemap);
+  const prevOfflineRef = useRef<boolean>(offlineStatus.isOffline);
   const fallbackAppliedRef = useRef<boolean>(false);
 
   // Initialize Mapbox GL JS (supports both Mapbox styles and OpenFreeMap/ESRI fallbacks in one isolated engine)
@@ -953,6 +954,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     setWebglLost(false);
     fallbackAppliedRef.current = false;
     prevBasemapRef.current = basemap;
+    prevOfflineRef.current = offlineStatus.isOffline;
 
     const accessToken = resolveMapboxAccessToken(mapboxToken);
     mapboxgl.accessToken = accessToken;
@@ -1095,7 +1097,11 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (prevBasemapRef.current === basemap && prevOfflineRef.current === offlineStatus.isOffline) {
+      return;
+    }
     prevBasemapRef.current = basemap;
+    prevOfflineRef.current = offlineStatus.isOffline;
     if (offlineStatus.isOffline) {
       void resolveBestOfflineBasemapStyle(basemap).then((offlineStyle) => {
         if (mapRef.current === map) {
