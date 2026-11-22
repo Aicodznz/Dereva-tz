@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, notifyFundisNewJobToWhatsApp, processDueScheduledBookings, sendWhatsAppPromoBroadcast, generateVisualReceiptQrBuffer, clearMetaHumanHandoverState, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
@@ -646,6 +646,165 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Meta Customers POST] Error:", error);
       return res.status(500).json({ error: error?.message || "Failed to update customer" });
+    }
+  });
+
+  // Visual QR Code PNG receipt / tracking image endpoint for WhatsApp & web cards
+  app.get("/api/meta/receipt-qr/:entityType/:id.png", async (req, res) => {
+    try {
+      const entityType = req.params.entityType === 'ride' ? 'ride' : 'order';
+      const cleanId = String(req.params.id || '').trim();
+      if (!cleanId) return res.status(400).send("Invalid ID");
+      const baseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
+      const targetUrl =
+        entityType === 'ride'
+          ? `${baseUrl}/track/${encodeURIComponent(cleanId)}`
+          : `${baseUrl}/verify-receipt/${encodeURIComponent(cleanId)}`;
+      const pngBuffer = await generateVisualReceiptQrBuffer(targetUrl);
+      if (!pngBuffer) return res.status(500).send("Failed to render QR");
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.send(pngBuffer);
+    } catch (err: any) {
+      return res.status(500).send(err?.message || "QR generation error");
+    }
+  });
+
+  // List Live Human Support Handover Tickets (Admin Live Support Desk)
+  app.get("/api/meta/support-tickets", async (_req, res) => {
+    try {
+      if (!dbAdmin) return res.json({ status: "ok", tickets: [] });
+      const snap = await dbAdmin.collection('support_tickets').limit(80).get();
+      const tickets = (snap.docs || [])
+        .map((d: any) => {
+          const data = d.data() || {};
+          const toMs = (v: any) =>
+            typeof v === 'number'
+              ? v
+              : typeof v?.toMillis === 'function'
+              ? v.toMillis()
+              : typeof v?.seconds === 'number'
+              ? v.seconds * 1000
+              : Date.parse(String(v || '')) || 0;
+          return {
+            id: d.id,
+            channel: data.channel || 'whatsapp',
+            senderId: data.senderId || '',
+            customerName: data.customerName || 'Mteja',
+            customerPhone: data.customerPhone || '',
+            status: data.status || 'open',
+            lastMessage: data.lastMessage || '',
+            messages: Array.isArray(data.messages) ? data.messages : [],
+            createdAt: toMs(data.createdAt),
+            updatedAt: toMs(data.updatedAt) || toMs(data.createdAt),
+          };
+        })
+        .sort((a: any, b: any) => (a.status === 'open' ? -1 : 1) - (b.status === 'open' ? -1 : 1) || b.updatedAt - a.updatedAt);
+      return res.json({ status: "ok", tickets });
+    } catch (error: any) {
+      console.error("[Meta Support Tickets GET] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to list support tickets" });
+    }
+  });
+
+  // Admin reply to a Live Support Handover ticket or resolve & hand control back to Bot
+  app.post("/api/meta/support-reply", async (req, res) => {
+    try {
+      const { ticketId, action = 'reply', message } = req.body || {};
+      const cleanTicketId = String(ticketId || '').trim();
+      const cleanMessage = String(message || '').trim();
+      if (!cleanTicketId) return res.status(400).json({ error: "ticketId is required" });
+      if (!dbAdmin) return res.status(500).json({ error: "Database unavailable" });
+
+      const tRef = dbAdmin.collection('support_tickets').doc(cleanTicketId);
+      const tSnap = await tRef.get();
+      if (!tSnap.exists) return res.status(404).json({ error: "Support ticket not found" });
+
+      const tData = tSnap.data() || {};
+      const senderId = String(tData.senderId || '').trim();
+      const channel = (tData.channel === 'messenger' || tData.channel === 'instagram' ? tData.channel : 'whatsapp') as
+        | 'whatsapp'
+        | 'messenger'
+        | 'instagram';
+      const prevMsgs = Array.isArray(tData.messages) ? tData.messages : [];
+      const nextMsgs = [...prevMsgs];
+
+      let sentToMeta = false;
+      if (cleanMessage && senderId) {
+        const outboundText =
+          action === 'resolve'
+            ? `👨‍💼 *Mhudumu (Papo Hapo):*\n${cleanMessage}\n\n✅ _Mazungumzo ya msaada yamefungwa — sasa boti iko tayari kukuhudumia tena! Andika *Menu*._`
+            : `👨‍💼 *Mhudumu (Papo Hapo):*\n${cleanMessage}\n\n_(Jibu hapa hapa kuendelea na mhudumu, au bonyeza *Rudi kwa Boti*.)_`;
+        const sendRes = await sendMetaOutboundMessage({
+          channel,
+          recipientId: senderId,
+          text: outboundText,
+        }).catch(() => ({ sent: false }));
+        sentToMeta = Boolean(sendRes?.sent);
+        nextMsgs.push({
+          sender: 'agent',
+          text: cleanMessage,
+          timestamp: new Date().toISOString(),
+        });
+      } else if (action === 'resolve' && senderId) {
+        const sendRes = await sendMetaOutboundMessage({
+          channel,
+          recipientId: senderId,
+          text: `✅ *Suala lako limetatuliwa!* Umerudishwa kwa *Papo Hapo Bot* 🤖. Andika *Menu* muda wowote kuchagua huduma zetu.`,
+        }).catch(() => ({ sent: false }));
+        sentToMeta = Boolean(sendRes?.sent);
+      }
+
+      const nextStatus = action === 'resolve' ? 'resolved' : 'open';
+      await tRef.set(
+        {
+          status: nextStatus,
+          messages: nextMsgs.slice(-40),
+          ...(cleanMessage ? { lastMessage: `Admin: ${cleanMessage}` } : {}),
+          ...(action === 'resolve' ? { resolvedBy: 'admin', resolvedAt: new Date() } : {}),
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+
+      if (action === 'resolve' && senderId) {
+        await clearMetaHumanHandoverState(senderId, channel, dbAdmin).catch(() => {});
+      }
+
+      return res.json({ status: "ok", ticketId: cleanTicketId, ticketStatus: nextStatus, sentToMeta });
+    } catch (error: any) {
+      console.error("[Meta Support Reply POST] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to send support reply" });
+    }
+  });
+
+  // Real Opt-In Promo Broadcast Sender across Meta Customers / Drivers / Vendors
+  app.post("/api/meta/broadcast-promo", async (req, res) => {
+    try {
+      const { message, audience = 'all', couponCode, channel = 'whatsapp', dryRun = false } = req.body || {};
+      const cleanMessage = String(message || '').trim();
+      if (!cleanMessage) {
+        return res.status(400).json({ error: "Broadcast message is required" });
+      }
+      const validChannel = (channel === 'messenger' || channel === 'instagram' ? channel : 'whatsapp') as
+        | 'whatsapp'
+        | 'messenger'
+        | 'instagram';
+      const validAudience = (
+        ['all', 'customers', 'drivers', 'vendors'].includes(String(audience)) ? audience : 'all'
+      ) as 'all' | 'customers' | 'drivers' | 'vendors';
+
+      const result = await sendWhatsAppPromoBroadcast(dbAdmin, sendMetaOutboundMessage, {
+        message: cleanMessage,
+        audience: validAudience,
+        couponCode: couponCode ? String(couponCode).trim().toUpperCase() : undefined,
+        channel: validChannel,
+        dryRun: Boolean(dryRun),
+      });
+      return res.json({ status: "ok", ...result });
+    } catch (error: any) {
+      console.error("[Meta Broadcast Promo POST] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to send promo broadcast" });
     }
   });
 
@@ -2196,7 +2355,7 @@ The JSON output must contain the following keys:
       }
     );
 
-    // Real-time Firestore watcher for new pending orders -> notify vendor on WhatsApp with Kubali/Kataa buttons
+    // Real-time Firestore watcher for new pending orders -> notify vendor & Fundi on WhatsApp with quick action buttons
     subscribeCollectionChanges(
       'orders',
       [{ field: 'status', op: '==', value: 'pending' }],
@@ -2205,13 +2364,24 @@ The JSON output must contain the following keys:
         for (const change of changes) {
           if (change.type !== 'added') continue;
           const order = change.data || {};
-          if (order.vendorWaNotified === true) continue;
-          notifyVendorNewOrderToWhatsApp(
-            { orderId: change.id, orderData: order },
-            dbAdmin
-          ).catch((err) => {
-            console.warn('[Meta Vendor Order Watcher] Notification warning:', err?.message || err);
-          });
+          if (order.vendorWaNotified !== true) {
+            notifyVendorNewOrderToWhatsApp(
+              { orderId: change.id, orderData: order },
+              dbAdmin
+            ).catch((err) => {
+              console.warn('[Meta Vendor Order Watcher] Notification warning:', err?.message || err);
+            });
+          }
+          const orderTypeLower = String(order.type || order.vendorCategory || '').toLowerCase();
+          if ((orderTypeLower === 'handyman' || orderTypeLower === 'fundi') && order.fundiWaDispatched !== true) {
+            notifyFundisNewJobToWhatsApp(
+              { orderId: change.id, orderData: order },
+              dbAdmin,
+              sendMetaOutboundMessage
+            ).catch((err) => {
+              console.warn('[Meta Fundi Job Watcher] Notification warning:', err?.message || err);
+            });
+          }
         }
       }
     );
@@ -2335,6 +2505,13 @@ The JSON output must contain the following keys:
         }
       }
     );
+
+    // Scheduled rides background processor (every 60s): send customer reminders & dispatch nearby drivers when within 30 min window
+    setInterval(() => {
+      processDueScheduledBookings(dbAdmin, sendMetaOutboundMessage).catch((err) => {
+        console.warn('[Scheduled Rides Processor] Warning:', err?.message || err);
+      });
+    }, 60_000);
   });
 }
 

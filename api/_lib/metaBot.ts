@@ -25,7 +25,31 @@ import {
   notifyDriversNewJobToWhatsApp,
   notifyPartnerApprovedToWhatsApp,
 } from './whatsappPartnerAndLoyalty.js';
-export { notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp };
+import {
+  attachBookingQrMedia,
+  deductRedeemedLoyaltyPoints,
+  generateVisualReceiptQrBuffer,
+  handleFundiHubOrAction,
+  handleHumanHandoverFlow,
+  handleMultiItemCatalogCart,
+  handlePromoOptInToggle,
+  handleReceiptQrCommand,
+  handleReferralAndRedemptionCommands,
+  handleScheduledRideFlow,
+  notifyFundisNewJobToWhatsApp,
+  parseScheduledTimeFromInput,
+  processDueScheduledBookings,
+  processReferralRewardOnOrder,
+  sendWhatsAppPromoBroadcast,
+} from './whatsappAdvancedFeatures.js';
+export {
+  notifyPartnerApprovedToWhatsApp,
+  notifyDriversNewJobToWhatsApp,
+  notifyFundisNewJobToWhatsApp,
+  processDueScheduledBookings,
+  sendWhatsAppPromoBroadcast,
+  generateVisualReceiptQrBuffer,
+};
 
 export interface MetaHistoryEntry {
   step: MetaSession['step'];
@@ -104,7 +128,15 @@ export interface MetaSession {
     | 'FUNDI_REG_AREA'
     | 'FUNDI_REG_PHONE'
     | 'FUNDI_REG_RATE'
-    | 'REORDER_CONFIRM';
+    | 'REORDER_CONFIRM'
+    | 'FUNDI_ENTERING_QUOTE'
+    | 'SCHED_PICKUP'
+    | 'SCHED_DEST'
+    | 'SCHED_TIME'
+    | 'SCHED_CONFIRM'
+    | 'CATALOG_BROWSE'
+    | 'CART_WAIT_ADDRESS'
+    | 'CART_WAIT_PAYMENT';
   service?:
     | 'taxi'
     | 'food'
@@ -719,6 +751,27 @@ export async function saveMetaSession(session: MetaSession, dbAdmin: any): Promi
     } catch (err) {
       console.warn("[Meta Bot] Firestore write failed:", err);
     }
+  }
+}
+
+export async function clearMetaHumanHandoverState(
+  senderId: string,
+  channel: 'whatsapp' | 'messenger' | 'instagram',
+  dbAdmin: any
+): Promise<void> {
+  const sess = await getMetaSession(senderId, channel, dbAdmin);
+  sess.details = { ...(sess.details || {}), humanHandover: false };
+  delete sess.details.activeSupportTicketId;
+  sess.step = 'COLLECTING_ROUTE';
+  delete sess.service;
+  await saveMetaSession(sess, dbAdmin);
+
+  if (dbAdmin) {
+    await dbAdmin
+      .collection('meta_customers')
+      .doc(`${channel}_${senderId}`)
+      .set({ humanHandover: false, updatedAt: new Date() }, { merge: true })
+      .catch(() => {});
   }
 }
 
@@ -2903,8 +2956,9 @@ export function generateDynamicWelcomeMessage(
     welcome += `📋 ${activeServices.length + 1}. My Orders – Track Your Orders\n`;
     welcome +=
       `\n✨ *Reply with a number (1–${activeServices.length + 1}), service name, or describe what you need.*\n` +
-      `🏪 Partner? Reply *"Register Shop"*, *"Register Driver"* or *"Register Fundi"*.\n` +
-      `🎁 Check *"Loyalty"* • Merchants: *"My Shop"* • Drivers: *"Driver"*\n\n` +
+      `🛍️ *"Catalog"* (Cart) • 📅 *"Schedule"* Ride • 🎧 *"Support"* (Live Agent)\n` +
+      `🏪 Partner? *"Register Shop"*, *"Register Driver"*, *"Register Fundi"* • 🛠️ *"Fundi Hub"*\n` +
+      `🎁 *"Loyalty"*, *"Invite"*, *"Receipt"* • 🏪 *"My Shop"* • 🚖 *"Driver"*\n\n` +
       `*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`;
     return welcome;
   }
@@ -2926,8 +2980,9 @@ export function generateDynamicWelcomeMessage(
   welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
   welcome +=
     `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n` +
-    `🏪 Mshirika? Andika *"Sajili Duka"*, *"Sajili Dereva"* au *"Sajili Fundi"*.\n` +
-    `🎁 Zawadi: *"Pointi"* • Duka: *"Duka Langu"* • Dereva: *"Dereva"*\n\n` +
+    `🛍️ *"Katalogi"* (Kikapu) • 📅 *"Ratiba"* Safari • 🎧 *"Mhudumu"* (Msaada Live)\n` +
+    `🏪 Mshirika? *"Sajili Duka"*, *"Sajili Dereva"*, *"Sajili Fundi"* • 🛠️ *"Ufundi Wangu"*\n` +
+    `🎁 *"Pointi"*, *"Alika Rafiki"*, *"Risiti"* • 🏪 *"Duka Langu"* • 🚖 *"Dereva"*\n\n` +
     `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcome;
 }
@@ -4599,6 +4654,14 @@ export function buildWhatsAppInteractive(
       'FUNDI_REG_PHONE',
       'FUNDI_REG_RATE',
       'REORDER_CONFIRM',
+      'FUNDI_ENTERING_QUOTE',
+      'SCHED_PICKUP',
+      'SCHED_DEST',
+      'SCHED_TIME',
+      'SCHED_CONFIRM',
+      'CATALOG_BROWSE',
+      'CART_WAIT_ADDRESS',
+      'CART_WAIT_PAYMENT',
     ].includes(session?.step || '');
   if (inActiveEscapeStep) {
     return sanitizeWhatsAppInteractivePayload({
@@ -5177,6 +5240,7 @@ function preserveCustomerFields(
   if (cLoc) next.lastLocation = cLoc;
   if (details?.adVisitor) next.adVisitor = true;
   if (details?.welcomedFirstOpen) next.welcomedFirstOpen = true;
+  if (Array.isArray(details?.unifiedCart) && details.unifiedCart.length > 0) next.unifiedCart = details.unifiedCart;
   return next;
 }
 
@@ -5254,7 +5318,11 @@ async function handleMetaInputInternal(
     session.step === 'VENDOR_STOCK_TOGGLE' ||
     session.step.startsWith('DRV_REG_') ||
     session.step.startsWith('FUNDI_REG_') ||
-    session.step === 'REORDER_CONFIRM';
+    session.step === 'REORDER_CONFIRM' ||
+    session.step === 'FUNDI_ENTERING_QUOTE' ||
+    session.step.startsWith('SCHED_') ||
+    session.step === 'CATALOG_BROWSE' ||
+    session.step.startsWith('CART_');
 
   if (inInteractiveFlow) {
     const stateProgressed =
@@ -5565,6 +5633,32 @@ async function processMetaInputCore(
     return { servicesCfg: cfg, liveStatusMap };
   };
 
+  const partnerDeps = {
+    saveSession: saveMetaSession,
+    sendOutbound: sendMetaOutboundMessage,
+    notifyRideStatus: notifyRideStatusToMeta,
+    notifyCustomerOrderStatus: notifyCustomerOrderStatusToMeta,
+    triggerAutomatedOrder,
+    buildOrdersTrackingUrl,
+  };
+
+  // Live Human Agent Handover ("Mhudumu" / active support session bypasses bot menus until resolved)
+  const handoverReply = await handleHumanHandoverFlow({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    deps: partnerDeps,
+  });
+  if (handoverReply) {
+    markSkipHistory();
+    return handoverReply;
+  }
+
   // Global Language Switch Commands (work from any step!)
   const isSwitchToEnglish = /^(en|eng|english|kiingereza|speak\s+english|switch\s+to\s+english|change\s+(?:language\s+)?to\s+english|use\s+english|in\s+english)$/i.test(cleanInput);
   const isSwitchToSwahili = /^(sw|swa|swahili|kiswahili|tumia\s+kiswahili|switch\s+to\s+swahili|change\s+(?:language\s+)?to\s+swahili|badili\s+(?:lugha\s+)?kwenda\s+kiswahili)$/i.test(cleanInput);
@@ -5758,9 +5852,17 @@ async function processMetaInputCore(
     session.step === 'VENDOR_STOCK_TOGGLE' ||
     session.step.startsWith('DRV_REG_') ||
     session.step.startsWith('FUNDI_REG_') ||
-    session.step === 'REORDER_CONFIRM';
+    session.step === 'REORDER_CONFIRM' ||
+    session.step === 'FUNDI_ENTERING_QUOTE' ||
+    session.step.startsWith('SCHED_') ||
+    session.step === 'CATALOG_BROWSE' ||
+    session.step.startsWith('CART_');
+  const hasNaturalSchedRide =
+    Boolean(parseScheduledTimeFromInput(cleanInput)) &&
+    /\b(taxi|teksi|bajaji|boda|pikipiki|ride|usafiri|safari|kutoka|from)\b/i.test(cleanInput);
   const isVendorRegCmd =
-    /^(?:🏪\s*|🚖\s*|🛠️\s*|🎁\s*|🔁\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli|dereva|bodaboda|boda|bajaji|rider|fundi)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor|dereva|fundi)|register\s*(?:shop|store|business|vendor|driver|rider|fundi|handyman)|duka\s*langu|biashara\s*yangu|my\s*shop|my\s*store|vendor\s*hub|funga\s*duka|fungua\s*duka|ongeza\s*bidhaa|add\s*product|oda\s*za\s*duka|vendor\s*orders|badili\s*stock|stock\s*ya\s*duka|manage\s*stock|dereva|kazi\s*zangu|kazi\s*mpya|ingia\s*online|nenda\s*offline|driver\s*hub|bodaboda\s*hub|pointi(?:\s*zangu)?|zawadi(?:\s*zangu)?|kuponi(?:\s+.+)?|loyalty|agiza\s*tena|rudia\s*oda|reorder|(?:CMD:)?(?:REGISTER_SHOP|REGISTER_DRIVER|REGISTER_FUNDI|MY_SHOP|DRIVER_HUB|DRIVER_TOGGLE_ONLINE|DRIVER_JOBS|VENDOR_ADD_PRODUCT|VENDOR_TOGGLE_OPEN|VENDOR_ORDERS|VENDOR_TOGGLE_STOCK|VENDOR_MORE|LOYALTY_INFO|REORDER_LAST)|(?:CMD:)?(?:DRV_(?:CLAIM|SKIP|RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE)|VENDOR_(?:ACCEPT|REJECT|READY)|PRD_TOGGLE):.+)$/i.test(
+    hasNaturalSchedRide ||
+    /^(?:🏪\s*|🚖\s*|🛠️\s*|🎁\s*|🔁\s*|🎧\s*|📅\s*|🛍️\s*|🛒\s*|🧾\s*|🤝\s*|💎\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli|dereva|bodaboda|boda|bajaji|rider|fundi)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor|dereva|fundi)|register\s*(?:shop|store|business|vendor|driver|rider|fundi|handyman)|duka\s*langu|biashara\s*yangu|my\s*shop|my\s*store|vendor\s*hub|funga\s*duka|fungua\s*duka|ongeza\s*bidhaa|add\s*product|oda\s*za\s*duka|vendor\s*orders|badili\s*stock|stock\s*ya\s*duka|manage\s*stock|dereva|kazi\s*zangu|kazi\s*mpya|ingia\s*online|nenda\s*offline|driver\s*hub|bodaboda\s*hub|pointi(?:\s*zangu)?|zawadi(?:\s*zangu)?|kuponi(?:\s+.+)?|loyalty|agiza\s*tena|rudia\s*oda|reorder|ufundi\s*wangu|fundi\s*hub|kazi\s*za\s*ufundi|ongea\s+na\s+(?:mhudumu|mtu|admin|huduma)|mhudumu|msaada(?:\s+wa\s+haraka)?|human\s*(?:agent|support)|live\s*support|support|help\s*desk|ratiba|weka\s*ratiba|safari\s*ya\s*baada(?:ye|e)|schedule(?:\s*ride)?|katalogi(?:\s+.+)?|catalo(?:g|gue)(?:\s+.+)?|kikapu(?:\s*changu)?|cart|view\s*cart|my\s*cart|safisha\s*kikapu|clear\s*cart|lipia\s*kikapu|checkout(?:\s*cart)?|maliza\s*kikapu|risiti(?:\s+.+)?|receipt(?:\s+.+)?|qr(?:\s+.+)?|tiketi\s*qr(?:\s+.+)?|alika\s*rafiki|alika\s+#?[A-Za-z0-9_-]{4,20}|invite(?:\s+.+)?|referral|komboa(?:\s*pointi|\s*zawadi)?|tumia\s*pointi|redeem(?:\s*points)?|acha\s*matangazo|stop\s*promo|zima\s*ofa|ruhusu\s*ofa|ruhusu\s*matangazo|start\s*promo|(?:CMD:)?(?:REGISTER_SHOP|REGISTER_DRIVER|REGISTER_FUNDI|MY_SHOP|DRIVER_HUB|DRIVER_TOGGLE_ONLINE|DRIVER_JOBS|VENDOR_ADD_PRODUCT|VENDOR_TOGGLE_OPEN|VENDOR_ORDERS|VENDOR_TOGGLE_STOCK|VENDOR_MORE|LOYALTY_INFO|REORDER_LAST|FUNDI_HUB|FUNDI_JOBS|FUNDI_TOGGLE_OPEN|HUMAN_HANDOVER|END_HANDOVER|SCHEDULE_RIDE|SCHED_DO_CONFIRM|OPEN_CATALOG|VIEW_CART|CLEAR_CART|CHECKOUT_CART|REFERRAL_INFO|REDEEM_POINTS|GET_RECEIPT)|(?:CMD:)?(?:DRV_(?:CLAIM|SKIP|RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE)|VENDOR_(?:ACCEPT|REJECT|READY)|PRD_TOGGLE|FND_(?:ACCEPT|QUOTE|START|DONE)|CUST_(?:ACCEPT|REJECT)_QUOTE|CAT_ADD):.+)$/i.test(
       cleanInput
     );
 
@@ -6125,15 +6227,6 @@ async function processMetaInputCore(
   }
 
   // --- 0D2. MERCHANT HUB, DRIVER DISPATCH HUB, SELF-REG (DRIVER/FUNDI), LOYALTY & 1-TAP REORDER ---
-  const partnerDeps = {
-    saveSession: saveMetaSession,
-    sendOutbound: sendMetaOutboundMessage,
-    notifyRideStatus: notifyRideStatusToMeta,
-    notifyCustomerOrderStatus: notifyCustomerOrderStatusToMeta,
-    triggerAutomatedOrder,
-    buildOrdersTrackingUrl,
-  };
-
   const driverHubReply = await handleDriverHubOrAction({
     senderId,
     cleanInput,
@@ -6188,6 +6281,91 @@ async function processMetaInputCore(
   });
   if (loyaltyReorderReply) {
     return loyaltyReorderReply;
+  }
+
+  const promoOptInReply = await handlePromoOptInToggle({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+  });
+  if (promoOptInReply) {
+    return promoOptInReply;
+  }
+
+  const fundiHubReply = await handleFundiHubOrAction({
+    senderId,
+    cleanInput,
+    dbAdmin,
+    session,
+    lang,
+    deps: partnerDeps,
+  });
+  if (fundiHubReply) {
+    markSkipHistory();
+    return fundiHubReply;
+  }
+
+  const receiptQrReply = await handleReceiptQrCommand({
+    senderId,
+    cleanInput,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    mediaCollector,
+    deps: partnerDeps,
+  });
+  if (receiptQrReply) {
+    return receiptQrReply;
+  }
+
+  const referralRedeemReply = await handleReferralAndRedemptionCommands({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    deps: partnerDeps,
+  });
+  if (referralRedeemReply) {
+    return referralRedeemReply;
+  }
+
+  const catalogCartReply = await handleMultiItemCatalogCart({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    mediaCollector,
+    deps: partnerDeps,
+  });
+  if (catalogCartReply) {
+    return catalogCartReply;
+  }
+
+  const scheduledRideReply = await handleScheduledRideFlow({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    mediaCollector,
+    deps: partnerDeps,
+  });
+  if (scheduledRideReply) {
+    return scheduledRideReply;
   }
 
   // --- 0E. WHATSAPP SELF-SERVICE SHOP / VENDOR REGISTRATION ("SAJILI DUKA") ---
@@ -7472,9 +7650,16 @@ async function routeToServiceFlow(
       const availState = session.details.availabilityState || 'available';
 
       const promoDiscount = Math.min(Number(fare || 0), Number(session.details.promoDiscount || 0));
-      const finalFare = Math.max(0, Number(fare || 0) - promoDiscount);
+      const redeemDiscount = Math.min(
+        Math.max(0, Number(fare || 0) - promoDiscount),
+        Number(session.details.redeemDiscount || 0)
+      );
+      const totalRideDiscount = Math.min(Number(fare || 0), promoDiscount + redeemDiscount);
+      const finalFare = Math.max(0, Number(fare || 0) - totalRideDiscount);
       const appliedPromoCode = session.details.appliedPromoCode;
       const appliedCouponId = session.details.appliedCouponId;
+      const redeemPointsUsed = Number(session.details.redeemPointsUsed || 0);
+      const redeemRewardVendorId = session.details.redeemRewardVendorId;
 
       if (pLoc?.name) await saveLocPref(pLoc);
 
@@ -7509,7 +7694,7 @@ async function routeToServiceFlow(
             vehicleType: vehicleType,
             fare: finalFare,
             originalFare: fare,
-            discountAmount: promoDiscount > 0 ? promoDiscount : undefined,
+            discountAmount: totalRideDiscount > 0 ? totalRideDiscount : undefined,
             couponCode: appliedPromoCode || undefined,
             paymentMethod: paymentMethod,
             paymentMethodLabel: paymentMethodLabel,
@@ -7535,6 +7720,13 @@ async function routeToServiceFlow(
               dbAdmin,
               sendMetaOutboundMessage
             ).catch(() => {});
+            if (redeemPointsUsed > 0 || redeemRewardVendorId) {
+              deductRedeemedLoyaltyPoints(dbAdmin, {
+                customerPhone: phoneNum,
+                pointsUsed: redeemPointsUsed,
+                redeemRewardVendorId,
+              }).catch(() => {});
+            }
             awardWhatsAppOrderLoyalty(dbAdmin, {
               vendorId: 'papo-hapo-express',
               customerPhone: phoneNum,
@@ -7542,6 +7734,16 @@ async function routeToServiceFlow(
               orderTotal: finalFare,
               couponId: appliedCouponId,
             }).catch(() => {});
+            processReferralRewardOnOrder(
+              dbAdmin,
+              {
+                senderId: session.senderId,
+                channel: session.channel,
+                customerPhone: phoneNum,
+                customerName,
+              },
+              sendMetaOutboundMessage
+            ).catch(() => {});
             if (isMobileMoneyPaymentMethod(paymentMethod) && Number(finalFare) > 0) {
               initiateMongikePayment(
                 {
@@ -7564,6 +7766,15 @@ async function routeToServiceFlow(
         }
       }
 
+      await attachBookingQrMedia(mediaCollector, {
+        entityType: 'ride',
+        entityId: createdRideId,
+        bookingCode,
+        title: typeName || 'PapoRide',
+        amount: finalFare,
+        subtitle: `${pickupName} ➜ ${destName}`,
+      }).catch(() => {});
+
       const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
       const trackingUrl = `${publicBaseUrl}/track/${createdRideId}`;
       const mongikeRideNoteEn = isMobileMoneyPaymentMethod(paymentMethod)
@@ -7574,12 +7785,12 @@ async function routeToServiceFlow(
         : '';
 
       const discountRideNoteEn =
-        promoDiscount > 0 && appliedPromoCode
-          ? `\n🎁 Promo (*${appliedPromoCode}*): -TZS ${promoDiscount.toLocaleString()} (was TZS ${Number(fare || 0).toLocaleString()})`
+        totalRideDiscount > 0
+          ? `\n🎁 Discount${appliedPromoCode ? ` (*${appliedPromoCode}*)` : ''}${redeemDiscount > 0 ? ' + Points' : ''}: -TZS ${totalRideDiscount.toLocaleString()} (was TZS ${Number(fare || 0).toLocaleString()})`
           : '';
       const discountRideNoteSw =
-        promoDiscount > 0 && appliedPromoCode
-          ? `\n🎁 Kuponi (*${appliedPromoCode}*): -TZS ${promoDiscount.toLocaleString()} (awali TZS ${Number(fare || 0).toLocaleString()})`
+        totalRideDiscount > 0
+          ? `\n🎁 Punguzo${appliedPromoCode ? ` (*${appliedPromoCode}*)` : ''}${redeemDiscount > 0 ? ' + Pointi' : ''}: -TZS ${totalRideDiscount.toLocaleString()} (awali TZS ${Number(fare || 0).toLocaleString()})`
           : '';
 
       if (isEn) {
@@ -7826,9 +8037,16 @@ async function routeToServiceFlow(
       const cart: any[] = session.details.foodCart || [];
       const subtotalFood = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
       const foodPromoDiscount = Math.min(subtotalFood, Number(session.details.promoDiscount || 0));
-      const total = Math.max(0, subtotalFood - foodPromoDiscount);
+      const foodRedeemDiscount = Math.min(
+        Math.max(0, subtotalFood - foodPromoDiscount),
+        Number(session.details.redeemDiscount || 0)
+      );
+      const foodTotalDiscount = Math.min(subtotalFood, foodPromoDiscount + foodRedeemDiscount);
+      const total = Math.max(0, subtotalFood - foodTotalDiscount);
       const appliedPromoCode = session.details.appliedPromoCode;
       const appliedCouponId = session.details.appliedCouponId;
+      const foodRedeemPts = Number(session.details.redeemPointsUsed || 0);
+      const foodRedeemVendor = session.details.redeemRewardVendorId;
       const paymentMethod = session.details.paymentMethod || 'cash';
       const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
       const deliveryAddress = session.details.deliveryAddress || '';
@@ -7883,7 +8101,7 @@ async function routeToServiceFlow(
       // Delivery or Takeaway Order
       const orderType = foodMode === 'takeaway' ? 'pickup' : 'delivery';
       const randCode = `FD-${Math.floor(1000 + Math.random() * 9000)}`;
-      await triggerAutomatedOrder(
+      const createdFoodOrderId = await triggerAutomatedOrder(
         dbAdmin,
         vendorId,
         'restaurant',
@@ -7902,12 +8120,44 @@ async function routeToServiceFlow(
           deliveryAddress: foodMode === 'takeaway' ? 'Pickup Mgahawani' : deliveryAddress,
           paymentMethod,
           paymentMethodLabel,
-          ...(foodPromoDiscount > 0 ? { discountAmount: foodPromoDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
+          metaSenderId: session.senderId,
+          metaChannel: session.channel,
+          ...(foodTotalDiscount > 0 ? { discountAmount: foodTotalDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
         }
       );
 
+      if (foodRedeemPts > 0 || foodRedeemVendor) {
+        deductRedeemedLoyaltyPoints(dbAdmin, {
+          customerPhone: phoneNum,
+          pointsUsed: foodRedeemPts,
+          redeemRewardVendorId: foodRedeemVendor,
+        }).catch(() => {});
+      }
+      processReferralRewardOnOrder(
+        dbAdmin,
+        {
+          senderId: session.senderId,
+          channel: session.channel,
+          customerPhone: phoneNum,
+          customerName,
+        },
+        sendMetaOutboundMessage
+      ).catch(() => {});
+
+      await attachBookingQrMedia(mediaCollector, {
+        entityType: 'order',
+        entityId: createdFoodOrderId || randCode,
+        bookingCode: randCode,
+        title: vendorName,
+        amount: total,
+        subtitle: cart.map((c) => `${c.name} x${c.quantity}`).join(', '),
+      }).catch(() => {});
+
       const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
-      const discountLineFood = foodPromoDiscount > 0 ? `\n🎁 *Punguzo (${appliedPromoCode}):* -TZS ${foodPromoDiscount.toLocaleString()}/=` : '';
+      const discountLineFood =
+        foodTotalDiscount > 0
+          ? `\n🎁 *Punguzo${appliedPromoCode ? ` (${appliedPromoCode})` : ''}${foodRedeemDiscount > 0 ? ' + Pointi' : ''}:* -TZS ${foodTotalDiscount.toLocaleString()}/=`
+          : '';
       const mongikeFoodNote =
         isMobileMoneyPaymentMethod(paymentMethod) && total > 0
           ? `\n📲 *Malipo ya Mongike:* Ombi la kuweka PIN limetumwa kwenye namba *${phoneNum}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
@@ -9350,9 +9600,16 @@ async function routeToServiceFlow(
       const qty = session.details.mallQty || 1;
       const subtotalMall = session.details.mallTotal || session.details.selectedPrice || 0;
       const mallPromoDiscount = Math.min(subtotalMall, Number(session.details.promoDiscount || 0));
-      const totalAmt = Math.max(0, subtotalMall - mallPromoDiscount);
+      const mallRedeemDiscount = Math.min(
+        Math.max(0, subtotalMall - mallPromoDiscount),
+        Number(session.details.redeemDiscount || 0)
+      );
+      const mallTotalDiscount = Math.min(subtotalMall, mallPromoDiscount + mallRedeemDiscount);
+      const totalAmt = Math.max(0, subtotalMall - mallTotalDiscount);
       const appliedPromoCode = session.details.appliedPromoCode;
       const appliedCouponId = session.details.appliedCouponId;
+      const mallRedeemPts = Number(session.details.redeemPointsUsed || 0);
+      const mallRedeemVendor = session.details.redeemRewardVendorId;
       const vendorId = session.details.selectedVendorId || 'papo-mall-official';
       const vendorName = session.details.selectedVendorName || 'PapoMall Store';
       const selectedId = session.details.selectedId;
@@ -9373,7 +9630,7 @@ async function routeToServiceFlow(
       session.details = preserveCustomerFields(session.details, lang);
       await saveMetaSession(session, dbAdmin);
 
-      await triggerAutomatedOrder(
+      const createdMallOrderId = await triggerAutomatedOrder(
         dbAdmin,
         vendorId,
         'ecommerce',
@@ -9390,11 +9647,43 @@ async function routeToServiceFlow(
           paymentMethod: payMethod,
           paymentMethodLabel: payMethodLabel,
           orderType: 'delivery',
-          ...(mallPromoDiscount > 0 ? { discountAmount: mallPromoDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
+          metaSenderId: session.senderId,
+          metaChannel: session.channel,
+          ...(mallTotalDiscount > 0 ? { discountAmount: mallTotalDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
         }
       );
 
-      const discountLineMall = mallPromoDiscount > 0 ? `\n- Punguzo (${appliedPromoCode}): *-TZS ${mallPromoDiscount.toLocaleString()}*` : '';
+      if (mallRedeemPts > 0 || mallRedeemVendor) {
+        deductRedeemedLoyaltyPoints(dbAdmin, {
+          customerPhone: mallPhone,
+          pointsUsed: mallRedeemPts,
+          redeemRewardVendorId: mallRedeemVendor,
+        }).catch(() => {});
+      }
+      processReferralRewardOnOrder(
+        dbAdmin,
+        {
+          senderId: session.senderId,
+          channel: session.channel,
+          customerPhone: mallPhone,
+          customerName: custName,
+        },
+        sendMetaOutboundMessage
+      ).catch(() => {});
+
+      await attachBookingQrMedia(mediaCollector, {
+        entityType: 'order',
+        entityId: createdMallOrderId || mlCode,
+        bookingCode: mlCode,
+        title: vendorName,
+        amount: totalAmt,
+        subtitle: selectedName,
+      }).catch(() => {});
+
+      const discountLineMall =
+        mallTotalDiscount > 0
+          ? `\n- Punguzo${appliedPromoCode ? ` (${appliedPromoCode})` : ''}${mallRedeemDiscount > 0 ? ' + Pointi' : ''}: *-TZS ${mallTotalDiscount.toLocaleString()}*`
+          : '';
       const mongikeMallNote =
         isMobileMoneyPaymentMethod(payMethod) && totalAmt > 0
           ? `\n- 📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye *${mallPhone}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
@@ -12565,6 +12854,33 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               'CMD:LOYALTY_INFO': 'pointi',
               REORDER_LAST: 'agiza tena',
               'CMD:REORDER_LAST': 'agiza tena',
+              FUNDI_HUB: 'ufundi wangu',
+              'CMD:FUNDI_HUB': 'ufundi wangu',
+              FUNDI_JOBS: 'CMD:FUNDI_JOBS',
+              'CMD:FUNDI_JOBS': 'CMD:FUNDI_JOBS',
+              FUNDI_TOGGLE_OPEN: 'CMD:FUNDI_TOGGLE_OPEN',
+              'CMD:FUNDI_TOGGLE_OPEN': 'CMD:FUNDI_TOGGLE_OPEN',
+              HUMAN_HANDOVER: 'ongea na mhudumu',
+              'CMD:HUMAN_HANDOVER': 'ongea na mhudumu',
+              END_HANDOVER: 'rudi kwa boti',
+              'CMD:END_HANDOVER': 'rudi kwa boti',
+              SCHEDULE_RIDE: 'ratiba',
+              'CMD:SCHEDULE_RIDE': 'ratiba',
+              SCHED_DO_CONFIRM: 'SCHED_DO_CONFIRM',
+              OPEN_CATALOG: 'katalogi',
+              'CMD:OPEN_CATALOG': 'katalogi',
+              VIEW_CART: 'kikapu',
+              'CMD:VIEW_CART': 'kikapu',
+              CLEAR_CART: 'safisha kikapu',
+              'CMD:CLEAR_CART': 'safisha kikapu',
+              CHECKOUT_CART: 'lipia kikapu',
+              'CMD:CHECKOUT_CART': 'lipia kikapu',
+              REFERRAL_INFO: 'alika rafiki',
+              'CMD:REFERRAL_INFO': 'alika rafiki',
+              REDEEM_POINTS: 'komboa',
+              'CMD:REDEEM_POINTS': 'komboa',
+              GET_RECEIPT: 'risiti',
+              'CMD:GET_RECEIPT': 'risiti',
             };
             const upperNoSpace = normalizedRid.toUpperCase();
             if (legacyMap[upperNoSpace]) {
@@ -12572,11 +12888,14 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             }
             if (
               normalizedRid &&
-              (/^(\d{1,2}|M\d+|lugha|ruka|papomed|papofix|REORDER_CONF_(?:CASH|MOMO)|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
+              (/^(\d{1,2}|M\d+|lugha|ruka|papomed|papofix|REORDER_CONF_(?:CASH|MOMO)|SCHED_DO_CONFIRM|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
                 /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT|READY):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?PRD_TOGGLE:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?DRV_(?:CLAIM|SKIP):(?:ride|order):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?DRV_(?:RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?FND_(?:ACCEPT|QUOTE|START|DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?CUST_(?:ACCEPT|REJECT)_QUOTE:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?CAT_ADD:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 normalizedRid.startsWith('CMD:'))
             ) {
               return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;

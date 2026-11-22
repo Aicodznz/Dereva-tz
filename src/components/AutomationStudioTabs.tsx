@@ -168,6 +168,8 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   const [widgetEnabled, setWidgetEnabled] = useState(true);
   const [widgetColor, setWidgetColor] = useState('fuchsia');
   const [widgetPosition, setWidgetPosition] = useState('bottom_right');
+  const [broadcastCouponCode, setBroadcastCouponCode] = useState('');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
 
   // Webhook Domain & Live Ping Test States
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
@@ -448,38 +450,71 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Kodi ya Kuponi (Hiari — Promo Code)</label>
+                <Input
+                  value={broadcastCouponCode}
+                  onChange={(e) => setBroadcastCouponCode(e.target.value.toUpperCase())}
+                  placeholder="Mfano: PAPO20 (itambandikwa kwenye ujumbe)"
+                  className="h-9 text-xs bg-neutral-50/50 dark:bg-neutral-900 font-mono uppercase"
+                />
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Yaliyomo Kwenye Ujumbe (Campaign Message Text)</label>
                 <Textarea 
                   rows={4}
                   value={broadcastMessage}
                   onChange={(e) => setBroadcastMessage(e.target.value)}
-                  placeholder="Andika ujumbe wako wa ofa, punguzo au taarifa muhimu hapa... (Unaweza kutumia kigezo cha {jina} au {ofisi})"
+                  placeholder="Andika ujumbe wako wa ofa, punguzo au taarifa muhimu hapa..."
                   className="text-xs bg-neutral-50/50 dark:bg-neutral-900"
                 />
               </div>
 
               <Button
-                onClick={() => {
+                disabled={isSendingBroadcast}
+                onClick={async () => {
                   if (!broadcastMessage.trim()) {
                     toast.error("Tafadhali andika ujumbe wa tangazo!");
                     return;
                   }
-                  const mockCount = broadcastAudience === 'all' ? 1452 : broadcastAudience === 'drivers' ? 342 : 85;
-                  const newLog = {
-                    id: 'b_' + Date.now(),
-                    message: broadcastMessage,
-                    audience: broadcastAudience === 'all' ? "Wateja wote" : broadcastAudience === 'drivers' ? "Madereva wote" : "Wauzaji wote",
-                    channel: broadcastChannel,
-                    sentCount: mockCount,
-                    date: "Hivi sasa"
-                  };
-                  setBroadcastLogs([newLog, ...broadcastLogs]);
-                  setBroadcastMessage('');
-                  toast.success(`Kampeni ya Tangazo imetumwa kwa watu ${mockCount} kwa mafanikio! 🎉📲`);
+                  setIsSendingBroadcast(true);
+                  try {
+                    const res = await fetch('/api/meta/broadcast-promo', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        message: broadcastMessage.trim(),
+                        audience: broadcastAudience,
+                        channel: broadcastChannel,
+                        couponCode: broadcastCouponCode.trim() || undefined,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.error || 'Imeshindwa kutuma tangazo');
+                    const actualSent = Number(data?.sentCount ?? 0);
+                    const totalTargets = Number(data?.totalTargets ?? actualSent);
+                    const newLog = {
+                      id: 'b_' + Date.now(),
+                      message: broadcastMessage,
+                      audience: broadcastAudience === 'all' ? "Wateja wote (Opt-In)" : broadcastAudience === 'drivers' ? "Madereva wote" : "Wauzaji wote",
+                      channel: broadcastChannel,
+                      sentCount: actualSent,
+                      totalTargets,
+                      date: "Hivi sasa"
+                    };
+                    setBroadcastLogs([newLog, ...broadcastLogs]);
+                    setBroadcastMessage('');
+                    setBroadcastCouponCode('');
+                    toast.success(`Tangazo limetumwa kwa wapokeaji ${actualSent}/${totalTargets} (Opt-In) kupitia ${broadcastChannel}! 🎉📲`);
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Hitilafu wakati wa kutuma kampeni');
+                  } finally {
+                    setIsSendingBroadcast(false);
+                  }
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-wider text-xs h-9.5"
               >
-                Tuma Tangazo Sasa (Launch Campaign)
+                {isSendingBroadcast ? 'Inatuma Tangazo...' : 'Tuma Tangazo Sasa (Launch Campaign)'}
               </Button>
             </div>
 

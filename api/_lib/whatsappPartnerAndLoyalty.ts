@@ -1,4 +1,5 @@
 import { cleanUndefined } from './getFirestoreDb.js';
+export { cleanUndefined };
 
 export type PartnerMetaChannel = 'whatsapp' | 'messenger' | 'instagram';
 
@@ -216,11 +217,16 @@ export async function notifyPartnerApprovedToWhatsApp(
 
   if (partnerType === 'vendor') {
     const shopName = rec.businessName || rec.name || 'Duka Lako';
-    const text =
-      `🎉 *HONGERA! DUKA LAKO LIMEIDHINISHWA!* ✅\n\n` +
-      `🏪 *Biashara:* ${shopName}\n` +
-      `🟢 *Hali:* Hewani Sasa (Wateja wanaweza kuagiza WhatsApp & App!)\n\n` +
-      `💡 Unaweza kuongeza bidhaa, kufunga/kufungua duka, na kuona mauzo ya leo moja kwa moja hapa WhatsApp kwa kuandika *"Duka Langu"*:`;
+    const isFundi = String(rec.category || '').toLowerCase() === 'handyman';
+    const text = isFundi
+      ? `🎉 *HONGERA! USAJILI WAKO WA UFUNDI UMEIDHINISHWA!* ✅\n\n` +
+        `🛠️ *Jina:* ${shopName}\n` +
+        `🟢 *Hali:* Hewani Sasa (Wateja wanaweza kukuomba kazi moja kwa moja!)\n\n` +
+        `💡 Bonyeza *Ufundi Wangu* hapa chini kupokea kazi mpya, kutuma bei, na kudhibiti upatikanaji wako:`
+      : `🎉 *HONGERA! DUKA LAKO LIMEIDHINISHWA!* ✅\n\n` +
+        `🏪 *Biashara:* ${shopName}\n` +
+        `🟢 *Hali:* Hewani Sasa (Wateja wanaweza kuagiza WhatsApp & App!)\n\n` +
+        `💡 Unaweza kuongeza bidhaa, kufunga/kufungua duka, na kuona mauzo ya leo moja kwa moja hapa WhatsApp kwa kuandika *"Duka Langu"*:`;
     const res = await sendOutbound({
       channel: 'whatsapp',
       recipientId: recipientDigits,
@@ -230,11 +236,17 @@ export async function notifyPartnerApprovedToWhatsApp(
         body: { text },
         footer: { text: 'Papo Hapo Partner Hub' },
         action: {
-          buttons: [
-            { type: 'reply', reply: { id: 'CMD:MY_SHOP', title: '🏪 Duka Langu' } },
-            { type: 'reply', reply: { id: 'CMD:VENDOR_ADD_PRODUCT', title: '➕ Ongeza Bidhaa' } },
-            { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
-          ],
+          buttons: isFundi
+            ? [
+                { type: 'reply', reply: { id: 'CMD:FUNDI_HUB', title: '🛠️ Ufundi Wangu' } },
+                { type: 'reply', reply: { id: 'CMD:FUNDI_JOBS', title: '📋 Kazi Mpya' } },
+                { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
+              ]
+            : [
+                { type: 'reply', reply: { id: 'CMD:MY_SHOP', title: '🏪 Duka Langu' } },
+                { type: 'reply', reply: { id: 'CMD:VENDOR_ADD_PRODUCT', title: '➕ Ongeza Bidhaa' } },
+                { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
+              ],
         },
       },
     });
@@ -1642,8 +1654,13 @@ export async function handleLoyaltyAndReorderCommands(
   const isReorderCmd = /^(?:🔁\s*)?(agiza\s*tena|rudia\s*oda|reorder|CMD:REORDER_LAST|REORDER_LAST)$/i.test(trimmed);
   const promoApplyMatch = trimmed.match(/^(?:kuponi|promo|coupon|code)\s+#?([A-Za-z0-9_-]{3,24})$/i);
 
-  // Allow applying a promo code mid-checkout (SELECTING_PAYMENT_METHOD / CONFIRMING_TRIP)
-  if (promoApplyMatch && (session.step === 'SELECTING_PAYMENT_METHOD' || session.step === 'CONFIRMING_TRIP')) {
+  // Allow applying a promo code mid-checkout (SELECTING_PAYMENT_METHOD / CONFIRMING_TRIP / CART_WAIT_PAYMENT)
+  if (
+    promoApplyMatch &&
+    (session.step === 'SELECTING_PAYMENT_METHOD' ||
+      session.step === 'CONFIRMING_TRIP' ||
+      session.step === 'CART_WAIT_PAYMENT')
+  ) {
     const subtotal = Number(
       session.details?.mallTotal ??
         session.details?.selectedPrice ??
@@ -1667,7 +1684,8 @@ export async function handleLoyaltyAndReorderCommands(
     session.details.appliedPromoCode = res.code;
     session.details.appliedCouponId = res.couponId;
     session.details.promoDiscount = res.discountAmount;
-    const netTotal = Math.max(0, subtotal - res.discountAmount);
+    const redeemDiscount = Number(session.details?.redeemDiscount || 0);
+    const netTotal = Math.max(0, subtotal - res.discountAmount - redeemDiscount);
     await deps.saveSession(session, dbAdmin);
     return (
       `🎁 *KUPONI IMETUMIKA: ${res.code}!*\n` +
@@ -1722,18 +1740,20 @@ export async function handleLoyaltyAndReorderCommands(
     }
 
     session.details.quickReplyButtons = [
-      { id: 'CMD:MY_ORDERS', title: isEn ? '📋 My Orders' : '📋 Oda Zangu' },
+      { id: 'CMD:REDEEM_POINTS', title: isEn ? '💎 Redeem Points' : '💎 Komboa Pointi' },
+      { id: 'CMD:REFERRAL_INFO', title: isEn ? '🤝 Invite Friend' : '🤝 Alika Rafiki' },
       { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
     ];
     await deps.saveSession(session, dbAdmin);
 
+    const pointsValueTzs = totalPoints * 20;
     return (
       `🎁 *POINTI ZAKO & KUPONI ZA PUNGUZO*\n\n` +
-      `⭐ *Jumla ya Pointi:* ${totalPoints} pts\n` +
+      `⭐ *Jumla ya Pointi:* ${totalPoints} pts *(~TZS ${pointsValueTzs.toLocaleString()}/=)*\n` +
       `🏆 *Zawadi za Bure Tayari:* ${totalRewards}\n` +
       (shopSummaries.length > 0 ? `\n*Kadi Zako za Uaminifu:*\n${shopSummaries.join('\n')}\n` : `\n_Agiza chakula au bidhaa kukusanya stempu na pointi za bure!_\n`) +
       (activeCoupons.length > 0 ? `\n🎟️ *Kuponi Zinazotumika Sasa:*\n${activeCoupons.slice(0, 5).join('\n')}\n` : '') +
-      `\n💡 _Unapolipa oda WhatsApp, andika *KUPONI KODI* (mfano: *KUPONI KARIBU10*) kupata punguzo papo hapo!_`
+      `\n💡 _Unapolipa oda WhatsApp, andika *KUPONI KODI* au *KOMBOA* kupata punguzo papo hapo!_`
     );
   }
 

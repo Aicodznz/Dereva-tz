@@ -7,15 +7,30 @@ import { toast } from 'sonner';
 import {
   Ban,
   CheckCircle2,
+  Headphones,
   MapPin,
   MessageCircle,
   RefreshCw,
   Search,
+  Send,
   ShieldAlert,
   Trash2,
   Unlock,
   Users,
 } from 'lucide-react';
+
+export interface SupportTicketRow {
+  id: string;
+  channel: 'whatsapp' | 'messenger' | 'instagram';
+  senderId: string;
+  customerName: string;
+  customerPhone: string;
+  status: 'open' | 'resolved' | string;
+  lastMessage: string;
+  messages: Array<{ sender: 'customer' | 'agent' | string; text: string; timestamp?: string }>;
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface MetaCustomerRow {
   id: string;
@@ -54,14 +69,24 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
   const [blockReasonDraft, setBlockReasonDraft] = useState<Record<string, string>>({});
   const [editingBlockKey, setEditingBlockKey] = useState<string | null>(null);
+  const [supportTickets, setSupportTickets] = useState<SupportTicketRow[]>([]);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [ticketBusyId, setTicketBusyId] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/meta/customers');
-      if (!res.ok) throw new Error('Imeshindwa kupakia orodha ya wateja');
-      const data = await res.json();
+      const [custRes, ticketRes] = await Promise.all([
+        fetch('/api/meta/customers'),
+        fetch('/api/meta/support-tickets').catch(() => null),
+      ]);
+      if (!custRes.ok) throw new Error('Imeshindwa kupakia orodha ya wateja');
+      const data = await custRes.json();
       setCustomers(Array.isArray(data?.customers) ? data.customers : []);
+      if (ticketRes && ticketRes.ok) {
+        const tData = await ticketRes.json().catch(() => ({}));
+        setSupportTickets(Array.isArray(tData?.tickets) ? tData.tickets : []);
+      }
     } catch (err: any) {
       toast.error(err?.message || 'Imeshindwa kupakia wateja wa WhatsApp');
     } finally {
@@ -72,6 +97,54 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
+
+  const handleSupportAction = async (ticket: SupportTicketRow, action: 'reply' | 'resolve') => {
+    const msg = (replyDrafts[ticket.id] || '').trim();
+    if (action === 'reply' && !msg) {
+      toast.error('Andika ujumbe wa kumjibu mteja kwanza.');
+      return;
+    }
+    setTicketBusyId(ticket.id);
+    try {
+      const res = await fetch('/api/meta/support-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId: ticket.id,
+          action,
+          ...(msg ? { message: msg } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Imeshindwa kutuma jibu la msaada');
+
+      setReplyDrafts((prev) => ({ ...prev, [ticket.id]: '' }));
+      setSupportTickets((prev) =>
+        prev.map((row) =>
+          row.id === ticket.id
+            ? {
+                ...row,
+                status: action === 'resolve' ? 'resolved' : 'open',
+                lastMessage: msg ? `Admin: ${msg}` : row.lastMessage,
+                messages: msg
+                  ? [...(row.messages || []), { sender: 'agent', text: msg, timestamp: new Date().toISOString() }]
+                  : row.messages,
+                updatedAt: Date.now(),
+              }
+            : row
+        )
+      );
+      toast.success(
+        action === 'resolve'
+          ? `Tiketi ya ${ticket.customerName} imefungwa na mteja amerudishwa kwa Boti.`
+          : `Jibu limetumwa kwa ${ticket.customerName} kupitia WhatsApp.`
+      );
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu ya kutuma jibu');
+    } finally {
+      setTicketBusyId(null);
+    }
+  };
 
   const handleToggleBlock = async (customer: MetaCustomerRow, reason?: string) => {
     const nextBlocked = !customer.blocked;
@@ -155,8 +228,117 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
   });
 
   const blockedCount = customers.filter((c) => c.blocked).length;
+  const openTickets = supportTickets.filter((t) => t.status === 'open');
 
   return (
+    <div className="space-y-4">
+      {supportTickets.length > 0 && (
+        <Card className="border border-amber-200/80 dark:border-amber-900/50 shadow-sm bg-white dark:bg-neutral-950">
+          <CardHeader className="pb-3 border-b border-amber-100/80 dark:border-neutral-800">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                  <Headphones className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-xs font-black uppercase tracking-wider text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                    <span>Msaada wa Moja kwa Moja (Live Handover Desk)</span>
+                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-none text-[10px] font-bold">
+                      Wazi: {openTickets.length}
+                    </Badge>
+                  </CardTitle>
+                  <CardDescription className="text-[11px] mt-0.5">
+                    Wateja walioomba kuongea na mhudumu WhatsApp. Jibu hapa hapa au funga kurudisha udhibiti kwa Boti.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3 max-h-[340px] overflow-y-auto">
+            {supportTickets.slice(0, 8).map((ticket) => {
+              const isOpen = ticket.status === 'open';
+              const isBusyTicket = ticketBusyId === ticket.id;
+              return (
+                <div
+                  key={ticket.id}
+                  className={`p-3 rounded-xl border space-y-2.5 ${
+                    isOpen
+                      ? 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/15'
+                      : 'border-neutral-200/70 bg-neutral-50/60 dark:border-neutral-800 dark:bg-neutral-900/30 opacity-80'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
+                        {ticket.customerName}
+                      </span>
+                      <span className="text-[11px] font-mono text-neutral-500">
+                        {ticket.customerPhone || ticket.senderId}
+                      </span>
+                    </div>
+                    <Badge
+                      className={`border-none text-[10px] font-black uppercase ${
+                        isOpen
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
+                      {isOpen ? 'Inasubiri Mhudumu' : 'Imefungwa'}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-1 max-h-24 overflow-y-auto text-[11px] bg-white/80 dark:bg-neutral-950/60 p-2 rounded-lg border border-neutral-100 dark:border-neutral-800">
+                    {(ticket.messages || []).slice(-4).map((m, idx) => (
+                      <div key={idx} className={m.sender === 'agent' ? 'text-emerald-700 dark:text-emerald-400' : 'text-neutral-700 dark:text-neutral-300'}>
+                        <strong className="uppercase text-[9px] mr-1.5">
+                          {m.sender === 'agent' ? 'Admin:' : 'Mteja:'}
+                        </strong>
+                        <span>{m.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {isOpen && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        value={replyDrafts[ticket.id] || ''}
+                        onChange={(e) =>
+                          setReplyDrafts((prev) => ({ ...prev, [ticket.id]: e.target.value }))
+                        }
+                        placeholder="Andika jibu la kumtumia mteja WhatsApp..."
+                        className="h-8 text-xs bg-white dark:bg-neutral-900 rounded-xl flex-1"
+                      />
+                      <div className="flex gap-1.5 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isBusyTicket}
+                          onClick={() => handleSupportAction(ticket, 'reply')}
+                          className="h-8 px-3 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                        >
+                          <Send className="w-3 h-3 mr-1" />
+                          Jibu
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={isBusyTicket}
+                          onClick={() => handleSupportAction(ticket, 'resolve')}
+                          className="h-8 px-2.5 text-[11px] font-bold text-amber-700 border-amber-300 hover:bg-amber-50 dark:border-amber-800 rounded-xl"
+                        >
+                          Maliza & Rudi Boti
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
     <Card className="border border-neutral-200/80 dark:border-neutral-800 shadow-sm bg-white dark:bg-neutral-950">
       <CardHeader className={compact ? 'pb-3' : 'pb-4 border-b border-neutral-100 dark:border-neutral-800'}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -420,5 +602,6 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
         )}
       </CardContent>
     </Card>
+    </div>
   );
 };
