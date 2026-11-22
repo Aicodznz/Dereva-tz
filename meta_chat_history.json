@@ -1,5 +1,165 @@
 [
   {
+    "id": "m-mem-1795380392358-8ece",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "ACHA MATANGAZO",
+    "reply": "🔕 *Umeondoa Taarifa za Matangazo.* Hutapokea ujumbe wa matangazo tena (andika *RUHUSU OFA* wakati wowote kurudisha).",
+    "timestamp": "2026-11-22T20:46:32.358Z"
+  },
+  {
+    "id": "m-mem-1795380389105-b0kh",
+    "channel": "whatsapp",
+    "senderId": "255700980595",
+    "message": "SCHED_DO_CONFIRM",
+    "reply": "✅ *SAFARI YA RATIBA IMEHIFADHIWA!* (#SCH-788684)\n\n🕒 *Muda:* *Kesho Saa 08:00*\n📍 *Njia:* Mwenge ➜ Airport\n💰 *Kadirio la Nauli:* TZS 7,500/=\n\n⏰ Tutakutumia ukumbusho na kuwatafuta madereva dakika 30 kabla ya muda wako.\n🔗 Fuatilia: https://dereva-tz.onrender.com/track/fNVNZ5Uy7uK9la6C3yFx",
+    "timestamp": "2026-11-22T20:46:29.105Z"
+  },
+  {
+    "id": "m-mem-1795380386652-2lau",
+    "channel": "whatsapp",
+    "senderId": "255700980595",
+    "message": "Taxi kesho saa 8 kutoka Mwenge kwenda Airport",
+    "reply": "📅 *THIBITISHA SAFARI YA RATIBA*\n\n🕒 *Muda:* *Kesho Saa 08:00*\n📍 *Kutoka:* Mwenge\n🏁 *Kwenda:* Airport\n🚖 *Usafiri:* CAR • ~TZS 7,500/=\n\nBonyeza *Weka Ratiba* kuthibitisha (utakumbushwa na kuunganishiwa dereva muda ukifika):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:46:26.652Z"
+  },
+  {
+    "id": "m-mem-1795380384323-992d",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "RISITI",
+    "reply": "🧾 *RISITI RASMI YA QR — #CT-3171*\n\n📌 *Huduma:* Papo Hapo Store\n📝 *Maelezo:* SSFF x1\n💰 *Kiasi:* *TZS 15,600/=*\n📊 *Hali:* PENDING\n\n✅ _Skani picha ya QR hapo juu au fungua kiungo kuhakiki risiti:_\n🔗 https://dereva-tz.onrender.com/verify-receipt/7BRlN5aT8KXH9rZUXk7G",
+    "timestamp": "2026-11-22T20:46:24.323Z"
+  },
+  {
+    "id": "m-mem-1795380381557-0ymj",
+    "channel": "whatsapp",
+    "senderId": "255700980595",
+    "message": "CUST_ACCEPT_QUOTE:test-job-1795380372745",
+    "reply": "✅ *Umekubali bei ya Fundi (TZS 45,000/=)!*\n🛠️ *Fundi:* Fundi Juma AC Test amejulishwa na yuko njiani.",
+    "timestamp": "2026-11-22T20:46:21.557Z"
+  },
+  {
+    "id": "m-mem-1795380379558-xkf6",
+    "channel": "whatsapp",
+    "senderId": "255700980594",
+    "message": "45000",
+    "reply": "✅ *Bei ya TZS 45,000/= imetumwa kwa mteja!* Utajulishwa WhatsApp akishakubali.",
+    "timestamp": "2026-11-22T20:46:19.558Z"
+  },
+  {
+    "id": "m-mem-1795380377184-hqyw",
+    "channel": "whatsapp",
+    "senderId": "255700980594",
+    "message": "FND_QUOTE:test-job-1795380372745",
+    "reply": "💰 *Tuma Bei ya Kazi (Quote):*\n\nAndika kiasi cha TZS utakachomtoza mteja (mfano: *25000*):",
+    "timestamp": "2026-11-22T20:46:17.184Z"
+  },
+  {
+    "id": "m-mem-1795380375147-k50b",
+    "channel": "whatsapp",
+    "senderId": "255700980594",
+    "message": "Ufundi Wangu",
+    "reply": "🛠️ *KITUO CHA UFUNDI — Fundi Juma AC Test*\n\n• *Hali:* 🟢 Wazi Kupokea Kazi\n• *Fani:* Fundi\n• *Kazi Zinazosubiri:* 1\n\nTumia vitufe chini kusimamia upatikanaji na kazi zako:",
+    "timestamp": "2026-11-22T20:46:15.147Z"
+  },
+  {
+    "id": "m-mem-1795380372237-i206",
+    "channel": "whatsapp",
+    "senderId": "255700980593",
+    "message": "Katalogi",
+    "reply": "🛍️ *KATALOGI YA PAPO HAPO (CHAGUA BIDHAA NYINGI)*\n\n*1. SSFF* — TZS 16,000/=\n\nAndika namba (*1–1*) au *ONGEZA 1 2* (namba + idadi) kuweka kikapuni, kisha bonyeza *Kikapu* kulipia kwa pamoja!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:46:12.237Z"
+  },
+  {
+    "id": "m-mem-1795380368953-aeno",
+    "channel": "whatsapp",
+    "senderId": "255700980593",
+    "message": "Nahitaji msaada wa dereva wangu",
+    "reply": "🎧 Ujumbe wako umefika kwa timu ya msaada. Mhudumu atakujibu hapa hapa WhatsApp muda si mrefu.\n_(Bonyeza *Rudi kwa Boti* au andika *Menu* kurudi kwenye huduma za boti.)_",
+    "timestamp": "2026-11-22T20:46:08.953Z"
+  },
+  {
+    "id": "m-mem-1795380366789-g3ir",
+    "channel": "whatsapp",
+    "senderId": "255700980593",
+    "message": "Ongea na Mhudumu",
+    "reply": "🎧 *UMEUNGANISHWA NA HUDUMA KWA WATEJA*\n\nAndika tatizo lako, namba ya oda au tuma picha hapa — mhudumu wa Papo Hapo atapokea na kukujibu moja kwa moja hapa WhatsApp.\n\n_(Andika *Menu* au bonyeza *Rudi kwa Boti* muda wowote kurudi kwenye boti.)_",
+    "timestamp": "2026-11-22T20:46:06.789Z"
+  },
+  {
+    "id": "m-mem-1795380363971-evsk",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "1",
+    "reply": "🎉 *ODA YA KIKAPU IMEPOKELEWA!* (#CT-3171)\n\n🛒 *Vitu:* SSFF x1\n🎁 *Punguzo:* -TZS 400/=\n💰 *Jumla:* *TZS 15,600/=*\n💳 *Malipo:* Cash 💵\n📍 *Eneo:* Mikocheni B\n\n🔗 *Risiti & Ufuatiliaji:* https://dereva-tz.onrender.com/verify-receipt/7BRlN5aT8KXH9rZUXk7G",
+    "timestamp": "2026-11-22T20:46:03.971Z"
+  },
+  {
+    "id": "m-mem-1795380359311-wvjw",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "KOMBOA",
+    "reply": "💎 *POINTI ZIMEKOMBOLWA!* ✅\n✂️ *Punguzo la Pointi:* -TZS 400/= (20 pts)\n💰 *Kiasi Kipya cha Kulipa:* *TZS 15,600/=*\n\nSasa chagua njia ya malipo (*1. Cash, 2. M-Pesa, 3. Tigo Pesa, 4. Airtel Money*) au andika *Ndio* kuthibitisha:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:59.311Z"
+  },
+  {
+    "id": "m-mem-1795380356888-ndbx",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "Mikocheni B",
+    "reply": "📍 *Eneo:* Mikocheni B\n💰 *Jumla:* *TZS 16,000/=*\n\n💳 *Chagua Njia ya Malipo:*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money\n\n_(Unaweza pia kuandika *KUPONI KODI* au *KOMBOA* kabla ya kuchagua malipo)_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:56.888Z"
+  },
+  {
+    "id": "m-mem-1795380354568-fj28",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "Lipia Kikapu",
+    "reply": "📍 *KIKAPU — TZS 16,000/=*\n\nTuma *eneo/mtaa wa kuletewa* mzigo wako (au tuma 📍 *Location*):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:54.568Z"
+  },
+  {
+    "id": "m-mem-1795380352305-w14b",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "Kikapu",
+    "reply": "🛒 *KIKAPU CHAKO (1 Bidhaa):*\n\n1. *SSFF* x1 — TZS 16,000\n\n💰 *Jumla:* *TZS 16,000/=*\n\nBonyeza *Lipia Kikapu* kuagiza sasa, *Ongeza Zaidi*, au andika *ONDOA 1* kuondoa bidhaa:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:52.305Z"
+  },
+  {
+    "id": "m-mem-1795380349945-9noe",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "1",
+    "reply": "✅ *SSFF* x1 imeongezwa kikapuni!\n🛒 *Jumla ya Kikapu (1 bidhaa):* *TZS 16,000/=*\n\nAndika namba nyingine kuongeza bidhaa, bonyeza *Kikapu*, au *Lipia Sasa*:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:49.945Z"
+  },
+  {
+    "id": "m-mem-1795380347524-3066",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "Katalogi",
+    "reply": "🛍️ *KATALOGI YA PAPO HAPO (CHAGUA BIDHAA NYINGI)*\n\n*1. SSFF* — TZS 16,000/=\n\nAndika namba (*1–1*) au *ONGEZA 1 2* (namba + idadi) kuweka kikapuni, kisha bonyeza *Kikapu* kulipia kwa pamoja!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
+    "timestamp": "2026-11-22T20:45:47.524Z"
+  },
+  {
+    "id": "m-mem-1795380344921-ftd1",
+    "channel": "whatsapp",
+    "senderId": "255700980592",
+    "message": "ALIKA PAPO0591",
+    "reply": "🤝 *KODI YA MUALIKO IMETUMIKA: PAPO0591!*\n\n🎁 Umepata *+20 Pointi* za ukaribisho sasa hivi!\nUkikamilisha oda au safari yako inayofuata, wewe na *Mteja wa Papo Hapo* mtapata *+50 Pointi* za nyongeza!",
+    "timestamp": "2026-11-22T20:45:44.921Z"
+  },
+  {
+    "id": "m-mem-1795380341227-tae0",
+    "channel": "whatsapp",
+    "senderId": "255700980591",
+    "message": "Alika Rafiki",
+    "reply": "🤝 *ALIKA RAFIKI — PATA TZS 1,000+ BURE!*\n\n🔖 *Kodi Yako ya Mualiko:* *PAPO0591*\n👥 *Marafiki Waliojiunga:* 0\n\n📣 *Jinsi Inavyofanya Kazi:*\n1. Mtumie rafiki yako kodi *PAPO0591* au kiungo chako.\n2. Akijiunga na kuandika *ALIKA PAPO0591* kisha akaagiza mara ya kwanza, nyote wawili mnapata *+50 Pointi (TZS 1,000)*!\n\n🔗 *Kiungo cha Kushea:* https://wa.me/255775985358?text=ALIKA%20PAPO0591",
+    "timestamp": "2026-11-22T20:45:41.227Z"
+  },
+  {
     "id": "m-mem-1795312798700-7jc1",
     "channel": "whatsapp",
     "senderId": "255700978533",
@@ -238,165 +398,5 @@
     "message": "ALIKA PAPO8001",
     "reply": "🤝 *KODI YA MUALIKO IMETUMIKA: PAPO8001!*\n\n🎁 Umepata *+20 Pointi* za ukaribisho sasa hivi!\nUkikamilisha oda au safari yako inayofuata, wewe na *Mteja wa Papo Hapo* mtapata *+50 Pointi* za nyongeza!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
     "timestamp": "2026-11-22T01:57:01.936Z"
-  },
-  {
-    "id": "m-mem-1795312618461-t4gm",
-    "channel": "whatsapp",
-    "senderId": "255700008001",
-    "message": "Alika Rafiki",
-    "reply": "🤝 *ALIKA RAFIKI — PATA TZS 1,000+ BURE!*\n\n🔖 *Kodi Yako ya Mualiko:* *PAPO8001*\n👥 *Marafiki Waliojiunga:* 0\n\n📣 *Jinsi Inavyofanya Kazi:*\n1. Mtumie rafiki yako kodi *PAPO8001* au kiungo chako.\n2. Akijiunga na kuandika *ALIKA PAPO8001* kisha akaagiza mara ya kwanza, nyote wawili mnapata *+50 Pointi (TZS 1,000)*!\n\n🔗 *Kiungo cha Kushea:* https://wa.me/255775985358?text=ALIKA%20PAPO8001",
-    "timestamp": "2026-11-22T01:56:58.461Z"
-  },
-  {
-    "id": "m-mem-1795312588901-w0tx",
-    "channel": "whatsapp",
-    "senderId": "255700008002",
-    "message": "1",
-    "reply": "✅ *SSFF* x1 imeongezwa kikapuni!\n🛒 *Jumla ya Kikapu (1 bidhaa):* *TZS 16,000/=*\n\nAndika namba nyingine kuongeza bidhaa, bonyeza *Kikapu*, au *Lipia Sasa*:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:56:28.901Z"
-  },
-  {
-    "id": "m-mem-1795312586575-yitb",
-    "channel": "whatsapp",
-    "senderId": "255700008002",
-    "message": "Katalogi",
-    "reply": "🛍️ *KATALOGI YA PAPO HAPO (CHAGUA BIDHAA NYINGI)*\n\n*1. SSFF* — TZS 16,000/=\n\nAndika namba (*1–1*) au *ONGEZA 1 2* (namba + idadi) kuweka kikapuni, kisha bonyeza *Kikapu* kulipia kwa pamoja!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:56:26.575Z"
-  },
-  {
-    "id": "m-mem-1795312584118-b70i",
-    "channel": "whatsapp",
-    "senderId": "255700008002",
-    "message": "ALIKA PAPO8001",
-    "reply": "🤝 *KODI YA MUALIKO IMETUMIKA: PAPO8001!*\n\n🎁 Umepata *+20 Pointi* za ukaribisho sasa hivi!\nUkikamilisha oda au safari yako inayofuata, wewe na *Mteja wa Papo Hapo* mtapata *+50 Pointi* za nyongeza!",
-    "timestamp": "2026-11-22T01:56:24.118Z"
-  },
-  {
-    "id": "m-mem-1795312580323-6aqm",
-    "channel": "whatsapp",
-    "senderId": "255700008001",
-    "message": "Alika Rafiki",
-    "reply": "🤝 *ALIKA RAFIKI — PATA TZS 1,000+ BURE!*\n\n🔖 *Kodi Yako ya Mualiko:* *PAPO8001*\n👥 *Marafiki Waliojiunga:* 0\n\n📣 *Jinsi Inavyofanya Kazi:*\n1. Mtumie rafiki yako kodi *PAPO8001* au kiungo chako.\n2. Akijiunga na kuandika *ALIKA PAPO8001* kisha akaagiza mara ya kwanza, nyote wawili mnapata *+50 Pointi (TZS 1,000)*!\n\n🔗 *Kiungo cha Kushea:* https://wa.me/255775985358?text=ALIKA%20PAPO8001",
-    "timestamp": "2026-11-22T01:56:20.323Z"
-  },
-  {
-    "id": "m-mem-1795312528735-8gbp",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "KOMBOA",
-    "reply": "💎 *POINTI ZIMEKOMBOLWA!* ✅\n✂️ *Punguzo la Pointi:* -TZS 400/= (20 pts)\n💰 *Kiasi Kipya cha Kulipa:* *TZS 15,600/=*\n\nSasa chagua njia ya malipo (*1. Cash, 2. M-Pesa, 3. Tigo Pesa, 4. Airtel Money*) au andika *Ndio* kuthibitisha:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:55:28.735Z"
-  },
-  {
-    "id": "m-mem-1795312526406-2vue",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "Mikocheni",
-    "reply": "📍 *Eneo:* Mikocheni\n💰 *Jumla:* *TZS 16,000/=*\n\n💳 *Chagua Njia ya Malipo:*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money\n\n_(Unaweza pia kuandika *KUPONI KODI* au *KOMBOA* kabla ya kuchagua malipo)_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:55:26.406Z"
-  },
-  {
-    "id": "m-mem-1795312524023-2ogt",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "Lipia Kikapu",
-    "reply": "📍 *KIKAPU — TZS 16,000/=*\n\nTuma *eneo/mtaa wa kuletewa* mzigo wako (au tuma 📍 *Location*):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:55:24.023Z"
-  },
-  {
-    "id": "m-mem-1795312521758-vpy9",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "1",
-    "reply": "✅ *SSFF* x1 imeongezwa kikapuni!\n🛒 *Jumla ya Kikapu (1 bidhaa):* *TZS 16,000/=*\n\nAndika namba nyingine kuongeza bidhaa, bonyeza *Kikapu*, au *Lipia Sasa*:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:55:21.758Z"
-  },
-  {
-    "id": "m-mem-1795312519557-qkis",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "Katalogi",
-    "reply": "🛍️ *KATALOGI YA PAPO HAPO (CHAGUA BIDHAA NYINGI)*\n\n*1. SSFF* — TZS 16,000/=\n\nAndika namba (*1–1*) au *ONGEZA 1 2* (namba + idadi) kuweka kikapuni, kisha bonyeza *Kikapu* kulipia kwa pamoja!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:55:19.557Z"
-  },
-  {
-    "id": "m-mem-1795312517023-dwls",
-    "channel": "whatsapp",
-    "senderId": "255700009002",
-    "message": "ALIKA PAPO9001",
-    "reply": "🤝 *KODI YA MUALIKO IMETUMIKA: PAPO9001!*\n\n🎁 Umepata *+20 Pointi* za ukaribisho sasa hivi!\nUkikamilisha oda au safari yako inayofuata, wewe na *Mteja wa Papo Hapo* mtapata *+50 Pointi* za nyongeza!",
-    "timestamp": "2026-11-22T01:55:17.023Z"
-  },
-  {
-    "id": "m-mem-1795312513444-5r7a",
-    "channel": "whatsapp",
-    "senderId": "255700009001",
-    "message": "Alika Rafiki",
-    "reply": "🤝 *ALIKA RAFIKI — PATA TZS 1,000+ BURE!*\n\n🔖 *Kodi Yako ya Mualiko:* *PAPO9001*\n👥 *Marafiki Waliojiunga:* 0\n\n📣 *Jinsi Inavyofanya Kazi:*\n1. Mtumie rafiki yako kodi *PAPO9001* au kiungo chako.\n2. Akijiunga na kuandika *ALIKA PAPO9001* kisha akaagiza mara ya kwanza, nyote wawili mnapata *+50 Pointi (TZS 1,000)*!\n\n🔗 *Kiungo cha Kushea:* https://wa.me/255775985358?text=ALIKA%20PAPO9001",
-    "timestamp": "2026-11-22T01:55:13.444Z"
-  },
-  {
-    "id": "m-mem-1795312490283-h5j5",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "KOMBOA",
-    "reply": "💎 *POINTI ZIMEKOMBOLWA!* ✅\n✂️ *Punguzo la Pointi:* -TZS 3,120/= (156 pts)\n💰 *Kiasi Kipya cha Kulipa:* *TZS 12,880/=*\n\nSasa chagua njia ya malipo (*1. Cash, 2. M-Pesa, 3. Tigo Pesa, 4. Airtel Money*) au andika *Ndio* kuthibitisha:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:50.283Z"
-  },
-  {
-    "id": "m-mem-1795312487867-2atq",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "Mikocheni B",
-    "reply": "📍 *Eneo:* Mikocheni B\n💰 *Jumla:* *TZS 16,000/=*\n\n💳 *Chagua Njia ya Malipo:*\n1. 💵 Cash\n2. 📱 M-Pesa\n3. 📱 Tigo Pesa\n4. 📱 Airtel Money\n\n_(Unaweza pia kuandika *KUPONI KODI* au *KOMBOA* kabla ya kuchagua malipo)_\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:47.867Z"
-  },
-  {
-    "id": "m-mem-1795312485492-ivqp",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "Lipia Kikapu",
-    "reply": "📍 *KIKAPU — TZS 16,000/=*\n\nTuma *eneo/mtaa wa kuletewa* mzigo wako (au tuma 📍 *Location*):\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:45.492Z"
-  },
-  {
-    "id": "m-mem-1795312483136-3gwb",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "Kikapu",
-    "reply": "🛒 *KIKAPU CHAKO (1 Bidhaa):*\n\n1. *SSFF* x1 — TZS 16,000\n\n💰 *Jumla:* *TZS 16,000/=*\n\nBonyeza *Lipia Kikapu* kuagiza sasa, *Ongeza Zaidi*, au andika *ONDOA 1* kuondoa bidhaa:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:43.136Z"
-  },
-  {
-    "id": "m-mem-1795312480815-c1nx",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "1",
-    "reply": "✅ *SSFF* x1 imeongezwa kikapuni!\n🛒 *Jumla ya Kikapu (1 bidhaa):* *TZS 16,000/=*\n\nAndika namba nyingine kuongeza bidhaa, bonyeza *Kikapu*, au *Lipia Sasa*:\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:40.815Z"
-  },
-  {
-    "id": "m-mem-1795312478501-ic5s",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "Katalogi",
-    "reply": "🛍️ *KATALOGI YA PAPO HAPO (CHAGUA BIDHAA NYINGI)*\n\n*1. SSFF* — TZS 16,000/=\n\nAndika namba (*1–1*) au *ONGEZA 1 2* (namba + idadi) kuweka kikapuni, kisha bonyeza *Kikapu* kulipia kwa pamoja!\n\n_(0. Rudi nyuma • 00. Anza upya)_",
-    "timestamp": "2026-11-22T01:54:38.501Z"
-  },
-  {
-    "id": "m-mem-1795312476060-syan",
-    "channel": "whatsapp",
-    "senderId": "255700001002",
-    "message": "ALIKA PAPO1001",
-    "reply": "🤝 *KODI YA MUALIKO IMETUMIKA: PAPO1001!*\n\n🎁 Umepata *+20 Pointi* za ukaribisho sasa hivi!\nUkikamilisha oda au safari yako inayofuata, wewe na *Mteja wa Papo Hapo* mtapata *+50 Pointi* za nyongeza!",
-    "timestamp": "2026-11-22T01:54:36.061Z"
-  },
-  {
-    "id": "m-mem-1795312472576-ncw5",
-    "channel": "whatsapp",
-    "senderId": "255700001001",
-    "message": "Alika Rafiki",
-    "reply": "🤝 *ALIKA RAFIKI — PATA TZS 1,000+ BURE!*\n\n🔖 *Kodi Yako ya Mualiko:* *PAPO1001*\n👥 *Marafiki Waliojiunga:* 0\n\n📣 *Jinsi Inavyofanya Kazi:*\n1. Mtumie rafiki yako kodi *PAPO1001* au kiungo chako.\n2. Akijiunga na kuandika *ALIKA PAPO1001* kisha akaagiza mara ya kwanza, nyote wawili mnapata *+50 Pointi (TZS 1,000)*!\n\n🔗 *Kiungo cha Kushea:* https://wa.me/255775985358?text=ALIKA%20PAPO1001",
-    "timestamp": "2026-11-22T01:54:32.576Z"
   }
 ]
