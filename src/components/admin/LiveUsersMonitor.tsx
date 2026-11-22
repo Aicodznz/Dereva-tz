@@ -47,9 +47,11 @@ import {
   GEOLIBRE_BASEMAPS,
   GeoLibreBasemapId,
   MAPBOX_STYLE_URLS,
+  attachOffline3DFallback,
   buildCircleGeoJsonPolygon,
   getMapboxToken,
   normalizeLatLngList,
+  resolveBasemapStyleSync,
   resolveMapboxAccessToken,
   stripMapWatermarks,
 } from '../../lib/geoLibreEngine';
@@ -578,7 +580,7 @@ export const LiveUsersMonitor: React.FC<LiveUsersMonitorProps> = ({
     const map = new mapboxgl.Map({
       accessToken,
       container: mapContainerRef.current,
-      style: (useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any,
+      style: resolveBasemapStyleSync(basemap, useMapbox) as any,
       center: [39.2083, -6.7924],
       zoom: 11.6,
       attributionControl: false,
@@ -586,6 +588,7 @@ export const LiveUsersMonitor: React.FC<LiveUsersMonitorProps> = ({
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
     mapRef.current = map;
     stripMapWatermarks(map);
+    const detachOffline = attachOffline3DFallback(map, () => prevBasemapRef.current);
 
     map.on('load', () => {
       stripMapWatermarks(map);
@@ -597,6 +600,7 @@ export const LiveUsersMonitor: React.FC<LiveUsersMonitorProps> = ({
     });
 
     return () => {
+      detachOffline();
       markersRef.current.forEach((m) => m.remove());
       markersRef.current.clear();
       rideMarkersRef.current.forEach((m) => m.remove());
@@ -615,7 +619,7 @@ export const LiveUsersMonitor: React.FC<LiveUsersMonitorProps> = ({
     if (!map || prevBasemapRef.current === basemap) return;
     prevBasemapRef.current = basemap;
     setMapReady(false);
-    map.setStyle((useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any);
+    map.setStyle(resolveBasemapStyleSync(basemap, useMapbox) as any);
   }, [basemap, useMapbox]);
 
   // Render Geofence Polygons/Circles + Selected User Trail on Mapbox

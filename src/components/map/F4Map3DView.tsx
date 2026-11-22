@@ -4,7 +4,7 @@ import {
   Compass, Eye, Maximize2, Minimize2, Sun, Moon, Sunset, 
   RotateCcw, Navigation, Volume2, VolumeX, Layers, Car, Bike, 
   Crosshair, ChevronRight, X, Sparkles, MapPin, Building, TreePine, 
-  Share2, Shield, Info, ArrowUpRight
+  Share2, Shield, Info, ArrowUpRight, HardDriveDownload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -1080,6 +1080,21 @@ export default function F4Map3DView({
               <Moon className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Offline 3D Ready / Manager Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('open-offline-map-manager'));
+              }
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-2xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-xl active:scale-95 transition-all cursor-pointer"
+            title="Hifadhi ramani za mitaa utumie bila bando (Offline)"
+          >
+            <HardDriveDownload className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Offline 3D</span>
+          </button>
 
           {/* Hotspots Modal Drawer Trigger */}
           <button

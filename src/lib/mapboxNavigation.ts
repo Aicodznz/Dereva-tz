@@ -1,4 +1,11 @@
 import { haversineKm, getTanzaniaNowMinutes } from './geoLibreEngine';
+import {
+  buildOfflineRoadAwareRoute,
+  cacheRouteOffline,
+  findCachedRouteOffline,
+  getOfflineNearbyEssentials,
+  isEffectivelyOffline,
+} from './offlineMapEngine';
 
 export type TravelMode = 'driving-traffic' | 'cycling' | 'walking';
 
@@ -304,6 +311,14 @@ export async function fetchPapoMapRoutes(params: {
 }): Promise<PapoMapRouteOption[]> {
   const { origin, destination, mode, token } = params;
 
+  if (isEffectivelyOffline()) {
+    const cachedOffline = await findCachedRouteOffline({ origin, destination, mode });
+    if (cachedOffline && cachedOffline.length > 0) {
+      return cachedOffline;
+    }
+    return [buildOfflineRoadAwareRoute({ origin, destination, mode })];
+  }
+
   if (token) {
     try {
       const profile = mode === 'cycling' ? 'cycling' : mode === 'walking' ? 'walking' : 'driving-traffic';
@@ -313,7 +328,7 @@ export async function fetchPapoMapRoutes(params: {
       if (res.ok) {
         const data = await res.json();
         if (data?.code === 'Ok' && Array.isArray(data.routes) && data.routes.length > 0) {
-          return data.routes.slice(0, 3).map((r: any, idx: number) => {
+          const mapped = data.routes.slice(0, 3).map((r: any, idx: number) => {
             const coords: [number, number][] = Array.isArray(r.geometry?.coordinates)
               ? r.geometry.coordinates
               : [
@@ -372,6 +387,8 @@ export async function fetchPapoMapRoutes(params: {
               source: 'mapbox' as const,
             };
           });
+          void cacheRouteOffline({ origin, destination, mode, routes: mapped });
+          return mapped;
         }
       }
     } catch {
@@ -393,7 +410,7 @@ export async function fetchPapoMapRoutes(params: {
         const distM = Number(first.distance || haversineKm(origin.lat, origin.lng, destination.lat, destination.lng) * 1000);
         const speedMps = mode === 'walking' ? 1.3 : mode === 'cycling' ? 7.5 : 9.5;
         const durS = Number(first.duration || distM / speedMps);
-        return [
+        const osrmRoutes: PapoMapRouteOption[] = [
           {
             id: 'osrm-route-0',
             summary: 'Njia Iliyopendekezwa',
@@ -433,61 +450,20 @@ export async function fetchPapoMapRoutes(params: {
             source: 'osrm',
           },
         ];
+        void cacheRouteOffline({ origin, destination, mode, routes: osrmRoutes });
+        return osrmRoutes;
       }
     }
   } catch {
-    // Fall through to direct fallback
+    // Fall through to cached or road-aware offline fallback
   }
 
-  // Fallback 2: Direct Haversine route
-  const distKm = Math.max(0.1, haversineKm(origin.lat, origin.lng, destination.lat, destination.lng));
-  const distM = distKm * 1000;
-  const speedKmh = mode === 'walking' ? 4.8 : mode === 'cycling' ? 24 : 32;
-  const durS = Math.round((distKm / speedKmh) * 3600);
-  const directCoords: [number, number][] = [
-    [origin.lng, origin.lat],
-    [destination.lng, destination.lat],
-  ];
-  return [
-    {
-      id: 'direct-route-0',
-      summary: 'Mstari wa Moja kwa Moja',
-      distanceMeters: distM,
-      durationSeconds: durS,
-      trafficStatus: 'clear',
-      trafficLabel: 'Kadirio la Umbali',
-      geometry: { type: 'LineString', coordinates: directCoords },
-      congestionGeoJson: {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { congestion: 'low', color: '#2563EB' },
-            geometry: { type: 'LineString', coordinates: directCoords },
-          },
-        ],
-      },
-      steps: [
-        {
-          instructionSw: 'Elekea upande wa lengo lililowekwa alama',
-          roadName: '',
-          distanceMeters: distM,
-          durationSeconds: durS,
-          maneuverType: 'depart',
-          location: [origin.lng, origin.lat],
-        },
-        {
-          instructionSw: 'Umefika unakokwenda!',
-          roadName: '',
-          distanceMeters: 0,
-          durationSeconds: 0,
-          maneuverType: 'arrive',
-          location: [destination.lng, destination.lat],
-        },
-      ],
-      source: 'direct',
-    },
-  ];
+  const cachedRoute = await findCachedRouteOffline({ origin, destination, mode });
+  if (cachedRoute && cachedRoute.length > 0) {
+    return cachedRoute;
+  }
+
+  return [buildOfflineRoadAwareRoute({ origin, destination, mode })];
 }
 
 export function computeMeasureTelemetry(points: { lat: number; lng: number }[]): {
@@ -558,6 +534,9 @@ export async function fetchNearbyEssentials(params: {
   token?: string;
 }): Promise<NearbyEssentialResult[]> {
   const { lat, lng, kind, token } = params;
+  if (isEffectivelyOffline()) {
+    return getOfflineNearbyEssentials({ lat, lng, kind });
+  }
   const searchTerms: Record<NearbyEssentialKind, string[]> = {
     fuel: ['fuel station', 'petrol station'],
     hospital: ['hospital', 'clinic pharmacy'],
@@ -606,7 +585,7 @@ export async function fetchNearbyEssentials(params: {
     const res = await fetch(`/api/geo/search?q=${encodeURIComponent(labelMap[kind])}&limit=6`);
     if (res.ok) {
       const arr = await res.json();
-      if (Array.isArray(arr)) {
+      if (Array.isArray(arr) && arr.length > 0) {
         return arr
           .map((item: any, idx: number) => {
             const fLat = Number(item.lat);
@@ -629,5 +608,5 @@ export async function fetchNearbyEssentials(params: {
     }
   } catch {}
 
-  return [];
+  return getOfflineNearbyEssentials({ lat, lng, kind });
 }

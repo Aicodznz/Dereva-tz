@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, notifyFundisNewJobToWhatsApp, processDueScheduledBookings, sendWhatsAppPromoBroadcast, generateVisualReceiptQrBuffer, clearMetaHumanHandoverState, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, notifyFundisNewJobToWhatsApp, processDueScheduledBookings, sendWhatsAppPromoBroadcast, generateVisualReceiptQrBuffer, clearMetaHumanHandoverState, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely, processAbandonedSessionsRecovery, listSosAlerts, resolveSosAlert, getMetaTemplateSettings, saveMetaTemplateSettings } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
@@ -805,6 +805,66 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Meta Broadcast Promo POST] Error:", error);
       return res.status(500).json({ error: error?.message || "Failed to send promo broadcast" });
+    }
+  });
+
+  // In-Ride Safety SOS Alerts Desk (List & Resolve)
+  app.get("/api/meta/sos-alerts", async (_req, res) => {
+    try {
+      const alerts = await listSosAlerts(dbAdmin);
+      return res.json({ status: "ok", alerts });
+    } catch (error: any) {
+      console.error("[Meta SOS Alerts GET] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to load SOS alerts" });
+    }
+  });
+
+  app.post("/api/meta/sos-alerts/:id/resolve", async (req, res) => {
+    try {
+      const alertId = String(req.params.id || '').trim();
+      const note = req.body?.note ? String(req.body.note).trim() : undefined;
+      if (!alertId) return res.status(400).json({ error: "Alert ID is required" });
+      const result = await resolveSosAlert(dbAdmin, alertId, sendMetaOutboundMessage, note);
+      if (!result.resolved) return res.status(404).json({ error: "SOS alert not found" });
+      return res.json({ status: "ok", ...result });
+    } catch (error: any) {
+      console.error("[Meta SOS Alert Resolve POST] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to resolve SOS alert" });
+    }
+  });
+
+  // Abandoned Cart & Unfinished Booking Recovery Runner
+  app.post("/api/meta/abandoned-recovery/run", async (req, res) => {
+    try {
+      const { minIdleMs, maxIdleMs, dryRun = false } = req.body || {};
+      const result = await processAbandonedSessionsRecovery(dbAdmin, sendMetaOutboundMessage, {
+        ...(minIdleMs !== undefined ? { minIdleMs: Number(minIdleMs) } : {}),
+        ...(maxIdleMs !== undefined ? { maxIdleMs: Number(maxIdleMs) } : {}),
+        dryRun: Boolean(dryRun),
+      });
+      return res.json({ status: "ok", ...result });
+    } catch (error: any) {
+      console.error("[Meta Abandoned Recovery POST] Error:", error);
+      return res.status(500).json({ error: error?.message || "Failed to run abandoned recovery" });
+    }
+  });
+
+  // Meta Approved Template Fallback Config (Outside 24h Window)
+  app.get("/api/meta/template-config", async (_req, res) => {
+    try {
+      const settings = await getMetaTemplateSettings(dbAdmin);
+      return res.json({ status: "ok", settings });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || "Failed to load Meta template settings" });
+    }
+  });
+
+  app.post("/api/meta/template-config", async (req, res) => {
+    try {
+      const settings = await saveMetaTemplateSettings(req.body || {}, dbAdmin);
+      return res.json({ status: "ok", settings });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || "Failed to save Meta template settings" });
     }
   });
 
@@ -2506,12 +2566,22 @@ The JSON output must contain the following keys:
       }
     );
 
+    // Warm Meta template config cache on boot
+    getMetaTemplateSettings(dbAdmin).catch(() => {});
+
     // Scheduled rides background processor (every 60s): send customer reminders & dispatch nearby drivers when within 30 min window
     setInterval(() => {
       processDueScheduledBookings(dbAdmin, sendMetaOutboundMessage).catch((err) => {
         console.warn('[Scheduled Rides Processor] Warning:', err?.message || err);
       });
     }, 60_000);
+
+    // Abandoned cart & unfinished booking recovery scheduler (every 5 minutes)
+    setInterval(() => {
+      processAbandonedSessionsRecovery(dbAdmin, sendMetaOutboundMessage).catch((err) => {
+        console.warn('[Abandoned Recovery Processor] Warning:', err?.message || err);
+      });
+    }, 5 * 60_000);
   });
 }
 

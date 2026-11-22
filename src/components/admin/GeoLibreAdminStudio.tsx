@@ -41,6 +41,8 @@ import {
   MapProjectionMode,
   getMapboxToken,
   resolveMapboxAccessToken,
+  resolveBasemapStyleSync,
+  attachOffline3DFallback,
   normalizeLatLngList,
   toFirestoreLatLngList,
   calculatePathDistanceKm,
@@ -249,7 +251,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     const map = new mapboxgl.Map({
       accessToken,
       container: containerRef.current,
-      style: (useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any,
+      style: resolveBasemapStyleSync(basemap, useMapbox) as any,
       center: [center[1] || 39.2083, center[0] || -6.7924],
       zoom: useMapbox ? 11.8 : 11.2,
       projection,
@@ -257,6 +259,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     });
     mapRef.current = map;
     stripMapWatermarks(map);
+    const detachOffline = attachOffline3DFallback(map, () => prevBasemapRef.current);
 
     map.on('load', () => {
       setMapReady(true);
@@ -284,6 +287,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     });
 
     return () => {
+      detachOffline();
       markersRef.current.forEach((m) => m.remove());
       map.remove();
       mapRef.current = null;
@@ -305,7 +309,7 @@ export const GeoLibreZoneEditor: React.FC<GeoLibreZoneEditorProps> = ({
     const map = mapRef.current;
     if (!map || prevBasemapRef.current === basemap) return;
     prevBasemapRef.current = basemap;
-    map.setStyle((useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any);
+    map.setStyle(resolveBasemapStyleSync(basemap, useMapbox) as any);
   }, [basemap, useMapbox]);
 
   // Toggle Globe / Mercator projection
@@ -846,7 +850,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
     const map = new mapboxgl.Map({
       accessToken,
       container: containerRef.current,
-      style: GEOLIBRE_BASEMAPS[basemap].style as any,
+      style: resolveBasemapStyleSync(basemap, false) as any,
       center: [39.24, -6.805],
       zoom: 11.4,
       pitch: 45,
@@ -855,6 +859,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
     });
     mapRef.current = map;
     stripMapWatermarks(map);
+    const detachAnalyticsOffline = attachOffline3DFallback(map, () => basemap);
 
     map.on('load', () => {
       setMapReady(true);
@@ -899,6 +904,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
     });
 
     return () => {
+      detachAnalyticsOffline();
       popupRef.current?.remove();
       markersRef.current.forEach((m) => m.remove());
       map.remove();
@@ -909,7 +915,7 @@ export const GeoLibreSpatialAnalyticsPanel: React.FC<GeoLibreSpatialAnalyticsPan
   }, []);
 
   useEffect(() => {
-    mapRef.current?.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
+    mapRef.current?.setStyle(resolveBasemapStyleSync(basemap, false) as any);
   }, [basemap]);
 
   useEffect(() => {

@@ -27,19 +27,27 @@ import {
 } from './whatsappPartnerAndLoyalty.js';
 import {
   attachBookingQrMedia,
+  buildMetaTemplateWirePayload,
   deductRedeemedLoyaltyPoints,
   generateVisualReceiptQrBuffer,
+  getMetaTemplateSettings,
   handleFundiHubOrAction,
   handleHumanHandoverFlow,
   handleMultiItemCatalogCart,
+  handlePostOrderRating,
   handlePromoOptInToggle,
   handleReceiptQrCommand,
   handleReferralAndRedemptionCommands,
+  handleRideSafetySosOrShare,
   handleScheduledRideFlow,
+  listSosAlerts,
   notifyFundisNewJobToWhatsApp,
   parseScheduledTimeFromInput,
+  processAbandonedSessionsRecovery,
   processDueScheduledBookings,
   processReferralRewardOnOrder,
+  resolveSosAlert,
+  saveMetaTemplateSettings,
   sendWhatsAppPromoBroadcast,
 } from './whatsappAdvancedFeatures.js';
 export {
@@ -49,6 +57,12 @@ export {
   processDueScheduledBookings,
   sendWhatsAppPromoBroadcast,
   generateVisualReceiptQrBuffer,
+  processAbandonedSessionsRecovery,
+  listSosAlerts,
+  resolveSosAlert,
+  getMetaTemplateSettings,
+  saveMetaTemplateSettings,
+  buildMetaTemplateWirePayload,
 };
 
 export interface MetaHistoryEntry {
@@ -136,7 +150,9 @@ export interface MetaSession {
     | 'SCHED_CONFIRM'
     | 'CATALOG_BROWSE'
     | 'CART_WAIT_ADDRESS'
-    | 'CART_WAIT_PAYMENT';
+    | 'CART_WAIT_PAYMENT'
+    | 'SOS_WAIT_CONTACT'
+    | 'DRV_POD_PHOTO';
   service?:
     | 'taxi'
     | 'food'
@@ -4988,6 +5004,20 @@ export async function handleMetaInputWithMedia(
   const initialSession = await getMetaSession(senderId, channel, dbAdmin);
   const initialLang: 'sw' | 'en' = initialSession.details?.lang === 'en' ? 'en' : 'sw';
 
+  // Track 24-hour customer messaging window & clear stale abandoned-cart reminder flag upon inbound reply
+  const nowInboundMs = Date.now();
+  if (initialSession.details?.abandonedReminderSent) {
+    delete initialSession.details.abandonedReminderSent;
+    await saveMetaSession(initialSession, dbAdmin);
+  }
+  if (dbAdmin && senderId) {
+    dbAdmin
+      .collection('meta_customers')
+      .doc(`${channel}:${senderId}`)
+      .set({ senderId, channel, lastInboundAt: nowInboundMs, updatedAt: new Date() }, { merge: true })
+      .catch(() => {});
+  }
+
   // 1. Handle WhatsApp Native Catalog Cart Order payload
   let incomingCatalogOrder = extra?.catalogOrder;
   if (!incomingCatalogOrder && typeof effectiveInput === 'string' && effectiveInput.startsWith('__WA_CATALOG_ORDER__:')) {
@@ -5064,14 +5094,20 @@ export async function handleMetaInputWithMedia(
       }
     }
 
-    // Intercept photo uploads during Partner Product Add or Driver License/NIDA Onboarding
-    if (initialSession.step === 'VENDOR_ADD_PROD_PHOTO' || initialSession.step === 'DRV_REG_DOC') {
+    // Intercept photo uploads during Partner Product Add, Driver License/NIDA Onboarding, or Delivery Proof-of-Delivery (POD)
+    if (
+      initialSession.step === 'VENDOR_ADD_PROD_PHOTO' ||
+      initialSession.step === 'DRV_REG_DOC' ||
+      initialSession.step === 'DRV_POD_PHOTO'
+    ) {
       const compactUrl =
         base64Data && base64Data.length < 360000
           ? `data:${mimeType};base64,${base64Data}`
           : '';
       if (initialSession.step === 'VENDOR_ADD_PROD_PHOTO') {
         initialSession.details.pendingProductPhoto = compactUrl;
+      } else if (initialSession.step === 'DRV_POD_PHOTO') {
+        initialSession.details.pendingPodPhoto = compactUrl;
       } else {
         initialSession.details.pendingDocPhoto = compactUrl;
       }
@@ -5240,6 +5276,7 @@ function preserveCustomerFields(
   if (cLoc) next.lastLocation = cLoc;
   if (details?.adVisitor) next.adVisitor = true;
   if (details?.welcomedFirstOpen) next.welcomedFirstOpen = true;
+  if (details?.emergencyContactPhone) next.emergencyContactPhone = details.emergencyContactPhone;
   if (Array.isArray(details?.unifiedCart) && details.unifiedCart.length > 0) next.unifiedCart = details.unifiedCart;
   return next;
 }
@@ -5322,7 +5359,9 @@ async function handleMetaInputInternal(
     session.step === 'FUNDI_ENTERING_QUOTE' ||
     session.step.startsWith('SCHED_') ||
     session.step === 'CATALOG_BROWSE' ||
-    session.step.startsWith('CART_');
+    session.step.startsWith('CART_') ||
+    session.step === 'SOS_WAIT_CONTACT' ||
+    session.step === 'DRV_POD_PHOTO';
 
   if (inInteractiveFlow) {
     const stateProgressed =
@@ -5659,6 +5698,38 @@ async function processMetaInputCore(
     return handoverReply;
   }
 
+  // Post-Order Star Rating (1-5 ⭐ for Restaurant / Store / Pharmacy / Salon / Fundi)
+  const orderRatingReply = await handlePostOrderRating({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    deps: partnerDeps,
+  });
+  if (orderRatingReply) {
+    markSkipHistory();
+    return orderRatingReply;
+  }
+
+  // In-Ride Safety SOS & Live Trip Share
+  const safetyReply = await handleRideSafetySosOrShare({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    deps: partnerDeps,
+  });
+  if (safetyReply) {
+    markSkipHistory();
+    return safetyReply;
+  }
+
   // Global Language Switch Commands (work from any step!)
   const isSwitchToEnglish = /^(en|eng|english|kiingereza|speak\s+english|switch\s+to\s+english|change\s+(?:language\s+)?to\s+english|use\s+english|in\s+english)$/i.test(cleanInput);
   const isSwitchToSwahili = /^(sw|swa|swahili|kiswahili|tumia\s+kiswahili|switch\s+to\s+swahili|change\s+(?:language\s+)?to\s+swahili|badili\s+(?:lugha\s+)?kwenda\s+kiswahili)$/i.test(cleanInput);
@@ -5856,13 +5927,15 @@ async function processMetaInputCore(
     session.step === 'FUNDI_ENTERING_QUOTE' ||
     session.step.startsWith('SCHED_') ||
     session.step === 'CATALOG_BROWSE' ||
-    session.step.startsWith('CART_');
+    session.step.startsWith('CART_') ||
+    session.step === 'SOS_WAIT_CONTACT' ||
+    session.step === 'DRV_POD_PHOTO';
   const hasNaturalSchedRide =
     Boolean(parseScheduledTimeFromInput(cleanInput)) &&
     /\b(taxi|teksi|bajaji|boda|pikipiki|ride|usafiri|safari|kutoka|from)\b/i.test(cleanInput);
   const isVendorRegCmd =
     hasNaturalSchedRide ||
-    /^(?:🏪\s*|🚖\s*|🛠️\s*|🎁\s*|🔁\s*|🎧\s*|📅\s*|🛍️\s*|🛒\s*|🧾\s*|🤝\s*|💎\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli|dereva|bodaboda|boda|bajaji|rider|fundi)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor|dereva|fundi)|register\s*(?:shop|store|business|vendor|driver|rider|fundi|handyman)|duka\s*langu|biashara\s*yangu|my\s*shop|my\s*store|vendor\s*hub|funga\s*duka|fungua\s*duka|ongeza\s*bidhaa|add\s*product|oda\s*za\s*duka|vendor\s*orders|badili\s*stock|stock\s*ya\s*duka|manage\s*stock|dereva|kazi\s*zangu|kazi\s*mpya|ingia\s*online|nenda\s*offline|driver\s*hub|bodaboda\s*hub|pointi(?:\s*zangu)?|zawadi(?:\s*zangu)?|kuponi(?:\s+.+)?|loyalty|agiza\s*tena|rudia\s*oda|reorder|ufundi\s*wangu|fundi\s*hub|kazi\s*za\s*ufundi|ongea\s+na\s+(?:mhudumu|mtu|admin|huduma)|mhudumu|msaada(?:\s+wa\s+haraka)?|human\s*(?:agent|support)|live\s*support|support|help\s*desk|ratiba|weka\s*ratiba|safari\s*ya\s*baada(?:ye|e)|schedule(?:\s*ride)?|katalogi(?:\s+.+)?|catalo(?:g|gue)(?:\s+.+)?|kikapu(?:\s*changu)?|cart|view\s*cart|my\s*cart|safisha\s*kikapu|clear\s*cart|lipia\s*kikapu|checkout(?:\s*cart)?|maliza\s*kikapu|risiti(?:\s+.+)?|receipt(?:\s+.+)?|qr(?:\s+.+)?|tiketi\s*qr(?:\s+.+)?|alika\s*rafiki|alika\s+#?[A-Za-z0-9_-]{4,20}|invite(?:\s+.+)?|referral|komboa(?:\s*pointi|\s*zawadi)?|tumia\s*pointi|redeem(?:\s*points)?|acha\s*matangazo|stop\s*promo|zima\s*ofa|ruhusu\s*ofa|ruhusu\s*matangazo|start\s*promo|(?:CMD:)?(?:REGISTER_SHOP|REGISTER_DRIVER|REGISTER_FUNDI|MY_SHOP|DRIVER_HUB|DRIVER_TOGGLE_ONLINE|DRIVER_JOBS|VENDOR_ADD_PRODUCT|VENDOR_TOGGLE_OPEN|VENDOR_ORDERS|VENDOR_TOGGLE_STOCK|VENDOR_MORE|LOYALTY_INFO|REORDER_LAST|FUNDI_HUB|FUNDI_JOBS|FUNDI_TOGGLE_OPEN|HUMAN_HANDOVER|END_HANDOVER|SCHEDULE_RIDE|SCHED_DO_CONFIRM|OPEN_CATALOG|VIEW_CART|CLEAR_CART|CHECKOUT_CART|REFERRAL_INFO|REDEEM_POINTS|GET_RECEIPT)|(?:CMD:)?(?:DRV_(?:CLAIM|SKIP|RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE)|VENDOR_(?:ACCEPT|REJECT|READY)|PRD_TOGGLE|FND_(?:ACCEPT|QUOTE|START|DONE)|CUST_(?:ACCEPT|REJECT)_QUOTE|CAT_ADD):.+)$/i.test(
+    /^(?:🏪\s*|🚖\s*|🛠️\s*|🎁\s*|🔁\s*|🎧\s*|📅\s*|🛍️\s*|🛒\s*|🧾\s*|🤝\s*|💎\s*|🆘\s*|🚨\s*|📍\s*|⭐\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli|dereva|bodaboda|boda|bajaji|rider|fundi)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor|dereva|fundi)|register\s*(?:shop|store|business|vendor|driver|rider|fundi|handyman)|duka\s*langu|biashara\s*yangu|my\s*shop|my\s*store|vendor\s*hub|funga\s*duka|fungua\s*duka|ongeza\s*bidhaa|add\s*product|oda\s*za\s*duka|vendor\s*orders|badili\s*stock|stock\s*ya\s*duka|manage\s*stock|dereva|kazi\s*zangu|kazi\s*mpya|ingia\s*online|nenda\s*offline|driver\s*hub|bodaboda\s*hub|pointi(?:\s*zangu)?|zawadi(?:\s*zangu)?|kuponi(?:\s+.+)?|loyalty|agiza\s*tena|rudia\s*oda|reorder|ufundi\s*wangu|fundi\s*hub|kazi\s*za\s*ufundi|ongea\s+na\s+(?:mhudumu|mtu|admin|huduma)|mhudumu|msaada(?:\s+wa\s+haraka)?|human\s*(?:agent|support)|live\s*support|support|help\s*desk|ratiba|weka\s*ratiba|safari\s*ya\s*baada(?:ye|e)|schedule(?:\s*ride)?|katalogi(?:\s+.+)?|catalo(?:g|gue)(?:\s+.+)?|kikapu(?:\s*changu)?|cart|view\s*cart|my\s*cart|safisha\s*kikapu|clear\s*cart|lipia\s*kikapu|checkout(?:\s*cart)?|maliza\s*kikapu|risiti(?:\s+.+)?|receipt(?:\s+.+)?|qr(?:\s+.+)?|tiketi\s*qr(?:\s+.+)?|alika\s*rafiki|alika\s+#?[A-Za-z0-9_-]{4,20}|invite(?:\s+.+)?|referral|komboa(?:\s*pointi|\s*zawadi)?|tumia\s*pointi|redeem(?:\s*points)?|acha\s*matangazo|stop\s*promo|zima\s*ofa|ruhusu\s*ofa|ruhusu\s*matangazo|start\s*promo|sos|dharura|emergency|shiriki\s*safari|share\s*(?:trip|ride)|mtu\s*wa\s*dharura|emergency\s*contact|(?:CMD:)?(?:REGISTER_SHOP|REGISTER_DRIVER|REGISTER_FUNDI|MY_SHOP|DRIVER_HUB|DRIVER_TOGGLE_ONLINE|DRIVER_JOBS|VENDOR_ADD_PRODUCT|VENDOR_TOGGLE_OPEN|VENDOR_ORDERS|VENDOR_TOGGLE_STOCK|VENDOR_MORE|LOYALTY_INFO|REORDER_LAST|FUNDI_HUB|FUNDI_JOBS|FUNDI_TOGGLE_OPEN|HUMAN_HANDOVER|END_HANDOVER|SCHEDULE_RIDE|SCHED_DO_CONFIRM|OPEN_CATALOG|VIEW_CART|CLEAR_CART|CHECKOUT_CART|REFERRAL_INFO|REDEEM_POINTS|GET_RECEIPT|RIDE_SOS|SHARE_TRIP|SET_SOS_CONTACT)|(?:CMD:)?(?:DRV_(?:CLAIM|SKIP|RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_ARRIVED|ORD_POD|ORD_DONE)|VENDOR_(?:ACCEPT|REJECT|READY)|PRD_TOGGLE|FND_(?:ACCEPT|QUOTE|START|DONE)|CUST_(?:ACCEPT|REJECT)_QUOTE|CAT_ADD|RATE_ORD):.+)$/i.test(
       cleanInput
     );
 
@@ -11209,8 +11282,14 @@ export async function sendMetaOutboundMessage(params: {
   phoneNumberId?: string;
   media?: MetaMediaAttachment[];
   interactive?: WhatsAppInteractivePayload;
-}): Promise<{ sent: boolean; reason?: string }> {
-  const { channel, recipientId, text, phoneNumberId, media, interactive } = params;
+  templateFallback?: {
+    category?: 'utility' | 'marketing' | 'safety';
+    templateName?: string;
+    languageCode?: string;
+    bodyParams?: string[];
+  };
+}): Promise<{ sent: boolean; reason?: string; usedTemplate?: string }> {
+  const { channel, recipientId, text, phoneNumberId, media, interactive, templateFallback } = params;
   if (!recipientId || !text) {
     return { sent: false, reason: 'Missing recipientId or text' };
   }
@@ -11437,6 +11516,50 @@ export async function sendMetaOutboundMessage(params: {
 
       const plainRes = await sendWaPlainText(text);
       if (!plainRes.ok) {
+        const errCode = Number(plainRes.data?.error?.code || 0);
+        const errMsg = String(plainRes.data?.error?.message || '');
+        const isOutside24hWindow =
+          errCode === 131047 ||
+          errCode === 131026 ||
+          errCode === 470 ||
+          /24[\s-]*hour|outside.*window|re-?engagement/i.test(errMsg);
+
+        if (isOutside24hWindow) {
+          const tplCfg = await getMetaTemplateSettings().catch(() => null);
+          if (tplCfg?.enable24hTemplateFallback) {
+            const cat = templateFallback?.category || 'utility';
+            const tplName =
+              templateFallback?.templateName ||
+              (cat === 'marketing'
+                ? tplCfg.marketingTemplateName
+                : cat === 'safety'
+                ? tplCfg.safetyTemplateName
+                : tplCfg.utilityTemplateName);
+            const tplLang = templateFallback?.languageCode || tplCfg.templateLanguageCode || 'sw';
+            if (tplName) {
+              const wireTpl = buildMetaTemplateWirePayload({
+                recipientId,
+                templateName: tplName,
+                languageCode: tplLang,
+                bodyParams: templateFallback?.bodyParams || [text.replace(/\*/g, '').slice(0, 240)],
+              });
+              const tplResp = await fetch(`https://graph.facebook.com/v21.0/${resolvedPhoneId}/messages`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(wireTpl),
+              });
+              if (tplResp.ok) {
+                console.log(`[Meta Outbound] Sent approved template fallback "${tplName}" (${tplLang}) to ${recipientId}`);
+                return { sent: true, usedTemplate: tplName };
+              }
+              const tplErr = await tplResp.json().catch(() => ({}));
+              console.warn('[Meta Outbound] Approved template fallback failed:', tplResp.status, JSON.stringify(tplErr));
+            }
+          }
+        }
         console.error('[Meta Outbound] WhatsApp Cloud API error:', plainRes.status, JSON.stringify(plainRes.data));
         return { sent: false, reason: plainRes.data?.error?.message || `HTTP ${plainRes.status}` };
       }
@@ -11759,10 +11882,12 @@ export async function notifyRideStatusToMeta(
       message = isEn
         ? `🚕 *Trip Started!* (${bookingRef})\n\n` +
           `On your way to *${destPlace}* with *${driverName}* (*${vehiclePlate}*).\n` +
-          `🗺️ Live Map: ${trackUrl}`
+          `🗺️ Live Map: ${trackUrl}\n\n` +
+          `🆘 _Safety Tip: Reply *SOS* in case of emergency or *Share Trip* to send this live link to family._`
         : `🚕 *Safari Imeanza!* (${bookingRef})\n\n` +
           `Upo safarini na dereva *${driverName}* (*${vehiclePlate}*) kuelekea *${destPlace}*.\n` +
-          `🗺️ *Fuatilia safari mubashara:*\n${trackUrl}`;
+          `🗺️ *Fuatilia safari mubashara:*\n${trackUrl}\n\n` +
+          `🆘 _Usalama Safarini: Andika *SOS* ukiwa na dharura au *Shiriki Safari* kutuma kiungo hiki kwa ndugu._`;
     } else if (canonicalStatus === 'completed') {
       message = isEn
         ? `🏁 *Trip Completed!* (${bookingRef})\n\n` +
@@ -11870,6 +11995,10 @@ export async function notifyRideStatusToMeta(
       text: message,
       phoneNumberId,
       interactive,
+      templateFallback: {
+        category: 'utility',
+        bodyParams: [bookingRef, canonicalStatus, driverName],
+      },
     });
 
     if (res.sent) {
@@ -12347,9 +12476,22 @@ export async function notifyCustomerOrderStatusToMeta(
         `🛵 *Oda Yako Iko Njiani!* (#${shortCode})\n\n` +
         `Dereva wa *${vendorName}* yuko njiani kuleta oda yako.\n🔗 Fuatilia: ${trackUrl}`;
     } else if (canonical === 'completed') {
+      const hasPodPhoto = Boolean(order.podPhotoUrl);
       msg =
         `✅ *Oda Imekamilika!* (#${shortCode})\n\n` +
-        `Asante kwa kuchagua *${vendorName}* kupitia Papo Hapo! Karibu tena. 🙏✨`;
+        (hasPodPhoto ? `📸 *Picha ya Makabidhiano (Proof of Delivery) imeambatishwa hapo juu.*\n\n` : '') +
+        `Asante kwa kuchagua *${vendorName}* kupitia Papo Hapo! 🙏✨\n\n` +
+        `⭐ *Tafadhali tathmini huduma ya ${vendorName} (tuma namba 1 hadi 5):*\n` +
+        `5 ⭐⭐⭐⭐⭐ (Bora) • 4 ⭐⭐⭐⭐ • 3 ⭐⭐⭐ • 2 ⭐⭐ • 1 ⭐`;
+
+      try {
+        const custSession = await getMetaSession(recipientId, channel, dbAdmin);
+        custSession.details.ratingOrderId = orderId;
+        custSession.details.ratingVendorId = order.vendorId || order.assignedFundiId || '';
+        custSession.details.ratingVendorName = vendorName;
+        custSession.details.ratingOrderCode = shortCode;
+        await saveMetaSession(custSession, dbAdmin);
+      } catch {}
     } else if (canonical === 'cancelled') {
       msg =
         `❌ *Samahani, Oda Imekataliwa / Imeghairiwa* (#${shortCode})\n\n` +
@@ -12370,7 +12512,21 @@ export async function notifyCustomerOrderStatusToMeta(
             buttons: [{ type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } }],
           },
         });
-      } else if (canonical !== 'completed') {
+      } else if (canonical === 'completed') {
+        interactive = sanitizeWhatsAppInteractivePayload({
+          type: 'button',
+          header: { type: 'text', text: `⭐ Tathmini ${vendorName.slice(0, 42)}` },
+          body: { text: msg },
+          footer: { text: `Papo Hapo • #${shortCode}` },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: `RATE_ORD:${orderId}:5`, title: '⭐⭐⭐⭐⭐ Bora (5)' } },
+              { type: 'reply', reply: { id: `RATE_ORD:${orderId}:4`, title: '⭐⭐⭐⭐ Nzuri (4)' } },
+              { type: 'reply', reply: { id: `RATE_ORD:${orderId}:3`, title: '⭐⭐⭐ Wastani (3)' } },
+            ],
+          },
+        });
+      } else {
         interactive = sanitizeWhatsAppInteractivePayload({
           type: 'cta_url',
           header: { type: 'text', text: isTable || isHotel ? '✅ Booking Imethibitishwa' : '🔔 Taarifa ya Oda' },
@@ -12384,12 +12540,22 @@ export async function notifyCustomerOrderStatusToMeta(
       }
     }
 
+    const podMedia: MetaMediaAttachment[] | undefined =
+      canonical === 'completed' && order.podPhotoUrl
+        ? [{ url: String(order.podPhotoUrl), caption: `📸 Picha ya Makabidhiano #${shortCode} (${vendorName})` }]
+        : undefined;
+
     const res = await sendMetaOutboundMessage({
       channel,
       recipientId,
       text: msg,
       phoneNumberId,
+      media: podMedia,
       interactive,
+      templateFallback: {
+        category: 'utility',
+        bodyParams: [shortCode, vendorName, canonical],
+      },
     });
 
     if (res.sent) {
@@ -12881,6 +13047,12 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               'CMD:REDEEM_POINTS': 'komboa',
               GET_RECEIPT: 'risiti',
               'CMD:GET_RECEIPT': 'risiti',
+              RIDE_SOS: 'sos',
+              'CMD:RIDE_SOS': 'sos',
+              SHARE_TRIP: 'shiriki safari',
+              'CMD:SHARE_TRIP': 'shiriki safari',
+              SET_SOS_CONTACT: 'mtu wa dharura',
+              'CMD:SET_SOS_CONTACT': 'mtu wa dharura',
             };
             const upperNoSpace = normalizedRid.toUpperCase();
             if (legacyMap[upperNoSpace]) {
@@ -12892,10 +13064,11 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
                 /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT|READY):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?PRD_TOGGLE:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?DRV_(?:CLAIM|SKIP):(?:ride|order):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
-                /^(?:CMD:)?DRV_(?:RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?DRV_(?:RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_ARRIVED|ORD_POD|ORD_DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?FND_(?:ACCEPT|QUOTE|START|DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?CUST_(?:ACCEPT|REJECT)_QUOTE:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 /^(?:CMD:)?CAT_ADD:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?RATE_ORD:[A-Za-z0-9_-]+:[1-5]$/i.test(normalizedRid) ||
                 normalizedRid.startsWith('CMD:'))
             ) {
               return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;

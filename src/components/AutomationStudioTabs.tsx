@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,6 +170,30 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
   const [widgetPosition, setWidgetPosition] = useState('bottom_right');
   const [broadcastCouponCode, setBroadcastCouponCode] = useState('');
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [isRunningRecovery, setIsRunningRecovery] = useState(false);
+
+  // Meta Approved Templates outside 24h window
+  const [tplEnableFallback, setTplEnableFallback] = useState(true);
+  const [tplLanguageCode, setTplLanguageCode] = useState('sw');
+  const [tplUtilityName, setTplUtilityName] = useState('papohapo_order_update');
+  const [tplMarketingName, setTplMarketingName] = useState('papohapo_promo_offer');
+  const [tplSafetyName, setTplSafetyName] = useState('papohapo_safety_alert');
+  const [isSavingTemplates, setIsSavingTemplates] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/meta/template-config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const s = data?.settings;
+        if (!s) return;
+        setTplEnableFallback(s.enable24hTemplateFallback !== false);
+        if (s.templateLanguageCode) setTplLanguageCode(s.templateLanguageCode);
+        if (s.utilityTemplateName) setTplUtilityName(s.utilityTemplateName);
+        if (s.marketingTemplateName) setTplMarketingName(s.marketingTemplateName);
+        if (s.safetyTemplateName) setTplSafetyName(s.safetyTemplateName);
+      })
+      .catch(() => {});
+  }, []);
 
   // Webhook Domain & Live Ping Test States
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
@@ -516,6 +540,38 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
               >
                 {isSendingBroadcast ? 'Inatuma Tangazo...' : 'Tuma Tangazo Sasa (Launch Campaign)'}
               </Button>
+
+              <div className="pt-3 border-t border-neutral-200/70 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <p className="text-[11px] text-neutral-500">
+                  🛒 Kumbusha kiotomatiki wateja walioacha kikapu au safari bila kumaliza (Idle 15m–24h):
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isRunningRecovery}
+                  onClick={async () => {
+                    setIsRunningRecovery(true);
+                    try {
+                      const res = await fetch('/api/meta/abandoned-recovery/run', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data?.error || 'Imeshindwa kukumbusha vikapu');
+                      toast.success(`Vikapu vilivyokumbushwa: ${data.sentCount || 0} (Vilivyokutwa: ${data.eligible || 0}) 🛒`);
+                    } catch (err: any) {
+                      toast.error(err?.message || 'Hitilafu ya kukumbusha vikapu');
+                    } finally {
+                      setIsRunningRecovery(false);
+                    }
+                  }}
+                  className="text-xs font-bold border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 shrink-0"
+                >
+                  {isRunningRecovery ? 'Inakagua...' : 'Kumbusha Vikapu Vilivyoachwa'}
+                </Button>
+              </div>
             </div>
 
             <div className="p-4 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 rounded-2xl space-y-4">
@@ -707,6 +763,104 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Section 1B: Meta Approved Template Fallback Outside 24h Window */}
+          <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-500/25 rounded-2xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
+                  <BadgeCheck className="w-4 h-4 text-emerald-500" />
+                  <span>Meta 24h Approved Templates (Outside Window Fallback)</span>
+                </h4>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  Ikiwa mteja amevuka masaa 24 bila kujibu ujumbe, mfumo hutumia moja kwa moja Meta Approved Template hizi badala ya ujumbe kukwama.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-bold cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={tplEnableFallback}
+                  onChange={(e) => setTplEnableFallback(e.target.checked)}
+                  className="rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>Washa Template Fallback</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase text-neutral-500">Language Code</label>
+                <Input
+                  value={tplLanguageCode}
+                  onChange={(e) => setTplLanguageCode(e.target.value)}
+                  placeholder="sw au en_US"
+                  className="h-9 text-xs font-mono bg-white dark:bg-neutral-900"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase text-neutral-500">Utility Template (Oda/Safari)</label>
+                <Input
+                  value={tplUtilityName}
+                  onChange={(e) => setTplUtilityName(e.target.value)}
+                  placeholder="papohapo_order_update"
+                  className="h-9 text-xs font-mono bg-white dark:bg-neutral-900"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase text-neutral-500">Marketing Template (Ofa/Broadcast)</label>
+                <Input
+                  value={tplMarketingName}
+                  onChange={(e) => setTplMarketingName(e.target.value)}
+                  placeholder="papohapo_promo_offer"
+                  className="h-9 text-xs font-mono bg-white dark:bg-neutral-900"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9.5px] font-black uppercase text-neutral-500">Safety Template (SOS/Dharura)</label>
+                <Input
+                  value={tplSafetyName}
+                  onChange={(e) => setTplSafetyName(e.target.value)}
+                  placeholder="papohapo_safety_alert"
+                  className="h-9 text-xs font-mono bg-white dark:bg-neutral-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                disabled={isSavingTemplates}
+                onClick={async () => {
+                  setIsSavingTemplates(true);
+                  try {
+                    const res = await fetch('/api/meta/template-config', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        enable24hTemplateFallback: tplEnableFallback,
+                        templateLanguageCode: tplLanguageCode.trim() || 'sw',
+                        utilityTemplateName: tplUtilityName.trim(),
+                        marketingTemplateName: tplMarketingName.trim(),
+                        safetyTemplateName: tplSafetyName.trim(),
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.error || 'Imeshindwa kuhifadhi templates');
+                    toast.success('Mipangilio ya Meta Approved Templates imehifadhiwa! ✅');
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Hitilafu ya kuhifadhi templates');
+                  } finally {
+                    setIsSavingTemplates(false);
+                  }
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 h-8.5"
+              >
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                {isSavingTemplates ? 'Inahifadhi...' : 'Hifadhi Meta Templates'}
+              </Button>
+            </div>
           </div>
 
           {/* Section 2: Pre-built Flow Templates Marketplace */}

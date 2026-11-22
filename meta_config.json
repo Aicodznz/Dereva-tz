@@ -34,5 +34,13 @@
     "lastSyncStatus": "local_only",
     "lastSyncMessage": "Mipangilio imehifadhiwa kwenye mfumo. Weka WhatsApp Phone Number ID (META_WHATSAPP_PHONE_NUMBER_ID) ili kuwasha kwenye Meta WhatsApp.",
     "updatedAt": 1795036108614
+  },
+  "templateSettings": {
+    "enable24hTemplateFallback": true,
+    "templateLanguageCode": "sw",
+    "utilityTemplateName": "papohapo_order_update",
+    "marketingTemplateName": "papohapo_promo_offer",
+    "safetyTemplateName": "papohapo_safety_alert",
+    "updatedAt": 1795381624532
   }
 }

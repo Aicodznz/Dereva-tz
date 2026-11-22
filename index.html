@@ -22,29 +22,20 @@
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        // In AI Studio preview and development environments, unregister stale service workers and purge caches
-        if (window.location.hostname.includes('run.app') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (var i = 0; i < registrations.length; i++) {
-              registrations[i].unregister();
-            }
-          });
-          if ('caches' in window) {
-            caches.keys().then(function(keys) {
-              for (var j = 0; j < keys.length; j++) {
-                caches.delete(keys[j]);
-              }
-            });
-          }
-        } else {
-          window.addEventListener('load', function() {
-            try {
-              navigator.serviceWorker.register('/sw.js')
-                .then(function(reg) { console.log('SW Registered', reg.scope); })
-                .catch(function(err) { console.log('SW failed: ', err); });
-            } catch (e) {}
-          });
-        }
+        window.addEventListener('load', function() {
+          try {
+            navigator.serviceWorker.register('/sw.js')
+              .then(function(reg) {
+                try {
+                  var forceOffline = window.localStorage.getItem('papohapo_force_offline_maps_v1') === '1';
+                  if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'SET_FORCE_OFFLINE', value: forceOffline });
+                  }
+                } catch (e) {}
+              })
+              .catch(function() {});
+          } catch (e) {}
+        });
       }
     </script>
   </head>

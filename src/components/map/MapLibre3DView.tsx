@@ -9,7 +9,7 @@ import {
   Mountain, Wifi, WifiOff, Phone, Fuel, ChevronDown,
   ChevronUp, Play, Radio, ArrowRight, Clock, DollarSign,
   Plus, Minus, Crosshair, Route, RefreshCw, CornerUpRight,
-  Flame, Satellite, Store
+  Flame, Satellite, Store, HardDriveDownload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -23,7 +23,12 @@ import {
   buildSpatialDemandLayersData,
   evaluateVendorOpenStatus,
   stripMapWatermarks,
+  attachOffline3DFallback,
+  buildOffline3DStyle,
+  resolveBestOfflineBasemapStyle,
 } from '../../lib/geoLibreEngine';
+import { isEffectivelyOffline, useOfflineMapStatus } from '../../lib/offlineMapEngine';
+import { OfflineMapManagerModal } from './OfflineMapManagerModal';
 
 export interface MapLibre3DViewProps {
   isOpen: boolean;
@@ -763,6 +768,8 @@ export default function MapLibre3DView({
   // Analyzer Panels & Modals
   const [showTerrainDrawer, setShowTerrainDrawer] = useState<boolean>(false);
   const [showHotspotsDrawer, setShowHotspotsDrawer] = useState<boolean>(false);
+  const [isOfflineManagerOpen, setIsOfflineManagerOpen] = useState<boolean>(false);
+  const offlineStatus = useOfflineMapStatus();
   const [activeHotspot, setActiveHotspot] = useState(DAR_HOTSPOTS[0]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isTurnBarMinimized, setIsTurnBarMinimized] = useState<boolean>(false);
@@ -924,10 +931,22 @@ export default function MapLibre3DView({
     const accessToken = resolveMapboxAccessToken();
     mapboxgl.accessToken = accessToken;
 
+    const mapBasemapId =
+      activeEngineKey === 'night'
+        ? 'night'
+        : activeEngineKey === 'satellite'
+        ? 'satellite'
+        : activeEngineKey === 'lite_saver'
+        ? 'lite'
+        : 'street_3d';
+    const initialStyle = isEffectivelyOffline()
+      ? buildOffline3DStyle(mapBasemapId)
+      : activeEngine.url;
+
     const map = new mapboxgl.Map({
       accessToken,
       container: mapContainerRef.current,
-      style: activeEngine.url as any,
+      style: initialStyle as any,
       center: [initialLng, initialLat],
       zoom: 17,
       pitch: pitch,
@@ -941,6 +960,17 @@ export default function MapLibre3DView({
 
     mapInstanceRef.current = map;
     stripMapWatermarks(map);
+    const detachOffline = attachOffline3DFallback(map, () => mapBasemapId);
+
+    if (isEffectivelyOffline()) {
+      void resolveBestOfflineBasemapStyle(mapBasemapId).then((cachedStyle) => {
+        if (mapInstanceRef.current === map && (cachedStyle as any).id !== 'papo-offline-3d') {
+          try {
+            map.setStyle(cachedStyle as any);
+          } catch {}
+        }
+      });
+    }
 
     // Allow driver to tap anywhere on the street to smoothly reposition vehicle on the road
     map.on('click', (e) => {
@@ -1212,6 +1242,7 @@ export default function MapLibre3DView({
     });
 
     return () => {
+      detachOffline();
       vendorMarkersRef.current.forEach(m => m.remove());
       vendorMarkersRef.current = [];
       customerMarkerRef.current?.remove();
@@ -1219,7 +1250,7 @@ export default function MapLibre3DView({
       driverMarkerRef.current?.remove();
       map.remove();
     };
-  }, [activeEngineKey, dataSaverMode]);
+  }, [activeEngineKey, dataSaverMode, offlineStatus.isOffline]);
 
   // Sync Heatmap visibility dynamically without recreating map
   useEffect(() => {
@@ -1734,6 +1765,21 @@ export default function MapLibre3DView({
               <Play className="w-3 h-3 fill-white ml-0.5" />
             </button>
           )}
+
+          {/* Offline 3D Maps Manager Pill */}
+          <button
+            type="button"
+            onClick={() => setIsOfflineManagerOpen(true)}
+            className={`h-8 px-2.5 rounded-full font-bold text-[10px] uppercase tracking-wider shadow-md active:scale-90 transition-all cursor-pointer border flex items-center gap-1 ${
+              offlineStatus.isOffline
+                ? 'bg-amber-600 text-white border-amber-400'
+                : 'bg-emerald-600/90 text-white border-emerald-400/50'
+            }`}
+            title="Hifadhi ramani ya 3D utumie bila bando (Offline)"
+          >
+            {offlineStatus.isOffline ? <WifiOff className="w-3 h-3" /> : <HardDriveDownload className="w-3 h-3" />}
+            <span className="hidden sm:inline">Offline</span>
+          </button>
 
           {/* Hotspots Modal Drawer Trigger */}
           <button
@@ -2474,6 +2520,12 @@ export default function MapLibre3DView({
           </div>
         )}
       </AnimatePresence>
+
+      <OfflineMapManagerModal
+        isOpen={isOfflineManagerOpen}
+        onClose={() => setIsOfflineManagerOpen(false)}
+        currentCenter={{ lat: center[0] || -6.8163, lng: center[1] || 39.2384 }}
+      />
     </div>
   );
 }

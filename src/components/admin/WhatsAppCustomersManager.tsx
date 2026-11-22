@@ -5,11 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
+  AlertTriangle,
   Ban,
   CheckCircle2,
+  ExternalLink,
   Headphones,
   MapPin,
   MessageCircle,
+  Phone,
   RefreshCw,
   Search,
   Send,
@@ -30,6 +33,24 @@ export interface SupportTicketRow {
   messages: Array<{ sender: 'customer' | 'agent' | string; text: string; timestamp?: string }>;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface SosAlertRow {
+  id: string;
+  status: 'open' | 'resolved' | string;
+  severity?: string;
+  senderId: string;
+  customerName: string;
+  customerPhone: string;
+  emergencyContactPhone?: string;
+  bookingCode?: string;
+  driverName?: string;
+  driverPhone?: string;
+  vehiclePlate?: string;
+  pickupName?: string;
+  destinationName?: string;
+  trackUrl?: string;
+  createdAt: number;
 }
 
 export interface MetaCustomerRow {
@@ -70,15 +91,18 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
   const [blockReasonDraft, setBlockReasonDraft] = useState<Record<string, string>>({});
   const [editingBlockKey, setEditingBlockKey] = useState<string | null>(null);
   const [supportTickets, setSupportTickets] = useState<SupportTicketRow[]>([]);
+  const [sosAlerts, setSosAlerts] = useState<SosAlertRow[]>([]);
+  const [sosBusyId, setSosBusyId] = useState<string | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [ticketBusyId, setTicketBusyId] = useState<string | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const [custRes, ticketRes] = await Promise.all([
+      const [custRes, ticketRes, sosRes] = await Promise.all([
         fetch('/api/meta/customers'),
         fetch('/api/meta/support-tickets').catch(() => null),
+        fetch('/api/meta/sos-alerts').catch(() => null),
       ]);
       if (!custRes.ok) throw new Error('Imeshindwa kupakia orodha ya wateja');
       const data = await custRes.json();
@@ -86,6 +110,10 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
       if (ticketRes && ticketRes.ok) {
         const tData = await ticketRes.json().catch(() => ({}));
         setSupportTickets(Array.isArray(tData?.tickets) ? tData.tickets : []);
+      }
+      if (sosRes && sosRes.ok) {
+        const sData = await sosRes.json().catch(() => ({}));
+        setSosAlerts(Array.isArray(sData?.alerts) ? sData.alerts : []);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Imeshindwa kupakia wateja wa WhatsApp');
@@ -229,9 +257,106 @@ export const WhatsAppCustomersManager: React.FC<WhatsAppCustomersManagerProps> =
 
   const blockedCount = customers.filter((c) => c.blocked).length;
   const openTickets = supportTickets.filter((t) => t.status === 'open');
+  const openSosAlerts = sosAlerts.filter((a) => a.status === 'open');
+
+  const handleResolveSos = async (alert: SosAlertRow) => {
+    setSosBusyId(alert.id);
+    try {
+      const res = await fetch(`/api/meta/sos-alerts/${encodeURIComponent(alert.id)}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: 'Imethibitishwa salama na Admin Desk' }),
+      });
+      if (!res.ok) throw new Error('Imeshindwa kufunga tahadhari ya SOS');
+      setSosAlerts((prev) =>
+        prev.map((a) => (a.id === alert.id ? { ...a, status: 'resolved' } : a))
+      );
+      toast.success(`Tahadhari ya SOS (${alert.customerName}) imetatuliwa na mteja amejulishwa.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu wakati wa kufunga SOS');
+    } finally {
+      setSosBusyId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      {openSosAlerts.length > 0 && (
+        <Card className="border-2 border-rose-500/80 bg-rose-50/80 dark:bg-rose-950/30 shadow-md">
+          <CardHeader className="pb-2 border-b border-rose-200 dark:border-rose-900/60">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0 animate-pulse">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-xs font-black uppercase tracking-wider text-rose-800 dark:text-rose-200 flex items-center gap-2">
+                    <span>DHARURA YA SOS SAFARINI ({openSosAlerts.length})</span>
+                  </CardTitle>
+                  <CardDescription className="text-[11px] text-rose-700/90 dark:text-rose-300/90">
+                    Abiria wamewasha kitufe cha SOS kwenye WhatsApp. Piga simu au fuatilia ramani mara moja!
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-2.5">
+            {openSosAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="p-3 rounded-xl bg-white dark:bg-neutral-950 border border-rose-300 dark:border-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-rose-700 dark:text-rose-400">
+                      🆘 {alert.customerName}
+                    </span>
+                    <span className="font-mono text-[11px] text-neutral-600 dark:text-neutral-300 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {alert.customerPhone}
+                    </span>
+                    {alert.bookingCode && (
+                      <Badge className="bg-rose-600 text-white border-none text-[10px] font-black">
+                        #{alert.bookingCode}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-300">
+                    🚖 Dereva: <strong>{alert.driverName || '-'}</strong> ({alert.vehiclePlate || '-'}) • 📍{' '}
+                    {alert.pickupName || '-'} ➜ {alert.destinationName || '-'}
+                  </p>
+                  {alert.emergencyContactPhone && (
+                    <p className="text-[10.5px] text-rose-600 dark:text-rose-400 font-semibold">
+                      👨‍👩‍👧 Mtu wa Dharura aliyetumiwa SMS/WA: {alert.emergencyContactPhone}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {alert.trackUrl && (
+                    <a
+                      href={alert.trackUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 h-8 rounded-xl border border-rose-300 dark:border-rose-800 text-[11px] font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Ramani Live
+                    </a>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={sosBusyId === alert.id}
+                    onClick={() => handleResolveSos(alert)}
+                    className="h-8 px-3 text-[11px] font-black bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
+                  >
+                    {sosBusyId === alert.id ? 'Inafunga...' : '✅ Tatua SOS'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {supportTickets.length > 0 && (
         <Card className="border border-amber-200/80 dark:border-amber-900/50 shadow-sm bg-white dark:bg-neutral-950">
           <CardHeader className="pb-3 border-b border-amber-100/80 dark:border-neutral-800">

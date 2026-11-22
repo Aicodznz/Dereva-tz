@@ -1412,7 +1412,7 @@ export async function processDueScheduledBookings(
           .catch(() => {});
 
         if (ride.metaSenderId) {
-          await sendOutbound({
+          await (sendOutbound as any)({
             channel: (ride.metaChannel || 'whatsapp') as PartnerMetaChannel,
             recipientId: ride.metaSenderId,
             text:
@@ -1420,6 +1420,10 @@ export async function processDueScheduledBookings(
               `🔖 *#${ride.bookingId || d.id.slice(-6)}* • *${ride.scheduledForLabel || 'Sasa'}*\n` +
               `📍 ${ride.pickup?.name || '-'} ➜ ${ride.destination?.name || '-'}\n\n` +
               `📡 Tunawaunganisha madereva wa karibu sasa hivi! Utapokea taarifa dereva akipokea.`,
+            templateFallback: {
+              category: 'utility',
+              bodyParams: [String(ride.bookingId || d.id.slice(-6)), String(ride.scheduledForLabel || 'Sasa')],
+            },
           }).catch(() => {});
         }
         await notifyDriversNewJobToWhatsApp(
@@ -1789,6 +1793,7 @@ export async function sendWhatsAppPromoBroadcast(
   totalTargets: number;
   sentCount: number;
   failedCount: number;
+  templateFallbackCount: number;
   audience: string;
   recipientsPreview: string[];
 }> {
@@ -1835,17 +1840,26 @@ export async function sendWhatsAppPromoBroadcast(
   const entries = Array.from(targets.entries()).slice(0, 120);
   let sentCount = 0;
   let failedCount = 0;
+  let templateFallbackCount = 0;
 
   if (!params.dryRun) {
     for (const [rid, name] of entries) {
       const personalText = `🔥 *Habari ${name}!*\n\n${cleanMsg}${promoFooter}`;
-      const r = await sendOutbound({
+      const r: any = await (sendOutbound as any)({
         channel: targetChannel,
         recipientId: rid,
         text: personalText,
+        templateFallback: {
+          category: 'marketing',
+          bodyParams: [name, cleanMsg.slice(0, 220)],
+        },
       }).catch(() => ({ sent: false }));
-      if (r.sent) sentCount += 1;
-      else failedCount += 1;
+      if (r.sent) {
+        sentCount += 1;
+        if (r.usedTemplate) templateFallbackCount += 1;
+      } else {
+        failedCount += 1;
+      }
     }
 
     if (dbAdmin) {
@@ -1860,6 +1874,7 @@ export async function sendWhatsAppPromoBroadcast(
             totalTargets: entries.length,
             sentCount,
             failedCount,
+            templateFallbackCount,
             createdAt: new Date(),
           })
         )
@@ -1871,7 +1886,816 @@ export async function sendWhatsAppPromoBroadcast(
     totalTargets: entries.length,
     sentCount: params.dryRun ? entries.length : sentCount,
     failedCount,
+    templateFallbackCount,
     audience,
     recipientsPreview: entries.slice(0, 10).map(([rid, nm]) => `${nm} (${rid})`),
   };
 }
+
+// ============================================================================
+// 6. META 24-HOUR WINDOW APPROVED TEMPLATE SETTINGS & FALLBACK CONFIG
+// ============================================================================
+export interface MetaTemplateSettings {
+  enable24hTemplateFallback: boolean;
+  templateLanguageCode: string;
+  utilityTemplateName: string;
+  marketingTemplateName: string;
+  safetyTemplateName: string;
+  updatedAt?: number;
+}
+
+export const DEFAULT_META_TEMPLATE_SETTINGS: MetaTemplateSettings = {
+  enable24hTemplateFallback: true,
+  templateLanguageCode: 'sw',
+  utilityTemplateName: 'papohapo_order_update',
+  marketingTemplateName: 'papohapo_promo_offer',
+  safetyTemplateName: 'papohapo_safety_alert',
+};
+
+let cachedMetaTemplateSettings: MetaTemplateSettings | null = null;
+
+function sanitizeMetaTemplateSettings(raw: any): MetaTemplateSettings {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const cleanName = (val: any, defVal: string) =>
+    String(val ?? defVal)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .slice(0, 128) || defVal;
+  return {
+    enable24hTemplateFallback: src.enable24hTemplateFallback !== false,
+    templateLanguageCode: String(src.templateLanguageCode || DEFAULT_META_TEMPLATE_SETTINGS.templateLanguageCode).trim() || 'sw',
+    utilityTemplateName: cleanName(src.utilityTemplateName, DEFAULT_META_TEMPLATE_SETTINGS.utilityTemplateName),
+    marketingTemplateName: cleanName(src.marketingTemplateName, DEFAULT_META_TEMPLATE_SETTINGS.marketingTemplateName),
+    safetyTemplateName: cleanName(src.safetyTemplateName, DEFAULT_META_TEMPLATE_SETTINGS.safetyTemplateName),
+    updatedAt: typeof src.updatedAt === 'number' ? src.updatedAt : Date.now(),
+  };
+}
+
+export async function getMetaTemplateSettings(dbAdmin?: any): Promise<MetaTemplateSettings> {
+  if (dbAdmin) {
+    try {
+      const snap = await dbAdmin.collection('config').doc('meta_templates').get();
+      if (snap.exists) {
+        const sanitized = sanitizeMetaTemplateSettings(snap.data());
+        cachedMetaTemplateSettings = sanitized;
+        return sanitized;
+      }
+    } catch {}
+  }
+  if (cachedMetaTemplateSettings) return cachedMetaTemplateSettings;
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    if (fs.existsSync(localPath)) {
+      const parsed = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+      if (parsed?.templateSettings) {
+        const sanitized = sanitizeMetaTemplateSettings(parsed.templateSettings);
+        cachedMetaTemplateSettings = sanitized;
+        return sanitized;
+      }
+    }
+  } catch {}
+  return sanitizeMetaTemplateSettings(DEFAULT_META_TEMPLATE_SETTINGS);
+}
+
+export async function saveMetaTemplateSettings(
+  partial: Partial<MetaTemplateSettings>,
+  dbAdmin?: any
+): Promise<MetaTemplateSettings> {
+  const current = await getMetaTemplateSettings(dbAdmin);
+  const merged = sanitizeMetaTemplateSettings({
+    ...current,
+    ...partial,
+    updatedAt: Date.now(),
+  });
+  cachedMetaTemplateSettings = merged;
+
+  if (dbAdmin) {
+    try {
+      await dbAdmin.collection('config').doc('meta_templates').set(cleanUndefined(merged), { merge: true });
+    } catch {}
+  }
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const localPath = path.join(process.cwd(), 'meta_config.json');
+    let existing: Record<string, any> = {};
+    if (fs.existsSync(localPath)) {
+      try {
+        existing = JSON.parse(fs.readFileSync(localPath, 'utf8')) || {};
+      } catch {
+        existing = {};
+      }
+    }
+    existing.templateSettings = merged;
+    fs.writeFileSync(localPath, JSON.stringify(existing, null, 2), 'utf8');
+  } catch {}
+
+  return merged;
+}
+
+export function buildMetaTemplateWirePayload(params: {
+  recipientId: string;
+  templateName: string;
+  languageCode?: string;
+  bodyParams?: string[];
+}): Record<string, any> {
+  const bodyParams = (params.bodyParams || []).map((v) => String(v || '').trim()).filter(Boolean);
+  return {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: params.recipientId,
+    type: 'template',
+    template: {
+      name: params.templateName,
+      language: { code: params.languageCode || 'sw' },
+      ...(bodyParams.length > 0
+        ? {
+            components: [
+              {
+                type: 'body',
+                parameters: bodyParams.slice(0, 6).map((txt) => ({
+                  type: 'text',
+                  text: txt.slice(0, 500),
+                })),
+              },
+            ],
+          }
+        : {}),
+    },
+  };
+}
+
+// ============================================================================
+// 7. ABANDONED CART & UNFINISHED BOOKING RECOVERY
+// ============================================================================
+const ABANDONED_CHECKOUT_STEPS = new Set([
+  'SELECTING_VEHICLE',
+  'CONFIRMING_TRIP',
+  'SELECTING_PAYMENT_METHOD',
+  'CART_WAIT_ADDRESS',
+  'CART_WAIT_PAYMENT',
+  'FOOD_DELIVERY_ADDRESS',
+  'MALL_DELIVERY_ADDRESS',
+  'SCHED_CONFIRM',
+]);
+
+export async function processAbandonedSessionsRecovery(
+  dbAdmin: any,
+  sendOutbound: PartnerBotDeps['sendOutbound'],
+  options?: { minIdleMs?: number; maxIdleMs?: number; dryRun?: boolean }
+): Promise<{
+  checked: number;
+  eligible: number;
+  sentCount: number;
+  preview: Array<{ sessionId: string; senderId: string; name: string; summary: string; idleMinutes: number }>;
+}> {
+  if (!dbAdmin) return { checked: 0, eligible: 0, sentCount: 0, preview: [] };
+  const minIdleMs = Math.max(0, Number(options?.minIdleMs ?? 15 * 60 * 1000));
+  const maxIdleMs = Math.max(minIdleMs + 60_000, Number(options?.maxIdleMs ?? 24 * 60 * 60 * 1000));
+  const now = Date.now();
+
+  let checked = 0;
+  let eligible = 0;
+  let sentCount = 0;
+  const preview: Array<{ sessionId: string; senderId: string; name: string; summary: string; idleMinutes: number }> = [];
+
+  try {
+    let snap: any;
+    try {
+      snap = await dbAdmin
+        .collection('meta_sessions')
+        .where('lastUpdated', '>=', now - maxIdleMs)
+        .limit(250)
+        .get();
+    } catch {
+      snap = await dbAdmin.collection('meta_sessions').limit(250).get();
+    }
+    for (const d of snap.docs || []) {
+      checked += 1;
+      const s = d.data() || {};
+      const senderId = String(s.senderId || '').trim();
+      const channel = (s.channel === 'messenger' || s.channel === 'instagram' ? s.channel : 'whatsapp') as PartnerMetaChannel;
+      if (!senderId) continue;
+
+      const details = s.details || {};
+      if (details.abandonedReminderSent === true || details.humanHandover === true) continue;
+
+      const lastUpdated = normEpoch(s.lastUpdated);
+      if (!lastUpdated) continue;
+      const idleMs = now - lastUpdated;
+      if (idleMs < minIdleMs || idleMs > maxIdleMs) continue;
+
+      const unifiedCart: any[] = Array.isArray(details.unifiedCart) ? details.unifiedCart : [];
+      const foodCart: any[] = Array.isArray(details.foodCart) ? details.foodCart : [];
+      const hasCart = unifiedCart.length > 0 || foodCart.length > 0;
+      const inPausedStep = ABANDONED_CHECKOUT_STEPS.has(String(s.step || ''));
+      if (!hasCart && !inPausedStep) continue;
+
+      eligible += 1;
+      const custName = details.customerName || 'Mteja';
+      const activeCart = unifiedCart.length > 0 ? unifiedCart : foodCart;
+      let summaryText = '';
+      let buttons: Array<{ id: string; title: string }> = [
+        { id: '0', title: '▶️ Endelea' },
+        { id: '00', title: '🏠 Menyu Kuu' },
+      ];
+
+      if (activeCart.length > 0) {
+        const total = activeCart.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1), 0);
+        const firstItems = activeCart
+          .slice(0, 2)
+          .map((it) => `${it.name || it.productName} x${it.quantity || 1}`)
+          .join(', ');
+        summaryText = `Kikapu chako (${activeCart.length} bidhaa: ${firstItems}${activeCart.length > 2 ? ', ...' : ''}) chenye thamani ya *TZS ${total.toLocaleString()}/=*`;
+        if (unifiedCart.length > 0) {
+          buttons = [
+            { id: 'CMD:VIEW_CART', title: '🛒 Fungua Kikapu' },
+            { id: 'CMD:CHECKOUT_CART', title: '💳 Lipia Sasa' },
+            { id: 'CMD:CLEAR_CART', title: '🧹 Safisha' },
+          ];
+        }
+      } else if (details.pickup || details.schedPickup) {
+        const pName = details.pickup?.name || details.schedPickup || 'Pickup';
+        const dName = details.destination?.name || details.schedDest || 'Destination';
+        summaryText = `Safari yako kutoka *${pName}* kwenda *${dName}*`;
+      } else {
+        summaryText = `Oda yako ya *${details.selectedVendorName || s.service || 'Papo Hapo'}*`;
+      }
+
+      preview.push({
+        sessionId: d.id,
+        senderId,
+        name: custName,
+        summary: summaryText.replace(/\*/g, ''),
+        idleMinutes: Math.round(idleMs / 60000),
+      });
+
+      if (!options?.dryRun) {
+        const msg =
+          `👋 *Habari ${custName}! Bado tunakushikia nafasi yako...*\n\n` +
+          `Ulianza kuagiza ${summaryText} lakini bado hujakamilisha.\n\n` +
+          `💡 Bonyeza kitufe hapo chini kuendelea pale ulipoishia (au andika *00* kuanza upya):`;
+
+        const interactive =
+          channel === 'whatsapp'
+            ? {
+                type: 'button',
+                body: { text: msg },
+                action: {
+                  buttons: buttons.slice(0, 3).map((b) => ({
+                    type: 'reply',
+                    reply: { id: b.id, title: b.title.slice(0, 20) },
+                  })),
+                },
+              }
+            : undefined;
+
+        const res: any = await (sendOutbound as any)({
+          channel,
+          recipientId: senderId,
+          text: msg,
+          interactive,
+          templateFallback: {
+            category: 'utility',
+            bodyParams: [custName, summaryText.replace(/\*/g, '').slice(0, 120)],
+          },
+        }).catch(() => ({ sent: false }));
+
+        await dbAdmin
+          .collection('meta_sessions')
+          .doc(d.id)
+          .set(
+            {
+              details: {
+                ...details,
+                abandonedReminderSent: true,
+                abandonedReminderSentAt: now,
+              },
+            },
+            { merge: true }
+          )
+          .catch(() => {});
+
+        if (res?.sent) sentCount += 1;
+      }
+    }
+  } catch (err) {
+    console.warn('[Abandoned Recovery] Error:', err);
+  }
+
+  return {
+    checked,
+    eligible,
+    sentCount: options?.dryRun ? eligible : sentCount,
+    preview: preview.slice(0, 25),
+  };
+}
+
+// ============================================================================
+// 8. IN-RIDE SAFETY SOS & LIVE TRIP SHARE ("SOS" / "SHIRIKI SAFARI")
+// ============================================================================
+async function findLatestCustomerRide(dbAdmin: any, senderId: string, lookupPhone: string): Promise<any | null> {
+  if (!dbAdmin) return null;
+  const last9 = partnerPhoneLast9(lookupPhone || senderId);
+  try {
+    const snap = await dbAdmin.collection('rides').limit(80).get();
+    const matches = (snap.docs || [])
+      .map((d: any) => ({ id: d.id, ...(d.data() || {}) }))
+      .filter((r: any) => {
+        if (String(r.metaSenderId || '') === senderId) return true;
+        if (String(r.customerId || '').includes(senderId)) return true;
+        if (last9 && (partnerPhoneLast9(r.customerInfo?.phone) === last9 || partnerPhoneLast9(r.customerPhone) === last9)) return true;
+        return false;
+      });
+    const activePriority = new Set(['on_trip', 'started', 'driver_arrived', 'arrived', 'accepted', 'driver_assigned', 'pending']);
+    matches.sort((a: any, b: any) => {
+      const aAct = activePriority.has(String(a.status || '').toLowerCase()) ? 1 : 0;
+      const bAct = activePriority.has(String(b.status || '').toLowerCase()) ? 1 : 0;
+      if (aAct !== bAct) return bAct - aAct;
+      return normEpoch(b.updatedAt || b.createdAt) - normEpoch(a.updatedAt || a.createdAt);
+    });
+    return matches[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getEmergencyContactForSender(
+  dbAdmin: any,
+  channel: PartnerMetaChannel,
+  senderId: string,
+  session: PartnerSessionLike
+): Promise<string> {
+  if (session.details?.emergencyContactPhone) {
+    return String(session.details.emergencyContactPhone);
+  }
+  if (!dbAdmin) return '';
+  for (const key of [`${channel}:${senderId}`, `${channel}_${senderId}`]) {
+    const snap = await dbAdmin.collection('meta_customers').doc(key).get().catch(() => null);
+    if (snap?.exists && snap.data()?.emergencyContactPhone) {
+      return String(snap.data().emergencyContactPhone);
+    }
+  }
+  return '';
+}
+
+export async function handleRideSafetySosOrShare(params: {
+  senderId: string;
+  cleanInput: string;
+  channel: PartnerMetaChannel;
+  dbAdmin: any;
+  session: PartnerSessionLike;
+  lang: 'sw' | 'en';
+  knownPhone: string;
+  defaultWaPhone: string;
+  deps: PartnerBotDeps;
+}): Promise<string | null> {
+  const { senderId, cleanInput, channel, dbAdmin, session, lang, knownPhone, defaultWaPhone, deps } = params;
+  const trimmed = cleanInput.trim();
+  const isEn = lang === 'en';
+  const lookupPhone = knownPhone || defaultWaPhone || senderId;
+
+  const isSosCmd = /^(?:🆘\s*|🚨\s*)?(sos|dharura|emergency|msaada\s*wa\s*dharura|CMD:RIDE_SOS|RIDE_SOS)$/i.test(trimmed);
+  const isShareTripCmd = /^(?:📍\s*|🔗\s*)?(shiriki\s*safari|share\s*(?:trip|ride)|tuma\s*safari|CMD:SHARE_TRIP|SHARE_TRIP)$/i.test(trimmed);
+  const isSetContactCmd = /^(?:👨‍👩‍👧\s*|📞\s*)?(mtu\s*wa\s*dharura|emergency\s*contact|ongeza\s*ndugu|CMD:SET_SOS_CONTACT|SET_SOS_CONTACT)$/i.test(trimmed);
+
+  // If user is in SOS_WAIT_CONTACT and sends a command rather than a phone number, exit step cleanly
+  if (session.step === 'SOS_WAIT_CONTACT' && !isSosCmd && !isShareTripCmd && !isSetContactCmd) {
+    if (/^(0|00|ruka|skip|menu|menyu|hi|habari|ghairi|cancel)$/i.test(trimmed)) {
+      session.step = 'COLLECTING_ROUTE';
+      delete session.details.pendingShareTripUrl;
+      delete session.details.pendingSosAlertId;
+      await deps.saveSession(session, dbAdmin);
+      return null;
+    }
+    const digits = normalizePartnerWaDigits(trimmed);
+    if (!digits || digits.length < 9) {
+      // If user typed something unrelated (not digits), don't trap them: exit SOS_WAIT_CONTACT unless it looks like an attempted phone number
+      if (trimmed.replace(/\D/g, '').length < 4) {
+        session.step = 'COLLECTING_ROUTE';
+        delete session.details.pendingShareTripUrl;
+        delete session.details.pendingSosAlertId;
+        await deps.saveSession(session, dbAdmin);
+        return null;
+      }
+      return `⚠️ Andika namba sahihi ya simu ya ndugu/rafiki (mfano: *0712345678*), au andika *Ruka*.`;
+    }
+
+    const formattedContact = `+${digits}`;
+    session.details.emergencyContactPhone = formattedContact;
+    const pendingShareUrl = session.details.pendingShareTripUrl;
+    const pendingAlertId = session.details.pendingSosAlertId;
+    delete session.details.pendingShareTripUrl;
+    delete session.details.pendingSosAlertId;
+    session.step = 'COLLECTING_ROUTE';
+
+    if (dbAdmin) {
+      await dbAdmin
+        .collection('meta_customers')
+        .doc(`${channel}:${senderId}`)
+        .set({ senderId, channel, emergencyContactPhone: formattedContact, updatedAt: new Date() }, { merge: true })
+        .catch(() => {});
+      if (pendingAlertId) {
+        await dbAdmin
+          .collection('sos_alerts')
+          .doc(pendingAlertId)
+          .set({ emergencyContactPhone: formattedContact, updatedAt: new Date() }, { merge: true })
+          .catch(() => {});
+      }
+    }
+
+    const custName = session.details.customerName || 'Mteja wa Papo Hapo';
+    const ride = await findLatestCustomerRide(dbAdmin, senderId, lookupPhone);
+    const liveUrl = pendingShareUrl || (ride ? `${getPublicAppBaseUrl()}/track/${encodeURIComponent(ride.id)}` : '');
+
+    if (pendingAlertId || pendingShareUrl) {
+      const driverName = ride?.driverInfo?.name || ride?.driverName || 'Dereva';
+      const plate = ride?.driverInfo?.vehicle?.plate || '-';
+      const contactMsg = pendingAlertId
+        ? `🆘 *TAARIFA YA DHARURA (PAPO HAPO SAFETY)!*\n\nMpendwa wako *${custName}* (${normalizePhoneDisplay(lookupPhone)}) amebonyeza kitufe cha *SOS* akiwa safarini.\n🚖 *Dereva/Chombo:* ${driverName} (${plate})\n${liveUrl ? `📍 *Fuatilia Mahali Alipo Live:* ${liveUrl}` : ''}`
+        : `📍 *${custName} AMESHIRIKI SAFARI YAKE NAWE!*\n\n🚖 *Dereva/Chombo:* ${driverName} (${plate})\n📍 *Njia:* ${ride?.pickup?.name || '-'} ➜ ${ride?.destination?.name || '-'}\n🔗 *Fuatilia Live:* ${liveUrl}`;
+      await (deps.sendOutbound as any)({
+        channel: 'whatsapp',
+        recipientId: digits,
+        text: contactMsg,
+        templateFallback: {
+          category: 'safety',
+          bodyParams: [custName, liveUrl || 'Papo Hapo'],
+        },
+      }).catch(() => {});
+    }
+
+    session.details.quickReplyButtons = [
+      { id: 'CMD:SHARE_TRIP', title: '📍 Shiriki Safari' },
+      { id: '00', title: '🏠 Menyu Kuu' },
+    ];
+    await deps.saveSession(session, dbAdmin);
+    return (
+      `✅ *Namba ya Dharura Imehifadhiwa:* ${formattedContact}\n` +
+      (pendingAlertId || pendingShareUrl
+        ? `📲 Tumemtumia ujumbe na kiungo cha safari yako kwenye WhatsApp sasa hivi!`
+        : `Tutaitumia moja kwa moja pindi utakapobonyeza *SOS* au *Shiriki Safari*.`)
+    );
+  }
+
+  if (isSetContactCmd) {
+    session.step = 'SOS_WAIT_CONTACT';
+    await deps.saveSession(session, dbAdmin);
+    return `👨‍👩‍👧 *WEKA NAMBA YA MTU WA DHARURA (TRUSTED CONTACT)*\n\nAndika namba ya simu ya ndugu au rafiki wa karibu (mfano: *0712345678*):`;
+  }
+
+  if (!isSosCmd && !isShareTripCmd) return null;
+
+  const custName = session.details.customerName || 'Mteja wa Papo Hapo';
+  const custPhone = normalizePhoneDisplay(lookupPhone);
+  const ride = await findLatestCustomerRide(dbAdmin, senderId, lookupPhone);
+  const savedContact = await getEmergencyContactForSender(dbAdmin, channel, senderId, session);
+  const baseUrl = getPublicAppBaseUrl();
+  const trackUrl = ride ? `${baseUrl}/track/${encodeURIComponent(ride.id)}` : deps.buildOrdersTrackingUrl(custPhone);
+  const bookingCode = ride ? String(ride.bookingId || ride.id.slice(-6)).toUpperCase() : 'PAPO-SOS';
+  const driverName = ride?.driverInfo?.name || ride?.driverName || 'Haijatajwa';
+  const driverPhone = ride?.driverInfo?.phone || '';
+  const vehiclePlate = ride?.driverInfo?.vehicle?.plate || '-';
+  const pickupName = ride?.pickup?.name || session.details?.lastLocation?.name || 'Eneo la Mteja';
+  const destinationName = ride?.destination?.name || '-';
+
+  if (isShareTripCmd) {
+    let contactNotified = false;
+    if (savedContact) {
+      const contactDigits = normalizePartnerWaDigits(savedContact);
+      if (contactDigits) {
+        const sendRes: any = await (deps.sendOutbound as any)({
+          channel: 'whatsapp',
+          recipientId: contactDigits,
+          text:
+            `📍 *${custName} AMESHIRIKI SAFARI YAKE NAWE (PAPO HAPO)*\n\n` +
+            `🔖 *Safari:* #${bookingCode}\n` +
+            `🚖 *Dereva & Chombo:* ${driverName} (${vehiclePlate})${driverPhone ? ` • ${driverPhone}` : ''}\n` +
+            `📍 *Njia:* ${pickupName} ➜ ${destinationName}\n\n` +
+            `🗺️ *Fuatilia Live:* ${trackUrl}`,
+          templateFallback: {
+            category: 'safety',
+            bodyParams: [custName, trackUrl],
+          },
+        }).catch(() => ({ sent: false }));
+        contactNotified = Boolean(sendRes?.sent);
+      }
+    } else {
+      session.step = 'SOS_WAIT_CONTACT';
+      session.details.pendingShareTripUrl = trackUrl;
+    }
+
+    session.details.quickReplyButtons = [
+      { id: 'CMD:RIDE_SOS', title: '🆘 SOS Dharura' },
+      { id: '00', title: '🏠 Menyu Kuu' },
+    ];
+    await deps.saveSession(session, dbAdmin);
+
+    return (
+      `📍 *SHIRIKI SAFARI YAKO MUBASHARA (#${bookingCode})*\n\n` +
+      `🚖 *Dereva:* ${driverName} (*${vehiclePlate}*)\n` +
+      `📌 *Njia:* ${pickupName} ➜ ${destinationName}\n` +
+      `🔗 *Kiungo cha Ramani (Fuatilia Live):*\n${trackUrl}\n\n` +
+      (savedContact
+        ? `✅ Tumetuma kiungo hiki moja kwa moja kwa mtu wako wa dharura (*${savedContact}*)${contactNotified ? '' : ' (imehifadhiwa)'}.`
+        : `💡 _Mtumie ndugu/rafiki kiungo hiki au andika namba yake ya simu sasa (mf. *0712345678*) tumtumie moja kwa moja!_`)
+    );
+  }
+
+  // SOS EMERGENCY TRIGGER
+  let alertId = `sos-${Date.now()}`;
+  if (dbAdmin) {
+    try {
+      const alertRef = await dbAdmin.collection('sos_alerts').add(
+        cleanUndefined({
+          status: 'open',
+          severity: 'critical',
+          channel,
+          senderId,
+          customerName: custName,
+          customerPhone: custPhone,
+          emergencyContactPhone: savedContact || undefined,
+          rideId: ride?.id || undefined,
+          bookingCode,
+          driverId: ride?.driverId || undefined,
+          driverName,
+          driverPhone: driverPhone || undefined,
+          vehiclePlate,
+          pickupName,
+          destinationName,
+          trackUrl,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
+      alertId = alertRef.id;
+
+      await dbAdmin
+        .collection('notifications')
+        .add(
+          cleanUndefined({
+            title: '🆘 TAHADHARI YA DHARURA (SOS SAFARINI)!',
+            message: `${custName} (${custPhone}) amewasha SOS safarini #${bookingCode} (${driverName} • ${vehiclePlate}).`,
+            type: 'ride_sos_emergency',
+            sosAlertId: alertId,
+            rideId: ride?.id,
+            senderId,
+            read: false,
+            createdAt: new Date(),
+          })
+        )
+        .catch(() => {});
+
+      await dbAdmin
+        .collection('support_tickets')
+        .add(
+          cleanUndefined({
+            channel,
+            senderId,
+            customerName: `🆘 ${custName}`,
+            customerPhone: custPhone,
+            status: 'open',
+            priority: 'critical',
+            sosAlertId: alertId,
+            messages: [
+              {
+                sender: 'customer',
+                text: `🆘 SOS DHARURA SAFARINI (#${bookingCode}) • Dereva: ${driverName} (${vehiclePlate}) • Track: ${trackUrl}`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+            lastMessage: `🆘 SOS DHARURA #${bookingCode} — ${driverName} (${vehiclePlate})`,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+        )
+        .catch(() => {});
+    } catch {}
+  }
+
+  if (savedContact) {
+    const contactDigits = normalizePartnerWaDigits(savedContact);
+    if (contactDigits) {
+      await (deps.sendOutbound as any)({
+        channel: 'whatsapp',
+        recipientId: contactDigits,
+        text:
+          `🆘 *TAHADHARI YA DHARURA (PAPO HAPO SOS)!*\n\n` +
+          `Mpendwa wako *${custName}* (${custPhone}) amewasha kitufe cha *SOS* akiwa safarini (#${bookingCode}).\n` +
+          `🚖 *Dereva & Chombo:* ${driverName} (*${vehiclePlate}*)${driverPhone ? ` • ${driverPhone}` : ''}\n` +
+          `📍 *Njia:* ${pickupName} ➜ ${destinationName}\n` +
+          `🔗 *Fuatilia Mahali Alipo Live:* ${trackUrl}`,
+        templateFallback: {
+          category: 'safety',
+          bodyParams: [custName, trackUrl],
+        },
+      }).catch(() => {});
+    }
+  } else {
+    session.step = 'SOS_WAIT_CONTACT';
+    session.details.pendingSosAlertId = alertId;
+  }
+
+  session.details.quickReplyButtons = [
+    { id: 'CMD:SHARE_TRIP', title: '📍 Shiriki Safari' },
+    { id: 'CMD:HUMAN_HANDOVER', title: '🎧 Ongea na Mhudumu' },
+  ];
+  await deps.saveSession(session, dbAdmin);
+
+  return isEn
+    ? `[[EN_NATIVE]]🆘 *EMERGENCY SOS ACTIVATED!* (#${bookingCode})\n\n` +
+        `🚨 Our Safety Desk has been alerted immediately with your trip & driver details (*${driverName}* • *${vehiclePlate}*).\n` +
+        (savedContact ? `📲 Emergency alert sent to *${savedContact}*.\n` : '') +
+        `📞 *Emergency Lines:* +255 775 985 358 • Police: *112*\n` +
+        `🔗 Live Link: ${trackUrl}` +
+        (!savedContact ? `\n\n_Reply with a trusted family/friend phone number (e.g. *0712345678*) to notify them now._` : '')
+    : `🆘 *TAHADHARI YA DHARURA (SOS) IMEWASHWA!* (#${bookingCode})\n\n` +
+        `🚨 Timu ya Usalama ya *Papo Hapo* imepokea tahadhari hii sasa hivi pamoja na taarifa za dereva (*${driverName}* • *${vehiclePlate}*).\n` +
+        (savedContact ? `📲 Mtu wako wa dharura (*${savedContact}*) ametumiwa taarifa na ramani ya moja kwa moja.\n` : '') +
+        `📞 *Piga Simu ya Haraka:* +255 775 985 358 • Polisi: *112*\n` +
+        `🔗 *Ramani Live:* ${trackUrl}` +
+        (!savedContact ? `\n\n_Andika namba ya ndugu/rafiki sasa (mfano: *0712345678*) tumtumie taarifa hizi mara moja!_` : '');
+}
+
+export async function listSosAlerts(dbAdmin: any): Promise<any[]> {
+  if (!dbAdmin) return [];
+  try {
+    const snap = await dbAdmin.collection('sos_alerts').limit(60).get();
+    return (snap.docs || [])
+      .map((d: any) => {
+        const data = d.data() || {};
+        return {
+          id: d.id,
+          ...data,
+          createdAt: normEpoch(data.createdAt),
+          updatedAt: normEpoch(data.updatedAt) || normEpoch(data.createdAt),
+        };
+      })
+      .sort((a: any, b: any) => (a.status === 'open' ? -1 : 1) - (b.status === 'open' ? -1 : 1) || b.createdAt - a.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function resolveSosAlert(
+  dbAdmin: any,
+  alertId: string,
+  sendOutbound?: PartnerBotDeps['sendOutbound'],
+  note?: string
+): Promise<{ resolved: boolean; alert?: any }> {
+  if (!dbAdmin || !alertId) return { resolved: false };
+  const ref = dbAdmin.collection('sos_alerts').doc(alertId);
+  const snap = await ref.get().catch(() => null);
+  if (!snap?.exists) return { resolved: false };
+  const data = snap.data() || {};
+  await ref
+    .set(
+      cleanUndefined({
+        status: 'resolved',
+        resolvedBy: 'admin',
+        resolvedNote: note || 'Imetatuliwa na Timu ya Usalama',
+        resolvedAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      { merge: true }
+    )
+    .catch(() => {});
+
+  if (sendOutbound && data.senderId) {
+    await (sendOutbound as any)({
+      channel: (data.channel || 'whatsapp') as PartnerMetaChannel,
+      recipientId: data.senderId,
+      text: `✅ *Hali ya Dharura (SOS) Imeshughulikiwa*\n\nTimu ya usalama ya *Papo Hapo* imethibitisha kufunga tahadhari yako ya dharura (#${data.bookingCode || 'SOS'}). Kama bado unahitaji msaada, andika *SOS* au *Mhudumu* muda wowote.`,
+      templateFallback: { category: 'safety', bodyParams: [data.customerName || 'Mteja', data.bookingCode || 'SOS'] },
+    }).catch(() => {});
+  }
+  return { resolved: true, alert: { id: alertId, ...data, status: 'resolved' } };
+}
+
+// ============================================================================
+// 9. POST-ORDER VENDOR / FUNDI / STORE STAR RATING (1-5 NYOTA)
+// ============================================================================
+export async function handlePostOrderRating(params: {
+  senderId: string;
+  cleanInput: string;
+  channel: PartnerMetaChannel;
+  dbAdmin: any;
+  session: PartnerSessionLike;
+  lang: 'sw' | 'en';
+  deps: PartnerBotDeps;
+}): Promise<string | null> {
+  const { senderId, cleanInput, channel, dbAdmin, session, lang, deps } = params;
+  const trimmed = cleanInput.trim();
+  const isEn = lang === 'en';
+
+  // 1. Direct interactive button command: RATE_ORD:<orderId>:<1-5>
+  const btnMatch = trimmed.match(/^(?:CMD:)?RATE_ORD:([A-Za-z0-9_-]+):([1-5])$/i);
+  let targetOrderId = '';
+  let stars = 0;
+  let comment = '';
+
+  if (btnMatch) {
+    targetOrderId = btnMatch[1];
+    stars = parseInt(btnMatch[2], 10);
+  } else if (session.details?.ratingOrderId) {
+    const lower = trimmed.toLowerCase();
+    if (['skip', 'ruka', 'baadae', 'menu', 'menyu', 'hi', 'habari', 'mambo', 'hello', '0', '00', 'anza upya', 'restart'].includes(lower)) {
+      delete session.details.ratingOrderId;
+      delete session.details.ratingVendorId;
+      delete session.details.ratingVendorName;
+      delete session.details.ratingOrderCode;
+      session.step = 'COLLECTING_ROUTE';
+      await deps.saveSession(session, dbAdmin);
+      return null;
+    }
+    const textRateMatch = trimmed.match(/^([1-5])(?:\s*(?:nyota|stars?|\/\s*5|\*))?(?:[\s:-]+(.+))?$/i);
+    if (!textRateMatch) {
+      return `⭐ Tafadhali tuma namba *1* hadi *5* kumpa tathmini *${session.details.ratingVendorName || 'Mtoa Huduma'}* (mfano: *5* au *5 Huduma safi!*), au andika *Menu* kuendelea.`;
+    }
+    targetOrderId = String(session.details.ratingOrderId);
+    stars = parseInt(textRateMatch[1], 10);
+    comment = (textRateMatch[2] || '').trim();
+  } else {
+    return null;
+  }
+
+  let vendorId = String(session.details?.ratingVendorId || '').trim();
+  let vendorName = String(session.details?.ratingVendorName || '').trim();
+  let orderCode = String(session.details?.ratingOrderCode || targetOrderId.slice(-6)).toUpperCase();
+  const custName = session.details?.customerName || 'Mteja wa WhatsApp';
+
+  if (dbAdmin && targetOrderId) {
+    try {
+      const oRef = dbAdmin.collection('orders').doc(targetOrderId);
+      const oSnap = await oRef.get().catch(() => null);
+      const oData = oSnap?.exists ? oSnap.data() || {} : {};
+      vendorId = vendorId || String(oData.vendorId || oData.assignedFundiId || '').trim();
+      vendorName = vendorName || String(oData.vendorName || oData.assignedFundiName || 'Duka / Mtoa Huduma');
+      orderCode = String(oData.bookingCode || oData.bookingRef || targetOrderId.slice(-6)).toUpperCase();
+
+      await oRef.set(
+        cleanUndefined({
+          rating: stars,
+          ratedAt: new Date(),
+          ...(comment ? { ratingComment: comment } : {}),
+        }),
+        { merge: true }
+      );
+
+      await dbAdmin.collection('reviews').add(
+        cleanUndefined({
+          orderId: targetOrderId,
+          orderCode,
+          vendorId: vendorId || 'papo-hapo-express',
+          vendorName,
+          customerId: `meta-client-${senderId}`,
+          customerName: custName,
+          rating: stars,
+          comment: comment || undefined,
+          type: 'order_review',
+          channel,
+          createdAt: new Date(),
+        })
+      );
+
+      if (vendorId && vendorId !== 'papo-hapo-express') {
+        const vRef = dbAdmin.collection('vendors').doc(vendorId);
+        const vSnap = await vRef.get().catch(() => null);
+        if (vSnap?.exists) {
+          const revSnap = await dbAdmin.collection('reviews').where('vendorId', '==', vendorId).limit(100).get().catch(() => ({ docs: [] }));
+          const ratingsList = (revSnap.docs || [])
+            .map((d: any) => Number(d.data()?.rating || 0))
+            .filter((n: number) => n >= 1 && n <= 5);
+          const count = ratingsList.length || 1;
+          const avg = ratingsList.length > 0
+            ? Math.round((ratingsList.reduce((a: number, b: number) => a + b, 0) / ratingsList.length) * 10) / 10
+            : stars;
+          await vRef.set({ rating: avg, reviewCount: count, updatedAt: new Date() }, { merge: true }).catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('[Post-Order Rating] Persist error:', err);
+    }
+  }
+
+  delete session.details.ratingOrderId;
+  delete session.details.ratingVendorId;
+  delete session.details.ratingVendorName;
+  delete session.details.ratingOrderCode;
+  session.step = 'COLLECTING_ROUTE';
+  delete session.service;
+  session.details.quickReplyButtons = [
+    { id: 'CMD:REORDER_LAST', title: isEn ? '🔁 Reorder' : '🔁 Agiza Tena' },
+    { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+  ];
+  await deps.saveSession(session, dbAdmin);
+
+  const starIcons = '⭐'.repeat(stars);
+  return isEn
+    ? `[[EN_NATIVE]]🙏 Thank you *${custName}* for rating *${vendorName || 'this store'}* (#${orderCode}) ${starIcons} (*${stars}/5*)!`
+    : `🙏 Asante sana *${custName}* kwa kumpa *${vendorName || 'mtoa huduma'}* (#${orderCode}) tathmini ya ${starIcons} (*${stars}/5*)!\n\nMaoni yako yanawasaidia wafanyabiashara wetu kukua. Andika *Menu* muda wowote! ✨`;
+}
+

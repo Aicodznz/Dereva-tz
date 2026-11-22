@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car, Flame, Check } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Loader2, Star, ArrowRight, Package, Clock, RotateCw, Layers, Camera, Volume2, CheckCircle2, Play, ExternalLink, Car, Flame, Check, Download, WifiOff } from 'lucide-react';
 import { AISmartHeatMap } from './map/AISmartHeatMap';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { collection, query, where, getDocs, getDoc, doc, onSnapshot } from 'fire
 import ARMapView from './map/ARMapView';
 import { useBusinessConfig } from '../BusinessConfigContext';
 import { evaluateVendorOpenStatus } from '../lib/geoLibreEngine';
+import { searchPlacesOfflineFirst, reverseGeocodeOfflineFirst, useOfflineMapStatus } from '../lib/offlineMapEngine';
 // Fix for default marker icon in Leaflet - using CDN for maximum stability in preview environment
 const DefaultIcon = L.icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -381,6 +382,7 @@ export default function LocationPicker({
 }: LocationPickerProps) {
   const navigate = useNavigate();
   const { config: businessConfig } = useBusinessConfig();
+  const offlineStatus = useOfflineMapStatus();
   const initLat = initialLocation?.lat ?? -6.7924;
   const initLng = initialLocation?.lng ?? (initialLocation as any)?.lon ?? 39.2083;
   const [position, setPosition] = useState<L.LatLng>(() => safeLatLng(initLat, initLng));
@@ -774,36 +776,23 @@ export default function LocationPicker({
   const fetchSuggestions = async (query: string) => {
     try {
       setError(null);
-      const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-      
-      const contentType = response.headers.get("content-type");
-      const isJson = contentType && contentType.includes("application/json");
-
-      if (!response.ok) {
-        let errorMsg = `Search failed (${response.status})`;
-        if (isJson) {
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || errorData.detail || errorMsg;
-          } catch (e) {
-            // Fallback
-          }
-        }
-        throw new Error(errorMsg);
-      }
-      
-      if (!isJson) {
-        throw new Error("Received non-JSON response from geocoding service");
-      }
-      
-      const data = await response.json();
+      const extraPlaces = vendors
+        .filter((v: any) => Number.isFinite(Number(v?.location?.lat)) && Number.isFinite(Number(v?.location?.lng)))
+        .map((v: any) => ({
+          name: String(v.businessName || 'Duka'),
+          displayName: `${v.businessName || 'Duka'}${v.address ? `, ${v.address}` : ''}`,
+          lat: Number(v.location.lat),
+          lng: Number(v.location.lng),
+        }));
+      const data = await searchPlacesOfflineFirst(query, {
+        limit: 5,
+        addressdetails: true,
+        extraPlaces,
+      });
       setSuggestions(data);
     } catch (err: any) {
       console.error('Failed to fetch suggestions:', err);
-      // Only set error if it's not a generic "Failed to fetch" which is often transient
-      if (err.message !== 'Failed to fetch') {
-        setError('Imeshindwa kupata mapendekezo. Jaribu tena.');
-      }
+      setError('Imeshindwa kupata mapendekezo. Jaribu tena.');
     }
   };
 
@@ -909,70 +898,44 @@ export default function LocationPicker({
     return nearestName;
   };
 
-// Reverse geocoding function
+// Reverse geocoding function (offline-first with online proxy & local fallback)
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}&zoom=18`);
-      const contentType = response.headers.get("content-type");
-      if (!response.ok || !contentType || !contentType.includes("application/json")) {
-        throw new Error(`Reverse geocoding failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      if (data && data.display_name && data.display_name !== "Unknown Area" && data.display_name !== "Unknown Location" && data.display_name !== "Eneo Halijapatikana") {
+      const data = await reverseGeocodeOfflineFirst(lat, lng, 18);
+      if (
+        data &&
+        data.display_name &&
+        data.display_name !== "Unknown Area" &&
+        data.display_name !== "Unknown Location" &&
+        data.display_name !== "Eneo Halijapatikana"
+      ) {
         setAddress(data.display_name);
-      } else {
-        throw new Error('No valid display name');
+        return;
       }
-    } catch (err) {
-      console.warn('Reverse geocoding failed, trying fallback:', err);
-      try {
-        const bdcResponse = await fetch(`/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`);
-        const bdcContentType = bdcResponse.headers.get("content-type");
-        if (!bdcResponse.ok || !bdcContentType || !bdcContentType.includes("application/json")) {
-           throw new Error(`BDC failed with status ${bdcResponse.status}`);
-        }
-        const bdcData = await bdcResponse.json();
-        const bdcAddress = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
-        if (bdcAddress && bdcAddress !== "Unknown Location" && bdcAddress !== "Unknown Area") {
-          setAddress(bdcAddress);
-        } else {
-          throw new Error('BDC also returned unknown');
-        }
-      } catch (bdcErr) {
-        console.warn('All geocoding attempts failed:', bdcErr);
-        setAddress(getNearestPopularPlace(lat, lng));
-      }
+      setAddress(getNearestPopularPlace(lat, lng));
+    } catch {
+      setAddress(getNearestPopularPlace(lat, lng));
     }
   };
 
-  // Search function
+  // Search function (offline-first)
   const handleSearch = async (query: string) => {
     if (!query || query.length < 3) return;
     setIsSearching(true);
     setError(null);
     try {
-      const response = await fetch(`/api/geo/search?q=${encodeURIComponent(query)}&limit=1`);
-      const contentType = response.headers.get("content-type");
-      const isJson = contentType && contentType.includes("application/json");
-
-      if (!response.ok) {
-        let errorMsg = `Search failed with status ${response.status}`;
-        if (isJson) {
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || errorMsg;
-          } catch (e) {
-            // Fallback
-          }
-        }
-        throw new Error(errorMsg);
-      }
-
-      if (!isJson) {
-        throw new Error("Received non-JSON response from search service");
-      }
-
-      const data = await response.json();
+      const extraPlaces = vendors
+        .filter((v: any) => Number.isFinite(Number(v?.location?.lat)) && Number.isFinite(Number(v?.location?.lng)))
+        .map((v: any) => ({
+          name: String(v.businessName || 'Duka'),
+          displayName: `${v.businessName || 'Duka'}${v.address ? `, ${v.address}` : ''}`,
+          lat: Number(v.location.lat),
+          lng: Number(v.location.lng),
+        }));
+      const data = await searchPlacesOfflineFirst(query, {
+        limit: 1,
+        extraPlaces,
+      });
       if (data && data.length > 0) {
         const newPos = safeLatLng(data[0].lat, data[0].lon ?? data[0].lng);
         setPosition(newPos);
@@ -981,8 +944,8 @@ export default function LocationPicker({
       } else {
         setError('Mahali hapajapatikana. Jaribu kusechi tena.');
       }
-    } catch (err) {
-      setError('Imeshindwa kutafuta mahali. Angalia intaneti yako.');
+    } catch {
+      setError('Imeshindwa kutafuta mahali. Jaribu tena.');
     } finally {
       setIsSearching(false);
     }
@@ -1280,8 +1243,25 @@ export default function LocationPicker({
                 </button>
               </div>
 
-              {/* Expansion & GPS Toggle in Top Right */}
+              {/* Offline Manager, Expansion & GPS Toggle in Top Right */}
               <div className="absolute top-2.5 right-2.5 z-[1000] flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('open-offline-map-manager'));
+                    }
+                  }}
+                  title="Pakua ramani za 2D & 3D utumie bila bando (Offline)"
+                  className={`h-8 px-2 backdrop-blur-md rounded-xl flex items-center gap-1 text-[10px] font-bold shadow-md border hover:scale-105 active:scale-95 transition-all cursor-pointer ${
+                    offlineStatus.isOffline
+                      ? 'bg-amber-600/95 text-white border-amber-400'
+                      : 'bg-white/90 dark:bg-neutral-900/90 text-emerald-700 dark:text-emerald-400 border-white/60 dark:border-neutral-700/60'
+                  }`}
+                >
+                  {offlineStatus.isOffline ? <WifiOff className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{offlineStatus.isOffline ? 'Offline' : 'Hifadhi'}</span>
+                </button>
                 <button 
                   type="button"
                   onClick={handleGetCurrentLocation}

@@ -1,12 +1,100 @@
-const CACHE_NAME = 'papo-hapo-v4';
+const CACHE_NAME = 'papo-hapo-v5';
+const MAP_TILE_CACHE = 'papo-map-tiles-v1';
+const MAP_STYLE_CACHE = 'papo-map-styles-v1';
+
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/maplibre-gl-worker.mjs',
   '/brand/app-icon.png',
   '/brand/logo-full.png',
-  '/brand/whatsapp-badge.png'
+  '/brand/whatsapp-badge.png',
 ];
+
+let forceOfflineMode = false;
+
+function isMapTileUrl(url) {
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.toLowerCase();
+
+  if (
+    host.endsWith('tile.openstreetmap.org') ||
+    host.endsWith('tile.openstreetmap.fr') ||
+    host.includes('basemaps.cartocdn.com') ||
+    host.includes('tiles.stadiamaps.com') ||
+    (host.endsWith('.google.com') && path.includes('/vt/')) ||
+    (host === 'server.arcgisonline.com' && path.includes('/tile/'))
+  ) {
+    return true;
+  }
+
+  if (
+    host === 'tiles.openfreemap.org' &&
+    (path.endsWith('.pbf') || path.includes('/planet/'))
+  ) {
+    return true;
+  }
+
+  if (
+    host === 'api.mapbox.com' &&
+    (path.includes('/v4/') || path.includes('/tiles/') || path.includes('/raster'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isMapStyleOrAssetUrl(url) {
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.toLowerCase();
+
+  if (path === '/maplibre-gl-worker.mjs') return true;
+
+  if (host === 'tiles.openfreemap.org') {
+    return true;
+  }
+
+  if (
+    host === 'api.mapbox.com' &&
+    (path.includes('/styles/') || path.includes('/fonts/') || path.includes('/sprites'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function shouldBypassCompletely(request, url) {
+  if (request.method !== 'GET') return true;
+
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.toLowerCase();
+
+  if (
+    host.includes('firestore.googleapis.com') ||
+    host.includes('identitytoolkit.googleapis.com') ||
+    host.includes('securetoken.googleapis.com') ||
+    host.includes('firebase') ||
+    host.includes('cloudinary.com')
+  ) {
+    return true;
+  }
+
+  if (
+    path.startsWith('/api/') ||
+    path.startsWith('/src/') ||
+    path.startsWith('/@') ||
+    path.includes('node_modules') ||
+    path.endsWith('.tsx') ||
+    path.endsWith('.ts')
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 // Install Event
 self.addEventListener('install', (e) => {
@@ -18,13 +106,14 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activate Event
+// Activate Event (preserve user-downloaded offline map caches!)
 self.addEventListener('activate', (e) => {
+  const keepCaches = new Set([CACHE_NAME, MAP_TILE_CACHE, MAP_STYLE_CACHE]);
   e.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (!keepCaches.has(key)) {
             return caches.delete(key);
           }
         })
@@ -36,24 +125,78 @@ self.addEventListener('activate', (e) => {
 
 // Fetch Event
 self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-  // Avoid caching foreign API calls, dev source code, or non-GET requests
-  if (
-    e.request.method !== 'GET' || 
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/src/') ||
-    url.pathname.startsWith('/@') ||
-    url.pathname.includes('node_modules') ||
-    url.pathname.endsWith('.tsx') ||
-    url.pathname.endsWith('.ts')
-  ) {
+  let url;
+  try {
+    url = new URL(e.request.url);
+  } catch {
     return;
   }
-  
-  const isHtmlRequest = e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
+
+  if (shouldBypassCompletely(e.request, url)) {
+    return;
+  }
+
+  // 1. 2D & 3D Map Tiles (Cache-First, supports CORS & opaque Google/OSM responses)
+  if (isMapTileUrl(url)) {
+    e.respondWith(
+      caches.open(MAP_TILE_CACHE).then(async (cache) => {
+        const cached = await cache.match(e.request, { ignoreVary: true });
+        if (cached) return cached;
+
+        if (forceOfflineMode || !self.navigator.onLine) {
+          return new Response('', { status: 504, statusText: 'Offline Tile Miss' });
+        }
+
+        try {
+          const networkResponse = await fetch(e.request);
+          if (
+            networkResponse &&
+            (networkResponse.status === 200 || networkResponse.type === 'opaque')
+          ) {
+            cache.put(e.request, networkResponse.clone()).catch(() => {});
+          }
+          return networkResponse;
+        } catch {
+          return new Response('', { status: 504, statusText: 'Offline Tile Miss' });
+        }
+      })
+    );
+    return;
+  }
+
+  // 2. 3D Map Styles, TileJSON, Sprites, Glyphs & Worker
+  if (isMapStyleOrAssetUrl(url)) {
+    e.respondWith(
+      caches.open(MAP_STYLE_CACHE).then(async (cache) => {
+        const cached = await cache.match(e.request, { ignoreVary: true });
+        if (cached) return cached;
+
+        if (forceOfflineMode || !self.navigator.onLine) {
+          return new Response('', { status: 504, statusText: 'Offline Style Miss' });
+        }
+
+        try {
+          const networkResponse = await fetch(e.request);
+          if (
+            networkResponse &&
+            (networkResponse.status === 200 || networkResponse.type === 'opaque')
+          ) {
+            cache.put(e.request, networkResponse.clone()).catch(() => {});
+          }
+          return networkResponse;
+        } catch {
+          return new Response('', { status: 504, statusText: 'Offline Style Miss' });
+        }
+      })
+    );
+    return;
+  }
+
+  const isHtmlRequest =
+    e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
 
   if (isHtmlRequest) {
-    // Network-First strategy for HTML/navigation to guarantee the latest JS hash is loaded
+    // Network-First for HTML/navigation so latest app bundle is always served online
     e.respondWith(
       fetch(e.request)
         .then((networkResponse) => {
@@ -66,38 +209,31 @@ self.addEventListener('fetch', (e) => {
           return networkResponse;
         })
         .catch(() => {
-          // Offline fallback
-          return caches.match(e.request);
+          return caches.match(e.request).then((m) => m || caches.match('/index.html'));
         })
     );
-  } else {
-    // Cache-First strategy for other static assets (images, CSS, JS, etc.)
+  } else if (url.origin === self.location.origin) {
+    // Network-first with cache fallback for built same-origin JS/CSS/images
     e.respondWith(
-      caches.match(e.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(e.request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-            return networkResponse;
+      fetch(e.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(e.request, responseToCache);
+            });
           }
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(e.request, responseToCache);
-          });
           return networkResponse;
-        }).catch(() => {
-          // Fallback or ignore
-        });
-      })
+        })
+        .catch(() => {
+          return caches.match(e.request);
+        })
     );
   }
 });
 
 // ==========================================
 // Comprehensive Web Push & Service Worker Notifications
-// Supports: Lock Screen, Banners, Tray, Badges, Rich Images,
-// Action Buttons (Kubali/Kataa), Grouped Stacks, Silent, and Progress.
 // ==========================================
 
 self.addEventListener('push', (event) => {
@@ -134,16 +270,14 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Interactive Clicks on Notifications & Action Buttons
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const action = event.action; // 'accept', 'decline', 'view', 'reply', 'answer', or '' (body click)
+  const action = event.action;
   const data = event.notification.data || {};
   const targetUrl = data.url || '/notifications';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 1. Broadcast notification click action to all active window clients
       clientList.forEach((client) => {
         client.postMessage({
           type: 'PUSH_NOTIFICATION_ACTION',
@@ -163,7 +297,6 @@ self.addEventListener('notificationclick', (event) => {
         }
       });
 
-      // 2. Focus existing app window or open a new one
       for (const client of clientList) {
         if ('focus' in client) {
           return client.focus();
@@ -190,9 +323,19 @@ self.addEventListener('notificationclose', (event) => {
   });
 });
 
-// Client Communication for Direct SW Notifications & Badges
+// Client Communication for Notifications, Badges & Offline Map Controls
 self.addEventListener('message', (event) => {
   if (!event.data) return;
+
+  if (event.data.type === 'SET_FORCE_OFFLINE') {
+    forceOfflineMode = Boolean(event.data.value);
+    return;
+  }
+
+  if (event.data.type === 'CLEAR_MAP_CACHE') {
+    Promise.all([caches.delete(MAP_TILE_CACHE), caches.delete(MAP_STYLE_CACHE)]).catch(() => {});
+    return;
+  }
 
   if (event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
@@ -209,5 +352,3 @@ self.addEventListener('message', (event) => {
     navigator.clearAppBadge().catch(() => {});
   }
 });
-
-

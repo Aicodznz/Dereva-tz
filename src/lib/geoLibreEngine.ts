@@ -1630,3 +1630,118 @@ export function stripMapWatermarks(mapOrContainer: any): void {
   }
 }
 
+import { buildOffline3DStyle } from './offlineMapVectorData';
+import { MAP_STYLE_CACHE_NAME, isEffectivelyOffline } from './offlineMapEngine';
+
+export { buildOffline3DStyle };
+
+/**
+ * Resolves the initial 3D style synchronously, using the self-contained offline 3D vector style
+ * immediately when the device is offline or force-offline simulation is enabled.
+ */
+export function resolveBasemapStyleSync(
+  basemap: GeoLibreBasemapId,
+  useMapbox: boolean
+): string | mapboxgl.StyleSpecification {
+  if (isEffectivelyOffline()) {
+    return buildOffline3DStyle(basemap);
+  }
+  return useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style;
+}
+
+/**
+ * Checks if a full OpenFreeMap style is already cached in CacheStorage for offline use;
+ * falls back cleanly to the zero-network offline 3D vector style if uncached.
+ */
+export async function resolveBestOfflineBasemapStyle(
+  basemap: GeoLibreBasemapId
+): Promise<mapboxgl.StyleSpecification> {
+  const remoteStyle = GEOLIBRE_BASEMAPS[basemap].style;
+  if (typeof remoteStyle === 'string' && typeof caches !== 'undefined') {
+    try {
+      const styleCache = await caches.open(MAP_STYLE_CACHE_NAME);
+      const match = await styleCache.match(remoteStyle);
+      if (match && match.ok) {
+        const parsed = await match.json();
+        if (parsed && typeof parsed === 'object' && parsed.version === 8) {
+          return parsed as mapboxgl.StyleSpecification;
+        }
+      }
+    } catch {
+      // ignore and fall back to self-contained 3D vector style
+    }
+  }
+  return buildOffline3DStyle(basemap);
+}
+
+/**
+ * Attaches an automatic network/style error listener to any Mapbox/MapLibre GL instance
+ * so offline transitions or blocked tile requests never leave a frozen blank canvas.
+ */
+export function attachOffline3DFallback(
+  map: any,
+  getBasemap: () => GeoLibreBasemapId,
+  onFallbackApplied?: () => void
+): () => void {
+  let switched = false;
+  let tileErrorCount = 0;
+
+  const triggerOfflineSwitch = () => {
+    if (switched || !map) return;
+    switched = true;
+    try {
+      map.setStyle(buildOffline3DStyle(getBasemap()) as any);
+      onFallbackApplied?.();
+    } catch {}
+  };
+
+  const handleError = (err: any) => {
+    if (switched) return;
+    const msg = String(err?.error?.message || err?.message || '').toLowerCase();
+    const status = Number(err?.error?.status || 0);
+    const networkFailure =
+      isEffectivelyOffline() ||
+      status === 0 ||
+      status === 504 ||
+      msg.includes('failed to fetch') ||
+      msg.includes('networkerror') ||
+      msg.includes('offline');
+
+    const isStyleFailure = err?.sourceId === undefined && (status === 401 || status === 403 || status === 0 || msg.includes('style'));
+
+    if (isStyleFailure || networkFailure) {
+      if (isStyleFailure || isEffectivelyOffline()) {
+        triggerOfflineSwitch();
+      } else {
+        tileErrorCount += 1;
+        if (tileErrorCount >= 4) {
+          triggerOfflineSwitch();
+        }
+      }
+    }
+  };
+
+  const handleOfflineEvent = () => {
+    if (isEffectivelyOffline()) {
+      triggerOfflineSwitch();
+    }
+  };
+
+  map.on('error', handleError);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('offline', handleOfflineEvent);
+    window.addEventListener('papo-offline-status-change', handleOfflineEvent);
+  }
+
+  return () => {
+    try {
+      map.off('error', handleError);
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('offline', handleOfflineEvent);
+      window.removeEventListener('papo-offline-status-change', handleOfflineEvent);
+    }
+  };
+}
+
+

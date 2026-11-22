@@ -23,6 +23,7 @@ import PublicStatusDisplay from './components/PublicStatusDisplay';
 import PublicReceiptVerification from './components/PublicReceiptVerification';
 import InstantQrRide from './components/public/InstantQrRide';
 import { Toaster } from '@/components/ui/sonner';
+import { OfflineIndicatorBanner } from './components/map/OfflineIndicatorBanner';
 
 import Login from './components/auth/Login';
 import StaffLogin from './components/auth/StaffLogin';
@@ -170,6 +171,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      <OfflineIndicatorBanner />
     </>
   );
 }

@@ -45,6 +45,8 @@ import {
   ThumbsUp,
   Trash2,
   Gauge,
+  WifiOff,
+  Download,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -68,6 +70,9 @@ import {
   MapProjectionMode,
   getMapboxToken,
   resolveMapboxAccessToken,
+  resolveBasemapStyleSync,
+  resolveBestOfflineBasemapStyle,
+  attachOffline3DFallback,
   evaluateVendorOpenStatus,
   haversineKm,
   buildSpatialDemandLayersData,
@@ -82,6 +87,13 @@ import {
   GeoLibreControlDrawer,
   GeoLibreLayerState,
 } from './GeoLibreControls';
+import { OfflineMapManagerModal } from './OfflineMapManagerModal';
+import {
+  isEffectivelyOffline,
+  reverseGeocodeOfflineFirst,
+  searchPlacesOfflineFirst,
+  useOfflineMapStatus,
+} from '../../lib/offlineMapEngine';
 import {
   TravelMode,
   RoadReportCategory,
@@ -210,6 +222,8 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
   });
 
   const [isLayerDrawerOpen, setIsLayerDrawerOpen] = useState(false);
+  const [isOfflineManagerOpen, setIsOfflineManagerOpen] = useState(false);
+  const offlineStatus = useOfflineMapStatus();
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -946,7 +960,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     const map = new mapboxgl.Map({
       accessToken,
       container: containerRef.current,
-      style: (useMapbox ? MAPBOX_STYLE_URLS[basemap] : GEOLIBRE_BASEMAPS[basemap].style) as any,
+      style: resolveBasemapStyleSync(basemap, useMapbox) as any,
       center: [initLng, initLat],
       zoom: useMapbox ? 14.2 : 13.8,
       pitch,
@@ -957,6 +971,17 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     });
     mapRef.current = map;
     stripMapWatermarks(map);
+    const detachOfflineFallback = attachOffline3DFallback(map, () => prevBasemapRef.current);
+
+    if (isEffectivelyOffline()) {
+      void resolveBestOfflineBasemapStyle(basemap).then((offlineStyle) => {
+        if (mapRef.current === map && offlineStyle && (offlineStyle as any).id !== 'papo-offline-3d') {
+          try {
+            map.setStyle(offlineStyle as any);
+          } catch {}
+        }
+      });
+    }
 
     const canvas = map.getCanvas();
     const handleContextLost = (e: Event) => {
@@ -990,7 +1015,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       if (!fallbackAppliedRef.current && useMapbox && isStyleOrAuthFailure) {
         fallbackAppliedRef.current = true;
         try {
-          map.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
+          map.setStyle(resolveBasemapStyleSync(basemap, false) as any);
         } catch {}
       }
     });
@@ -1022,15 +1047,12 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
       });
 
       try {
-        const res = await fetch(`/api/geo/reverse?lat=${clickLat}&lon=${clickLng}&zoom=17`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.display_name) {
-            const shortLabel = String(data.display_name).split(',').slice(0, 2).join(', ');
-            setDroppedPin((prev) =>
-              prev && Math.abs(prev.lat - clickLat) < 0.0005 ? { ...prev, label: shortLabel } : prev
-            );
-          }
+        const data = await reverseGeocodeOfflineFirst(clickLat, clickLng, 17);
+        if (data?.display_name) {
+          const shortLabel = String(data.display_name).split(',').slice(0, 2).join(', ');
+          setDroppedPin((prev) =>
+            prev && Math.abs(prev.lat - clickLat) < 0.0005 ? { ...prev, label: shortLabel } : prev
+          );
         }
       } catch {}
     });
@@ -1052,6 +1074,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     }
 
     return () => {
+      detachOfflineFallback();
       resizeObs?.disconnect();
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
@@ -1068,17 +1091,24 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // Update basemap style cleanly only when user picks a different basemap
+  // Update basemap style cleanly when user picks a different basemap or offline status toggles
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || prevBasemapRef.current === basemap) return;
+    if (!map) return;
     prevBasemapRef.current = basemap;
-    if (useMapbox && !fallbackAppliedRef.current) {
-      map.setStyle(MAPBOX_STYLE_URLS[basemap] as any);
-    } else {
-      map.setStyle(GEOLIBRE_BASEMAPS[basemap].style as any);
+    if (offlineStatus.isOffline) {
+      void resolveBestOfflineBasemapStyle(basemap).then((offlineStyle) => {
+        if (mapRef.current === map) {
+          try {
+            map.setStyle(offlineStyle as any);
+          } catch {}
+        }
+      });
+      return;
     }
-  }, [basemap, useMapbox]);
+    const targetUseMapbox = useMapbox && !fallbackAppliedRef.current;
+    map.setStyle(resolveBasemapStyleSync(basemap, targetUseMapbox) as any);
+  }, [basemap, useMapbox, offlineStatus.isOffline]);
 
   // Live projection toggle (Globe vs Mercator)
   useEffect(() => {
@@ -1274,7 +1304,7 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [essentialResults]);
 
-  // Debounced Place Search (/api/geo/search)
+  // Debounced Place Search (Offline-first with online Geocoding + vendor catalog)
   useEffect(() => {
     const q = searchText.trim();
     if (q.length < 3) {
@@ -1284,18 +1314,27 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}&limit=5&addressdetails=1`);
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json)) setSearchResults(json);
-        }
+        const extraPlaces = vendors
+          .filter((v: any) => Number.isFinite(Number(v?.location?.lat)) && Number.isFinite(Number(v?.location?.lng)))
+          .map((v: any) => ({
+            name: String(v.businessName || 'Duka'),
+            displayName: `${v.businessName || 'Duka'}${v.address ? `, ${v.address}` : ''}`,
+            lat: Number(v.location.lat),
+            lng: Number(v.location.lng),
+          }));
+        const results = await searchPlacesOfflineFirst(q, {
+          limit: 6,
+          addressdetails: true,
+          extraPlaces,
+        });
+        setSearchResults(results);
       } catch {
       } finally {
         setIsSearching(false);
       }
-    }, 550);
+    }, 350);
     return () => clearTimeout(timer);
-  }, [searchText]);
+  }, [searchText, vendors]);
 
   // Fetch Routes from userPos to routeDestination
   const calculateRoute = useCallback(
@@ -1751,6 +1790,24 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
             <div className="hidden md:block">
               <GeoLibreBasemapPillBar basemap={basemap} onChange={setBasemap} />
             </div>
+
+            <button
+              type="button"
+              onClick={() => setIsOfflineManagerOpen(true)}
+              className={`h-10 px-2.5 sm:px-3 rounded-xl backdrop-blur-md border text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer shadow-lg ${
+                offlineStatus.isOffline
+                  ? 'bg-amber-600/90 border-amber-400 text-white'
+                  : 'bg-neutral-950/90 border-white/15 text-emerald-300 hover:bg-neutral-900'
+              }`}
+              title="Hifadhi ramani za 2D & 3D utumie bila intaneti"
+            >
+              {offlineStatus.isOffline ? (
+                <WifiOff className="w-4 h-4 text-white" />
+              ) : (
+                <Download className="w-4 h-4 text-emerald-400" />
+              )}
+              <span className="hidden sm:inline">{offlineStatus.isOffline ? 'Offline' : 'Hifadhi'}</span>
+            </button>
 
             <button
               type="button"
@@ -2940,6 +2997,13 @@ export const PapoMapExplorerModal: React.FC<PapoMapExplorerModalProps> = ({
         projection={projection}
         onProjectionChange={setProjection}
         isMapboxEnabled={useMapbox}
+        onOpenOfflineManager={() => setIsOfflineManagerOpen(true)}
+      />
+
+      <OfflineMapManagerModal
+        isOpen={isOfflineManagerOpen}
+        onClose={() => setIsOfflineManagerOpen(false)}
+        currentCenter={{ lat: userPos.lat, lng: userPos.lng }}
       />
     </div>,
     document.body

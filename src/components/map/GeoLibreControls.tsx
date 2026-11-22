@@ -18,6 +18,8 @@ import {
   Sun,
   Activity,
   AlertTriangle,
+  WifiOff,
+  Download,
 } from 'lucide-react';
 import {
   GeoLibreBasemapId,
@@ -64,6 +66,7 @@ interface GeoLibreControlDrawerProps {
   lightPreset?: MapboxLightPreset;
   onLightPresetChange?: (preset: MapboxLightPreset) => void;
   isMapboxEnabled?: boolean;
+  onOpenOfflineManager?: () => void;
 }
 
 const BASEMAP_ORDER: { id: GeoLibreBasemapId; icon: React.FC<{ className?: string }> }[] = [
@@ -120,6 +123,7 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
   lightPreset = 'day',
   onLightPresetChange,
   isMapboxEnabled = false,
+  onOpenOfflineManager,
 }) => {
   const [urlInput, setUrlInput] = useState(customOverlayUrl || '');
 
@@ -434,6 +438,37 @@ export const GeoLibreControlDrawer: React.FC<GeoLibreControlDrawerProps> = ({
               </div>
             </div>
           )}
+
+          {/* 4. Offline Maps (2D & 3D) Manager */}
+          <div className="pt-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onOpenOfflineManager) {
+                  onOpenOfflineManager();
+                } else if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('open-offline-map-manager'));
+                }
+              }}
+              className="w-full p-3 rounded-xl border border-emerald-500/35 bg-emerald-500/15 hover:bg-emerald-500/25 text-left flex items-center justify-between gap-3 cursor-pointer transition-all"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600/30 text-emerald-300 flex items-center justify-center shrink-0">
+                  <Download className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white leading-tight">
+                    Pakua Ramani (Offline 2D & 3D)
+                  </div>
+                  <div className="text-[10px] text-emerald-200/80 mt-0.5 leading-snug">
+                    Hifadhi mitaa na majengo ya 3D utumie bila intaneti
+                  </div>
+                </div>
+              </div>
+              <WifiOff className="w-4 h-4 text-emerald-300 shrink-0" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -74,7 +74,18 @@ import {
   Heart,
   Bookmark,
   Briefcase,
+  Download,
+  WifiOff,
 } from "lucide-react";
+import {
+  buildOfflineRoadAwareRoute,
+  cacheRouteOffline,
+  findCachedRouteOffline,
+  isEffectivelyOffline,
+  reverseGeocodeOfflineFirst,
+  searchPlacesOfflineFirst,
+  useOfflineMapStatus,
+} from "../lib/offlineMapEngine";
 import { SavedAddressesModal } from "./tegex/SavedAddressesModal";
 import { FavoriteDriversModal } from "./tegex/FavoriteDriversModal";
 import { 
@@ -708,6 +719,7 @@ export default function TaxiBooking() {
   const [waitingTime, setWaitingTime] = useState(0); // minutes
   const [secondsOffset, setSecondsOffset] = useState<number>(0);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const offlineStatus = useOfflineMapStatus();
   const [showHeatMap, setShowHeatMap] = useState<boolean>(false);
   const [heatMapCategory, setHeatMapCategory] = useState<'all' | 'taxi' | 'food' | 'parcel' | 'mart'>('all');
   const [selectedHeatZone, setSelectedHeatZone] = useState<HeatZone | null>(null);
@@ -1476,49 +1488,16 @@ export default function TaxiBooking() {
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const response = await fetch(`/api/geo/reverse?lat=${lat}&lon=${lng}`);
-      const contentType = response.headers.get("content-type");
-      if (!response.ok || !contentType || !contentType.includes("application/json")) {
-        throw new Error(
-          `Reverse geocoding failed with status ${response.status}`,
-        );
-      }
-      const data = await response.json();
-      const addr = formatAddress(data);
-      if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
-        return addr;
-      }
-      throw new Error("Invalid address formatted");
-    } catch (error) {
-      console.warn("Reverse geocoding failed, trying fallback:", error);
-      try {
-        const bdcResponse = await fetch(
-          `/api/geo/bdc-reverse?lat=${lat}&lon=${lng}`,
-        );
-        const bdcContentType = bdcResponse.headers.get("content-type");
-        const isBdcJson = bdcContentType && bdcContentType.includes("application/json");
-        
-        if (!bdcResponse.ok || !isBdcJson) {
-          let bdcError = `BDC failed with status ${bdcResponse.status}`;
-          if (isBdcJson) {
-            try {
-              const errorData = await bdcResponse.json();
-              bdcError = errorData.error || bdcError;
-            } catch (e) {
-              // Fallback
-            }
-          }
-          throw new Error(bdcError);
+      const data = await reverseGeocodeOfflineFirst(lat, lng, 18);
+      if (data) {
+        const addr = formatAddress(data) || data.display_name;
+        if (addr && addr !== "Unknown Area" && addr !== "Eneo Halijapatikana" && addr !== "Unknown Location") {
+          return addr;
         }
-        const bdcData = await bdcResponse.json();
-        const bdcAddr = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
-        if (bdcAddr && bdcAddr !== "Unknown Area" && bdcAddr !== "Unknown Location") {
-          return bdcAddr;
-        }
-        throw new Error("BDC returned unknown address");
-      } catch (bdcErr) {
-        return getNearestPopularPlace(lat, lng);
       }
+      return getNearestPopularPlace(lat, lng);
+    } catch {
+      return getNearestPopularPlace(lat, lng);
     }
   };
 
@@ -1879,48 +1858,74 @@ export default function TaxiBooking() {
       const pickupStr = `${pickup.lng},${pickup.lat}`;
       const destStr = `${destination.lng},${destination.lat}`;
       const url = `/api/geo/route?coords=${encodeURIComponent(pickupStr + ";" + destStr)}`;
+      const pPt = { lat: Number(pickup.lat), lng: Number(pickup.lng) };
+      const dPt = { lat: Number(destination.lat), lng: Number(destination.lng) };
 
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          let json = await response.json();
-          if (json.isFallback) {
-            const directUrls = [
-              `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-              `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-              `http://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
-              `http://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`
-            ];
-            for (const directUrl of directUrls) {
-              try {
-                const clientRes = await fetch(directUrl);
-                if (clientRes.ok) {
-                  const clientJson = await clientRes.json();
-                  if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
-                    json = clientJson;
-                    break;
+      if (!isEffectivelyOffline()) {
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            let json = await response.json();
+            if (json.isFallback) {
+              const directUrls = [
+                `https://router.project-osrm.org/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+                `https://routing.openstreetmap.de/routed-car/route/v1/driving/${pickupStr};${destStr}?overview=full&geometries=geojson&steps=true`,
+              ];
+              for (const directUrl of directUrls) {
+                try {
+                  const clientRes = await fetch(directUrl);
+                  if (clientRes.ok) {
+                    const clientJson = await clientRes.json();
+                    if (clientJson && clientJson.code === "Ok" && clientJson.routes && clientJson.routes.length > 0) {
+                      json = clientJson;
+                      break;
+                    }
                   }
-                }
-              } catch (e) {
-                console.warn("Direct trip fetch failed in TaxiBooking:", e);
+                } catch {}
+              }
+            }
+
+            if (json.code === "Ok" && json.routes && json.routes.length > 0) {
+              const route = json.routes[0];
+              const coords: [number, number][] = route.geometry.coordinates.map(
+                (c: number[]) => [c[1], c[0]] as [number, number]
+              );
+              if (coords.length > 0) {
+                void cacheRouteOffline({
+                  origin: pPt,
+                  destination: dPt,
+                  mode: 'driving-traffic',
+                  routes: [
+                    {
+                      id: 'taxi-trip-0',
+                      summary: 'Njia ya Safari',
+                      distanceMeters: Number(route.distance || 0),
+                      durationSeconds: Number(route.duration || 0),
+                      trafficStatus: 'clear',
+                      trafficLabel: 'Kawaida',
+                      geometry: route.geometry,
+                      congestionGeoJson: { type: 'FeatureCollection', features: [] },
+                      steps: [],
+                      source: 'osrm',
+                    },
+                  ],
+                });
+                setRealTripRoute(coords);
+                return;
               }
             }
           }
-
-          if (json.code === "Ok" && json.routes && json.routes.length > 0) {
-            const route = json.routes[0];
-            const coords: [number, number][] = route.geometry.coordinates.map(
-              (c: number[]) => [c[1], c[0]] as [number, number]
-            );
-            if (coords.length > 0) {
-              console.log("[TaxiBooking] Successfully fetched real-world street curves for trip route!");
-              setRealTripRoute(coords);
-              return;
-            }
-          }
+        } catch (e) {
+          console.warn("[TaxiBooking] Online trip route failed, using offline cache/corridor:", e);
         }
-      } catch (e) {
-        console.error("[TaxiBooking] Failed to fetch real trip route:", e);
+      }
+
+      const cached = await findCachedRouteOffline({ origin: pPt, destination: dPt, mode: 'driving-traffic' });
+      const fallbackRoute = cached?.[0] || buildOfflineRoadAwareRoute({ origin: pPt, destination: dPt, mode: 'driving-traffic' });
+      if (fallbackRoute?.geometry?.coordinates?.length >= 2) {
+        setRealTripRoute(
+          fallbackRoute.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
+        );
       }
     };
 
@@ -3009,38 +3014,15 @@ const getEndPin = (etaText: string) => {
     if (query.length >= 1) {
       const timer = setTimeout(async () => {
         try {
-          const apiQuery = query.toLowerCase().includes("tanzania")
-            ? query
-            : `${query}, Tanzania`;
-          const response = await fetch(
-            `/api/geo/search?q=${encodeURIComponent(apiQuery)}&limit=8&addressdetails=1`,
-          );
-          const contentType = response.headers.get("content-type");
-          const isJson = contentType && contentType.includes("application/json");
-
-          if (!response.ok) {
-            let errorMsg = `Search failed with status ${response.status}`;
-            if (isJson) {
-              try {
-                const errData = await response.json();
-                errorMsg = errData.error || errorMsg;
-              } catch (e) {
-                // Fallback
-              }
-            }
-            throw new Error(errorMsg);
-          }
-
-          if (!isJson) {
-            throw new Error("Received non-JSON response from geocoding service");
-          }
-
-          const data = await response.json();
+          const data = await searchPlacesOfflineFirst(query, {
+            limit: 8,
+            addressdetails: true,
+          });
           if (Array.isArray(data)) {
             const fetched = data.map((item: any) => ({
-              display_name: formatAddress(item),
+              display_name: formatAddress(item) || item.display_name,
               lat: parseFloat(item.lat),
-              lon: parseFloat(item.lon),
+              lon: parseFloat(item.lon ?? item.lng),
             }));
             setSuggestions((prev) => {
               const existingNames = new Set(
@@ -3053,9 +3035,9 @@ const getEndPin = (etaText: string) => {
             });
           }
         } catch (error) {
-          console.error("Geocoding search failed", error);
+          console.warn("Offline-first geocoding search fallback notice:", error);
         }
-      }, 500);
+      }, 450);
       setSearchTimer(timer);
     }
   };
@@ -4253,6 +4235,25 @@ const getEndPin = (etaText: string) => {
                                   <span>{t('satellite_map')}</span>
                                 </>
                               )}
+                            </button>
+
+                            <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />
+
+                            <button
+                              onClick={() => {
+                                setShowMenu(false);
+                                if (typeof window !== 'undefined') {
+                                  window.dispatchEvent(new CustomEvent('open-offline-map-manager'));
+                                }
+                              }}
+                              className={`w-full text-left px-4 py-3 text-xs sm:text-sm flex items-center gap-3 transition-colors font-bold ${theme === 'dark' ? 'text-neutral-300 hover:text-emerald-400 hover:bg-neutral-900/60' : 'text-neutral-700 hover:text-emerald-600 hover:bg-neutral-50'}`}
+                            >
+                              {offlineStatus.isOffline ? (
+                                <WifiOff className="w-4 h-4 text-amber-500" />
+                              ) : (
+                                <Download className="w-4 h-4 text-emerald-500" />
+                              )}
+                              <span>Ramani za Offline (2D & 3D)</span>
                             </button>
 
                             <div className={`w-full border-b ${theme === 'dark' ? 'border-neutral-800/60' : 'border-neutral-100'}`} />

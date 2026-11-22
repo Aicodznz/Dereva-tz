@@ -849,7 +849,8 @@ export async function handleDriverHubOrAction(
   const claimMatch = trimmed.match(/^(?:CMD:)?DRV_CLAIM:(ride|order):([A-Za-z0-9_-]+)$/i);
   const skipMatch = trimmed.match(/^(?:CMD:)?DRV_SKIP:(ride|order):([A-Za-z0-9_-]+)$/i);
   const rideStageMatch = trimmed.match(/^(?:CMD:)?DRV_RIDE_(ARRIVED|START|DONE):([A-Za-z0-9_-]+)$/i);
-  const ordStageMatch = trimmed.match(/^(?:CMD:)?DRV_ORD_(PICKED|DONE):([A-Za-z0-9_-]+)$/i);
+  const ordStageMatch = trimmed.match(/^(?:CMD:)?DRV_ORD_(PICKED|ARRIVED|POD|DONE):([A-Za-z0-9_-]+)$/i);
+  const isPodPhotoStep = session.step === 'DRV_POD_PHOTO' && Boolean(session.details?.pendingPodOrderId);
 
   if (
     !isDriverHubCmd &&
@@ -858,7 +859,8 @@ export async function handleDriverHubOrAction(
     !claimMatch &&
     !skipMatch &&
     !rideStageMatch &&
-    !ordStageMatch
+    !ordStageMatch &&
+    !isPodPhotoStep
   ) {
     return null;
   }
@@ -978,7 +980,8 @@ export async function handleDriverHubOrAction(
     const code = String(rec.bookingCode || jobId.slice(-6)).toUpperCase();
     session.details.quickReplyButtons = [
       { id: `DRV_ORD_PICKED:${jobId}`, title: '📦 Nimechukua Mzigo' },
-      { id: `DRV_ORD_DONE:${jobId}`, title: '🏁 Nimefikisha' },
+      { id: `DRV_ORD_ARRIVED:${jobId}`, title: '📍 Nimefika Mlangoni' },
+      { id: `DRV_ORD_POD:${jobId}`, title: '📸 Picha & Maliza' },
     ];
     await deps.saveSession(session, dbAdmin);
     return (
@@ -986,7 +989,7 @@ export async function handleDriverHubOrAction(
       `🏪 *Chukua Kwa:* ${rec.vendorName || 'Duka'}\n` +
       `👤 *Mteja:* ${rec.customerName || 'Mteja'} (${rec.customerPhone || '-'})\n` +
       `📍 *Peleka:* ${rec.deliveryAddress || '-'}\n\n` +
-      `Bonyeza hapo chini ukishachukua mzigo dukani au ukishamfikishia mteja:`
+      `Bonyeza hapo chini ukishachukua mzigo, ukifika mlangoni, au ukitaka kupiga picha ya makabidhiano:`
     );
   }
 
@@ -1030,6 +1033,75 @@ export async function handleDriverHubOrAction(
     return `🏁 *Safari #${code} Imekamilika!* 🎉\n💰 Nauli: *TZS ${Number(rec.fare || 0).toLocaleString()}/=*\n\nHongera kwa kazi nzuri!`;
   }
 
+  if (isPodPhotoStep && dbAdmin) {
+    const orderId = String(session.details.pendingPodOrderId || '');
+    if (/^(0|00|ghairi|cancel|menu|menyu)$/i.test(trimmed)) {
+      session.step = 'COLLECTING_ROUTE';
+      delete session.details.pendingPodOrderId;
+      delete session.details.pendingPodPhoto;
+      await deps.saveSession(session, dbAdmin);
+      return `❎ Umehairi upakiaji wa picha ya makabidhiano. Andika *Dereva* kuona kazi zako.`;
+    }
+    const isPhotoReady = trimmed.startsWith('__WA_PHOTO_UPLOADED__');
+    const isSkipPhoto = /^(ruka|skip|maliza|done)$/i.test(trimmed);
+    if (!isPhotoReady && !isSkipPhoto) {
+      session.details.quickReplyButtons = [
+        { id: `DRV_ORD_DONE:${orderId}`, title: '⏭️ Maliza Bila Picha' },
+        { id: '00', title: '🏠 Menyu Kuu' },
+      ];
+      await deps.saveSession(session, dbAdmin);
+      return `📸 Tafadhali tuma *picha* ya makabidhiano ya mzigo hapa WhatsApp, au bonyeza *Maliza Bila Picha* kukamilisha oda.`;
+    }
+
+    const podPhotoUrl = isPhotoReady ? String(session.details.pendingPodPhoto || '').trim() : '';
+    const snap = await dbAdmin.collection('orders').doc(orderId).get().catch(() => null);
+    const rec = snap?.exists ? snap.data() || {} : {};
+    const code = String(rec.bookingCode || orderId.slice(-6)).toUpperCase();
+
+    await dbAdmin
+      .collection('orders')
+      .doc(orderId)
+      .set(
+        cleanUndefined({
+          status: 'completed',
+          deliveredAt: new Date(),
+          proofOfDelivery: Boolean(podPhotoUrl),
+          ...(podPhotoUrl ? { podPhotoUrl } : {}),
+          podDriverName: drvName,
+          updatedAt: new Date(),
+        }),
+        { merge: true }
+      )
+      .catch(() => {});
+
+    delete session.details.pendingPodOrderId;
+    delete session.details.pendingPodPhoto;
+    session.step = 'COLLECTING_ROUTE';
+
+    if (deps.notifyCustomerOrderStatus) {
+      await deps
+        .notifyCustomerOrderStatus(
+          {
+            orderId,
+            status: 'completed',
+            orderData: { ...rec, status: 'completed', ...(podPhotoUrl ? { podPhotoUrl } : {}) },
+            vendorName: rec.vendorName,
+          },
+          dbAdmin
+        )
+        .catch(() => {});
+    }
+
+    session.details.quickReplyButtons = [
+      { id: 'CMD:DRIVER_JOBS', title: '📡 Kazi Mpya' },
+      { id: 'CMD:DRIVER_HUB', title: '🚖 Kazi Zangu' },
+    ];
+    await deps.saveSession(session, dbAdmin);
+    return podPhotoUrl
+      ? `📸🏁 *Delivery #${code} Imekamilika na Picha ya Makabidhiano (POD)!* ✅\n\nPicha na uthibitisho wa kupokea mzigo vimetumwa kwa mteja. Hongera kwa kazi nzuri!`
+      : `🏁 *Delivery #${code} Imekamilika!* 🎉 Asante kwa huduma ya uhakika!`;
+  }
+
   if (ordStageMatch && dbAdmin) {
     const stage = ordStageMatch[1].toUpperCase();
     const orderId = ordStageMatch[2];
@@ -1046,11 +1118,58 @@ export async function handleDriverHubOrAction(
           dbAdmin
         ).catch(() => {});
       }
-      session.details.quickReplyButtons = [{ id: `DRV_ORD_DONE:${orderId}`, title: '🏁 Nimefikisha' }];
+      session.details.quickReplyButtons = [
+        { id: `DRV_ORD_ARRIVED:${orderId}`, title: '📍 Nimefika Mlangoni' },
+        { id: `DRV_ORD_POD:${orderId}`, title: '📸 Picha & Maliza' },
+        { id: `DRV_ORD_DONE:${orderId}`, title: '🏁 Nimefikisha' },
+      ];
       await deps.saveSession(session, dbAdmin);
       return `📦 Mzigo *#${code}* uko mikononi mwako. Mteja amepokea taarifa kuwa uko njiani!`;
     }
 
+    if (stage === 'ARRIVED') {
+      await dbAdmin
+        .collection('orders')
+        .doc(orderId)
+        .set({ driverArrivedAtDropoff: true, driverArrivedAtDropoffAt: new Date(), updatedAt: new Date() }, { merge: true })
+        .catch(() => {});
+      const custRecipient = normalizePartnerWaDigits(rec.metaSenderId || rec.customerPhone || '');
+      if (custRecipient) {
+        await (deps.sendOutbound as any)({
+          channel: (rec.metaChannel || 'whatsapp') as PartnerMetaChannel,
+          recipientId: custRecipient,
+          text:
+            `📍 *DEREVA AMEFIKA MLANGONI / ENEO LAKO!* (#${code})\n\n` +
+            `🛵 Dereva *${drvName}* ameshawasili na mzigo wako kutoka *${rec.vendorName || 'Duka'}*. Tafadhali toka upokee oda yako! 📦✨`,
+          templateFallback: {
+            category: 'utility',
+            bodyParams: [code, rec.vendorName || 'Papo Hapo', 'arrived'],
+          },
+        }).catch(() => {});
+      }
+      session.details.quickReplyButtons = [
+        { id: `DRV_ORD_POD:${orderId}`, title: '📸 Picha & Maliza' },
+        { id: `DRV_ORD_DONE:${orderId}`, title: '🏁 Nimefikisha' },
+      ];
+      await deps.saveSession(session, dbAdmin);
+      return `📍 *Mteja wa #${code} amejulishwa kuwa umefika mlangoni!* Piga picha ya makabidhiano au bonyeza *Nimefikisha* ukimkabidhi:`;
+    }
+
+    if (stage === 'POD') {
+      session.step = 'DRV_POD_PHOTO';
+      session.details.pendingPodOrderId = orderId;
+      delete session.details.pendingPodPhoto;
+      session.details.quickReplyButtons = [
+        { id: `DRV_ORD_DONE:${orderId}`, title: '⏭️ Maliza Bila Picha' },
+        { id: '00', title: '🏠 Menyu Kuu' },
+      ];
+      await deps.saveSession(session, dbAdmin);
+      return `📸 *PICHA YA MAKABIDHIANO (POD) — #${code}*\n\nPiga na utume *picha* ya mzigo umeshafika kwa mteja sasa hivi (au bonyeza *Maliza Bila Picha*):`;
+    }
+
+    delete session.details.pendingPodOrderId;
+    delete session.details.pendingPodPhoto;
+    if (session.step === 'DRV_POD_PHOTO') session.step = 'COLLECTING_ROUTE';
     await dbAdmin.collection('orders').doc(orderId).update({ status: 'completed', deliveredAt: new Date(), updatedAt: new Date() });
     if (deps.notifyCustomerOrderStatus) {
       await deps.notifyCustomerOrderStatus(
