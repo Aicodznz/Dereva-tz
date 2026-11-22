@@ -16,6 +16,16 @@ import {
   resolvePayeeTarget,
   settlePaidMongikeOrder,
 } from './papoWalletSettlement.js';
+import {
+  awardWhatsAppOrderLoyalty,
+  handleDriverHubOrAction,
+  handleLoyaltyAndReorderCommands,
+  handlePartnerSelfRegFlow,
+  handleVendorHubOrManagement,
+  notifyDriversNewJobToWhatsApp,
+  notifyPartnerApprovedToWhatsApp,
+} from './whatsappPartnerAndLoyalty.js';
+export { notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp };
 
 export interface MetaHistoryEntry {
   step: MetaSession['step'];
@@ -80,7 +90,21 @@ export interface MetaSession {
     | 'VENDOR_REG_NAME'
     | 'VENDOR_REG_ADDRESS'
     | 'VENDOR_REG_PHONE'
-    | 'VENDOR_REG_ITEM';
+    | 'VENDOR_REG_ITEM'
+    | 'VENDOR_ADD_PROD_PHOTO'
+    | 'VENDOR_ADD_PROD_DETAIL'
+    | 'VENDOR_STOCK_TOGGLE'
+    | 'DRV_REG_VEHICLE'
+    | 'DRV_REG_NAME'
+    | 'DRV_REG_PLATE'
+    | 'DRV_REG_AREA'
+    | 'DRV_REG_DOC'
+    | 'FUNDI_REG_SPECIALTY'
+    | 'FUNDI_REG_NAME'
+    | 'FUNDI_REG_AREA'
+    | 'FUNDI_REG_PHONE'
+    | 'FUNDI_REG_RATE'
+    | 'REORDER_CONFIRM';
   service?:
     | 'taxi'
     | 'food'
@@ -767,6 +791,13 @@ async function triggerAutomatedOrder(
           console.warn('[Meta Bot] Mongike auto-push warning:', payErr?.message || payErr);
         });
       }
+      awardWhatsAppOrderLoyalty(dbAdmin, {
+        vendorId,
+        customerPhone,
+        customerName,
+        orderTotal: total,
+        couponId: extraFields.couponId,
+      }).catch(() => {});
     }
     return ref?.id || null;
   } catch (err) {
@@ -2805,8 +2836,8 @@ export function applyBusinessConfigToWelcomeText(
     : `📋 ${active.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
 
   const welcomeFooter = isEn
-    ? `\n✨ *Reply with a number (1–${active.length + 1}), service name, or describe what you need.*\n🏪 Own a shop? Reply *"Register Shop"* to list your business.\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`
-    : `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n🏪 Mfanyabiashara? Andika *"Sajili Duka"* kuweka biashara yako.\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
+    ? `\n✨ *Reply with a number (1–${active.length + 1}), service name, or describe what you need.*\n🏪 Partner? Reply *"Register Shop"*, *"Register Driver"* or *"Register Fundi"*.\n🎁 Check *"Loyalty"* • Merchants: *"My Shop"* • Drivers: *"Driver"*\n\n*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`
+    : `\n✨ *Unaweza kuandika namba (1–${active.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n🏪 Mshirika? Andika *"Sajili Duka"*, *"Sajili Dereva"* au *"Sajili Fundi"*.\n🎁 Zawadi: *"Pointi"* • Duka: *"Duka Langu"* • Dereva: *"Dereva"*\n\n*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcomeHeader + welcomeBody + welcomeFooter;
 }
 
@@ -2872,7 +2903,8 @@ export function generateDynamicWelcomeMessage(
     welcome += `📋 ${activeServices.length + 1}. My Orders – Track Your Orders\n`;
     welcome +=
       `\n✨ *Reply with a number (1–${activeServices.length + 1}), service name, or describe what you need.*\n` +
-      `🏪 Own a shop? Reply *"Register Shop"* to list your business.\n\n` +
+      `🏪 Partner? Reply *"Register Shop"*, *"Register Driver"* or *"Register Fundi"*.\n` +
+      `🎁 Check *"Loyalty"* • Merchants: *"My Shop"* • Drivers: *"Driver"*\n\n` +
       `*Papo Hapo – All Services, One Place!* ❤️\n_(Andika *SW* kwa Kiswahili)_`;
     return welcome;
   }
@@ -2894,7 +2926,8 @@ export function generateDynamicWelcomeMessage(
   welcome += `📋 ${activeServices.length + 1}. Oda Zangu – Fuatilia Oda Zako\n`;
   welcome +=
     `\n✨ *Unaweza kuandika namba (1–${activeServices.length + 1}), jina la huduma au kueleza unachohitaji moja kwa moja.*\n` +
-    `🏪 Mfanyabiashara? Andika *"Sajili Duka"* kuweka biashara yako.\n\n` +
+    `🏪 Mshirika? Andika *"Sajili Duka"*, *"Sajili Dereva"* au *"Sajili Fundi"*.\n` +
+    `🎁 Zawadi: *"Pointi"* • Duka: *"Duka Langu"* • Dereva: *"Dereva"*\n\n` +
     `*Papo Hapo – Huduma Zote, Sehemu Moja!* ❤️\n_(Type *EN* for English)_`;
   return welcome;
 }
@@ -4526,7 +4559,7 @@ export function buildWhatsAppInteractive(
     });
   }
 
-  // 10. Custom Quick-Reply Buttons injected dynamically (e.g. Image Analysis or Payment E-Receipt)
+  // 10. Custom Quick-Reply Buttons injected dynamically (e.g. Merchant/Driver Hub, Reorder, Image Analysis, E-Receipt)
   const customButtons: Array<{ id: string; title: string }> | undefined = session?.details?.quickReplyButtons;
   if (Array.isArray(customButtons) && customButtons.length > 0 && customButtons.length <= 3 && !isValidationErrorReply(rawStripped)) {
     return sanitizeWhatsAppInteractivePayload({
@@ -4552,6 +4585,20 @@ export function buildWhatsAppInteractive(
       'VENDOR_REG_ADDRESS',
       'VENDOR_REG_PHONE',
       'VENDOR_REG_ITEM',
+      'VENDOR_ADD_PROD_PHOTO',
+      'VENDOR_ADD_PROD_DETAIL',
+      'VENDOR_STOCK_TOGGLE',
+      'DRV_REG_VEHICLE',
+      'DRV_REG_NAME',
+      'DRV_REG_PLATE',
+      'DRV_REG_AREA',
+      'DRV_REG_DOC',
+      'FUNDI_REG_SPECIALTY',
+      'FUNDI_REG_NAME',
+      'FUNDI_REG_AREA',
+      'FUNDI_REG_PHONE',
+      'FUNDI_REG_RATE',
+      'REORDER_CONFIRM',
     ].includes(session?.step || '');
   if (inActiveEscapeStep) {
     return sanitizeWhatsAppInteractivePayload({
@@ -4953,79 +5000,95 @@ export async function handleMetaInputWithMedia(
         mimeType = downloaded.mimeType;
       }
     }
-    const analysis = base64Data
-      ? await analyzeWhatsAppImage({
-          base64Data,
-          mimeType,
-          caption,
-          activeStep: initialSession.step,
-          activeService: initialSession.service,
-        })
-      : null;
 
-    if (!analysis) {
-      if (caption) {
-        effectiveInput = caption;
+    // Intercept photo uploads during Partner Product Add or Driver License/NIDA Onboarding
+    if (initialSession.step === 'VENDOR_ADD_PROD_PHOTO' || initialSession.step === 'DRV_REG_DOC') {
+      const compactUrl =
+        base64Data && base64Data.length < 360000
+          ? `data:${mimeType};base64,${base64Data}`
+          : '';
+      if (initialSession.step === 'VENDOR_ADD_PROD_PHOTO') {
+        initialSession.details.pendingProductPhoto = compactUrl;
       } else {
-        const failImgText =
-          initialLang === 'en'
-            ? `📸 I received your photo! Please type a quick note telling me which service you need (e.g. *Medicine*, *Handyman*, or *Food*):`
-            : `📸 Tumepokea picha yako! Tafadhali andika ujumbe mfupi ukieleza huduma unayohitaji (mfano: *Dawa*, *Fundi*, au *Chakula*):`;
-        const interactive =
-          channel === 'whatsapp'
-            ? sanitizeWhatsAppInteractivePayload({
-                type: 'button',
-                body: { text: failImgText },
-                action: { buttons: [{ type: 'reply', reply: { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' } }] },
-              })
-            : undefined;
-        return { text: failImgText, media: mediaCollector, interactive };
+        initialSession.details.pendingDocPhoto = compactUrl;
       }
+      await saveMetaSession(initialSession, dbAdmin);
+      effectiveInput = caption ? `__WA_PHOTO_UPLOADED__:${caption}` : '__WA_PHOTO_UPLOADED__';
     } else {
-      const summaryLine = initialLang === 'en' ? analysis.summaryEn : analysis.summarySw;
-      const inOpenDescriptionStep = ['FIX_DESCRIBE_PROBLEM', 'MALL_DELIVERY_ADDRESS', 'FOOD_DELIVERY_ADDRESS'].includes(
-        initialSession.step
-      );
+      const analysis = base64Data
+        ? await analyzeWhatsAppImage({
+            base64Data,
+            mimeType,
+            caption,
+            activeStep: initialSession.step,
+            activeService: initialSession.service,
+          })
+        : null;
 
-      if (inOpenDescriptionStep) {
-        effectiveInput = analysis.extractedQuery || summaryLine;
-        responsePrefix =
-          initialLang === 'en'
-            ? `📸 *Photo Reviewed:* ${summaryLine}\n\n`
-            : `📸 *Tumekagua Picha Yako:* ${summaryLine}\n\n`;
+      if (!analysis) {
+        if (caption) {
+          effectiveInput = caption;
+        } else {
+          const failImgText =
+            initialLang === 'en'
+              ? `📸 I received your photo! Please type a quick note telling me which service you need (e.g. *Medicine*, *Handyman*, or *Food*):`
+              : `📸 Tumepokea picha yako! Tafadhali andika ujumbe mfupi ukieleza huduma unayohitaji (mfano: *Dawa*, *Fundi*, au *Chakula*):`;
+          const interactive =
+            channel === 'whatsapp'
+              ? sanitizeWhatsAppInteractivePayload({
+                  type: 'button',
+                  body: { text: failImgText },
+                  action: { buttons: [{ type: 'reply', reply: { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' } }] },
+                })
+              : undefined;
+          return { text: failImgText, media: mediaCollector, interactive };
+        }
       } else {
-        const catToServiceMap: Record<string, MetaSession['service']> = {
-          pharmacy: 'pharmacy',
-          handyman: 'handyman',
-          food: 'food',
-          ecommerce: 'ecommerce',
-          parcel: 'parcel',
-          taxi: 'taxi',
-        };
-        const mappedService = catToServiceMap[analysis.category];
-        if (mappedService) {
-          initialSession.service = mappedService;
-          initialSession.step = 'START';
-          initialSession.details.welcomedFirstOpen = true;
-          await saveMetaSession(initialSession, dbAdmin);
-          effectiveInput = analysis.extractedQuery || mappedService;
+        const summaryLine = initialLang === 'en' ? analysis.summaryEn : analysis.summarySw;
+        const inOpenDescriptionStep = ['FIX_DESCRIBE_PROBLEM', 'MALL_DELIVERY_ADDRESS', 'FOOD_DELIVERY_ADDRESS'].includes(
+          initialSession.step
+        );
+
+        if (inOpenDescriptionStep) {
+          effectiveInput = analysis.extractedQuery || summaryLine;
           responsePrefix =
             initialLang === 'en'
               ? `📸 *Photo Reviewed:* ${summaryLine}\n\n`
               : `📸 *Tumekagua Picha Yako:* ${summaryLine}\n\n`;
         } else {
-          const imgReply =
-            initialLang === 'en'
-              ? `📸 *Photo Analysis:*\n${summaryLine}\n\nHow can we help with this today?`
-              : `📸 *Tumeona Picha Yako:*\n${summaryLine}\n\nTungependa kukusaidiaje na hili leo?`;
-          initialSession.details.quickReplyButtons = [
-            { id: 'papomed', title: initialLang === 'en' ? '💊 PapoMed' : '💊 Dawa (PapoMed)' },
-            { id: 'papofix', title: initialLang === 'en' ? '🛠️ PapoFix' : '🛠️ Fundi (PapoFix)' },
-            { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
-          ];
-          const interactive = channel === 'whatsapp' ? buildWhatsAppInteractive(imgReply, initialSession) : undefined;
-          delete initialSession.details.quickReplyButtons;
-          return { text: imgReply, media: mediaCollector, interactive };
+          const catToServiceMap: Record<string, MetaSession['service']> = {
+            pharmacy: 'pharmacy',
+            handyman: 'handyman',
+            food: 'food',
+            ecommerce: 'ecommerce',
+            parcel: 'parcel',
+            taxi: 'taxi',
+          };
+          const mappedService = catToServiceMap[analysis.category];
+          if (mappedService) {
+            initialSession.service = mappedService;
+            initialSession.step = 'START';
+            initialSession.details.welcomedFirstOpen = true;
+            await saveMetaSession(initialSession, dbAdmin);
+            effectiveInput = analysis.extractedQuery || mappedService;
+            responsePrefix =
+              initialLang === 'en'
+                ? `📸 *Photo Reviewed:* ${summaryLine}\n\n`
+                : `📸 *Tumekagua Picha Yako:* ${summaryLine}\n\n`;
+          } else {
+            const imgReply =
+              initialLang === 'en'
+                ? `📸 *Photo Analysis:*\n${summaryLine}\n\nHow can we help with this today?`
+                : `📸 *Tumeona Picha Yako:*\n${summaryLine}\n\nTungependa kukusaidiaje na hili leo?`;
+            initialSession.details.quickReplyButtons = [
+              { id: 'papomed', title: initialLang === 'en' ? '💊 PapoMed' : '💊 Dawa (PapoMed)' },
+              { id: 'papofix', title: initialLang === 'en' ? '🛠️ PapoFix' : '🛠️ Fundi (PapoFix)' },
+              { id: '00', title: initialLang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+            ];
+            const interactive = channel === 'whatsapp' ? buildWhatsAppInteractive(imgReply, initialSession) : undefined;
+            delete initialSession.details.quickReplyButtons;
+            return { text: imgReply, media: mediaCollector, interactive };
+          }
         }
       }
     }
@@ -5186,7 +5249,12 @@ async function handleMetaInputInternal(
     session.step === 'CHOOSING_LANGUAGE' ||
     session.step === 'TRACKING_LOOKUP_PHONE' ||
     session.step === 'CHANGING_PHONE' ||
-    session.step.startsWith('VENDOR_REG_');
+    session.step.startsWith('VENDOR_REG_') ||
+    session.step.startsWith('VENDOR_ADD_PROD_') ||
+    session.step === 'VENDOR_STOCK_TOGGLE' ||
+    session.step.startsWith('DRV_REG_') ||
+    session.step.startsWith('FUNDI_REG_') ||
+    session.step === 'REORDER_CONFIRM';
 
   if (inInteractiveFlow) {
     const stateProgressed =
@@ -5363,7 +5431,7 @@ async function processMetaInputCore(
   }
 
   // --- 0V. VENDOR WHATSAPP ORDER ACCEPT / REJECT HANDLER ---
-  const vendorDecisionReply = await handleVendorWhatsAppOrderDecision(senderId, cleanInput, channel, dbAdmin);
+  const vendorDecisionReply = await handleVendorWhatsAppOrderDecision(senderId, cleanInput, channel, dbAdmin, session);
   if (vendorDecisionReply) {
     markSkipHistory();
     return vendorDecisionReply;
@@ -5684,9 +5752,15 @@ async function processMetaInputCore(
     return wrappedMenu;
   }
 
-  const isVendorRegStep = session.step.startsWith('VENDOR_REG_');
+  const isVendorRegStep =
+    session.step.startsWith('VENDOR_REG_') ||
+    session.step.startsWith('VENDOR_ADD_PROD_') ||
+    session.step === 'VENDOR_STOCK_TOGGLE' ||
+    session.step.startsWith('DRV_REG_') ||
+    session.step.startsWith('FUNDI_REG_') ||
+    session.step === 'REORDER_CONFIRM';
   const isVendorRegCmd =
-    /^(?:🏪\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor)|register\s*(?:shop|store|business|vendor)|become\s*a?\s*vendor|add\s*(?:shop|store)|REGISTER_SHOP|CMD:REGISTER_SHOP)$/i.test(
+    /^(?:🏪\s*|🚖\s*|🛠️\s*|🎁\s*|🔁\s*)?(sajili\s*(?:duka|biashara|mgahawa|saluni|famasi|hoteli|dereva|bodaboda|boda|bajaji|rider|fundi)|weka\s*(?:duka|biashara)|kuwa\s*(?:mshirika|muuzaji|vendor|dereva|fundi)|register\s*(?:shop|store|business|vendor|driver|rider|fundi|handyman)|duka\s*langu|biashara\s*yangu|my\s*shop|my\s*store|vendor\s*hub|funga\s*duka|fungua\s*duka|ongeza\s*bidhaa|add\s*product|oda\s*za\s*duka|vendor\s*orders|badili\s*stock|stock\s*ya\s*duka|manage\s*stock|dereva|kazi\s*zangu|kazi\s*mpya|ingia\s*online|nenda\s*offline|driver\s*hub|bodaboda\s*hub|pointi(?:\s*zangu)?|zawadi(?:\s*zangu)?|kuponi(?:\s+.+)?|loyalty|agiza\s*tena|rudia\s*oda|reorder|(?:CMD:)?(?:REGISTER_SHOP|REGISTER_DRIVER|REGISTER_FUNDI|MY_SHOP|DRIVER_HUB|DRIVER_TOGGLE_ONLINE|DRIVER_JOBS|VENDOR_ADD_PRODUCT|VENDOR_TOGGLE_OPEN|VENDOR_ORDERS|VENDOR_TOGGLE_STOCK|VENDOR_MORE|LOYALTY_INFO|REORDER_LAST)|(?:CMD:)?(?:DRV_(?:CLAIM|SKIP|RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE)|VENDOR_(?:ACCEPT|REJECT|READY)|PRD_TOGGLE):.+)$/i.test(
       cleanInput
     );
 
@@ -5889,6 +5963,36 @@ async function processMetaInputCore(
         : `📍 Eneo la biashara: *${gpsLoc.name}*\n\n📞 Andika *Namba ya Simu / WhatsApp* ya biashara yako (mf. *0712345678*):`;
     }
 
+    if (session.step === 'DRV_REG_AREA') {
+      session.details.drvRegArea = gpsLoc.name;
+      session.details.drvRegCoords = { lat: gpsLoc.lat, lng: gpsLoc.lng };
+      session.step = 'DRV_REG_DOC';
+      session.details.quickReplyButtons = [
+        { id: 'RUKA', title: lang === 'en' ? '⏭️ Skip & Submit' : '⏭️ Ruka & Tuma' },
+        { id: '00', title: lang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' },
+      ];
+      await saveMetaSession(session, dbAdmin);
+      return `📍 Stendi/Eneo: *${gpsLoc.name}*\n\n🪪 _(Hiari)_ Tuma *picha ya Leseni / NIDA*, andika namba yako ya *NIDA/Leseni*, au bonyeza *Ruka & Tuma*:`;
+    }
+
+    if (session.step === 'FUNDI_REG_AREA') {
+      session.details.fundiArea = gpsLoc.name;
+      session.details.fundiCoords = { lat: gpsLoc.lat, lng: gpsLoc.lng };
+      const candPhone = getKnownPhone() || defaultWaPhone;
+      if (candPhone) session.details.vendorRegCandidatePhone = candPhone;
+      session.step = 'FUNDI_REG_PHONE';
+      session.details.quickReplyButtons = candPhone
+        ? [
+            { id: '1', title: '📱 Tumia Namba Hii' },
+            { id: '00', title: '🏠 Menyu Kuu' },
+          ]
+        : [{ id: '00', title: '🏠 Menyu Kuu' }];
+      await saveMetaSession(session, dbAdmin);
+      return candPhone
+        ? `📍 Eneo: *${gpsLoc.name}*\n\n📞 Thibitisha *Namba ya Simu / WhatsApp* kwa wateja:\n1. 📱 Tumia *${candPhone}*\n_Au andika namba nyingine:_`
+        : `📍 Eneo: *${gpsLoc.name}*\n\n📞 Andika *Namba ya Simu / WhatsApp* kwa wateja:`;
+    }
+
     if (session.service === 'food' && session.step === 'FOOD_DELIVERY_ADDRESS') {
       session.details.deliveryAddress = gpsLoc.name;
       session.details.deliveryCoords = gpsLoc;
@@ -6013,7 +6117,77 @@ async function processMetaInputCore(
       code: matchedCode,
       senderId
     });
-    return formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode, lang);
+    const trackedMsg = formatTrackedOrdersWhatsAppMessage(tracked, lookupPhone, matchedCode, lang);
+    const hasReorderable = tracked.some((t) => t.kind !== 'ride' && t.kind !== 'parcel');
+    return hasReorderable
+      ? `${trackedMsg}\n\n🔁 _Andika *Agiza Tena* kurudia oda yako ya mwisho, au *Pointi* kuona zawadi & kuponi zako!_`
+      : trackedMsg;
+  }
+
+  // --- 0D2. MERCHANT HUB, DRIVER DISPATCH HUB, SELF-REG (DRIVER/FUNDI), LOYALTY & 1-TAP REORDER ---
+  const partnerDeps = {
+    saveSession: saveMetaSession,
+    sendOutbound: sendMetaOutboundMessage,
+    notifyRideStatus: notifyRideStatusToMeta,
+    notifyCustomerOrderStatus: notifyCustomerOrderStatusToMeta,
+    triggerAutomatedOrder,
+    buildOrdersTrackingUrl,
+  };
+
+  const driverHubReply = await handleDriverHubOrAction({
+    senderId,
+    cleanInput,
+    dbAdmin,
+    session,
+    lang,
+    deps: partnerDeps,
+  });
+  if (driverHubReply) {
+    markSkipHistory();
+    return driverHubReply;
+  }
+
+  const vendorHubReply = await handleVendorHubOrManagement({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    deps: partnerDeps,
+  });
+  if (vendorHubReply) {
+    return vendorHubReply;
+  }
+
+  const partnerSelfRegReply = await handlePartnerSelfRegFlow({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    defaultWaPhone,
+    knownPhone: getKnownPhone(),
+    deps: partnerDeps,
+  });
+  if (partnerSelfRegReply) {
+    return partnerSelfRegReply;
+  }
+
+  const loyaltyReorderReply = await handleLoyaltyAndReorderCommands({
+    senderId,
+    cleanInput,
+    channel,
+    dbAdmin,
+    session,
+    lang,
+    knownPhone: getKnownPhone(),
+    defaultWaPhone,
+    deps: partnerDeps,
+  });
+  if (loyaltyReorderReply) {
+    return loyaltyReorderReply;
   }
 
   // --- 0E. WHATSAPP SELF-SERVICE SHOP / VENDOR REGISTRATION ("SAJILI DUKA") ---
@@ -7297,6 +7471,11 @@ async function routeToServiceFlow(
       const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
       const availState = session.details.availabilityState || 'available';
 
+      const promoDiscount = Math.min(Number(fare || 0), Number(session.details.promoDiscount || 0));
+      const finalFare = Math.max(0, Number(fare || 0) - promoDiscount);
+      const appliedPromoCode = session.details.appliedPromoCode;
+      const appliedCouponId = session.details.appliedCouponId;
+
       if (pLoc?.name) await saveLocPref(pLoc);
 
       session.step = 'COLLECTING_ROUTE';
@@ -7313,7 +7492,7 @@ async function routeToServiceFlow(
           const expiresAtDate = new Date();
           expiresAtDate.setMinutes(expiresAtDate.getMinutes() + 15);
 
-          const rideRef = await dbAdmin.collection('rides').add({
+          const ridePayload = cleanUndefined({
             status: "pending",
             customerId: `meta-client-${session.senderId}`,
             metaSenderId: session.senderId,
@@ -7328,7 +7507,10 @@ async function routeToServiceFlow(
             pickup: pLoc,
             destination: dLoc,
             vehicleType: vehicleType,
-            fare: fare,
+            fare: finalFare,
+            originalFare: fare,
+            discountAmount: promoDiscount > 0 ? promoDiscount : undefined,
+            couponCode: appliedPromoCode || undefined,
             paymentMethod: paymentMethod,
             paymentMethodLabel: paymentMethodLabel,
             distance: distanceKm,
@@ -7344,13 +7526,27 @@ async function routeToServiceFlow(
             channel: session.channel,
             bookingId: bookingCode
           });
+
+          const rideRef = await dbAdmin.collection('rides').add(ridePayload);
           if (rideRef?.id) {
             createdRideId = rideRef.id;
-            if (isMobileMoneyPaymentMethod(paymentMethod) && Number(fare) > 0) {
+            notifyDriversNewJobToWhatsApp(
+              { jobType: 'ride', jobId: rideRef.id, jobData: { ...ridePayload, id: rideRef.id } },
+              dbAdmin,
+              sendMetaOutboundMessage
+            ).catch(() => {});
+            awardWhatsAppOrderLoyalty(dbAdmin, {
+              vendorId: 'papo-hapo-express',
+              customerPhone: phoneNum,
+              customerName,
+              orderTotal: finalFare,
+              couponId: appliedCouponId,
+            }).catch(() => {});
+            if (isMobileMoneyPaymentMethod(paymentMethod) && Number(finalFare) > 0) {
               initiateMongikePayment(
                 {
                   orderId: rideRef.id,
-                  amount: Number(fare),
+                  amount: Number(finalFare),
                   buyerPhone: phoneNum,
                   feePayer: 'MERCHANT',
                   collection: 'rides',
@@ -7377,6 +7573,15 @@ async function routeToServiceFlow(
         ? `\n📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye simu *${phoneNum}*${isMongikeLiveConfigured() ? ' — thibitisha kulipa.' : ' (Sandbox Mode).'}`
         : '';
 
+      const discountRideNoteEn =
+        promoDiscount > 0 && appliedPromoCode
+          ? `\n🎁 Promo (*${appliedPromoCode}*): -TZS ${promoDiscount.toLocaleString()} (was TZS ${Number(fare || 0).toLocaleString()})`
+          : '';
+      const discountRideNoteSw =
+        promoDiscount > 0 && appliedPromoCode
+          ? `\n🎁 Kuponi (*${appliedPromoCode}*): -TZS ${promoDiscount.toLocaleString()} (awali TZS ${Number(fare || 0).toLocaleString()})`
+          : '';
+
       if (isEn) {
         const statusNoteEn =
           availState === 'busy'
@@ -7388,7 +7593,7 @@ async function routeToServiceFlow(
         return `[[EN_NATIVE]]✅ *PapoRide Request Sent!*\n` +
                `🔖 *${bookingCode}* • *${typeName}*\n` +
                `📍 *${pickupName}* ➜ *${destName}*\n` +
-               `📏 *${distanceKm} km* (~${durationMin} min) • *TZS ${fare?.toLocaleString()}*\n` +
+               `📏 *${distanceKm} km* (~${durationMin} min) • *TZS ${finalFare.toLocaleString()}*${discountRideNoteEn}\n` +
                `💳 ${paymentMethodLabel} • 📞 ${phoneNum}${mongikeRideNoteEn}\n\n` +
                `${statusNoteEn}\n\n` +
                `🗺️ Live Map: ${trackingUrl}\n` +
@@ -7406,7 +7611,7 @@ async function routeToServiceFlow(
       return `✅ *Oda ya PapoRide Imetumwa!*\n` +
              `🔖 *${bookingCode}* • *${typeName}*\n` +
              `📍 *${pickupName}* ➜ *${destName}*\n` +
-             `📏 *${distanceKm} km* (~${durationMin} dk) • *TZS ${fare?.toLocaleString()}*\n` +
+             `📏 *${distanceKm} km* (~${durationMin} dk) • *TZS ${finalFare.toLocaleString()}*${discountRideNoteSw}\n` +
              `💳 ${paymentMethodLabel} • 📞 ${phoneNum}${mongikeRideNoteSw}\n\n` +
              `${statusNote}\n\n` +
              `🗺️ Ramani: ${trackingUrl}\n` +
@@ -7619,7 +7824,11 @@ async function routeToServiceFlow(
       const vendorAddress = session.details.selectedVendorAddress || 'Dar es Salaam';
       const foodMode = session.details.foodMode || 'delivery';
       const cart: any[] = session.details.foodCart || [];
-      const total = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+      const subtotalFood = cart.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+      const foodPromoDiscount = Math.min(subtotalFood, Number(session.details.promoDiscount || 0));
+      const total = Math.max(0, subtotalFood - foodPromoDiscount);
+      const appliedPromoCode = session.details.appliedPromoCode;
+      const appliedCouponId = session.details.appliedCouponId;
       const paymentMethod = session.details.paymentMethod || 'cash';
       const paymentMethodLabel = session.details.paymentMethodLabel || 'Cash 💵';
       const deliveryAddress = session.details.deliveryAddress || '';
@@ -7692,11 +7901,13 @@ async function routeToServiceFlow(
           vendorName,
           deliveryAddress: foodMode === 'takeaway' ? 'Pickup Mgahawani' : deliveryAddress,
           paymentMethod,
-          paymentMethodLabel
+          paymentMethodLabel,
+          ...(foodPromoDiscount > 0 ? { discountAmount: foodPromoDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
         }
       );
 
       const itemsSummary = cart.map((c) => `• ${c.name} x${c.quantity} — TZS ${(c.price * c.quantity).toLocaleString()}`).join('\n');
+      const discountLineFood = foodPromoDiscount > 0 ? `\n🎁 *Punguzo (${appliedPromoCode}):* -TZS ${foodPromoDiscount.toLocaleString()}/=` : '';
       const mongikeFoodNote =
         isMobileMoneyPaymentMethod(paymentMethod) && total > 0
           ? `\n📲 *Malipo ya Mongike:* Ombi la kuweka PIN limetumwa kwenye namba *${phoneNum}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
@@ -7704,7 +7915,7 @@ async function routeToServiceFlow(
       return `🎉 *ODA YA CHAKULA IMEPOKELEWA!* ${foodMode === 'takeaway' ? '🥡' : '🍔🛵'}\n` +
              `🔖 Namba ya Oda: *#${randCode}*\n` +
              `🏠 Mgahawa: *${vendorName}*\n\n` +
-             `${itemsSummary}\n\n` +
+             `${itemsSummary}${discountLineFood}\n\n` +
              `💰 *Jumla ya Kulipa: TZS ${total.toLocaleString()}/=*\n` +
              `💳 Malipo: *${paymentMethodLabel}*${mongikeFoodNote}\n` +
              `${foodMode === 'takeaway' ? '🥡 *Aina:* Utachukua mwenyewe mgahawani' : `📍 *Eneo la Kuletewa:* ${deliveryAddress}`}\n` +
@@ -9137,7 +9348,11 @@ async function routeToServiceFlow(
       const mlCode = `ML-${Math.floor(1000 + Math.random() * 9000)}`;
       const catalogCart: any[] = Array.isArray(session.details.catalogCartItems) ? session.details.catalogCartItems : [];
       const qty = session.details.mallQty || 1;
-      const totalAmt = session.details.mallTotal || session.details.selectedPrice || 0;
+      const subtotalMall = session.details.mallTotal || session.details.selectedPrice || 0;
+      const mallPromoDiscount = Math.min(subtotalMall, Number(session.details.promoDiscount || 0));
+      const totalAmt = Math.max(0, subtotalMall - mallPromoDiscount);
+      const appliedPromoCode = session.details.appliedPromoCode;
+      const appliedCouponId = session.details.appliedCouponId;
       const vendorId = session.details.selectedVendorId || 'papo-mall-official';
       const vendorName = session.details.selectedVendorName || 'PapoMall Store';
       const selectedId = session.details.selectedId;
@@ -9174,10 +9389,12 @@ async function routeToServiceFlow(
           deliveryAddress: deliveryAddr,
           paymentMethod: payMethod,
           paymentMethodLabel: payMethodLabel,
-          orderType: 'delivery'
+          orderType: 'delivery',
+          ...(mallPromoDiscount > 0 ? { discountAmount: mallPromoDiscount, couponCode: appliedPromoCode, couponId: appliedCouponId } : {}),
         }
       );
 
+      const discountLineMall = mallPromoDiscount > 0 ? `\n- Punguzo (${appliedPromoCode}): *-TZS ${mallPromoDiscount.toLocaleString()}*` : '';
       const mongikeMallNote =
         isMobileMoneyPaymentMethod(payMethod) && totalAmt > 0
           ? `\n- 📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye *${mallPhone}*${isMongikeLiveConfigured() ? '.' : ' (Sandbox Mode).'}`
@@ -9185,7 +9402,7 @@ async function routeToServiceFlow(
       return (
         `🎉 *ODA YA PAPOMALL IMEPOKELEWA!* 🛒\n` +
         `🔖 Namba ya Oda: *#${mlCode}*\n\n` +
-        `- Bidhaa: *${selectedName}*${catalogCart.length > 0 ? '' : ` x${qty}`}\n` +
+        `- Bidhaa: *${selectedName}*${catalogCart.length > 0 ? '' : ` x${qty}`}${discountLineMall}\n` +
         `- Jumla: *TZS ${totalAmt.toLocaleString()}*\n` +
         `- Malipo: *${payMethodLabel}*\n` +
         `- Eneo: *${deliveryAddr}*\n` +
@@ -12064,7 +12281,8 @@ async function handleVendorWhatsAppOrderDecision(
   senderId: string,
   cleanInput: string,
   channel: 'whatsapp' | 'messenger' | 'instagram',
-  dbAdmin: any
+  dbAdmin: any,
+  session?: MetaSession
 ): Promise<string | null> {
   if (channel !== 'whatsapp' || !dbAdmin) return null;
 
@@ -12230,6 +12448,14 @@ async function handleVendorWhatsAppOrderDecision(
 
   const totalAmt = Number(orderDoc.totalAmount ?? orderDoc.total ?? 0);
   if (action === 'accept') {
+    if (session && !isTable) {
+      session.details = session.details || {};
+      session.details.quickReplyButtons = [
+        { id: `CMD:VENDOR_READY:${orderId}`, title: '📦 Iko Tayari' },
+        { id: 'CMD:MY_SHOP', title: '🏪 Duka Langu' },
+      ];
+      await saveMetaSession(session, dbAdmin);
+    }
     return (
       `✅ *Umekubali Oda #${shortCode}!*\n` +
       `🏪 *${vendorName}*\n` +
@@ -12327,6 +12553,18 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
               'CMD:MY_ORDERS': 'oda zangu',
               REGISTER_SHOP: 'sajili duka',
               'CMD:REGISTER_SHOP': 'sajili duka',
+              REGISTER_DRIVER: 'sajili dereva',
+              'CMD:REGISTER_DRIVER': 'sajili dereva',
+              REGISTER_FUNDI: 'sajili fundi',
+              'CMD:REGISTER_FUNDI': 'sajili fundi',
+              MY_SHOP: 'duka langu',
+              'CMD:MY_SHOP': 'duka langu',
+              DRIVER_HUB: 'dereva',
+              'CMD:DRIVER_HUB': 'dereva',
+              LOYALTY_INFO: 'pointi',
+              'CMD:LOYALTY_INFO': 'pointi',
+              REORDER_LAST: 'agiza tena',
+              'CMD:REORDER_LAST': 'agiza tena',
             };
             const upperNoSpace = normalizedRid.toUpperCase();
             if (legacyMap[upperNoSpace]) {
@@ -12334,8 +12572,11 @@ export function extractMetaWebhookMessages(body: any): ExtractedMetaWebhookMessa
             }
             if (
               normalizedRid &&
-              (/^(\d{1,2}|M\d+|lugha|ruka|papomed|papofix|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
-                /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+              (/^(\d{1,2}|M\d+|lugha|ruka|papomed|papofix|REORDER_CONF_(?:CASH|MOMO)|__[A-Z0-9_]+__)$/i.test(normalizedRid) ||
+                /^(?:CMD:)?VENDOR_(?:ACCEPT|REJECT|READY):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?PRD_TOGGLE:[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?DRV_(?:CLAIM|SKIP):(?:ride|order):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
+                /^(?:CMD:)?DRV_(?:RIDE_ARRIVED|RIDE_START|RIDE_DONE|ORD_PICKED|ORD_DONE):[A-Za-z0-9_-]+$/i.test(normalizedRid) ||
                 normalizedRid.startsWith('CMD:'))
             ) {
               return normalizedRid.startsWith('CMD:') ? normalizedRid.slice(4) : normalizedRid;

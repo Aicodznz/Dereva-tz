@@ -16,5 +16,31 @@
     "lang": "sw",
     "createdAt": 1795227393715,
     "updatedAt": 1795227393715
+  },
+  "whatsapp:255799004455": {
+    "senderId": "255799004455",
+    "channel": "whatsapp",
+    "name": "Taxi Kutoka Kariakoo Kwenda Posta",
+    "phone": "+255799004455",
+    "lang": "sw",
+    "createdAt": 1795310510805,
+    "updatedAt": 1795310510805
+  },
+  "whatsapp:255799005566": {
+    "phone": "+255799005566",
+    "lang": "sw",
+    "lastLocation": {
+      "placeId": "TZ-DSM-KARIAKOO-001",
+      "name": "Kariakoo",
+      "address": "Kariakoo, Ilala, Dar es Salaam",
+      "lat": -6.82,
+      "lng": 39.275,
+      "updatedAt": 1795311078979
+    },
+    "name": "Halima Test",
+    "createdAt": 1795310586272,
+    "channel": "whatsapp",
+    "updatedAt": 1795311078979,
+    "senderId": "255799005566"
   }
 }

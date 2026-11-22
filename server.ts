@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fs from "fs";
 import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
-import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
+import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
@@ -374,6 +374,25 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Meta Order Status Notify] Error:", err);
       return res.status(500).json({ error: err?.message || "Failed to send order status notification" });
+    }
+  });
+
+  // Notify newly approved vendor or driver on WhatsApp with quick-action buttons
+  app.post("/api/meta/notify-partner-approved", async (req, res) => {
+    try {
+      const { partnerType, partnerId, partnerData } = req.body || {};
+      if (!partnerType || !partnerId || !['vendor', 'driver'].includes(partnerType)) {
+        return res.status(400).json({ error: "Valid partnerType ('vendor' | 'driver') and partnerId are required" });
+      }
+      const result = await notifyPartnerApprovedToWhatsApp(
+        { partnerType, partnerId, partnerData },
+        dbAdmin,
+        sendMetaOutboundMessage
+      );
+      return res.json({ status: "ok", ...result });
+    } catch (err: any) {
+      console.error("[Meta Partner Approved Notify] Error:", err);
+      return res.status(500).json({ error: err?.message || "Failed to notify approved partner on WhatsApp" });
     }
   });
 
@@ -2219,6 +2238,99 @@ The JSON output must contain the following keys:
             dbAdmin
           ).catch((err) => {
             console.warn('[Meta Customer Order Watcher] Notification warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Backup watcher: approved WhatsApp-registered vendors -> congratulatory WhatsApp Hub buttons
+    subscribeCollectionChanges(
+      'vendors',
+      [{ field: 'status', op: '==', value: 'active' }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+          const vendor = change.data || {};
+          if (vendor.source !== 'whatsapp_self_reg' || vendor.approvalWaNotified === true) continue;
+          notifyPartnerApprovedToWhatsApp(
+            { partnerType: 'vendor', partnerId: change.id, partnerData: vendor },
+            dbAdmin,
+            sendMetaOutboundMessage
+          ).catch((err) => {
+            console.warn('[Meta Vendor Approval Watcher] Warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Backup watcher: approved WhatsApp-registered drivers -> congratulatory WhatsApp Dispatch buttons
+    subscribeCollectionChanges(
+      'users',
+      [{ field: 'approvalStatus', op: '==', value: 'approved' }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+          const user = change.data || {};
+          if (
+            user.source !== 'whatsapp_self_reg' ||
+            user.approvalWaNotified === true ||
+            (user.role !== 'rider' && user.role !== 'driver')
+          ) continue;
+          notifyPartnerApprovedToWhatsApp(
+            { partnerType: 'driver', partnerId: change.id, partnerData: user },
+            dbAdmin,
+            sendMetaOutboundMessage
+          ).catch((err) => {
+            console.warn('[Meta Driver Approval Watcher] Warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Real-time watcher: new pending rides -> dispatch WhatsApp job cards to online approved drivers
+    subscribeCollectionChanges(
+      'rides',
+      [{ field: 'status', op: '==', value: 'pending' }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added') continue;
+          const ride = change.data || {};
+          if (ride.driverId || ride.driverWaDispatched === true) continue;
+          notifyDriversNewJobToWhatsApp(
+            { jobType: 'ride', jobId: change.id, jobData: ride },
+            dbAdmin,
+            sendMetaOutboundMessage
+          ).catch((err) => {
+            console.warn('[Meta Ride Driver Dispatch Watcher] Warning:', err?.message || err);
+          });
+        }
+      }
+    );
+
+    // Real-time watcher: delivery orders marked 'ready' -> dispatch WhatsApp delivery job cards to online approved drivers
+    subscribeCollectionChanges(
+      'orders',
+      [{ field: 'status', op: '==', value: 'ready' }],
+      (changes, isInitialSnapshot) => {
+        if (isInitialSnapshot) return;
+        for (const change of changes) {
+          if (change.type !== 'added' && change.type !== 'modified') continue;
+          const order = change.data || {};
+          if (
+            order.driverId ||
+            order.driverWaDispatched === true ||
+            order.orderType === 'pickup' ||
+            order.isTableBooking
+          ) continue;
+          notifyDriversNewJobToWhatsApp(
+            { jobType: 'order', jobId: change.id, jobData: order },
+            dbAdmin,
+            sendMetaOutboundMessage
+          ).catch((err) => {
+            console.warn('[Meta Order Driver Dispatch Watcher] Warning:', err?.message || err);
           });
         }
       }

@@ -858,7 +858,12 @@ export default function AdminDashboard() {
 
   const handleApproveDriver = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'users', id), { approvalStatus: 'approved' });
+      await updateDoc(doc(db, 'users', id), { approvalStatus: 'approved', updatedAt: serverTimestamp() });
+      fetch('/api/meta/notify-partner-approved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerType: 'driver', partnerId: id }),
+      }).catch(() => {});
       toast.success('Driver approved successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
@@ -876,7 +881,16 @@ export default function AdminDashboard() {
 
   const handleApprove = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'vendors', id), { status: 'active' });
+      await updateDoc(doc(db, 'vendors', id), {
+        status: 'active',
+        isApproved: true,
+        updatedAt: serverTimestamp(),
+      });
+      fetch('/api/meta/notify-partner-approved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerType: 'vendor', partnerId: id }),
+      }).catch(() => {});
       toast.success('Vendor approved successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `vendors/${id}`);
@@ -1651,6 +1665,11 @@ export default function AdminDashboard() {
                                <Button 
                                  onClick={async () => {
                                    await updateDoc(doc(db, 'users', user.id), { approvalStatus: 'approved', updatedAt: serverTimestamp() });
+                                   fetch('/api/meta/notify-partner-approved', {
+                                     method: 'POST',
+                                     headers: { 'Content-Type': 'application/json' },
+                                     body: JSON.stringify({ partnerType: 'driver', partnerId: user.id }),
+                                   }).catch(() => {});
                                    toast.success(`${user.displayName} approved successfully!`);
                                  }}
                                  size="sm"
