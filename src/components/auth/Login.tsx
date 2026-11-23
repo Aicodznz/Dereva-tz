@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import AuthLayout from './AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Phone, Lock, Eye, EyeOff, Chrome, Facebook, Apple, Loader2 } from 'lucide-react';
+import { Mail, Phone, Lock, Eye, EyeOff, Chrome, Facebook, Apple, Loader2, AlertTriangle, Copy, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../AuthContext';
 import { toast } from 'sonner';
+import firebaseConfig from '../../../firebase-applet-config.json';
 
 import { useLanguage } from '../../LanguageContext';
 
@@ -15,7 +16,10 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [isCredentialError, setIsCredentialError] = useState(false);
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState(false);
   const { signIn, login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -57,10 +61,38 @@ export default function Login() {
   };
 
   const handleGoogleSignIn = async () => {
+    setUnauthorizedDomain(null);
+    setGoogleLoading(true);
     try {
       await signIn();
     } catch (error: any) {
-      toast.error("Google login failed.");
+      const code = error?.code || '';
+      const msg = error?.message || '';
+      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        setUnauthorizedDomain(host);
+        toast.error('Kikoa hiki bado hakijaidhinishwa kwa Google Sign-In. Tumia Email/Password au idhinisha kikoa kwenye Firebase Console.');
+      } else if (code === 'auth/popup-blocked') {
+        toast.error('Dirisha la Google limezuiwa na kivinjari (Popup blocked). Ruhusu popups au ingia kwa Email.');
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        toast.info('Umeghairi kuingia kwa Google.');
+      } else {
+        toast.error(msg || 'Google login failed.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleCopyDomain = async () => {
+    if (!unauthorizedDomain) return;
+    try {
+      await navigator.clipboard.writeText(unauthorizedDomain);
+      setCopiedDomain(true);
+      toast.success('Domain imenakiliwa!');
+      setTimeout(() => setCopiedDomain(false), 2500);
+    } catch {
+      toast.info(`Nakili domain hii: ${unauthorizedDomain}`);
     }
   };
 
@@ -140,20 +172,73 @@ export default function Login() {
           </div>
         </div>
 
+        {unauthorizedDomain && (
+          <div className="p-4 bg-amber-50 border border-amber-300/80 rounded-2xl space-y-2.5 text-xs text-amber-950">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-black uppercase tracking-tight text-[11px] text-amber-900">
+                  Google Sign-In Inahitaji Kuidhinisha Kikoa (Authorized Domain)
+                </p>
+                <p className="leading-relaxed text-amber-900/90">
+                  Mradi wa Firebase (<strong>{firebaseConfig.projectId}</strong>) haujaongeza kikoa hiki kwenye orodha ya{' '}
+                  <strong>Authentication → Settings → Authorized domains</strong>:
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-amber-200 rounded-xl p-2">
+              <code className="text-[11px] font-mono text-neutral-800 truncate flex-1">{unauthorizedDomain}</code>
+              <button
+                type="button"
+                onClick={handleCopyDomain}
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase flex items-center gap-1 shrink-0"
+              >
+                {copiedDomain ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedDomain ? 'Imenakiliwa' : 'Nakili'}</span>
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <span className="text-[11px] text-amber-800 font-medium">
+                💡 Unaweza kuingia au kujisajili kwa <strong>Email na Password</strong> hapo juu mara moja.
+              </span>
+              <a
+                href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-black text-orange-700 hover:underline"
+              >
+                Fungua Firebase Console →
+              </a>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-3">
           <Button 
+            type="button"
             variant="outline" 
+            disabled={googleLoading}
             className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold"
             onClick={handleGoogleSignIn}
           >
-            <Chrome className="w-5 h-5 text-red-500" />
+            {googleLoading ? <Loader2 className="w-5 h-5 animate-spin text-red-500" /> : <Chrome className="w-5 h-5 text-red-500" />}
             {t('continue_with_google')}
           </Button>
-          <Button variant="outline" className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold">
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={() => toast.info('Tafadhali tumia Barua Pepe au Google kuingia.')}
+            className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold"
+          >
             <Apple className="w-5 h-5" />
             Continue with Apple
           </Button>
-          <Button variant="outline" className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold">
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={() => toast.info('Tafadhali tumia Barua Pepe au Google kuingia.')}
+            className="w-full h-12 rounded-xl border-neutral-200 gap-3 font-semibold"
+          >
             <Facebook className="w-5 h-5 text-blue-600" />
             Continue with Facebook
           </Button>

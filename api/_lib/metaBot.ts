@@ -9144,7 +9144,17 @@ async function routeToServiceFlow(
       session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const expressGasAndWaterItems = [
+      const expressGasAndWaterItems: Array<{
+        id: string;
+        vendorId: string;
+        vendorName: string;
+        name: string;
+        price: number;
+        desc: string;
+        imageUrl: string;
+        isOpen?: boolean;
+        operatingHours?: string;
+      }> = [
         {
           id: 'grc-gas-6kg',
           vendorId: 'papomart-gas-express',
@@ -9152,7 +9162,8 @@ async function routeToServiceFlow(
           name: '🔥 Gesi 6KG Kubadili (Oryx / Taifa Gas)',
           price: 23000,
           desc: 'Tunafuata mtungi mtupu na kukuletea uliojaa dk 30',
-          imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=800&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=800&q=80',
+          isOpen: true,
         },
         {
           id: 'grc-gas-15kg',
@@ -9161,7 +9172,8 @@ async function routeToServiceFlow(
           name: '🔥 Gesi 15KG Kubadili (Oryx / Taifa Gas)',
           price: 56000,
           desc: 'Mtungi mkubwa wa familia • Express mlangoni',
-          imageUrl: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80',
+          isOpen: true,
         },
         {
           id: 'grc-water-20l',
@@ -9170,7 +9182,8 @@ async function routeToServiceFlow(
           name: '💧 Maji Safi ya Kunywa (Dumu 20L x 2)',
           price: 7500,
           desc: 'Madumu 2 ya Lita 20 yaliyofungwa salama',
-          imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=800&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=800&q=80',
+          isOpen: true,
         }
       ];
 

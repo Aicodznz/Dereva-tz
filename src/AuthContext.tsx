@@ -222,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const cred = await signInWithPopup(auth, provider);
       if (cred?.user) {
@@ -240,7 +241,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch (error: any) {
-      console.error('Sign in error:', error);
+      const code = error?.code || '';
+      if (
+        code === 'auth/unauthorized-domain' ||
+        code === 'auth/popup-closed-by-user' ||
+        code === 'auth/cancelled-popup-request' ||
+        code === 'auth/popup-blocked'
+      ) {
+        console.warn('Google sign-in notice:', code, error?.message);
+      } else {
+        console.error('Sign in error:', error);
+      }
       throw error;
     }
   };
