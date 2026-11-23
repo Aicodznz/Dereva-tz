@@ -9,6 +9,9 @@ import {
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { useAuth } from '../../AuthContext';
 
 export type ServiceHubCategory = 
   | 'all'
@@ -295,13 +298,36 @@ export default function SuperServicesHub() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredServices.map((service, idx) => {
             const Icon = service.icon;
+            const handleCardClick = () => {
+              if (service.id === 'doctor_appointment') {
+                navigate('/service/dawa?tab=clinic');
+                return;
+              }
+              if (service.id === 'recharge_bills') {
+                navigate('/papopay?tab=bills');
+                return;
+              }
+              if (service.id === 'papopay') {
+                navigate('/papopay');
+                return;
+              }
+              if (service.id === 'fuel_delivery') {
+                navigate('/service/fundi?cat=auto_breakdown');
+                return;
+              }
+              if (service.id === 'ev_charging_gas') {
+                navigate('/service/sokoni?filter=gesi');
+                return;
+              }
+              setActiveModalService(service.id);
+            };
             return (
               <motion.div
                 key={service.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.03 * idx }}
-                onClick={() => setActiveModalService(service.id)}
+                onClick={handleCardClick}
                 className="group bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-5 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between hover:border-orange-500/50 relative overflow-hidden"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
@@ -349,6 +375,7 @@ export default function SuperServicesHub() {
 // Subcomponent: Dedicated Interactive Workflows for Each Service
 function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; onClose: () => void }) {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [confirmedData, setConfirmedData] = useState<any>(null);
@@ -356,38 +383,89 @@ function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; on
   // Form states
   const [doctorSpecialty, setDoctorSpecialty] = useState('Daktari wa Jumla (General Practitioner)');
   const [doctorDate, setDoctorDate] = useState('Leo, Saa 10:00 Jioni');
-  const [patientName, setPatientName] = useState('');
+  const [generalNote, setGeneralNote] = useState('');
   
   // Flight states
   const [flightFrom, setFlightFrom] = useState('Dar es Salaam (DAR)');
   const [flightTo, setFlightTo] = useState('Zanzibar (ZNZ)');
-  const [flightDate, setFlightDate] = useState('Kesho');
-  const [flightSeat, setFlightSeat] = useState('Dirishani (Window 4A)');
 
   // Fuel states
   const [fuelType, setFuelType] = useState('Petroli (Super)');
   const [fuelLiters, setFuelLiters] = useState('20');
-  const [fuelAddress, setFuelAddress] = useState('Mlimani City, Ubungo');
 
   // Recharge states
   const [meterOrPhone, setMeterOrPhone] = useState('');
-  const [rechargeAmount, setRechargeAmount] = useState('10,000');
   const [billType, setBillType] = useState('LUKU (Umeme)');
 
   // Service Booking states
   const [selectedSubService, setSelectedSubService] = useState('laundry');
 
-  const handleBook = () => {
+  const handleBook = async () => {
+    if (serviceId === 'service_booking') {
+      const catMap: Record<string, string> = {
+        laundry: 'laundry',
+        cleaning: 'cleaning',
+        pest_control: 'cleaning',
+        maintenance: 'electrician',
+        vehicle: 'auto_breakdown',
+      };
+      onClose();
+      navigate(`/service/fundi?cat=${catMap[selectedSubService] || 'laundry'}`);
+      return;
+    }
+    if (serviceId === 'doctor_appointment') {
+      onClose();
+      navigate('/service/dawa?tab=clinic');
+      return;
+    }
+    if (serviceId === 'recharge_bills') {
+      onClose();
+      navigate('/papopay?tab=bills');
+      return;
+    }
+    if (serviceId === 'fuel_delivery') {
+      onClose();
+      navigate('/service/fundi?cat=auto_breakdown');
+      return;
+    }
+    if (serviceId === 'ev_charging_gas') {
+      onClose();
+      navigate('/service/sokoni?filter=gesi');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const refCode = 'PAPO-' + Math.floor(100000 + Math.random() * 900000);
+      const summaryDesc =
+        serviceId === 'flight_booking'
+          ? `Flight ${flightFrom} -> ${flightTo}`
+          : generalNote.trim() || `Hub Service Request (${serviceId})`;
+
+      await addDoc(collection(db, 'orders'), {
+        orderType: 'hub_service',
+        service: serviceId,
+        description: summaryDesc,
+        customerId: user?.uid || 'guest',
+        customerName: profile?.fullName || profile?.displayName || user?.email || 'Mteja',
+        customerPhone: profile?.phoneNumber || profile?.phone || user?.phoneNumber || '',
+        status: 'pending',
+        bookingRef: refCode,
+        total: 0,
+        createdAt: new Date().toISOString(),
+      });
+
       setConfirmedData({
-        ref: 'PAPO-' + Math.floor(100000 + Math.random() * 900000),
-        time: new Date().toLocaleTimeString()
+        ref: refCode,
+        time: new Date().toLocaleTimeString(),
       });
       setStep(2);
-      toast.success('Ombi limepokelewa na linashughulikiwa!');
-    }, 1200);
+      toast.success('Ombi limepokelewa na kuhifadhiwa!');
+    } catch {
+      toast.error('Imeshindwa kutuma ombi. Jaribu tena.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -643,7 +721,9 @@ function InteractiveServiceModal({ serviceId, onClose }: { serviceId: string; on
                   <div>
                     <label className="text-xs font-black uppercase text-neutral-500">Jina au Maelezo ya Ombi</label>
                     <input 
-                      type="text" 
+                      type="text"
+                      value={generalNote}
+                      onChange={(e) => setGeneralNote(e.target.value)}
                       placeholder="Andika maelezo mafupi..." 
                       className="w-full mt-1 p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-sm font-semibold" 
                     />

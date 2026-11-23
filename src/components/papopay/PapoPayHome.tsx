@@ -92,8 +92,12 @@ export default function PapoPayHome() {
   const { profile, user } = useAuth();
   const { language } = useLanguage();
 
-  // Navigation state
-  const initialSection = (searchParams.get('tab') as PapoPayNavSection) || 'overview';
+  // Navigation state (supports ?tab=bills alias cleanly)
+  const rawTabParam = searchParams.get('tab');
+  const initialSection: PapoPayNavSection =
+    rawTabParam === 'bills' || rawTabParam === 'luku' || rawTabParam === 'vocha'
+      ? 'mobile_recharge'
+      : ((rawTabParam as PapoPayNavSection) || 'overview');
   const [activeSection, setActiveSection] = useState<PapoPayNavSection>(initialSection);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     add_withdraw: false,
@@ -253,11 +257,52 @@ export default function PapoPayHome() {
   const [splitTotal, setSplitTotal] = useState('12000');
   const [splitPeople, setSplitPeople] = useState('4');
 
-  // LUKU & Recharge State
+  // LUKU, Bills (DAWASA / King'amuzi) & Vocha Unified State
+  const [savedBillAccounts, setSavedBillAccounts] = useState<Array<{ label: string; kind: 'luku' | 'dawasa' | 'tv' | 'vocha'; account: string }>>(() => {
+    try {
+      const raw = localStorage.getItem('papopay_saved_bills');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      { label: '⚡ Mita Nyumbani', kind: 'luku', account: '14285930219' },
+      { label: '💧 Maji DAWASA', kind: 'dawasa', account: 'DW-4409128' },
+      { label: '📺 AzamTV', kind: 'tv', account: '402918374' },
+    ];
+  });
+  const saveBillAccountToMemory = (kind: 'luku' | 'dawasa' | 'tv' | 'vocha', account: string, label: string) => {
+    const clean = account.trim();
+    if (!clean) return;
+    setSavedBillAccounts((prev) => {
+      const next = [
+        { label, kind, account: clean },
+        ...prev.filter((item) => !(item.kind === kind && item.account === clean)),
+      ].slice(0, 6);
+      try {
+        localStorage.setItem('papopay_saved_bills', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [lukuMeter, setLukuMeter] = useState('14285930219');
   const [lukuAmount, setLukuAmount] = useState('20000');
   const [generatedLukuToken, setGeneratedLukuToken] = useState<string | null>(null);
   const [isBuyingLuku, setIsBuyingLuku] = useState(false);
+
+  const [utilityProvider, setUtilityProvider] = useState<'DAWASA' | 'AzamTV' | 'DStv' | 'StarTimes'>('DAWASA');
+  const [utilityAccount, setUtilityAccount] = useState('DW-4409128');
+  const [utilityAmount, setUtilityAmount] = useState('15000');
+  const [isPayingUtility, setIsPayingUtility] = useState(false);
+  const [lastUtilityReceipt, setLastUtilityReceipt] = useState<TransactionItem | null>(null);
+
+  const [vochaNetwork, setVochaNetwork] = useState<'Vodacom' | 'Tigo' | 'Airtel' | 'Halotel'>('Vodacom');
+  const [vochaPhone, setVochaPhone] = useState(profile?.phoneNumber || profile?.phone || '0754123456');
+  const [vochaAmount, setVochaAmount] = useState('2000');
+  const [isBuyingVocha, setIsBuyingVocha] = useState(false);
+  const [lastVochaMsg, setLastVochaMsg] = useState<string | null>(null);
 
   // Virtual Card State
   const [isCardFrozen, setIsCardFrozen] = useState(false);
@@ -688,6 +733,10 @@ export default function PapoPayHome() {
   // LUKU Purchase Handler
   const handleBuyLuku = () => {
     const amt = Number(lukuAmount);
+    if (!lukuMeter.trim() || lukuMeter.trim().length < 6) {
+      toast.error('Weka namba sahihi ya mita ya LUKU.');
+      return;
+    }
     if (!amt || amt < 2000) {
       toast.error('Kiwango cha chini cha LUKU ni TZS 2,000.');
       return;
@@ -702,6 +751,7 @@ export default function PapoPayHome() {
       setBalanceTZS(prev => prev - amt);
       const token = `${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`;
       setGeneratedLukuToken(token);
+      saveBillAccountToMemory('luku', lukuMeter, `⚡ Mita ${lukuMeter.slice(-4)}`);
 
       const newTx: TransactionItem = {
         id: `tx_${Date.now()}`,
@@ -719,7 +769,94 @@ export default function PapoPayHome() {
       setTransactions(prev => [newTx, ...prev]);
       setIsBuyingLuku(false);
       toast.success('⚡ Token ya LUKU imezalishwa kikamilifu!');
-    }, 1200);
+    }, 900);
+  };
+
+  // DAWASA & King'amuzi (AzamTV / DStv / StarTimes) Handler
+  const handlePayUtilityBill = () => {
+    const amt = Number(utilityAmount);
+    if (!utilityAccount.trim() || utilityAccount.trim().length < 4) {
+      toast.error(`Weka namba sahihi ya akaunti ya ${utilityProvider}.`);
+      return;
+    }
+    if (!amt || amt < 1000) {
+      toast.error('Kiwango cha chini cha malipo ya bili ni TZS 1,000.');
+      return;
+    }
+    if (balanceTZS < amt) {
+      toast.error(`Salio lako halitoshi kulipa ${utilityProvider}.`);
+      return;
+    }
+
+    setIsPayingUtility(true);
+    setTimeout(() => {
+      setBalanceTZS(prev => prev - amt);
+      const kind = utilityProvider === 'DAWASA' ? 'dawasa' : 'tv';
+      const emoji = utilityProvider === 'DAWASA' ? '💧' : '📺';
+      saveBillAccountToMemory(kind, utilityAccount, `${emoji} ${utilityProvider}`);
+
+      const ref = `TRX: ${utilityProvider.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const newTx: TransactionItem = {
+        id: `tx_${Date.now()}`,
+        title: `Bili ya ${utilityProvider} (${utilityAccount})`,
+        subtitle: utilityProvider === 'DAWASA' ? 'Malipo ya Maji Yamethibitishwa' : `Kifurushi cha ${utilityProvider} Kimewashwa`,
+        amount: amt,
+        type: 'debit',
+        category: 'bill',
+        date: 'Leo',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        refCode: ref,
+        status: 'completed'
+      };
+      setTransactions(prev => [newTx, ...prev]);
+      setLastUtilityReceipt(newTx);
+      setIsPayingUtility(false);
+      toast.success(`✅ Malipo ya ${utilityProvider} (TZS ${amt.toLocaleString()}) yamekamilika!`);
+    }, 900);
+  };
+
+  // Vocha & Vifurushi Handler (with 5% Cashback to PapoPoints)
+  const handleBuyVochaBundle = () => {
+    const amt = Number(vochaAmount);
+    const digits = vochaPhone.replace(/\D/g, '');
+    if (digits.length < 9) {
+      toast.error('Weka namba sahihi ya simu (mf. 0754123456).');
+      return;
+    }
+    if (!amt || amt < 500) {
+      toast.error('Kiasi cha chini cha vocha ni TZS 500.');
+      return;
+    }
+    if (balanceTZS < amt) {
+      toast.error('Salio lako halitoshi kununua vocha.');
+      return;
+    }
+
+    setIsBuyingVocha(true);
+    setTimeout(() => {
+      const cashbackPts = Math.max(25, Math.round(amt * 0.05));
+      setBalanceTZS(prev => prev - amt);
+      setCoinsBalance(prev => prev + cashbackPts);
+      saveBillAccountToMemory('vocha', vochaPhone, `📱 ${vochaNetwork}`);
+
+      const ref = `TRX: VOCHA-${Math.floor(100000 + Math.random() * 900000)}`;
+      const newTx: TransactionItem = {
+        id: `tx_${Date.now()}`,
+        title: `Vocha ${vochaNetwork} (${vochaPhone})`,
+        subtitle: `Salio/Kifurushi kimetumwa • +${cashbackPts} PapoPoints (5% Cashback)`,
+        amount: amt,
+        type: 'debit',
+        category: 'bill',
+        date: 'Leo',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        refCode: ref,
+        status: 'completed'
+      };
+      setTransactions(prev => [newTx, ...prev]);
+      setLastVochaMsg(`Vocha ya ${vochaNetwork} TZS ${amt.toLocaleString()} imetumwa kwenda ${vochaPhone}. Umepata +${cashbackPts} pts!`);
+      setIsBuyingVocha(false);
+      toast.success(`📱 Vocha ya ${vochaNetwork} imetumwa! (+${cashbackPts} pts)`);
+    }, 850);
   };
 
   // Student Card Balance Top up
@@ -2878,107 +3015,309 @@ export default function PapoPayHome() {
           )}
 
           {/* ========================================================================= */}
-          {/* TAB 6: LUKU & MOBILE RECHARGE */}
+          {/* TAB 6: LUKU, DAWASA, KING'AMUZI & VOCHA UNIFIED BILLS HUB */}
           {/* ========================================================================= */}
           {activeSection === 'mobile_recharge' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* LUKU Umeme Purchase */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center font-bold">
-                    <Zap className="w-6 h-6" />
+            <div className="space-y-6">
+              {/* Quick Saved Accounts & Meters Bar */}
+              {savedBillAccounts.length > 0 && (
+                <div className="p-4 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-neutral-500">
+                      Namba & Mita Zilizohifadhiwa (Lipa kwa Mbofyo 1)
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600">App + WhatsApp Sync</span>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                      LUKU Umeme TANESCO
-                    </h3>
-                    <p className="text-xs text-neutral-500">Pata token papo hapo bila kuchelewa</p>
+                  <div className="flex flex-wrap gap-2">
+                    {savedBillAccounts.map((item, idx) => (
+                      <button
+                        key={`${item.kind}-${item.account}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          if (item.kind === 'luku') {
+                            setLukuMeter(item.account);
+                          } else if (item.kind === 'dawasa') {
+                            setUtilityProvider('DAWASA');
+                            setUtilityAccount(item.account);
+                          } else if (item.kind === 'tv') {
+                            if (item.label.includes('DStv')) setUtilityProvider('DStv');
+                            else if (item.label.includes('Star')) setUtilityProvider('StarTimes');
+                            else setUtilityProvider('AzamTV');
+                            setUtilityAccount(item.account);
+                          } else if (item.kind === 'vocha') {
+                            setVochaPhone(item.account);
+                          }
+                          toast.info(`Imejaza: ${item.label} (${item.account})`);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-amber-50 dark:bg-neutral-800 dark:hover:bg-amber-950/30 border border-neutral-200 dark:border-neutral-700 text-xs font-bold flex items-center gap-1.5 transition-all"
+                      >
+                        <span>{item.label}</span>
+                        <span className="font-mono text-[11px] text-neutral-500">{item.account}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* 1. LUKU Umeme Purchase */}
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center font-bold">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                        LUKU Umeme TANESCO
+                      </h3>
+                      <p className="text-xs text-neutral-500">Tokeni ya umeme papo hapo</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Namba ya Mita ya LUKU
+                      </label>
+                      <input
+                        type="text"
+                        value={lukuMeter}
+                        onChange={(e) => setLukuMeter(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Kiasi (TZS)
+                      </label>
+                      <div className="flex gap-1.5 mb-2">
+                        {['5000', '10000', '20000', '50000'].map((amtPreset) => (
+                          <button
+                            key={amtPreset}
+                            type="button"
+                            onClick={() => setLukuAmount(amtPreset)}
+                            className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border ${
+                              lukuAmount === amtPreset
+                                ? 'bg-amber-500 text-neutral-950 border-amber-500'
+                                : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
+                            }`}
+                          >
+                            {(Number(amtPreset) / 1000)}k
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="number"
+                        value={lukuAmount}
+                        onChange={(e) => setLukuAmount(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold"
+                      />
+                    </div>
+
+                    {generatedLukuToken && (
+                      <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-2">
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">TOKEN YAKO YA LUKU:</span>
+                        <div className="text-lg font-black font-mono tracking-wider text-emerald-900 dark:text-emerald-100 select-all">
+                          {generatedLukuToken}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generatedLukuToken);
+                            toast.success('Token ya LUKU imenakiliwa!');
+                          }}
+                          className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold"
+                        >
+                          Nakili Token
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isBuyingLuku}
+                      onClick={handleBuyLuku}
+                      className="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                      {isBuyingLuku ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                      <span>Nunua LUKU TZS {Number(lukuAmount || 0).toLocaleString()}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
-                      Namba ya Mita ya LUKU
-                    </label>
-                    <input
-                      type="text"
-                      value={lukuMeter}
-                      onChange={(e) => setLukuMeter(e.target.value)}
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold"
-                    />
+                {/* 2. DAWASA Maji & King'amuzi (AzamTV / DStv / StarTimes) */}
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold">
+                      <Receipt className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                        Maji (DAWASA) &amp; TV
+                      </h3>
+                      <p className="text-xs text-neutral-500">DAWASA, AzamTV, DStv &amp; StarTimes</p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
-                      Kiasi (TZS)
-                    </label>
-                    <input
-                      type="number"
-                      value={lukuAmount}
-                      onChange={(e) => setLukuAmount(e.target.value)}
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold"
-                    />
-                  </div>
-
-                  {generatedLukuToken && (
-                    <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-center space-y-2">
-                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">TOKEN YAKO YA LUKU:</span>
-                      <div className="text-xl font-black font-mono tracking-wider text-emerald-900 dark:text-emerald-100 select-all">
-                        {generatedLukuToken}
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['DAWASA', 'AzamTV', 'DStv', 'StarTimes'] as const).map((prov) => (
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedLukuToken);
-                          toast.success('Token ya LUKU imenakiliwa!');
-                        }}
-                        className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold"
+                        key={prov}
+                        type="button"
+                        onClick={() => setUtilityProvider(prov)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
+                          utilityProvider === prov
+                            ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                            : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
+                        }`}
                       >
-                        Nakili Token
+                        {prov === 'DAWASA' ? '💧 DAWASA' : `📺 ${prov}`}
                       </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        {utilityProvider === 'DAWASA' ? 'Namba ya Akaunti ya Maji' : `Namba ya Kadi (${utilityProvider})`}
+                      </label>
+                      <input
+                        type="text"
+                        value={utilityAccount}
+                        onChange={(e) => setUtilityAccount(e.target.value)}
+                        placeholder={utilityProvider === 'DAWASA' ? 'Mfano: DW-4409128' : 'Mfano: 402918374'}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Kiasi (TZS)
+                      </label>
+                      <input
+                        type="number"
+                        value={utilityAmount}
+                        onChange={(e) => setUtilityAmount(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {lastUtilityReceipt && (
+                    <div className="p-3 rounded-2xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 text-xs space-y-1">
+                      <span className="font-black text-cyan-700 dark:text-cyan-300 block">
+                        ✅ {lastUtilityReceipt.title}
+                      </span>
+                      <span className="text-neutral-600 dark:text-neutral-300 block font-mono">
+                        {lastUtilityReceipt.refCode}
+                      </span>
                     </div>
                   )}
 
                   <button
-                    disabled={isBuyingLuku}
-                    onClick={handleBuyLuku}
-                    className="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    type="button"
+                    disabled={isPayingUtility}
+                    onClick={handlePayUtilityBill}
+                    className="w-full py-4 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    {isBuyingLuku ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
-                    <span>Nunua LUKU TZS {Number(lukuAmount || 0).toLocaleString()}</span>
+                    {isPayingUtility ? <RefreshCw className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    <span>Lipa {utilityProvider} TZS {Number(utilityAmount || 0).toLocaleString()}</span>
+                  </button>
+                </div>
+
+                {/* 3. Vocha & Data Bundles */}
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#3b66f5] flex items-center justify-center font-bold">
+                      <Smartphone className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                        Vocha &amp; Vifurushi
+                      </h3>
+                      <p className="text-xs text-neutral-500">Vodacom, Tigo, Airtel, Halotel (+5% pts)</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['Vodacom', 'Tigo', 'Airtel', 'Halotel'] as const).map((net) => (
+                      <button
+                        key={net}
+                        type="button"
+                        onClick={() => setVochaNetwork(net)}
+                        className={`p-2.5 rounded-2xl border text-left transition-all ${
+                          vochaNetwork === net
+                            ? 'bg-[#3b66f5] text-white border-[#3b66f5] shadow-sm'
+                            : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
+                        }`}
+                      >
+                        <h5 className="font-black text-xs">{net}</h5>
+                        <span className={`text-[10px] ${vochaNetwork === net ? 'text-blue-100' : 'text-neutral-400'}`}>
+                          5% Cashback
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Namba ya Simu ya Kujaza
+                      </label>
+                      <input
+                        type="tel"
+                        value={vochaPhone}
+                        onChange={(e) => setVochaPhone(e.target.value)}
+                        placeholder="0754123456"
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Kiasi cha Vocha / Kifurushi (TZS)
+                      </label>
+                      <div className="flex gap-1.5 mb-2">
+                        {['1000', '2000', '5000', '10000'].map((vPreset) => (
+                          <button
+                            key={vPreset}
+                            type="button"
+                            onClick={() => setVochaAmount(vPreset)}
+                            className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold border ${
+                              vochaAmount === vPreset
+                                ? 'bg-[#3b66f5] text-white border-[#3b66f5]'
+                                : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
+                            }`}
+                          >
+                            {Number(vPreset).toLocaleString()}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="number"
+                        value={vochaAmount}
+                        onChange={(e) => setVochaAmount(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {lastVochaMsg && (
+                    <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                      ✅ {lastVochaMsg}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={isBuyingVocha}
+                    onClick={handleBuyVochaBundle}
+                    className="w-full py-4 rounded-2xl bg-[#3b66f5] hover:bg-blue-600 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    {isBuyingVocha ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Smartphone className="w-5 h-5" />}
+                    <span>Nunua Vocha TZS {Number(vochaAmount || 0).toLocaleString()}</span>
                   </button>
                 </div>
               </div>
-
-              {/* Vocha & Data Bundles */}
-              <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#3b66f5] flex items-center justify-center font-bold">
-                    <Smartphone className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                      Vocha &amp; Vifurushi vya Simu
-                    </h3>
-                    <p className="text-xs text-neutral-500">Vodacom, Tigo, Airtel, Halotel</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {['Vodacom', 'Tigo', 'Airtel', 'Halotel'].map((net) => (
-                    <button
-                      key={net}
-                      onClick={() => toast.success(`Mtandao wa ${net} umechaguliwa`)}
-                      className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-left hover:border-[#3b66f5] transition-all"
-                    >
-                      <h5 className="font-black text-sm text-neutral-900 dark:text-white">{net}</h5>
-                      <span className="text-[11px] text-neutral-400">Pata 5% Cashback</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
             </div>
           )}
 

@@ -119,11 +119,17 @@ export interface MetaSession {
     | 'EVENT_SELECT_TIER'
     | 'EVENT_QUANTITY'
     | 'PAPOPAY_MENU'
+    | 'PAPOPAY_BILLS_MENU'
+    | 'PAPOPAY_BILL_ACCOUNT'
+    | 'PAPOPAY_BILL_AMOUNT'
     | 'PAPOPAY_TOPUP_AMOUNT'
     | 'PAPOPAY_TOPUP_PHONE'
     | 'PAPOPAY_PAY_TARGET'
     | 'PAPOPAY_PAY_AMOUNT'
     | 'PAPOPAY_PAY_METHOD'
+    | 'MED_CLINIC_MODE'
+    | 'MED_CLINIC_SLOT'
+    | 'MED_CLINIC_PHONE'
     | 'VENDOR_REG_CATEGORY'
     | 'VENDOR_REG_NAME'
     | 'VENDOR_REG_ADDRESS'
@@ -2035,6 +2041,18 @@ export async function classifyIntent(message: string): Promise<{
   if (compact.includes('papopay') || compact.includes('papowallet') || compact.includes('papocredit') || compact.includes('lipapapo')) {
     return { intent: 'papopay', confidence: 1.0 };
   }
+  if (/^(?:luku|dawasa|dawasco|azam\s*tv|azamtv|dstv|startimes|vocha|kifurushi|vifurushi|bili)\b/i.test(cleaned)) {
+    return { intent: 'papopay', confidence: 0.98 };
+  }
+  if (/^(?:gesi|mtungi|oryx|taifa\s*gas|maji\s*20l|dumu)\b/i.test(cleaned)) {
+    return { intent: 'grocery', confidence: 0.97 };
+  }
+  if (/^(?:dobi|laundry|kufua|breakdown|panja|towing)\b/i.test(cleaned)) {
+    return { intent: 'handyman', confidence: 0.97 };
+  }
+  if (/^(?:daktari|kliniki|clinic|maabara|kipimo|vipimo|papocare|doctor)\b/i.test(cleaned) || compact.includes('papocare')) {
+    return { intent: 'pharmacy', confidence: 0.97 };
+  }
 
   // If Gemini API Key is available, use Gemini for natural Swahili/English NLP
   if (process.env.GEMINI_API_KEY) {
@@ -2113,8 +2131,8 @@ Response Schema:
   ) {
     return { intent: 'food', confidence: 0.96 };
   }
-  if (cleaned.includes('nyanya') || cleaned.includes('kitunguu') || cleaned.includes('soko') || cleaned.includes('mboga') || cleaned.includes('matunda') || cleaned.includes('mchele') || cleaned.includes('grocery') || cleaned.includes('sokoni')) {
-    return { intent: 'grocery', confidence: 0.90 };
+  if (cleaned.includes('nyanya') || cleaned.includes('kitunguu') || cleaned.includes('soko') || cleaned.includes('mboga') || cleaned.includes('matunda') || cleaned.includes('mchele') || cleaned.includes('grocery') || cleaned.includes('sokoni') || cleaned.includes('gesi') || cleaned.includes('mtungi') || cleaned.includes('oryx') || cleaned.includes('taifa gas') || cleaned.includes('dumu')) {
+    return { intent: 'grocery', confidence: 0.92 };
   }
   if (cleaned.includes('mzigo') || cleaned.includes('tuma mzigo') || cleaned.includes('parcel') || cleaned.includes('kuria') || cleaned.includes('msafirishaji') || cleaned.includes('vifurushi')) {
     return { intent: 'parcel', confidence: 0.95 };
@@ -2122,7 +2140,7 @@ Response Schema:
   if (cleaned.includes('nywele') || cleaned.includes('saluni') || cleaned.includes('salon') || cleaned.includes('kinyozi') || cleaned.includes('makeup') || cleaned.includes('kucha') || cleaned.includes('massage') || cleaned.includes('spa')) {
     return { intent: 'salon', confidence: 0.95 };
   }
-  if (cleaned.includes('fundi') || cleaned.includes('mafundi') || cleaned.includes('umeme') || cleaned.includes('bomba') || cleaned.includes('ac ') || cleaned.includes('friji') || cleaned.includes('fumigation') || cleaned.includes('handyman') || cleaned.includes('plumber') || cleaned.includes('electrician') || cleaned.includes('ujenzi') || cleaned.includes('carpenter')) {
+  if (cleaned.includes('fundi') || cleaned.includes('mafundi') || cleaned.includes('umeme') || cleaned.includes('bomba') || cleaned.includes('ac ') || cleaned.includes('friji') || cleaned.includes('fumigation') || cleaned.includes('handyman') || cleaned.includes('plumber') || cleaned.includes('electrician') || cleaned.includes('ujenzi') || cleaned.includes('carpenter') || cleaned.includes('dobi') || cleaned.includes('laundry') || cleaned.includes('kufua') || cleaned.includes('breakdown') || cleaned.includes('panja') || cleaned.includes('towing') || cleaned.includes('betri') || cleaned.includes('mafuta ya gari')) {
     return { intent: 'handyman', confidence: 0.95 };
   }
   if (cleaned.includes('hotel') || cleaned.includes('room') || cleaned.includes('chumba') || cleaned.includes('lodging') || cleaned.includes('hoteli') || cleaned.includes('malazi')) {
@@ -2134,7 +2152,7 @@ Response Schema:
   if (cleaned.includes('kodi') || cleaned.includes('prado') || cleaned.includes('cruiser') || cleaned.includes('rental') || cleaned.includes('rent a car') || cleaned.includes('noah') || cleaned.includes('gari la kukodi')) {
     return { intent: 'car_rental', confidence: 0.95 };
   }
-  if (cleaned.includes('dawa') || cleaned.includes('panadol') || cleaned.includes('paracetamol') || cleaned.includes('syrup') || cleaned.includes('pharmacy') || cleaned.includes('famasi') || cleaned.includes('kikohozi')) {
+  if (cleaned.includes('dawa') || cleaned.includes('panadol') || cleaned.includes('paracetamol') || cleaned.includes('syrup') || cleaned.includes('pharmacy') || cleaned.includes('famasi') || cleaned.includes('kikohozi') || cleaned.includes('daktari') || cleaned.includes('kliniki') || cleaned.includes('clinic') || cleaned.includes('maabara') || cleaned.includes('kipimo') || cleaned.includes('vipimo') || cleaned.includes('hospitali') || cleaned.includes('doctor')) {
     return { intent: 'pharmacy', confidence: 0.95 };
   }
   if (cleaned.includes('basi') || cleaned.includes('mabasi') || cleaned.includes('tiketi') || cleaned.includes('ticket')) {
@@ -2143,7 +2161,7 @@ Response Schema:
   if (cleaned.includes('mall') || cleaned.includes('duka') || cleaned.includes('maduka') || cleaned.includes('viatu') || cleaned.includes('simu') || cleaned.includes('nguo') || cleaned.includes('laptop') || cleaned.includes('electronics') || cleaned.includes('ecommerce') || cleaned.includes('shopping')) {
     return { intent: 'ecommerce', confidence: 0.92 };
   }
-  if (cleaned.includes('salio') || cleaned.includes('wallet') || cleaned.includes('lipa') || cleaned.includes('wakala') || cleaned.includes('malipo') || cleaned.includes('bili') || cleaned.includes('luku') || cleaned.includes('dawasco') || cleaned.includes('credit')) {
+  if (cleaned.includes('salio') || cleaned.includes('wallet') || cleaned.includes('lipa') || cleaned.includes('wakala') || cleaned.includes('malipo') || cleaned.includes('bili') || cleaned.includes('luku') || cleaned.includes('dawasa') || cleaned.includes('dawasco') || cleaned.includes('azamtv') || cleaned.includes('azam tv') || cleaned.includes('dstv') || cleaned.includes('startimes') || cleaned.includes('vocha') || cleaned.includes('kifurushi') || cleaned.includes('credit')) {
     return { intent: 'papopay', confidence: 0.94 };
   }
 
@@ -4429,18 +4447,94 @@ export function buildWhatsAppInteractive(
         button: isEn ? '💳 Open PapoPay' : '💳 Chagua Huduma',
         sections: [
           {
-            title: isEn ? 'Wallet & Payments' : 'Huduma za Malipo',
+            title: isEn ? 'Wallet, Bills & Payments' : 'Huduma za Malipo & Bili',
             rows: [
               { id: '1', title: isEn ? '💰 Check Balance' : '💰 Angalia Salio', description: isEn ? 'PapoWallet & PapoPoints' : 'Salio la PapoWallet & Pointi' },
-              { id: '2', title: isEn ? '📲 Pay Bill / Driver' : '📲 Lipa Bili / Dereva', description: isEn ? 'LUKU, Restaurant or Driver' : 'Lipa bili, mgahawa au dereva' },
-              { id: '3', title: isEn ? '🏪 Nearby Agents' : '🏪 Tafuta Wakala', description: isEn ? 'Deposit / Withdraw cash' : 'Weka au toa pesa karibu' },
-              { id: '4', title: isEn ? '🔗 Open PapoPay Web' : '🔗 Fungua Mtandaoni', description: isEn ? 'QR & Bill Pay Portal' : 'QR, LUKU & DAWASCO Portal' },
+              { id: '2', title: isEn ? '📥 Top Up Wallet' : '📥 Weka Pesa Wallet', description: isEn ? 'Deposit via Mongike Push' : 'Weka pesa kwa simu' },
+              { id: '3', title: isEn ? '⚡ LUKU, Water & Airtime' : '⚡ Bili: LUKU, Maji & Vocha', description: isEn ? 'LUKU, DAWASA, AzamTV, +5% pts' : 'LUKU, DAWASA, TV & Vocha (+5%)' },
+              { id: '4', title: isEn ? '📲 Pay Driver / Shop' : '📲 Lipa Dereva / Duka', description: isEn ? 'Pay Merchant or Driver' : 'Lipa dereva, mgahawa au duka' },
+              { id: '5', title: isEn ? '🏪 Nearby Agents' : '🏪 Tafuta Wakala', description: isEn ? 'Deposit / Withdraw cash' : 'Weka au toa pesa karibu' },
+              { id: '6', title: isEn ? '🔗 Open PapoPay Web' : '🔗 Fungua Mtandaoni', description: isEn ? 'QR & Bill Pay Portal' : 'QR, LUKU & DAWASA Portal' },
             ],
           },
           {
             title: isEn ? 'Menu' : 'Menyu',
             rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
           },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'PAPOPAY_BILLS_MENU') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: '⚡ PapoBills — Bili & Vocha' },
+      body: { text: cleanBody },
+      action: {
+        button: isEn ? '⚡ Pick Biller' : '⚡ Chagua Bili',
+        sections: [
+          {
+            title: isEn ? 'Utilities & Bundles (+5% Cashback)' : 'LUKU, Maji, TV & Vocha (+5%)',
+            rows: [
+              { id: '1', title: '⚡ LUKU (TANESCO)', description: isEn ? 'Instant 20-digit electricity token' : 'Tokeni ya umeme papo hapo' },
+              { id: '2', title: '💧 DAWASA / DAWASCO', description: isEn ? 'Water bill payment' : 'Lipa bili ya maji' },
+              { id: '3', title: '📺 AzamTV / DStv / StarTimes', description: isEn ? 'TV decoder renewal' : 'Malipo ya king’amuzi' },
+              { id: '4', title: '📱 Vocha & Vifurushi', description: isEn ? 'Vodacom, Tigo, Airtel, Halotel' : 'Salio & vifurushi (+5% Pointi)' },
+            ],
+          },
+          {
+            title: isEn ? 'Menu' : 'Menyu',
+            rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
+          },
+        ],
+      },
+    });
+  }
+
+  if (session?.step === 'PAPOPAY_BILL_ACCOUNT') {
+    const savedBills: any[] = Array.isArray(session?.details?.savedBills) ? session.details.savedBills : [];
+    const billType = session?.details?.billMeta?.billType;
+    const filteredSaved = billType
+      ? savedBills.filter((b) => b.billType === billType || !b.billType)
+      : savedBills;
+    if (filteredSaved.length > 0 && !isValidationErrorReply(rawStripped)) {
+      return sanitizeWhatsAppInteractivePayload({
+        type: 'list',
+        header: { type: 'text', text: '🔖 Akaunti Zilizohifadhiwa' },
+        body: { text: rawStripped.split('\n')[0] || 'Chagua mita/akaunti yako au andika namba mpya:' },
+        action: {
+          button: isEn ? '📌 Saved Meters' : '📌 Chagua Mita',
+          sections: [
+            {
+              title: isEn ? 'Saved Accounts' : 'Zilizohifadhiwa',
+              rows: filteredSaved.slice(0, 6).map((b, i) => ({
+                id: String(i + 1),
+                title: `${b.label || b.provider || 'Bili'} • ${b.account}`,
+                description: b.provider || 'Tumia namba hii',
+              })),
+            },
+            {
+              title: isEn ? 'Menu' : 'Menyu',
+              rows: [{ id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' }],
+            },
+          ],
+        },
+      });
+    }
+  }
+
+  if (session?.step === 'MED_CLINIC_MODE') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      body: { text: cleanBody },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: '1', title: '🏥 Miadi Kliniki' } },
+          { type: 'reply', reply: { id: '2', title: '🧪 Vipimo Nyumbani' } },
+          { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
         ],
       },
     });
@@ -5278,6 +5372,7 @@ function preserveCustomerFields(
   if (details?.welcomedFirstOpen) next.welcomedFirstOpen = true;
   if (details?.emergencyContactPhone) next.emergencyContactPhone = details.emergencyContactPhone;
   if (Array.isArray(details?.unifiedCart) && details.unifiedCart.length > 0) next.unifiedCart = details.unifiedCart;
+  if (Array.isArray(details?.savedBills) && details.savedBills.length > 0) next.savedBills = details.savedBills;
   return next;
 }
 
@@ -6462,17 +6557,17 @@ async function processMetaInputCore(
       num: '2',
       category: 'grocery',
       serviceTitle: 'PapoMart',
-      labelSw: '🥦 Vyakula / Soko (PapoMart)',
-      labelEn: '🥦 Grocery / Market (PapoMart)',
-      keywords: /^(?:2|soko|sokoni|vyakula|mboga|grocery|mart|papomart)$/i,
+      labelSw: '🥦 Vyakula, Gesi & Maji (PapoMart)',
+      labelEn: '🥦 Grocery, Gas & Water (PapoMart)',
+      keywords: /^(?:2|soko|sokoni|vyakula|mboga|grocery|mart|papomart|gesi|mtungi)$/i,
     },
     {
       num: '3',
       category: 'pharmacy',
       serviceTitle: 'PapoMed',
-      labelSw: '💊 Famasi / Duka la Dawa (PapoMed)',
-      labelEn: '💊 Pharmacy / Medicine (PapoMed)',
-      keywords: /^(?:3|famasi|dawa|pharmacy|med|papomed)$/i,
+      labelSw: '💊 Dawa, Daktari & Vipimo (PapoMed)',
+      labelEn: '💊 Pharmacy, Doctor & Lab (PapoMed)',
+      keywords: /^(?:3|famasi|dawa|pharmacy|med|papomed|daktari|kliniki|maabara|vipimo)$/i,
     },
     {
       num: '4',
@@ -6494,9 +6589,9 @@ async function processMetaInputCore(
       num: '6',
       category: 'handyman',
       serviceTitle: 'PapoFix',
-      labelSw: '🛠️ Fundi / Matengenezo (PapoFix)',
-      labelEn: '🛠️ Handyman / Repairs (PapoFix)',
-      keywords: /^(?:6|fundi|matengenezo|handyman|fix|papofix|usafi)$/i,
+      labelSw: '🛠️ Fundi, Dobi & Breakdown (PapoFix)',
+      labelEn: '🛠️ Handyman, Laundry & Breakdown (PapoFix)',
+      keywords: /^(?:6|fundi|matengenezo|handyman|fix|papofix|usafi|dobi|laundry|breakdown|panja|mafuta)$/i,
     },
     {
       num: '7',
@@ -6916,7 +7011,7 @@ async function processMetaInputCore(
 
   const isOtherAppServiceIntent =
     atWorkflowMenuOrIdle &&
-    (/\b(papofix|papomall|papoticket|papopay|papomart|paposend|papomed|papostyle|papostay|papobus|paporent|fundi|umeme|bomba|tamasha|mechi|wallet|salio)\b/i.test(cleanedLower) ||
+    (/\b(papofix|papomall|papoticket|papopay|papomart|paposend|papomed|papocare|papostyle|papostay|papobus|paporent|fundi|umeme|bomba|tamasha|mechi|wallet|salio|luku|dawasa|dawasco|azamtv|dstv|startimes|vocha|kifurushi|gesi|mtungi|dobi|laundry|breakdown|panja|daktari|kliniki|maabara|vipimo)\b/i.test(cleanedLower) ||
       ['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'].includes(cleanInput));
 
   if (isTaxiSelectionOrIntent || isFoodSelectionOrIntent || isOtherAppServiceIntent) {
@@ -8999,7 +9094,7 @@ async function routeToServiceFlow(
     }
   }
 
-  // SOKONI / GROCERY FLOW
+  // SOKONI / GROCERY FLOW (Unified with Express Gas 6kg/15kg & Water 20L)
   if (service === 'grocery') {
     const isMenuPick =
       /^\d{1,2}$/.test(input.trim()) ||
@@ -9031,24 +9126,55 @@ async function routeToServiceFlow(
       );
 
       return (
-        `🎉 *Oda Yako Sokoni Imesajiliwa!* 🥦🛍️\n` +
+        `🎉 *Oda Yako PapoMart Imesajiliwa!* 🥦🔥\n` +
         `🔖 Namba ya Oda: *#${skCode}*\n\n` +
         `- Bidhaa: *${selectedName}*\n` +
         `- Jumla ya Bei: *TSH ${selectedPrice.toLocaleString()}*\n` +
         `- Eneo la Kuletewa: *${deliveryAddr}*\n` +
         `- Simu: *${groceryPhone}*\n\n` +
         `🔗 *Fuatilia oda & oda zako zote:*\n${buildOrdersTrackingUrl(groceryPhone, skCode)}\n\n` +
-        `Mjumbe wetu anafunga bidhaa zako na ataondoka sokoni kukuletea hapo punde. Ahsante sana!`
+        `Mjumbe wetu anafunga bidhaa zako na ataondoka kukuletea hapo punde. Ahsante sana!`
       );
     };
 
     const inGroceryStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
     if (!inGroceryStep) {
       const searchQ = isMenuPick ? undefined : cleaned;
+      const isGasOrWaterSearch = Boolean(searchQ && /\b(gesi|mtungi|oryx|taifa|maji|dumu|20l)\b/i.test(searchQ));
       session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
 
-      const items = await fetchCatalogItemsForMeta(dbAdmin, 'grocery', searchQ, [
+      const expressGasAndWaterItems = [
+        {
+          id: 'grc-gas-6kg',
+          vendorId: 'papomart-gas-express',
+          vendorName: 'PapoMart Express Gas',
+          name: '🔥 Gesi 6KG Kubadili (Oryx / Taifa Gas)',
+          price: 23000,
+          desc: 'Tunafuata mtungi mtupu na kukuletea uliojaa dk 30',
+          imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'grc-gas-15kg',
+          vendorId: 'papomart-gas-express',
+          vendorName: 'PapoMart Express Gas',
+          name: '🔥 Gesi 15KG Kubadili (Oryx / Taifa Gas)',
+          price: 56000,
+          desc: 'Mtungi mkubwa wa familia • Express mlangoni',
+          imageUrl: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80'
+        },
+        {
+          id: 'grc-water-20l',
+          vendorId: 'papomart-gas-express',
+          vendorName: 'PapoMart Express Maji',
+          name: '💧 Maji Safi ya Kunywa (Dumu 20L x 2)',
+          price: 7500,
+          desc: 'Madumu 2 ya Lita 20 yaliyofungwa salama',
+          imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=800&q=80'
+        }
+      ];
+
+      const fetched = await fetchCatalogItemsForMeta(dbAdmin, 'grocery', isGasOrWaterSearch ? undefined : searchQ, [
         {
           id: 'grc-m1',
           name: 'Nyanya Kiboksi (Safi)',
@@ -9071,6 +9197,9 @@ async function routeToServiceFlow(
           imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80'
         }
       ]);
+      const items = isGasOrWaterSearch
+        ? [...expressGasAndWaterItems, ...fetched.slice(0, 2)]
+        : [...fetched, ...expressGasAndWaterItems];
       session.details.optionsList = items;
       await saveMetaSession(session, dbAdmin);
 
@@ -9158,11 +9287,12 @@ async function routeToServiceFlow(
     }
   }
 
-  // PHARMACY FLOW
+  // PHARMACY & DOCTOR CARE FLOW (Unified PapoMed + PapoCare)
   if (service === 'pharmacy') {
     const isMenuPick =
       /^\d{1,2}$/.test(input.trim()) ||
-      /^(papomed|dawa|pharmacy|afya)$/i.test(input.trim());
+      /^(papomed|papocare|dawa|pharmacy|afya)$/i.test(input.trim());
+    const isClinicDirectIntent = /\b(daktari|kliniki|clinic|maabara|kipimo|vipimo|hospitali|doctor|papocare)\b/i.test(input);
 
     const finalizePharmacy = async (rxPhone: string, deliveryAddr: string) => {
       const rxCode = `RX-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -9201,8 +9331,78 @@ async function routeToServiceFlow(
       );
     };
 
-    const inPharmacyStep = ['SELECTING_OPTION', 'COLLECTING_PHONE'].includes(session.step);
+    const finalizeClinicAppointment = async (carePhone: string, careAddr: string) => {
+      const pmdCode = `PMD-${Math.floor(1000 + Math.random() * 9000)}`;
+      const queueNumber = `Q-${Math.floor(100 + Math.random() * 900)}`;
+      const clinicMode = session.details.clinicMode === 'home_lab' ? 'home_lab' : 'hospital';
+      const clinicSlot = session.details.clinicSlot || 'Leo, Saa 10:00 Jioni';
+      const fee = clinicMode === 'home_lab' ? 25000 : 20000;
+      const serviceLabel =
+        clinicMode === 'home_lab'
+          ? '🧪 Vipimo vya Maabara Nyumbani (Home Visit)'
+          : '🏥 Miadi ya Daktari & Kliniki (Foleni ya Kidijitali)';
+      const custName = session.details.customerName || 'Meta PapoCare Client';
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      await triggerAutomatedOrder(
+        dbAdmin,
+        'papomed-care-network',
+        'pharmacy',
+        [{ name: serviceLabel, price: fee, quantity: 1 }],
+        fee,
+        carePhone,
+        custName,
+        `PapoMed Care #${pmdCode} | Queue: ${queueNumber} | ${clinicSlot} | ${careAddr}`,
+        session.channel,
+        {
+          bookingCode: pmdCode,
+          orderType: 'medical_appointment',
+          service: 'PapoMed Care',
+          queueNumber,
+          preferredSlot: clinicSlot,
+          deliveryAddress: careAddr,
+        }
+      );
+
+      return (
+        `🩺 *MIADI YA AFYA IMETHIBITISHWA!* ✅\n` +
+        `🔖 Rejea: *#${pmdCode}*\n` +
+        `🎟️ Namba ya Foleni: *${queueNumber}*\n\n` +
+        `- Huduma: *${serviceLabel}*\n` +
+        `- Muda: *${clinicSlot}*\n` +
+        `- Eneo / Kliniki: *${careAddr}*\n` +
+        `- Ada ya Huduma: *TZS ${fee.toLocaleString()}*\n` +
+        `- Simu: *${carePhone}*\n\n` +
+        `🔗 *Fuatilia Miadi Yako:*\n${buildOrdersTrackingUrl(carePhone, pmdCode)}\n\n` +
+        `Mhudumu wetu atawasiliana nawe kuthibitisha maandalizi. Ahsante kwa kutumia PapoMed!`
+      );
+    };
+
+    const inPharmacyStep = [
+      'SELECTING_OPTION',
+      'COLLECTING_PHONE',
+      'MED_CLINIC_MODE',
+      'MED_CLINIC_SLOT',
+      'MED_CLINIC_PHONE',
+    ].includes(session.step);
+
     if (!inPharmacyStep) {
+      if (isClinicDirectIntent) {
+        session.step = 'MED_CLINIC_MODE';
+        await saveMetaSession(session, dbAdmin);
+        return (
+          `🩺 *PapoMed Care — Daktari, Kliniki & Vipimo*\n\n` +
+          `Chagua huduma unayohitaji:\n\n` +
+          `1. 🏥 *Weka Miadi ya Daktari / Kliniki* (Pata namba ya foleni mapema)\n` +
+          `2. 🧪 *Vipimo vya Maabara Nyumbani* (Mhudumu afike kuchukua sampuli)\n\n` +
+          `Andika *1* au *2*:`
+        );
+      }
+
       const searchQ = isMenuPick ? undefined : cleaned;
       session.details.itemQuery = searchQ || 'ALL';
       session.step = 'SELECTING_OPTION';
@@ -9230,7 +9430,18 @@ async function routeToServiceFlow(
           imageUrl: 'https://images.unsplash.com/photo-1603398938378-e54eab446dde?auto=format&fit=crop&w=800&q=80'
         }
       ]);
-      session.details.optionsList = meds;
+      const combinedMedOptions = [
+        ...meds,
+        {
+          id: 'med-clinic-care',
+          vendorId: 'papomed-care-network',
+          name: '🩺 Weka Miadi ya Daktari / Vipimo Nyumbani',
+          price: 20000,
+          desc: 'Pata foleni ya kliniki au mhudumu wa maabara afike nyumbani',
+          isOpen: true,
+        },
+      ];
+      session.details.optionsList = combinedMedOptions;
       await saveMetaSession(session, dbAdmin);
 
       appendMediaItems(
@@ -9247,9 +9458,9 @@ async function routeToServiceFlow(
         })
       );
 
-      let resp = `💊 *PapoMed — Dawa na Afya*\n\n`;
+      let resp = `💊 *PapoMed — Dawa, Daktari & Vipimo*\n\n`;
       if (searchQ) resp += `Dawa/Vifaa vilivyopo karibu kwa ajili ya: *"${searchQ}"*\n\n`;
-      meds.forEach((med, idx) => {
+      combinedMedOptions.forEach((med, idx) => {
         const stTag =
           med.isOpen === false
             ? `🔴 Imefungwa${med.operatingHours ? ` (${med.operatingHours})` : ''}`
@@ -9257,8 +9468,71 @@ async function routeToServiceFlow(
         const vLine = med.vendorName ? `🏥 ${med.vendorName} • ` : '';
         resp += `*${idx + 1}. ${med.name}* — ${stTag}\n${vLine}${med.desc ? `📌 ${med.desc}\n` : ''}💰 Bei: *TSH ${med.price.toLocaleString()}*\n\n`;
       });
-      resp += `Andika namba ya dawa unayohitaji kuagiza (*1–${meds.length}*):`;
+      resp += `Andika namba ya huduma au dawa (*1–${combinedMedOptions.length}*):`;
       return resp;
+    }
+
+    if (session.step === 'MED_CLINIC_MODE') {
+      const c = input.trim();
+      if (c !== '1' && c !== '2') {
+        return `⚠️ Tafadhali chagua *1* (Miadi ya Kliniki) au *2* (Vipimo Nyumbani):`;
+      }
+      session.details.clinicMode = c === '2' ? 'home_lab' : 'hospital';
+      session.step = 'MED_CLINIC_SLOT';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `⏰ *Chagua Muda Unaopendelea (${c === '2' ? 'Vipimo Nyumbani' : 'Miadi ya Kliniki'}):*\n\n` +
+        `1. 🚀 *Sasa Hivi (Ndani ya Saa 1)*\n` +
+        `2. 🌆 *Leo Jioni (Saa 10:00)*\n` +
+        `3. 🌅 *Kesho Asubuhi (Saa 2:30)*\n\n` +
+        `Andika *1*, *2* au *3*:`
+      );
+    }
+
+    if (session.step === 'MED_CLINIC_SLOT') {
+      const slotMap: Record<string, string> = {
+        '1': 'Sasa Hivi (Haraka)',
+        '2': 'Leo, Saa 10:00 Jioni',
+        '3': 'Kesho Asubuhi (8:30 AM)',
+      };
+      const pickedSlot = slotMap[input.trim()] || (input.trim().length >= 3 ? input.trim() : '');
+      if (!pickedSlot) {
+        return `⚠️ Tafadhali chagua *1*, *2*, *3* au andika muda unaotaka:`;
+      }
+      session.details.clinicSlot = pickedSlot;
+      session.step = 'MED_CLINIC_PHONE';
+      if (knownPhone && savedLoc?.name) {
+        await saveMetaSession(session, dbAdmin);
+        return `📍 Muda: *${pickedSlot}*\nTutumie eneo *${savedLoc.name}*?\n1. 📍 Ndio, tumia *${savedLoc.name}*\n_Au andika eneo/hospitali nyingine:_`;
+      }
+      await saveMetaSession(session, dbAdmin);
+      return knownPhone
+        ? `📍 Andika *eneo ulipo* (kwa vipimo nyumbani) au *jina la hospitali* (mfano: *Mikocheni* / *Aga Khan*):`
+        : `📞 Andika *namba yako ya simu* na *eneo/hospitali* (Mfano: *0712345678, Mikocheni*):`;
+    }
+
+    if (session.step === 'MED_CLINIC_PHONE') {
+      if (knownPhone) {
+        let addr = input.trim();
+        if (addr === '1' && savedLoc?.name) {
+          addr = savedLoc.name;
+        } else if (addr.length >= 2) {
+          await saveLocPref({ name: addr, address: addr });
+        }
+        return await finalizeClinicAppointment(knownPhone, addr || 'Dar es Salaam');
+      }
+      const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+      const rawPhone = parts[0] || '';
+      const carePhone = rawPhone.replace(/\D/g, '').length >= 9 ? rawPhone : knownPhone;
+      if (!carePhone || carePhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Tafadhali weka namba sahihi ya simu na eneo (Mfano: *0712345678, Mikocheni*):`;
+      }
+      await savePhonePref(carePhone);
+      const addrPart = parts.length > 1 ? parts.slice(1).join(', ') : 'Dar es Salaam';
+      if (addrPart.length >= 2 && addrPart !== carePhone) {
+        await saveLocPref({ name: addrPart, address: addrPart });
+      }
+      return await finalizeClinicAppointment(carePhone, addrPart);
     }
 
     if (session.step === 'SELECTING_OPTION') {
@@ -9266,6 +9540,17 @@ async function routeToServiceFlow(
       const selected = session.details.optionsList?.[idx];
       if (!selected) {
         return `⚠️ Weka namba sahihi. Chagua *1* hadi *${session.details.optionsList?.length || 3}*.`;
+      }
+      if (selected.id === 'med-clinic-care') {
+        session.step = 'MED_CLINIC_MODE';
+        await saveMetaSession(session, dbAdmin);
+        return (
+          `🩺 *PapoMed Care — Daktari, Kliniki & Vipimo*\n\n` +
+          `Chagua huduma unayohitaji:\n\n` +
+          `1. 🏥 *Weka Miadi ya Daktari / Kliniki* (Pata namba ya foleni mapema)\n` +
+          `2. 🧪 *Vipimo vya Maabara Nyumbani* (Mhudumu afike kuchukua sampuli)\n\n` +
+          `Andika *1* au *2*:`
+        );
       }
       if (selected.isOpen === false) {
         return `🔴 Samahani, duka la dawa *${selected.vendorName || selected.name}* limefungwa kwa sasa${selected.operatingHours ? ` (Saa za kazi: *${selected.operatingHours}*)` : ''}.\n\nTafadhali chagua chaguo lililo wazi (*🟢*) au andika *Menu* kurudi mwanzo:`;
@@ -9465,7 +9750,7 @@ async function routeToServiceFlow(
     }
   }
 
-  // PAPOFIX (HANDYMAN & HOME SERVICES FLOW)
+  // PAPOFIX (HANDYMAN, LAUNDRY & ROADSIDE BREAKDOWN FLOW)
   if (service === 'handyman') {
     const FIX_CATEGORIES = [
       { id: 'electrician', label: 'Fundi Umeme (Electrician)', price: 10000 },
@@ -9473,6 +9758,8 @@ async function routeToServiceFlow(
       { id: 'appliances', label: 'AC & Friji Repair', price: 15000 },
       { id: 'carpentry', label: 'Fundi Mbao & Vitasa', price: 10000 },
       { id: 'cleaning', label: 'Usafi & Pest Control', price: 15000 },
+      { id: 'laundry', label: 'Dobi & Usafi wa Nguo (Laundry)', price: 12000 },
+      { id: 'auto_breakdown', label: 'Breakdown & Mafuta ya Dharura', price: 15000 },
       { id: 'painting', label: 'Fundi Rangi & Ujenzi', price: 12000 },
       { id: 'electronics', label: 'TV, Solar & Electronics', price: 10000 }
     ];
@@ -9520,12 +9807,12 @@ async function routeToServiceFlow(
         `🛠️ *OMBI LA PAPOFIX LIMETHIBITISHWA!*\n` +
         `🔖 Namba ya Booking: *#${pfxCode}*\n\n` +
         `- Huduma: *${fixCat}*\n` +
-        `- Fundi: *${selectedName}*\n` +
+        `- Fundi / Mtaalamu: *${selectedName}*\n` +
         `- Maelezo: *${fixDesc}*\n` +
-        `- Ada ya Ukaguzi: *TZS ${selectedPrice.toLocaleString()}*\n` +
+        `- Ada ya Mwanzo: *TZS ${selectedPrice.toLocaleString()}*\n` +
         `- Simu: *${fixPhone}*\n\n` +
         `🔗 *Fuatilia booking & oda zako zote:*\n${buildOrdersTrackingUrl(fixPhone, pfxCode)}\n\n` +
-        `Fundi atakupigia hivi punde kuanza kazi! Ahsante kwa kutumia PapoFix. ✨`
+        `Mtaalamu wetu atakupigia hivi punde kuanza kazi! Ahsante kwa kutumia PapoFix. ✨`
       );
     };
 
@@ -9540,6 +9827,8 @@ async function routeToServiceFlow(
           (c.id === 'appliances' && /\b(ac|friji|fridge|machine|kiyoyozi)\b/i.test(lower)) ||
           (c.id === 'carpentry' && /\b(mbao|kitasa|lock|mlango|kabati)\b/i.test(lower)) ||
           (c.id === 'cleaning' && /\b(usafi|cleaning|wadudu|fumigation|mende)\b/i.test(lower)) ||
+          (c.id === 'laundry' && /\b(dobi|laundry|kufua|fua|pasi|dryclean|suit)\b/i.test(lower)) ||
+          (c.id === 'auto_breakdown' && /\b(breakdown|mafuta|petroli|dizeli|panja|tairi|betri|towing|gari limekwama)\b/i.test(lower)) ||
           (c.id === 'painting' && /\b(rangi|ujenzi|tiles|ukuta)\b/i.test(lower)) ||
           (c.id === 'electronics' && /\b(tv|solar|dishi|cctv|electronic)\b/i.test(lower))
         );
@@ -9556,18 +9845,36 @@ async function routeToServiceFlow(
         return msg;
       }
 
+      const buildFixFallbacks = (cat: { id: string; label: string; price: number }) => {
+        if (cat.id === 'laundry') {
+          return [
+            { id: 'hnd-l1', vendorId: 'papo-fix-express-team', name: 'PapoClean Express Dobi', price: cat.price, desc: `${cat.label} • Kuchukua & Kurejesha Nyumbani` },
+            { id: 'hnd-l2', vendorId: 'papo-fix-express-team', name: 'Mikocheni Dryclean & Pasi', price: cat.price + 5000, desc: `Suit, Shuka & Zulia Express` },
+            { id: 'hnd-l3', vendorId: 'papo-fix-express-team', name: 'Dar Sparkle Laundry Team', price: cat.price, desc: `${cat.label} • Saa 6 tu` }
+          ];
+        }
+        if (cat.id === 'auto_breakdown') {
+          return [
+            { id: 'hnd-a1', vendorId: 'papo-fix-express-team', name: 'PapoAuto Rescue (Mafuta & Betri)', price: cat.price, desc: `Petroli/Dizeli ya Dharura & Jumpstart dk 25` },
+            { id: 'hnd-a2', vendorId: 'papo-fix-express-team', name: 'Dar Roadside Mechanics & Towing', price: cat.price + 5000, desc: `Panja, Towing & Ufundi wa Barabarani` },
+            { id: 'hnd-a3', vendorId: 'papo-fix-express-team', name: 'PapoFix Mobile Tyre Team', price: cat.price, desc: `Huduma ya Dharura Saa 24` }
+          ];
+        }
+        return [
+          { id: 'hnd-m1', vendorId: 'papo-fix-express-team', name: 'Fundi Kassim (Master Specialist)', price: cat.price, desc: `${cat.label} • Anafika dk 30` },
+          { id: 'hnd-m2', vendorId: 'papo-fix-express-team', name: 'PapoFix Emergency Team', price: cat.price + 5000, desc: `Wataalamu wa ${cat.label}` },
+          { id: 'hnd-m3', vendorId: 'papo-fix-express-team', name: 'Fundi Juma & Solutions', price: cat.price, desc: `${cat.label} • Uhakika 100%` }
+        ];
+      };
+
       session.details.fixCategory = directCat.label;
       session.details.fixBasePrice = directCat.price;
-      const pros = await fetchCatalogItemsForMeta(dbAdmin, 'handyman', directCat.label, [
-        { id: 'hnd-m1', vendorId: 'papo-fix-express-team', name: 'Fundi Kassim (Master Specialist)', price: directCat.price, desc: `${directCat.label} • Anafika dk 30` },
-        { id: 'hnd-m2', vendorId: 'papo-fix-express-team', name: 'PapoFix Emergency Team', price: directCat.price + 5000, desc: `Wataalamu wa ${directCat.label}` },
-        { id: 'hnd-m3', vendorId: 'papo-fix-express-team', name: 'Fundi Juma & Solutions', price: directCat.price, desc: `${directCat.label} • Uhakika 100%` }
-      ]);
+      const pros = await fetchCatalogItemsForMeta(dbAdmin, 'handyman', directCat.label, buildFixFallbacks(directCat));
       session.details.optionsList = pros;
       session.step = 'FIX_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
 
-      let msg = `🛠️ *PapoFix — ${directCat.label}*\nChagua Fundi aliye karibu nawe:\n\n`;
+      let msg = `🛠️ *PapoFix — ${directCat.label}*\nChagua Mtaalamu aliye karibu nawe:\n\n`;
       pros.forEach((p, idx) => {
         const stTag =
           p.isOpen === false
@@ -9575,7 +9882,7 @@ async function routeToServiceFlow(
             : `🟢 Anapatikana${p.operatingHours ? ` (${p.operatingHours})` : ''}`;
         msg += `*${idx + 1}. ${p.name}* — ${stTag}\n${p.desc ? `📌 ${p.desc}\n` : ''}💰 Ada ya Ukaguzi: *TZS ${p.price.toLocaleString()}*\n\n`;
       });
-      msg += `Andika namba ya Fundi (*1–${pros.length}*):`;
+      msg += `Andika namba ya Mtaalamu (*1–${pros.length}*):`;
       return msg;
     }
 
@@ -9585,13 +9892,24 @@ async function routeToServiceFlow(
       if (!cat) {
         return `⚠️ Tafadhali chagua namba sahihi (*1–${FIX_CATEGORIES.length}*):`;
       }
+      const fallbackPros = cat.id === 'laundry'
+        ? [
+            { id: 'hnd-l1', vendorId: 'papo-fix-express-team', name: 'PapoClean Express Dobi', price: cat.price, desc: `${cat.label} • Kuchukua & Kurejesha Nyumbani` },
+            { id: 'hnd-l2', vendorId: 'papo-fix-express-team', name: 'Mikocheni Dryclean & Pasi', price: cat.price + 5000, desc: `Suit, Shuka & Zulia Express` },
+          ]
+        : cat.id === 'auto_breakdown'
+        ? [
+            { id: 'hnd-a1', vendorId: 'papo-fix-express-team', name: 'PapoAuto Rescue (Mafuta & Betri)', price: cat.price, desc: `Petroli/Dizeli ya Dharura & Jumpstart dk 25` },
+            { id: 'hnd-a2', vendorId: 'papo-fix-express-team', name: 'Dar Roadside Mechanics & Towing', price: cat.price + 5000, desc: `Panja, Towing & Ufundi wa Barabarani` },
+          ]
+        : [
+            { id: 'hnd-m1', vendorId: 'papo-fix-express-team', name: 'Fundi Kassim (Master Specialist)', price: cat.price, desc: `${cat.label} • Anafika dk 30` },
+            { id: 'hnd-m2', vendorId: 'papo-fix-express-team', name: 'PapoFix Emergency Team', price: cat.price + 5000, desc: `Wataalamu wa ${cat.label}` },
+            { id: 'hnd-m3', vendorId: 'papo-fix-express-team', name: 'Fundi Juma & Solutions', price: cat.price, desc: `${cat.label} • Uhakika 100%` }
+          ];
       session.details.fixCategory = cat.label;
       session.details.fixBasePrice = cat.price;
-      const pros = await fetchCatalogItemsForMeta(dbAdmin, 'handyman', cat.label, [
-        { id: 'hnd-m1', vendorId: 'papo-fix-express-team', name: 'Fundi Kassim (Master Specialist)', price: cat.price, desc: `${cat.label} • Anafika dk 30` },
-        { id: 'hnd-m2', vendorId: 'papo-fix-express-team', name: 'PapoFix Emergency Team', price: cat.price + 5000, desc: `Wataalamu wa ${cat.label}` },
-        { id: 'hnd-m3', vendorId: 'papo-fix-express-team', name: 'Fundi Juma & Solutions', price: cat.price, desc: `${cat.label} • Uhakika 100%` }
-      ]);
+      const pros = await fetchCatalogItemsForMeta(dbAdmin, 'handyman', cat.label, fallbackPros);
       session.details.optionsList = pros;
       session.step = 'FIX_SELECT_VENDOR';
       await saveMetaSession(session, dbAdmin);
@@ -10101,6 +10419,9 @@ async function routeToServiceFlow(
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
     const inPayStep = [
       'PAPOPAY_MENU',
+      'PAPOPAY_BILLS_MENU',
+      'PAPOPAY_BILL_ACCOUNT',
+      'PAPOPAY_BILL_AMOUNT',
       'PAPOPAY_TOPUP_AMOUNT',
       'PAPOPAY_TOPUP_PHONE',
       'PAPOPAY_PAY_TARGET',
@@ -10108,6 +10429,65 @@ async function routeToServiceFlow(
       'PAPOPAY_PAY_METHOD',
       'COLLECTING_PHONE',
     ].includes(session.step);
+
+    const buildBillMeta = (rawInput: string) => {
+      const m = rawInput.trim().match(/^(luku|dawasa|dawasco|azam\s*tv|azamtv|dstv|startimes|vocha|kifurushi)\b(?:\s+(\d+))?(?:\s+([a-z0-9+_-]+))?/i);
+      if (!m) return null;
+      const kw = m[1].toLowerCase().replace(/\s+/g, '');
+      const n1 = m[2];
+      const n2 = m[3];
+      let billType: 'luku' | 'dawasa' | 'tv' | 'vocha' = 'luku';
+      let provider = 'LUKU (TANESCO)';
+      if (kw === 'dawasa' || kw === 'dawasco') {
+        billType = 'dawasa';
+        provider = 'DAWASA Maji';
+      } else if (kw === 'azamtv' || kw === 'dstv' || kw === 'startimes') {
+        billType = 'tv';
+        provider = kw === 'dstv' ? 'DStv' : kw === 'startimes' ? 'StarTimes' : 'AzamTV';
+      } else if (kw === 'vocha' || kw === 'kifurushi') {
+        billType = 'vocha';
+        provider = 'Vocha / Vifurushi';
+      }
+      // Detect optional inline amount & account (e.g. "luku 20000 14285930219")
+      let amount = 0;
+      let account = '';
+      if (n1 && n2) {
+        if (n1.length <= 7 && Number(n1) >= 500) {
+          amount = Number(n1);
+          account = n2;
+        } else {
+          account = n1;
+          amount = Number(n2) || 0;
+        }
+      } else if (n1) {
+        if (n1.length >= 8) account = n1;
+        else amount = Number(n1) || 0;
+      }
+      return { billType, provider, account, amount };
+    };
+
+    const rememberBillAccount = (
+      existing: any[] | undefined,
+      billMeta: { billType: string; provider: string; account: string } | null
+    ) => {
+      const list = Array.isArray(existing) ? [...existing] : [];
+      if (!billMeta?.account) return list;
+      const filtered = list.filter((b) => String(b?.account || '') !== String(billMeta.account));
+      return [
+        {
+          billType: billMeta.billType,
+          provider: billMeta.provider,
+          account: billMeta.account,
+          label: billMeta.provider.split(' ')[0],
+        },
+        ...filtered,
+      ].slice(0, 6);
+    };
+
+    const generateLukuToken = () => {
+      const chunk = () => String(Math.floor(1000 + Math.random() * 9000));
+      return `${chunk()}-${chunk()}-${chunk()}-${chunk()}-${chunk()}`;
+    };
 
     const finalizePapoPayTopUp = async (payPhone: string) => {
       const ppCode = `WT-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -10162,13 +10542,14 @@ async function routeToServiceFlow(
     const finalizePapoPay = async (payPhone: string, mode: 'mongike' | 'papowallet' = 'mongike') => {
       const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
       const amt = Number(session.details.payAmount || 5000);
+      const billMeta = session.details.billMeta || null;
       const payee = session.details.resolvedPayee || {
         kind: 'bill',
         targetUid: null,
         vendorId: null,
         displayName: session.details.payTarget || 'PapoPay Merchant',
         phone: '',
-        subtitle: 'Malipo ya Bili',
+        subtitle: billMeta ? `Bili ya ${billMeta.provider}` : 'Malipo ya Bili',
       };
       const targetName = payee.displayName || session.details.payTarget || 'PapoPay Merchant';
       const custName = session.details.customerName || 'Meta PapoPay Client';
@@ -10189,7 +10570,7 @@ async function routeToServiceFlow(
         if (!payerUser) {
           return (
             `⚠️ Huna akaunti yenye salio la PapoWallet kwa namba *${payPhone}*.\n\n` +
-            `Chagua *2* kuweka pesa kwenye PapoWallet kwanza au tuma *1* kulipa moja kwa moja kwa simu (Mongike Push).`
+            `Chagua *Menu -> PapoPay -> 2* kuweka pesa kwanza au tuma *1* kulipa moja kwa moja kwa simu (Mongike Push).`
           );
         }
         const currBal = Number(payerUser.data?.walletBalance || 0);
@@ -10201,9 +10582,14 @@ async function routeToServiceFlow(
         }
       }
 
+      const updatedSavedBills = rememberBillAccount(session.details.savedBills, billMeta);
+      const generatedToken = billMeta?.billType === 'luku' ? generateLukuToken() : null;
+      const estimatedUnits = billMeta?.billType === 'luku' ? (amt / 357).toFixed(1) : null;
+      const cashbackPoints = billMeta || payee.kind === 'bill' ? Math.max(10, Math.round(amt * 0.05)) : 0;
+
       session.step = 'START';
       delete session.service;
-      session.details = preserveCustomerFields(session.details, lang);
+      session.details = preserveCustomerFields({ ...session.details, savedBills: updatedSavedBills }, lang);
       await saveMetaSession(session, dbAdmin);
 
       const createdOrderId = await triggerAutomatedOrder(
@@ -10219,10 +10605,13 @@ async function routeToServiceFlow(
         {
           bookingCode: ppCode,
           vendorName: targetName,
-          service: 'PapoPay',
+          service: billMeta ? `PapoPay ${billMeta.provider}` : 'PapoPay',
           deliveryAddress: targetName,
           orderType: 'payment',
           paymentPurpose: purpose,
+          billType: billMeta?.billType || null,
+          billAccount: billMeta?.account || null,
+          lukuToken: generatedToken,
           payerUid: payerUser?.uid || null,
           payeeUid: payee.targetUid || null,
           payeeName: targetName,
@@ -10249,6 +10638,16 @@ async function routeToServiceFlow(
           return `⚠️ Malipo hayakufanikiwa: ${execRes.reason}`;
         }
 
+        if (cashbackPoints > 0 && dbAdmin && payerUser.uid) {
+          try {
+            const currPts = Number(payerUser.data?.points || 0);
+            await dbAdmin.collection('users').doc(payerUser.uid).set(
+              { points: currPts + cashbackPoints, updatedAt: new Date().toISOString() },
+              { merge: true }
+            );
+          } catch {}
+        }
+
         // Notify Driver / Restaurant directly via WhatsApp if phone exists
         if (payee.phone && dbAdmin) {
           const recipientPhoneDigits = payee.phone.replace(/\D/g, '');
@@ -10267,12 +10666,21 @@ async function routeToServiceFlow(
           }
         }
 
+        const billDetailsBlock = generatedToken
+          ? `\n⚡ *TOKENI YA LUKU:*\n*${generatedToken}*\n🔋 Units: *${estimatedUnits} kWh*\n`
+          : billMeta
+          ? `\n✅ Bili ya *${billMeta.provider}* (${billMeta.account}) imeidhinishwa papo hapo!\n`
+          : '';
+
+        const bonusLine = cashbackPoints > 0 ? `\n🎁 Umepewa *+${cashbackPoints.toLocaleString()} PapoPoints (5% Cashback)*!` : '';
+
         return (
           `✅ *MALIPO YA PAPOWALLET YAMEKAMILIKA!* 💚\n` +
           `🔖 Rejea: *#${ppCode}*\n\n` +
-          `- Mpokeaji: *${targetName}* (${payee.subtitle})\n` +
+          `- Bili / Mpokeaji: *${targetName}*\n` +
           `- Kiasi Kilicholipwa: *TZS ${amt.toLocaleString()}/=*\n` +
-          `- Salio Jipya la PapoWallet: *TZS ${Number(execRes.newPayerBalance || 0).toLocaleString()}/=*\n\n` +
+          `- Salio Jipya la PapoWallet: *TZS ${Number(execRes.newPayerBalance || 0).toLocaleString()}/=*` +
+          `${billDetailsBlock}${bonusLine}\n\n` +
           `🔗 *Risiti & Historia:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}`
         );
       }
@@ -10288,17 +10696,85 @@ async function routeToServiceFlow(
       );
     };
 
+    const promptPaymentMethodStep = async (amt: number, targetLabel: string) => {
+      const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      const payerRec = lookupPhone
+        ? await findOrEnsureWalletUser(dbAdmin, { phone: lookupPhone, createIfMissing: false })
+        : null;
+      const walletBal = Number(payerRec?.data?.walletBalance || 0);
+      session.step = 'PAPOPAY_PAY_METHOD';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `💳 Kiasi: *TZS ${amt.toLocaleString()}/=* kwenda *${targetLabel}*\n\n` +
+        `Chagua njia ya malipo:\n` +
+        `1. 📱 *Lipa kwa Simu (Mongike USSD Push)* — M-Pesa / Mixx by Yas / Airtel Money\n` +
+        `2. 💰 *Lipa Kutoka PapoWallet* (Salio lako: *TZS ${walletBal.toLocaleString()}* • +5% Pointi)\n\n` +
+        `Andika *1* au *2*:`
+      );
+    };
+
     if (!inPayStep) {
+      const parsedShortcut = buildBillMeta(input);
+      if (parsedShortcut) {
+        session.details.billMeta = parsedShortcut;
+        if (parsedShortcut.account && parsedShortcut.amount >= 500) {
+          const targetLabel = `${parsedShortcut.provider} (${parsedShortcut.account})`;
+          session.details.payTarget = targetLabel;
+          session.details.payAmount = parsedShortcut.amount;
+          session.details.resolvedPayee = {
+            kind: 'bill',
+            targetUid: null,
+            vendorId: null,
+            displayName: targetLabel,
+            phone: '',
+            subtitle: `Bili ya ${parsedShortcut.provider}`,
+          };
+          return await promptPaymentMethodStep(parsedShortcut.amount, targetLabel);
+        }
+        if (parsedShortcut.account) {
+          const targetLabel = `${parsedShortcut.provider} (${parsedShortcut.account})`;
+          session.details.payTarget = targetLabel;
+          session.details.resolvedPayee = {
+            kind: 'bill',
+            targetUid: null,
+            vendorId: null,
+            displayName: targetLabel,
+            phone: '',
+            subtitle: `Bili ya ${parsedShortcut.provider}`,
+          };
+          session.step = 'PAPOPAY_BILL_AMOUNT';
+          await saveMetaSession(session, dbAdmin);
+          return `⚡ *${targetLabel}*\n\n💰 Andika *kiasi cha TZS* unacholipa (Mfano: *10000* au *20000*):`;
+        }
+        session.step = 'PAPOPAY_BILL_ACCOUNT';
+        await saveMetaSession(session, dbAdmin);
+        const savedList = Array.isArray(session.details.savedBills)
+          ? session.details.savedBills.filter((b: any) => b.billType === parsedShortcut.billType)
+          : [];
+        if (savedList.length > 0) {
+          const lines = savedList.map((b: any, i: number) => `${i + 1}. 📌 *${b.account}* (${b.provider})`).join('\n');
+          return (
+            `⚡ *Lipa ${parsedShortcut.provider} (+5% PapoPoints)*\n\n` +
+            `Chagua namba iliyohifadhiwa au andika namba mpya ya mita/akaunti:\n${lines}`
+          );
+        }
+        return (
+          `⚡ *Lipa ${parsedShortcut.provider} (+5% PapoPoints)*\n\n` +
+          `Andika *namba yako ya mita / akaunti / simu*:`
+        );
+      }
+
       session.step = 'PAPOPAY_MENU';
       await saveMetaSession(session, dbAdmin);
       return (
-        `💳 *PapoPay — Lipa Papo & PapoWallet*\n\nChagua huduma ya malipo unayohitaji:\n\n` +
+        `💳 *PapoPay — Lipa Papo, Bili & PapoWallet*\n\nChagua huduma unayohitaji:\n\n` +
         `1. 💰 *Angalia Salio la PapoWallet & Pointi*\n` +
         `2. 📥 *Weka Pesa Kwenye PapoWallet (Mongike Push)*\n` +
-        `3. 📲 *Lipa Dereva / Mgahawa / Bili (PapoPay)*\n` +
-        `4. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
-        `5. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
-        `Andika namba (*1–5*):`
+        `3. ⚡ *Lipa Bili: LUKU, DAWASA, King'amuzi & Vocha (+5% Pointi)*\n` +
+        `4. 📲 *Lipa Dereva / Mgahawa / Duka (PapoPay)*\n` +
+        `5. 🏪 *Tafuta Wakala wa PapoPay Karibu*\n` +
+        `6. 🔗 *Fungua PapoPay Kwenye Mtandao*\n\n` +
+        `Andika namba (*1–6*):`
       );
     }
 
@@ -10337,12 +10813,26 @@ async function routeToServiceFlow(
       }
 
       if (choice === '3') {
-        session.step = 'PAPOPAY_PAY_TARGET';
+        session.step = 'PAPOPAY_BILLS_MENU';
         await saveMetaSession(session, dbAdmin);
-        return `📲 *Lipa Kupitia PapoPay*\n\nTafadhali andika *Jina/Namba ya Mgahawa, Duka, Dereva, Namba ya Gari au Bili* unayolipia (Mfano: *Mgahawa Kisinia*, *0712345678*, au *LUKU 142536*):`;
+        return (
+          `⚡ *PapoBills — LUKU, DAWASA, TV & Vocha (+5% Pointi)*\n\n` +
+          `Chagua bili unayolipia sasa hivi:\n\n` +
+          `1. ⚡ *LUKU (Umeme wa TANESCO)* — Tokeni papo hapo\n` +
+          `2. 💧 *DAWASA / DAWASCO* — Bili ya Maji\n` +
+          `3. 📺 *King'amuzi (AzamTV / DStv / StarTimes)*\n` +
+          `4. 📱 *Vocha & Vifurushi (Vodacom / Tigo / Airtel / Halotel)*\n\n` +
+          `Andika namba (*1–4*) — _au tuma moja kwa moja mfano: *LUKU 20000 14285930219*_:`
+        );
       }
 
       if (choice === '4') {
+        session.step = 'PAPOPAY_PAY_TARGET';
+        await saveMetaSession(session, dbAdmin);
+        return `📲 *Lipa Kupitia PapoPay*\n\nTafadhali andika *Jina/Namba ya Mgahawa, Duka, Dereva au Namba ya Gari* unayolipia (Mfano: *Mgahawa Kisinia*, *0712345678*, au *T 452 DXP*):`;
+      }
+
+      if (choice === '5') {
         let wakalaMsg = `🏪 *MAWAKALA WA PAPOPAY KARIBU NAWE*\n\n`;
         let foundAny = false;
         if (dbAdmin) {
@@ -10367,15 +10857,85 @@ async function routeToServiceFlow(
         return `${wakalaMsg}🔗 *Tafuta Wakala & Lipa Mtandaoni:* ${publicBaseUrl}/papopay`;
       }
 
-      if (choice === '5') {
+      if (choice === '6') {
         session.step = 'START';
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na kuhamisha pesa:\n👉 ${publicBaseUrl}/papopay`;
+        return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na Vocha:\n👉 ${publicBaseUrl}/papopay?tab=bills`;
       }
 
-      return `⚠️ Tafadhali chagua *1*, *2*, *3*, *4* au *5*:`;
+      return `⚠️ Tafadhali chagua *1*, *2*, *3*, *4*, *5* au *6*:`;
+    }
+
+    if (session.step === 'PAPOPAY_BILLS_MENU') {
+      const c = input.trim();
+      const billPickMap: Record<string, { billType: 'luku' | 'dawasa' | 'tv' | 'vocha'; provider: string; example: string }> = {
+        '1': { billType: 'luku', provider: 'LUKU (TANESCO)', example: '14285930219' },
+        '2': { billType: 'dawasa', provider: 'DAWASA Maji', example: 'DW-8834201' },
+        '3': { billType: 'tv', provider: 'King’amuzi (AzamTV / DStv / StarTimes)', example: '4029184721' },
+        '4': { billType: 'vocha', provider: 'Vocha & Vifurushi (Mitandao Yote)', example: '0712345678' },
+      };
+      const picked = billPickMap[c];
+      if (!picked) {
+        return `⚠️ Chagua *1* (LUKU), *2* (DAWASA), *3* (King'amuzi) au *4* (Vocha):`;
+      }
+      session.details.billMeta = { billType: picked.billType, provider: picked.provider, account: '', amount: 0 };
+      session.step = 'PAPOPAY_BILL_ACCOUNT';
+      await saveMetaSession(session, dbAdmin);
+      const savedList = Array.isArray(session.details.savedBills)
+        ? session.details.savedBills.filter((b: any) => b.billType === picked.billType)
+        : [];
+      if (savedList.length > 0) {
+        const lines = savedList.map((b: any, i: number) => `${i + 1}. 📌 *${b.account}* (${b.provider})`).join('\n');
+        return (
+          `⚡ *${picked.provider}*\n\n` +
+          `Chagua namba iliyohifadhiwa au andika namba mpya (Mfano: *${picked.example}*):\n${lines}`
+        );
+      }
+      return `⚡ *${picked.provider}*\n\nAndika *namba ya mita / kadi / simu* (Mfano: *${picked.example}*):`;
+    }
+
+    if (session.step === 'PAPOPAY_BILL_ACCOUNT') {
+      const raw = input.trim();
+      const billMeta = session.details.billMeta || { billType: 'luku', provider: 'LUKU (TANESCO)', account: '', amount: 0 };
+      const savedList = Array.isArray(session.details.savedBills)
+        ? session.details.savedBills.filter((b: any) => b.billType === billMeta.billType)
+        : [];
+      let accountNum = raw;
+      const numericPick = /^\d{1,2}$/.test(raw) ? savedList[parseInt(raw, 10) - 1] : null;
+      if (numericPick?.account) {
+        accountNum = numericPick.account;
+      } else if (raw.length < 5) {
+        return `⚠️ Tafadhali weka namba sahihi ya mita, kadi au simu (angalau tarakimu 5):`;
+      }
+      billMeta.account = accountNum;
+      session.details.billMeta = billMeta;
+      const targetLabel = `${billMeta.provider} (${accountNum})`;
+      session.details.payTarget = targetLabel;
+      session.details.resolvedPayee = {
+        kind: 'bill',
+        targetUid: null,
+        vendorId: null,
+        displayName: targetLabel,
+        phone: '',
+        subtitle: `Bili ya ${billMeta.provider}`,
+      };
+      session.step = 'PAPOPAY_BILL_AMOUNT';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `✅ Namba: *${accountNum}* (${billMeta.provider})\n\n` +
+        `💰 Andika *kiasi cha TZS* unacholipa (Mfano: *5000*, *10000*, *20000*):`
+      );
+    }
+
+    if (session.step === 'PAPOPAY_BILL_AMOUNT') {
+      const amt = parseInt(input.replace(/\D/g, ''), 10);
+      if (!amt || amt < 500) {
+        return `⚠️ Weka kiasi halisi kuanzia TZS 500 (Mfano: *10000*):`;
+      }
+      session.details.payAmount = amt;
+      return await promptPaymentMethodStep(amt, session.details.payTarget || 'Bili');
     }
 
     if (session.step === 'PAPOPAY_TOPUP_AMOUNT') {
@@ -10408,6 +10968,7 @@ async function routeToServiceFlow(
     }
 
     if (session.step === 'PAPOPAY_PAY_TARGET') {
+      delete session.details.billMeta;
       const resolved = await resolvePayeeTarget(dbAdmin, input.trim());
       session.details.payTarget = resolved.displayName;
       session.details.resolvedPayee = resolved;
@@ -10427,22 +10988,7 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka kiasi sahihi kwa tarakimu (Mfano: *5000*):`;
       }
       session.details.payAmount = amt;
-
-      const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
-      const payerRec = lookupPhone
-        ? await findOrEnsureWalletUser(dbAdmin, { phone: lookupPhone, createIfMissing: false })
-        : null;
-      const walletBal = Number(payerRec?.data?.walletBalance || 0);
-
-      session.step = 'PAPOPAY_PAY_METHOD';
-      await saveMetaSession(session, dbAdmin);
-      return (
-        `💳 Kiasi: *TZS ${amt.toLocaleString()}/=* kwenda *${session.details.payTarget}*\n\n` +
-        `Chagua njia ya malipo:\n` +
-        `1. 📱 *Lipa kwa Simu (Mongike USSD Push)* — M-Pesa / Mixx by Yas / Airtel Money\n` +
-        `2. 💰 *Lipa Kutoka PapoWallet* (Salio lako: *TZS ${walletBal.toLocaleString()}*)\n\n` +
-        `Andika *1* au *2*:`
-      );
+      return await promptPaymentMethodStep(amt, session.details.payTarget || 'PapoPay');
     }
 
     if (session.step === 'PAPOPAY_PAY_METHOD') {

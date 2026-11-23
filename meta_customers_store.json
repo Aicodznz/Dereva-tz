@@ -42,5 +42,104 @@
     "channel": "whatsapp",
     "updatedAt": 1795311078979,
     "senderId": "255799005566"
+  },
+  "whatsapp:255712111001": {
+    "senderId": "255712111001",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111001",
+    "lang": "sw",
+    "createdAt": 1795426584593,
+    "updatedAt": 1795426584593
+  },
+  "whatsapp:255712111002": {
+    "senderId": "255712111002",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111002",
+    "lang": "sw",
+    "createdAt": 1795426584642,
+    "updatedAt": 1795426584642
+  },
+  "whatsapp:255712111003": {
+    "senderId": "255712111003",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111003",
+    "lang": "sw",
+    "createdAt": 1795426584649,
+    "updatedAt": 1795426584649
+  },
+  "whatsapp:255712111004": {
+    "senderId": "255712111004",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111004",
+    "lang": "sw",
+    "createdAt": 1795426584654,
+    "updatedAt": 1795426584654
+  },
+  "whatsapp:255712111005": {
+    "senderId": "255712111005",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111005",
+    "lang": "sw",
+    "createdAt": 1795426584658,
+    "updatedAt": 1795426584658
+  },
+  "whatsapp:255712111006": {
+    "senderId": "255712111006",
+    "channel": "whatsapp",
+    "name": "Juma Test",
+    "phone": "+255712111006",
+    "lang": "sw",
+    "createdAt": 1795426584660,
+    "updatedAt": 1795426584660
+  },
+  "whatsapp:255712222001": {
+    "senderId": "255712222001",
+    "channel": "whatsapp",
+    "name": "Amina Tester",
+    "phone": "+255712222001",
+    "lang": "sw",
+    "createdAt": 1795426620623,
+    "updatedAt": 1795426620623
+  },
+  "whatsapp:255712222002": {
+    "senderId": "255712222002",
+    "channel": "whatsapp",
+    "name": "Amina Tester",
+    "phone": "+255712222002",
+    "lang": "sw",
+    "createdAt": 1795426620660,
+    "updatedAt": 1795426620660
+  },
+  "whatsapp:255712222003": {
+    "senderId": "255712222003",
+    "channel": "whatsapp",
+    "name": "Amina Tester",
+    "phone": "+255712222003",
+    "lang": "sw",
+    "createdAt": 1795426620667,
+    "updatedAt": 1795426620667
+  },
+  "whatsapp:255712222004": {
+    "senderId": "255712222004",
+    "channel": "whatsapp",
+    "name": "Amina Tester",
+    "phone": "+255712222004",
+    "lang": "sw",
+    "createdAt": 1795426620670,
+    "updatedAt": 1795426620670
+  },
+  "whatsapp:255712222005": {
+    "senderId": "255712222005",
+    "channel": "whatsapp",
+    "name": "Amina Tester",
+    "phone": "+255712222005",
+    "lang": "sw",
+    "createdAt": 1795426620674,
+    "updatedAt": 1795426620674
   }
 }

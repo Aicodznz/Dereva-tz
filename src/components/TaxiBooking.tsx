@@ -5402,6 +5402,21 @@ const getEndPin = (etaText: string) => {
                 >
                   {t('book_ride').toUpperCase()}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/service/fundi?cat=auto_breakdown')}
+                  className={`w-full py-2.5 px-3 rounded-2xl border flex items-center justify-between text-left transition-all active:scale-[0.98] ${
+                    theme === 'dark'
+                      ? 'bg-rose-950/20 border-rose-900/40 text-rose-300 hover:bg-rose-950/40'
+                      : 'bg-rose-50/70 border-rose-200/80 text-rose-700 hover:bg-rose-100/70'
+                  }`}
+                >
+                  <span className="text-[11px] font-bold">
+                    ⛽ Gari limekwama njiani? Omba Mafuta au Fundi (PapoFix)
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0" />
+                </button>
               </div>
 
               {/* Favorite Driver Feature Card */}

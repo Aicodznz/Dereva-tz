@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, getDocs, limit, addDoc } from 'firebase/firestore';
 import { VendorProfile, Product, VendorCategory } from '../types';
@@ -10,7 +10,8 @@ import {
   ChevronLeft, Star, Search, Filter, MapPin, ChevronRight,
   Utensils, ShoppingCart, Pill, Package, Car, Scissors, Hotel, ShoppingBag, Bus, Plus,
   Sparkles, Flower, Droplet, User, Smile, Home, Key, Wrench, Zap, Hammer, Paintbrush,
-  Wind, Tv, HardHat, Clock, Calendar, CheckCircle2, ShieldCheck, AlertCircle, X
+  Wind, Tv, HardHat, Clock, Calendar, CheckCircle2, ShieldCheck, AlertCircle, X,
+  Flame, Stethoscope, Shirt, Fuel, CalendarCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLanguage } from '../LanguageContext';
@@ -51,8 +52,57 @@ const HANDYMAN_SUB_CATEGORIES = [
   { id: 'painting', label: 'Fundi Rangi', subLabel: 'Painting & Touchup', icon: Paintbrush, color: 'text-purple-600', border: 'border-purple-200 hover:border-purple-500 bg-purple-50/20 dark:bg-purple-950/10 dark:border-purple-900/30', iconBg: 'bg-purple-100 dark:bg-purple-900/30' },
   { id: 'appliances', label: 'AC & Refrigerator', subLabel: 'AC & Friji Repair', icon: Wind, color: 'text-teal-600', border: 'border-teal-200 hover:border-teal-500 bg-teal-50/20 dark:bg-teal-950/10 dark:border-teal-900/30', iconBg: 'bg-teal-100 dark:bg-teal-900/30' },
   { id: 'cleaning', label: 'Usafi & Pest Control', subLabel: 'Deep Cleaning & Fumigation', icon: Sparkles, color: 'text-emerald-600', border: 'border-emerald-200 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 dark:border-emerald-900/30', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  { id: 'laundry', label: 'Dobi & Kufua Nguo', subLabel: 'Laundry, Dryclean & Ironing', icon: Shirt, color: 'text-sky-600', border: 'border-sky-200 hover:border-sky-500 bg-sky-50/20 dark:bg-sky-950/10 dark:border-sky-900/30', iconBg: 'bg-sky-100 dark:bg-sky-900/30' },
+  { id: 'auto_breakdown', label: 'Breakdown & Mafuta', subLabel: 'Mafuta Dharura, Betri & Panja', icon: Fuel, color: 'text-rose-600', border: 'border-rose-200 hover:border-rose-500 bg-rose-50/20 dark:bg-rose-950/10 dark:border-rose-900/30', iconBg: 'bg-rose-100 dark:bg-rose-900/30' },
   { id: 'electronics', label: 'Electronics & TV', subLabel: 'TV & Solar Repair', icon: Tv, color: 'text-red-500', border: 'border-red-200 hover:border-red-500 bg-red-50/20 dark:bg-red-950/10 dark:border-red-900/30', iconBg: 'bg-red-100 dark:bg-red-900/30' },
   { id: 'masonry', label: 'Ujenzi & Paipui', subLabel: 'Masonry & Tiles', icon: HardHat, color: 'text-stone-600', border: 'border-stone-200 hover:border-stone-500 bg-stone-50/20 dark:bg-stone-950/10 dark:border-stone-900/30', iconBg: 'bg-stone-100 dark:bg-stone-900/30' }
+];
+
+const EXPRESS_GAS_AND_WATER = [
+  {
+    id: 'papomart-gas-6kg-refill',
+    name: 'Gesi ya Oryx / Taifa Gas 6KG (Kubadili)',
+    description: 'Mtungi mdogo wa kupikia (Refill). Tunafuata mtungi wako mtupu na kukuletea uliojaa mlangoni.',
+    price: 23000,
+    vendorId: 'papomart-gas-express',
+    vendorCategory: 'grocery' as VendorCategory,
+    category: 'Gesi & Maji',
+    imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'papomart-gas-15kg-refill',
+    name: 'Gesi ya Oryx / Taifa Gas 15KG (Kubadili)',
+    description: 'Mtungi mkubwa wa familia (Refill). Uwasilishaji wa haraka ndani ya dakika 30.',
+    price: 56000,
+    vendorId: 'papomart-gas-express',
+    vendorCategory: 'grocery' as VendorCategory,
+    category: 'Gesi & Maji',
+    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'papomart-gas-6kg-new',
+    name: 'Mtungi Mpya Kamili 6KG + Gesi + Regulator',
+    description: 'Kwa wateja wapya: Mtungi mpya wa kilo 6 ukiwa umejaa gesi pamoja na kichwa na mpira.',
+    price: 58000,
+    vendorId: 'papomart-gas-express',
+    vendorCategory: 'grocery' as VendorCategory,
+    category: 'Gesi & Maji',
+    imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'papomart-water-20l-pack',
+    name: 'Maji Safi ya Kunywa (Dumu 20L x 2)',
+    description: 'Madumu mawili makubwa ya lita 20 (Jumla Lita 40) yaliyofungwa kwa muhuri salama.',
+    price: 7500,
+    vendorId: 'papomart-gas-express',
+    vendorCategory: 'grocery' as VendorCategory,
+    category: 'Gesi & Maji',
+    imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  }
 ];
 
 const subCategoryKeywords: Record<string, string[]> = {
@@ -68,12 +118,15 @@ const subCategoryKeywords: Record<string, string[]> = {
   painting: ['painting', 'rangi', 'wall', 'paka', 'nyumba', 'waterproof'],
   appliances: ['ac', 'friji', 'fridge', 'refrigerator', 'aircon', 'washing machine', 'hob', 'oven'],
   cleaning: ['cleaning', 'usafi', 'sofa', 'fumigation', 'pests', 'wadudu', 'carpet', 'kazi za nyumbani'],
+  laundry: ['laundry', 'dobi', 'fua', 'kufua', 'pasi', 'ironing', 'dryclean', 'shuka', 'suit', 'carpet'],
+  auto_breakdown: ['breakdown', 'mafuta', 'petroli', 'dizeli', 'panja', 'betri', 'tairi', 'gari', 'towing', 'jumpstart'],
   electronics: ['tv', 'television', 'radio', 'solar', 'dishi', 'decoder', 'camera', 'cctv'],
   masonry: ['ujenzi', 'tiles', 'roofing', 'paipui', 'ramani', 'plaster', 'simenti', 'ukuta']
 };
 
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { addItem } = useCart();
@@ -106,6 +159,46 @@ export default function ServiceDetail() {
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [confirmedBookingRef, setConfirmedBookingRef] = useState<string | null>(null);
 
+  // Unified PapoCare (Doctor, Clinic & Home Lab Appointment) inside PapoMed (/service/dawa)
+  const [isClinicModalOpen, setIsClinicModalOpen] = useState(false);
+  const [clinicVisitMode, setClinicVisitMode] = useState<'hospital' | 'home_lab'>('hospital');
+  const [clinicSpecialty, setClinicSpecialty] = useState('Daktari wa Jumla (General Practitioner)');
+  const [clinicHospital, setClinicHospital] = useState('Aga Khan / Kairuki Hospital');
+  const [clinicSlot, setClinicSlot] = useState('Leo, Saa 10:00 Jioni');
+  const [clinicNotes, setClinicNotes] = useState('');
+  const [clinicPhone, setClinicPhone] = useState(profile?.phoneNumber || profile?.phone || '');
+  const [clinicAddress, setClinicAddress] = useState(location?.address || 'Kinondoni, Dar es Salaam');
+  const [clinicPayMethod, setClinicPayMethod] = useState<'PapoWallet' | 'M-Pesa' | 'Cash'>('PapoWallet');
+  const [isSubmittingClinic, setIsSubmittingClinic] = useState(false);
+  const [confirmedClinicBooking, setConfirmedClinicBooking] = useState<{ ref: string; queueNumber: string; fee: number } | null>(null);
+
+  const [highlightGasShelf, setHighlightGasShelf] = useState(false);
+
+  useEffect(() => {
+    const catParam = searchParams.get('cat');
+    const tabParam = searchParams.get('tab');
+    const filterParam = searchParams.get('filter');
+
+    if (id === 'fundi' && catParam && HANDYMAN_SUB_CATEGORIES.some(c => c.id === catParam)) {
+      setSelectedHandymanSub(catParam);
+      setIsBookingModalOpen(true);
+    }
+    if (id === 'dawa' && tabParam === 'clinic') {
+      setIsClinicModalOpen(true);
+    }
+    if (id === 'sokoni' && filterParam === 'gesi') {
+      setHighlightGasShelf(true);
+    } else {
+      setHighlightGasShelf(false);
+    }
+  }, [id, searchParams]);
+
+  const getHandymanSubFee = (subId: string) => {
+    if (subId === 'auto_breakdown' || subId === 'appliances' || subId === 'cleaning') return 15000;
+    if (subId === 'laundry') return 12000;
+    return 10000;
+  };
+
   const handleCreateHandymanBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bookingDesc.trim()) {
@@ -116,6 +209,7 @@ export default function ServiceDetail() {
     try {
       const refCode = 'PFX-' + Math.floor(100000 + Math.random() * 900000);
       const subInfo = HANDYMAN_SUB_CATEGORIES.find(s => s.id === selectedHandymanSub);
+      const subFee = getHandymanSubFee(selectedHandymanSub);
       const bookingData = {
         orderType: 'booking',
         service: 'PapoFix',
@@ -133,8 +227,8 @@ export default function ServiceDetail() {
         status: 'pending',
         createdAt: new Date().toISOString(),
         paymentMethod: bookingPaymentMethod,
-        inspectionFee: 10000,
-        total: 10000,
+        inspectionFee: subFee,
+        total: subFee,
         bookingRef: refCode
       };
 
@@ -154,6 +248,59 @@ export default function ServiceDetail() {
       toast.error('Haikufanikiwa kutuma booking. Jaribu tena.');
     } finally {
       setIsSubmittingBooking(false);
+    }
+  };
+
+  const handleCreateClinicBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clinicPhone.trim()) {
+      toast.error('Tafadhali weka namba ya simu ili tukutumie namba ya foleni.');
+      return;
+    }
+    setIsSubmittingClinic(true);
+    try {
+      const refCode = 'PMD-' + Math.floor(100000 + Math.random() * 900000);
+      const queueNumber = 'Q-' + Math.floor(100 + Math.random() * 900);
+      const fee = clinicVisitMode === 'home_lab' ? 25000 : 20000;
+      const bookingData = {
+        orderType: 'medical_appointment',
+        service: 'PapoMed Care',
+        vendorCategory: 'pharmacy',
+        subCategory: clinicVisitMode === 'home_lab' ? 'Vipimo vya Maabara Nyumbani' : 'Miadi ya Daktari & Kliniki',
+        specialty: clinicSpecialty,
+        hospitalOrLab: clinicVisitMode === 'home_lab' ? 'Maabara Inayotembea (Home Visit)' : clinicHospital,
+        preferredSlot: clinicSlot,
+        queueNumber,
+        description: clinicNotes.trim() || `${clinicSpecialty} (${clinicVisitMode === 'home_lab' ? 'Nyumbani' : clinicHospital})`,
+        deliveryAddress: clinicVisitMode === 'home_lab' ? (clinicAddress || 'Nyumbani kwa Mteja') : clinicHospital,
+        customerPhone: clinicPhone.trim(),
+        customerName: profile?.fullName || profile?.displayName || user?.email || 'Mteja wa Afya',
+        customerId: user?.uid || 'guest',
+        vendorId: 'papomed-care-network',
+        vendorName: clinicVisitMode === 'home_lab' ? 'PapoMed Home Lab Team' : clinicHospital,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        paymentMethod: clinicPayMethod,
+        total: fee,
+        bookingRef: refCode
+      };
+
+      const docRef = await addDoc(collection(db, 'orders'), bookingData);
+      fetch('/api/meta/vendor-order-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: docRef.id,
+          orderData: { ...bookingData, id: docRef.id, bookingCode: refCode, totalAmount: fee }
+        })
+      }).catch(() => {});
+      setConfirmedClinicBooking({ ref: refCode, queueNumber, fee });
+      toast.success(`Miadi imethibitishwa! Foleni: ${queueNumber}`);
+    } catch (err: any) {
+      console.error('Error creating medical appointment:', err);
+      toast.error('Imeshindwa kuhifadhi miadi. Jaribu tena.');
+    } finally {
+      setIsSubmittingClinic(false);
     }
   };
 
@@ -626,6 +773,98 @@ export default function ServiceDetail() {
             </div>
           )}
 
+          {/* Unified PapoCare Banner inside PapoMed (/service/dawa) */}
+          {id === 'dawa' && (
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-md shrink-0">
+                  <Stethoscope className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-sky-100 block">
+                    PapoCare + PapoMed • Afya Kamili
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black uppercase italic leading-tight">
+                    Weka Miadi ya Daktari, Kliniki au Vipimo Nyumbani
+                  </h3>
+                  <p className="text-[11px] text-blue-100 mt-0.5">
+                    Pata namba ya foleni ya hospitali mapema au agiza mhudumu wa maabara afike kuchukua sampuli nyumbani.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmedClinicBooking(null);
+                  setIsClinicModalOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-2xl bg-white text-blue-700 hover:bg-blue-50 font-black text-xs uppercase tracking-wider shadow-md shrink-0 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              >
+                <CalendarCheck className="w-4 h-4" />
+                <span>Weka Miadi / Vipimo</span>
+              </button>
+            </div>
+          )}
+
+          {/* Unified Express Cooking Gas & 20L Water Shelf inside PapoMart (/service/sokoni) */}
+          {id === 'sokoni' && (
+            <div className={`rounded-3xl border p-4 space-y-3 transition-all ${
+              highlightGasShelf
+                ? 'border-orange-500 bg-orange-50/80 dark:bg-orange-950/30 shadow-lg ring-2 ring-orange-400/50'
+                : 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/15'
+            }`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-orange-500 text-white shadow-sm">
+                    <Flame className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-black uppercase italic tracking-tight text-neutral-900 dark:text-white">
+                      Gesi ya Kupikia (6kg / 15kg) & Maji ya Madumu 20L
+                    </h3>
+                    <p className="text-[10px] font-bold text-neutral-500 dark:text-neutral-400">
+                      Express 30-min Delivery • Oryx, Taifa Gas & Maji Safi
+                    </p>
+                  </div>
+                </div>
+                <Badge className="bg-orange-500 text-white border-none text-[9px] font-black uppercase">
+                  Express
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                {EXPRESS_GAS_AND_WATER.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col justify-between gap-2 shadow-xs"
+                  >
+                    <div>
+                      <p className="text-[11px] font-black text-neutral-900 dark:text-white leading-snug line-clamp-2">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-neutral-500 line-clamp-2 mt-0.5">{item.description}</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                      <span className="text-xs font-black text-orange-600">
+                        TZS {item.price.toLocaleString()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addItem(item as unknown as Product);
+                          toast.success(`${item.name} imeongezwa kwenye kikapu!`);
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Agiza</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Search & Filter */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -904,7 +1143,7 @@ export default function ServiceDetail() {
                       </span>
                     </div>
                     <p className="text-[10px] text-neutral-500">
-                      Ada ya Ukaguzi wa Mwanzo (Inspection Fee): <strong className="text-neutral-800 dark:text-neutral-200">TZS 10,000</strong> (Itakatwa kwenye jumla ya gharama ya matengenezo).
+                      Ada ya Ukaguzi wa Mwanzo (Dispatch/Inspection Fee): <strong className="text-neutral-800 dark:text-neutral-200">TZS {getHandymanSubFee(selectedHandymanSub).toLocaleString()}</strong> (Itakatwa au kuambatana na gharama ya huduma).
                     </p>
                   </div>
 
@@ -1038,8 +1277,10 @@ export default function ServiceDetail() {
                   </div>
 
                   <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 flex items-center justify-between text-xs">
-                    <span className="font-bold text-neutral-600 dark:text-neutral-400">Ada ya Mwanzo (Inspection):</span>
-                    <span className="font-black text-amber-600 dark:text-amber-400 text-sm">TZS 10,000</span>
+                    <span className="font-bold text-neutral-600 dark:text-neutral-400">Ada ya Mwanzo (Dispatch Fee):</span>
+                    <span className="font-black text-amber-600 dark:text-amber-400 text-sm">
+                      TZS {getHandymanSubFee(selectedHandymanSub).toLocaleString()}
+                    </span>
                   </div>
 
                   <Button
@@ -1055,6 +1296,248 @@ export default function ServiceDetail() {
                         <span>Thibitisha Miadi ya Fundi</span>
                       </>
                     )}
+                  </Button>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PapoCare Clinic & Home Lab Appointment Modal (Consolidated inside PapoMed) */}
+      <AnimatePresence>
+        {isClinicModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl overflow-y-auto max-h-[90vh] font-sans text-neutral-900 dark:text-white"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-sm">
+                    <Stethoscope className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base uppercase tracking-tight italic">
+                      {confirmedClinicBooking ? 'Miadi Imethibitishwa' : 'PapoMed — Miadi ya Daktari & Vipimo'}
+                    </h3>
+                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">
+                      Kliniki & Maabara Nyumbani
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsClinicModalOpen(false);
+                    setConfirmedClinicBooking(null);
+                  }}
+                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {confirmedClinicBooking ? (
+                <div className="py-6 text-center space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-black text-lg uppercase italic">Namba Yako ya Foleni Ipo Tayari!</h4>
+                    <p className="text-xs text-neutral-500 max-w-xs mx-auto">
+                      Taarifa zako zimesajiliwa. Utaarifiwa pindi zamu yako inapokaribia.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl text-left space-y-2 text-xs">
+                    <div className="flex justify-between items-center font-bold">
+                      <span>Namba ya Foleni (Queue):</span>
+                      <span className="font-black font-mono text-base text-blue-600">{confirmedClinicBooking.queueNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold">
+                      <span>Rejea (Booking Ref):</span>
+                      <span className="font-mono font-black">{confirmedClinicBooking.ref}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold">
+                      <span>Ada ya Miadi / Maabara:</span>
+                      <span className="font-black text-emerald-600">TZS {confirmedClinicBooking.fee.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setIsClinicModalOpen(false);
+                      setConfirmedClinicBooking(null);
+                      navigate('/my-orders');
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3 rounded-2xl shadow-md"
+                  >
+                    Fuatilia Miadi Yangu (My Orders)
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateClinicBooking} className="mt-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setClinicVisitMode('hospital')}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        clinicVisitMode === 'hospital'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                      }`}
+                    >
+                      <span className="text-xs font-black block">🏥 Kwenda Kliniki</span>
+                      <span className="text-[10px] opacity-80 block mt-0.5">Pata namba ya foleni mapema</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClinicVisitMode('home_lab')}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        clinicVisitMode === 'home_lab'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                      }`}
+                    >
+                      <span className="text-xs font-black block">🧪 Vipimo Nyumbani</span>
+                      <span className="text-[10px] opacity-80 block mt-0.5">Mhudumu afike kuchukua sampuli</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      {clinicVisitMode === 'home_lab' ? 'Aina ya Kipimo cha Maabara' : 'Chagua Ubingwa wa Daktari'}
+                    </label>
+                    <select
+                      value={clinicSpecialty}
+                      onChange={(e) => setClinicSpecialty(e.target.value)}
+                      className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                    >
+                      {clinicVisitMode === 'home_lab' ? (
+                        <>
+                          <option value="Full Blood Picture + Malaria + Typhoid">Full Blood Picture + Malaria + Typhoid</option>
+                          <option value="Kipimo cha Sukari, Presha & Figo">Kipimo cha Sukari, Presha & Figo</option>
+                          <option value="Kipimo cha Mjamzito & Homoni">Kipimo cha Mjamzito & Homoni</option>
+                          <option value="Uchunguzi Kamili wa Afya (Full Checkup)">Uchunguzi Kamili wa Afya (Full Checkup)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Daktari wa Jumla (General Practitioner)">Daktari wa Jumla (General Practitioner)</option>
+                          <option value="Daktari wa Watoto (Pediatrician)">Daktari wa Watoto (Pediatrician)</option>
+                          <option value="Daktari wa Meno (Dentist)">Daktari wa Meno (Dentist)</option>
+                          <option value="Daktari wa Macho (Optician)">Daktari wa Macho (Optician)</option>
+                          <option value="Daktari wa Wanawake (Gynecologist)">Daktari wa Wanawake (Gynecologist)</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {clinicVisitMode === 'hospital' ? (
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Kituo cha Afya / Hospitali
+                      </label>
+                      <select
+                        value={clinicHospital}
+                        onChange={(e) => setClinicHospital(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                      >
+                        <option value="Aga Khan / Kairuki Hospital">Aga Khan / Kairuki Hospital</option>
+                        <option value="TMJ Mikocheni Hospital">TMJ Mikocheni Hospital</option>
+                        <option value="Muhimbili National Clinic">Muhimbili National Clinic</option>
+                        <option value="Regency Medical Centre">Regency Medical Centre</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Anwani ya Nyumbani / Ofisini *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={clinicAddress}
+                        onChange={(e) => setClinicAddress(e.target.value)}
+                        placeholder="Mfano: Mikocheni B, Mtaa wa Mwai Kibaki"
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Muda wa Miadi
+                      </label>
+                      <select
+                        value={clinicSlot}
+                        onChange={(e) => setClinicSlot(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                      >
+                        <option value="Leo, Saa 10:00 Jioni">Leo, Saa 10:00 Jioni</option>
+                        <option value="Sasa Hivi (Haraka)">Sasa Hivi (Haraka)</option>
+                        <option value="Kesho Asubuhi (8:30 AM)">Kesho Asubuhi (8:30 AM)</option>
+                        <option value="Kesho Mchana (2:00 PM)">Kesho Mchana (2:00 PM)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                        Namba ya Simu *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={clinicPhone}
+                        onChange={(e) => setClinicPhone(e.target.value)}
+                        placeholder="07XXXXXXXX"
+                        className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                      Dalili au Maelezo Mafupi (Si lazima)
+                    </label>
+                    <input
+                      type="text"
+                      value={clinicNotes}
+                      onChange={(e) => setClinicNotes(e.target.value)}
+                      placeholder="Mfano: Homa ya siku 2, kuhitaji vipimo..."
+                      className="w-full p-2.5 text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-bold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['PapoWallet', 'M-Pesa', 'Cash'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setClinicPayMethod(m)}
+                        className={`p-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+                          clinicPayMethod === m
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/20 rounded-2xl border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-between text-xs">
+                    <span className="font-bold text-neutral-600 dark:text-neutral-400">Ada ya Miadi / Maabara:</span>
+                    <span className="font-black text-blue-600 dark:text-blue-400 text-sm">
+                      TZS {(clinicVisitMode === 'home_lab' ? 25000 : 20000).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingClinic}
+                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg"
+                  >
+                    {isSubmittingClinic ? 'Inasajili Miadi...' : 'Thibitisha Miadi & Pata Foleni'}
                   </Button>
                 </form>
               )}
