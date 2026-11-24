@@ -6,9 +6,11 @@ import { resolvePlace, getRoadDistanceAndDuration, SEED_PLACES } from './geocode
 import { cleanUndefined } from './getFirestoreDb.js';
 import { removeSenderFromHistory } from './historyStore.js';
 import {
+  checkMongikeOrderPaymentStatus,
   initiateMongikePayment,
   isMobileMoneyPaymentMethod,
   isMongikeLiveConfigured,
+  type MongikePaymentResult,
 } from './mongike.js';
 import {
   executeDirectPapoWalletPayment,
@@ -145,6 +147,7 @@ export interface MetaSession {
     | 'PAPOPAY_SPLIT_PEOPLE'
     | 'PAPOPAY_LINK_TITLE'
     | 'PAPOPAY_LINK_AMOUNT'
+    | 'PAPOPAY_WAIT_PUSH'
     | 'MED_CLINIC_MODE'
     | 'MED_CLINIC_SLOT'
     | 'MED_CLINIC_PHONE'
@@ -900,6 +903,8 @@ export async function clearMetaHumanHandoverState(
   }
 }
 
+const triggeredOrderMongikeResults = new Map<string, MongikePaymentResult>();
+
 /**
  * Triggers a real order inside Firebase so it reflects in Admin Dashboard
  */
@@ -917,6 +922,19 @@ async function triggerAutomatedOrder(
 ): Promise<string | null> {
   if (!dbAdmin) return null;
   try {
+    const {
+      skipAutoMongikePush,
+      metaSenderId,
+      metaChannel,
+      metaPhoneNumberId,
+      ...restExtra
+    } = extraFields || {};
+    const resolvedMetaSenderId = String(metaSenderId || '').trim() || undefined;
+    const resolvedPhoneNumberId =
+      String(metaPhoneNumberId || '').trim() ||
+      (resolvedMetaSenderId ? getLastWhatsAppPhoneNumberId(resolvedMetaSenderId) : '') ||
+      undefined;
+
     const orderData = cleanUndefined({
       customerId: `${source}-client-${customerPhone.replace(/\D/g, '')}`,
       vendorId: vendorId || "papo-hapo-express",
@@ -925,16 +943,19 @@ async function triggerAutomatedOrder(
       items: items,
       totalAmount: total,
       subtotal: total,
-      status: extraFields.status || "pending",
+      status: restExtra.status || "pending",
       type: category,
       orderSource: source,
-      orderType: extraFields.orderType || "booking",
-      paymentMethod: extraFields.paymentMethod || "Mobile Money (Tanzania)",
-      paymentStatus: extraFields.paymentStatus || "pending",
+      metaChannel: metaChannel || source,
+      ...(resolvedMetaSenderId ? { metaSenderId: resolvedMetaSenderId } : {}),
+      ...(resolvedPhoneNumberId ? { metaPhoneNumberId: resolvedPhoneNumberId } : {}),
+      orderType: restExtra.orderType || "booking",
+      paymentMethod: restExtra.paymentMethod || "Mobile Money (Tanzania)",
+      paymentStatus: restExtra.paymentStatus || "pending",
       notes: notes || `Order created automatically via Papo Hapo Meta ${source} Bot`,
       createdAt: new Date(),
       updatedAt: new Date(),
-      ...extraFields
+      ...restExtra
     });
     const ref = await dbAdmin.collection('orders').add(orderData);
     console.log(`[Meta Bot] Automatic order created in DB for vendor: ${vendorId} from ${source} (orderId=${ref?.id})`);
@@ -948,33 +969,46 @@ async function triggerAutomatedOrder(
         console.warn('[Meta Bot] Non-fatal vendor WhatsApp notify warning:', notifyErr?.message || notifyErr);
       }
       if (
+        !skipAutoMongikePush &&
         String(orderData.paymentStatus || '').toLowerCase() !== 'paid' &&
         total > 0 &&
         isMobileMoneyPaymentMethod(orderData.paymentMethod)
       ) {
-        initiateMongikePayment(
-          {
-            orderId: ref.id,
-            amount: total,
-            buyerPhone: customerPhone,
-            feePayer: 'MERCHANT',
-            collection: 'orders',
-          },
-          dbAdmin,
-          {
-            autoSimulateWebhook: true,
-            onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+        try {
+          const pushResult = await initiateMongikePayment(
+            {
+              orderId: ref.id,
+              amount: total,
+              buyerPhone: customerPhone,
+              feePayer: 'MERCHANT',
+              collection: 'orders',
+            },
+            dbAdmin,
+            {
+              autoSimulateWebhook: true,
+              onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+            }
+          );
+          triggeredOrderMongikeResults.set(ref.id, pushResult);
+          if (triggeredOrderMongikeResults.size > 200) {
+            const oldestKey = triggeredOrderMongikeResults.keys().next().value;
+            if (oldestKey) triggeredOrderMongikeResults.delete(oldestKey);
           }
-        ).catch((payErr: any) => {
+        } catch (payErr: any) {
           console.warn('[Meta Bot] Mongike auto-push warning:', payErr?.message || payErr);
-        });
+          triggeredOrderMongikeResults.set(ref.id, {
+            status: 'error',
+            message: payErr?.message || 'Imeshindikana kutuma ombi la malipo ya Mongike.',
+            httpStatus: 500,
+          });
+        }
       }
-      awardWhatsAppOrderLoyalty(dbAdmin, {
+      await awardWhatsAppOrderLoyalty(dbAdmin, {
         vendorId,
         customerPhone,
         customerName,
         orderTotal: total,
-        couponId: extraFields.couponId,
+        couponId: restExtra.couponId,
       }).catch(() => {});
     }
     return ref?.id || null;
@@ -3780,6 +3814,38 @@ export function buildWhatsAppInteractive(
     return sanitizeWhatsAppInteractivePayload(session.details.paidOrderStatus);
   }
 
+  // 1c. Pending Mongike Mobile Money USSD Push actions (Check status, Retry push, Pay via Link)
+  if (session?.step === 'PAPOPAY_WAIT_PUSH') {
+    const pendingPush = session?.details?.pendingMongikePayment;
+    const isFailed = pendingPush?.pushStatus === 'failed';
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: {
+        type: 'text',
+        text: isFailed
+          ? isEn
+            ? '⚠️ USSD Push Issue'
+            : '⚠️ Tatizo la USSD Push'
+          : isEn
+          ? '📲 Confirm Mobile Payment'
+          : '📲 Thibitisha Malipo',
+      },
+      body: { text: rawStripped },
+      footer: {
+        text: pendingPush?.phone
+          ? `Simu: ${pendingPush.phone} • Usiandike PIN hapa`
+          : 'Usiandike PIN kwenye chat ya WhatsApp',
+      },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'CMD:CHECK_MONGIKE_PAY', title: isEn ? '🔍 Check Status' : '🔍 Hakiki Malipo' } },
+          { type: 'reply', reply: { id: 'CMD:RETRY_MONGIKE_PAY', title: isEn ? '🔄 Resend Push' : '🔄 Tuma Push Tena' } },
+          { type: 'reply', reply: { id: 'CMD:OPEN_EXPRESS_PAY_CARD', title: isEn ? '💳 Pay via Link' : '💳 Lipa Mtandaoni' } },
+        ],
+      },
+    });
+  }
+
   // 2. Active Order / Ride / Ticket / Booking Tracking URL CTA (completed actions or My Orders lookup)
   const firstHttpsUrlMatch = rawStripped.match(/https:\/\/[^\s<>"')]+/i);
   const firstHttpsUrl = firstHttpsUrlMatch ? firstHttpsUrlMatch[0].replace(/[.,;!?]+$/, '') : '';
@@ -5604,6 +5670,12 @@ function preserveCustomerFields(
   if (details?.emergencyContactPhone) next.emergencyContactPhone = details.emergencyContactPhone;
   if (Array.isArray(details?.unifiedCart) && details.unifiedCart.length > 0) next.unifiedCart = details.unifiedCart;
   if (Array.isArray(details?.savedBills) && details.savedBills.length > 0) next.savedBills = details.savedBills;
+  if (
+    details?.lastPendingMongike &&
+    Date.now() - Number(details.lastPendingMongike.createdAtMs || 0) < 15 * 60 * 1000
+  ) {
+    next.lastPendingMongike = details.lastPendingMongike;
+  }
   return next;
 }
 
@@ -6572,6 +6644,31 @@ async function processMetaInputCore(
     return lang === 'en'
       ? `[[EN_NATIVE]]📍 *Pickup:* ${gpsLoc.name}\n\n*Where are you going?* _(Type destination or send 📍 Location pin)_:`
       : `📍 *Kutoka:* ${gpsLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
+  }
+
+  // --- 0C2. MONGIKE PENDING PUSH RECOVERY & PIN-SAFETY GUARD (e.g. if user types PIN "5353" or taps Check/Retry after reset) ---
+  const activePendingMongike =
+    session.details?.pendingMongikePayment || session.details?.lastPendingMongike;
+  const hasRecentPendingMongike =
+    Boolean(activePendingMongike?.orderId) &&
+    Date.now() - Number(activePendingMongike?.createdAtMs || 0) < 15 * 60 * 1000;
+  const isMongikeWaitAction =
+    /^(?:CMD:)?(?:CHECK_MONGIKE_PAY|RETRY_MONGIKE_PAY|OPEN_EXPRESS_PAY_CARD)$/i.test(cleanInput);
+  const looksLikeTypedWalletPinAfterPush =
+    hasRecentPendingMongike &&
+    (!session.service || session.step === 'START' || session.step === 'COLLECTING_ROUTE') &&
+    /^\d{4,6}$/.test(cleanInput);
+
+  if (hasRecentPendingMongike && (isMongikeWaitAction || looksLikeTypedWalletPinAfterPush)) {
+    session.service = 'papopay';
+    session.step = 'PAPOPAY_WAIT_PUSH';
+    session.details.pendingMongikePayment = activePendingMongike;
+    await saveMetaSession(session, dbAdmin);
+    return await routeToServiceFlow(session, cleanInput, dbAdmin, channel, mediaCollector, {
+      getKnownPhone,
+      persistPhonePreference,
+      persistLocationPreference,
+    });
   }
 
   // --- 0D. GLOBAL ORDER & BOOKING TRACKING ("ODA ZANGU" / #FD-3441 / #TBL-3947 / #PFX-... / #TK-... / #ML-... / #PP-...) ---
@@ -8144,7 +8241,7 @@ async function routeToServiceFlow(
               sendMetaOutboundMessage
             ).catch(() => {});
             if (isMobileMoneyPaymentMethod(paymentMethod) && Number(finalFare) > 0) {
-              initiateMongikePayment(
+              await initiateMongikePayment(
                 {
                   orderId: rideRef.id,
                   amount: Number(finalFare),
@@ -8177,10 +8274,10 @@ async function routeToServiceFlow(
       const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
       const trackingUrl = `${publicBaseUrl}/track/${createdRideId}`;
       const mongikeRideNoteEn = isMobileMoneyPaymentMethod(paymentMethod)
-        ? `\n📲 *Mongike Mobile Money:* A payment prompt has been sent to *${phoneNum}*${isMongikeLiveConfigured() ? ' — enter your PIN to pay.' : ' (Sandbox Test Mode).'}`
+        ? `\n📲 *Mongike Mobile Money:* A payment prompt has been sent to *${phoneNum}*${isMongikeLiveConfigured() ? ' — enter your PIN on the SIM popup.' : ' (Sandbox Test Mode).'}`
         : '';
       const mongikeRideNoteSw = isMobileMoneyPaymentMethod(paymentMethod)
-        ? `\n📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye simu *${phoneNum}*${isMongikeLiveConfigured() ? ' — thibitisha kulipa.' : ' (Sandbox Mode).'}`
+        ? `\n📲 *Malipo ya Mongike:* Ombi la PIN limetumwa kwenye simu *${phoneNum}*${isMongikeLiveConfigured() ? ' — thibitisha kwenye kisanduku cha mtandao.' : ' (Sandbox Mode).'}`
         : '';
 
       const discountRideNoteEn =
@@ -10684,6 +10781,7 @@ async function routeToServiceFlow(
       'PAPOPAY_SPLIT_PEOPLE',
       'PAPOPAY_LINK_TITLE',
       'PAPOPAY_LINK_AMOUNT',
+      'PAPOPAY_WAIT_PUSH',
       'COLLECTING_PHONE',
     ].includes(session.step);
 
@@ -10989,12 +11087,7 @@ async function routeToServiceFlow(
         createIfMissing: true,
       });
 
-      session.step = 'START';
-      delete session.service;
-      session.details = preserveCustomerFields(session.details, lang);
-      await saveMetaSession(session, dbAdmin);
-
-      await triggerAutomatedOrder(
+      const createdOrderId = await triggerAutomatedOrder(
         dbAdmin,
         'papopay-wallet',
         'papopay',
@@ -11015,17 +11108,63 @@ async function routeToServiceFlow(
           paymentMethod: 'mongike',
           paymentMethodLabel: 'Mongike Mobile Money',
           paymentStatus: 'pending',
+          metaSenderId: session.senderId,
+          metaChannel: session.channel,
+          metaPhoneNumberId: getLastWhatsAppPhoneNumberId(session.senderId),
         }
       );
 
+      const mongikeRes = createdOrderId ? triggeredOrderMongikeResults.get(createdOrderId) : undefined;
+      const pushFailed = !createdOrderId || mongikeRes?.status === 'error';
+      const pushErrorMsg = mongikeRes?.status === 'error' ? mongikeRes.message : '';
+      const gatewayRef = mongikeRes?.data?.gateway_ref || mongikeRes?.data?.id || '';
+
+      const pendingPayload = {
+        orderId: createdOrderId || ppCode,
+        bookingCode: ppCode,
+        amount: amt,
+        phone: payPhone,
+        targetName: 'PapoWallet Deposit',
+        payeePhone: '',
+        purpose: 'wallet_topup',
+        gatewayRef,
+        pushStatus: pushFailed ? 'failed' : 'pending',
+        pushError: pushErrorMsg,
+        sandbox: Boolean(mongikeRes?.sandbox || !isMongikeLiveConfigured()),
+        createdAtMs: Date.now(),
+      };
+
+      session.service = 'papopay';
+      session.step = 'PAPOPAY_WAIT_PUSH';
+      session.details = {
+        ...preserveCustomerFields(session.details, lang),
+        pendingMongikePayment: pendingPayload,
+        lastPendingMongike: pendingPayload,
+      };
+      await saveMetaSession(session, dbAdmin);
+
+      if (pushFailed) {
+        return (
+          `⚠️ *OMBI LA USSD PUSH HALIKUWEZA KUTUMWA* (#${ppCode})\n\n` +
+          `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+          `- Simu ya Malipo: *${payPhone}*\n` +
+          `- Sababu: *${pushErrorMsg || 'Mtandao wa Mongike USSD haujapokea ombi'}*\n\n` +
+          `💡 *Unachoweza kufanya sasa:*\n` +
+          `• Bonyeza *🔄 Tuma Push Tena* hapa chini\n` +
+          `• Au andika *namba nyingine ya simu* (mf. Vodacom *0755...* au Tigo *0712...*)\n` +
+          `• Au bonyeza *💳 Lipa Mtandaoni* kukamilisha kwa Link/Kadi.`
+        );
+      }
+
       return (
         `📥 *OMBI LA KUWEKA PESA KWENYE PAPOWALLET LIMETUMWA!*\n` +
-        `🔖 Rejea: *#${ppCode}*\n\n` +
+        `🔖 Rejea: *#${ppCode}*${gatewayRef ? ` • Ref: *${gatewayRef}*` : ''}\n\n` +
         `- Kiasi cha Kuweka: *TZS ${amt.toLocaleString()}/=*\n` +
         `- Simu ya Malipo: *${payPhone}*\n` +
-        `- Njia: *Mongike Mobile Money Push*${isMongikeLiveConfigured() ? '' : ' (Sandbox Test Mode)'}\n\n` +
-        `🔐 *Ingiza PIN yako* kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}*.\n` +
-        `Salio lako litaongezeka na utapokea risiti hapa WhatsApp mara moja baada ya kuthibitisha!`
+        `- Njia: *Mongike Mobile Money Push*${mongikeRes?.sandbox ? ' (Sandbox Test Mode)' : ''}\n\n` +
+        `🔐 *Angalia skrini ya simu yako ${payPhone}*: Ingiza PIN kwenye kisanduku cha *M-Pesa / Mixx / Airtel Money* kinachojitokeza.\n` +
+        `⚠️ *TAHADHARI:* Usiandike PIN yako hapa kwenye ujumbe wa WhatsApp!\n\n` +
+        `👇 Ukishathibitisha au kama ujumbe wa PIN umechelewa, tumia vitufe hapa chini:`
       );
     };
 
@@ -11111,6 +11250,9 @@ async function routeToServiceFlow(
               : 'Mongike Mobile Money',
           paymentStatus: mode === 'papowallet' ? 'paid' : 'pending',
           skipAutoMongikePush: mode === 'checkout_card',
+          metaSenderId: session.senderId,
+          metaChannel: session.channel,
+          metaPhoneNumberId: getLastWhatsAppPhoneNumberId(session.senderId),
         }
       );
 
@@ -11227,19 +11369,55 @@ async function routeToServiceFlow(
         );
       }
 
-      session.step = 'START';
-      delete session.service;
-      session.details = preserveCustomerFields({ ...session.details, savedBills: updatedSavedBills }, lang);
+      const mongikeRes = createdOrderId ? triggeredOrderMongikeResults.get(createdOrderId) : undefined;
+      const pushFailed = !createdOrderId || mongikeRes?.status === 'error';
+      const pushErrorMsg = mongikeRes?.status === 'error' ? mongikeRes.message : '';
+      const gatewayRef = mongikeRes?.data?.gateway_ref || mongikeRes?.data?.id || '';
+
+      const pendingPayload = {
+        orderId: createdOrderId || ppCode,
+        bookingCode: ppCode,
+        amount: amt,
+        phone: payPhone,
+        targetName,
+        payeePhone: payee.phone || '',
+        purpose,
+        gatewayRef,
+        pushStatus: pushFailed ? 'failed' : 'pending',
+        pushError: pushErrorMsg,
+        sandbox: Boolean(mongikeRes?.sandbox || !isMongikeLiveConfigured()),
+        createdAtMs: Date.now(),
+      };
+
+      session.service = 'papopay';
+      session.step = 'PAPOPAY_WAIT_PUSH';
+      session.details = {
+        ...preserveCustomerFields({ ...session.details, savedBills: updatedSavedBills }, lang),
+        pendingMongikePayment: pendingPayload,
+        lastPendingMongike: pendingPayload,
+      };
       await saveMetaSession(session, dbAdmin);
+
+      if (pushFailed) {
+        return (
+          `⚠️ *OMBI LA MONGIKE USSD PUSH HALIKUWEZA KUTUMWA* (#${ppCode})\n\n` +
+          `- Mpokeaji / Bili: *${targetName}*\n` +
+          `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+          `- Simu: *${payPhone}*\n` +
+          `- Sababu: *${pushErrorMsg || 'Mtandao wa Mongike haujapokea ombi'}*\n\n` +
+          `👇 Bonyeza *🔄 Tuma Push Tena*, tuma namba nyingine ya simu, au bonyeza *💳 Lipa Mtandaoni*:`
+        );
+      }
 
       return (
         `📲 *OMBI LA MALIPO YA MONGIKE LIMETUMWA!*\n` +
-        `🔖 Rejea: *#${ppCode}*\n\n` +
+        `🔖 Rejea: *#${ppCode}*${gatewayRef ? ` • Ref: *${gatewayRef}*` : ''}\n\n` +
         `- Mpokeaji / Bili: *${targetName}* (${payee.subtitle})\n` +
         `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
-        `- Simu ya Malipo: *${payPhone}*${isMongikeLiveConfigured() ? '' : ' (Sandbox Test Mode)'}\n\n` +
-        `🔗 *Fuatilia Muamala & Risiti Zako:*\n${buildOrdersTrackingUrl(payPhone, ppCode)}\n\n` +
-        `🔐 *Ingiza PIN yako* kwenye ujumbe uliotumwa kwenye simu yako *${payPhone}* kukamilisha malipo.`
+        `- Simu ya Malipo: *${payPhone}*${mongikeRes?.sandbox ? ' (Sandbox Test Mode)' : ''}\n\n` +
+        `🔐 *Angalia skrini ya simu yako ${payPhone}*: Ingiza PIN kwenye kisanduku cha *M-Pesa / Mixx / Airtel Money* kinachojitokeza.\n` +
+        `⚠️ *TAHADHARI:* Usiandike PIN yako hapa kwenye chat ya WhatsApp!\n\n` +
+        `🔗 *Fuatilia Risiti:* ${buildOrdersTrackingUrl(payPhone, ppCode)}`
       );
     };
 
@@ -12013,6 +12191,215 @@ async function routeToServiceFlow(
           : 'mongike';
       return await finalizePapoPay(payPhone, mode);
     }
+
+    if (session.step === 'PAPOPAY_WAIT_PUSH') {
+      const pending = session.details?.pendingMongikePayment || session.details?.lastPendingMongike;
+      if (!pending?.orderId) {
+        session.step = 'PAPOPAY_MENU';
+        await saveMetaSession(session, dbAdmin);
+        return `💳 Chagua huduma ya PapoPay (*1–11* au *00* kurudi Menyu Kuu):`;
+      }
+
+      const rawTrim = input.trim();
+      const rawCmd = rawTrim.toUpperCase();
+
+      // 1. Open Express Checkout link/card as instant backup
+      if (
+        rawCmd === 'CMD:OPEN_EXPRESS_PAY_CARD' ||
+        rawCmd === 'OPEN_EXPRESS_PAY_CARD' ||
+        /^(?:💳\s*)?(?:lipa\s*(?:mtandaoni|kwa\s*link|kwa\s*kadi)|pay\s*via\s*link|link)$/i.test(rawTrim)
+      ) {
+        const payerRec = await findOrEnsureWalletUser(dbAdmin, { phone: pending.phone, createIfMissing: false });
+        const cardPayload = buildOrderDetailsPayload({
+          refCode: pending.bookingCode || 'PP',
+          orderId: pending.orderId,
+          merchantName: pending.targetName || 'PapoWallet Deposit',
+          merchantPhone: pending.payeePhone || '',
+          itemTitle:
+            pending.purpose === 'wallet_topup'
+              ? `Weka Pesa PapoWallet (TZS ${Number(pending.amount || 0).toLocaleString()})`
+              : pending.targetName || 'Malipo ya PapoPay',
+          amount: Number(pending.amount || 5000),
+          purpose: pending.purpose || 'wallet_topup',
+          payerPhone: pending.phone,
+          walletBalance: Number(payerRec?.data?.walletBalance || 0),
+        });
+        session.step = 'START';
+        delete session.service;
+        delete session.details.pendingMongikePayment;
+        delete session.details.lastPendingMongike;
+        session.details = {
+          ...preserveCustomerFields(session.details, lang),
+          pendingOrderDetails: cardPayload,
+        };
+        await saveMetaSession(session, dbAdmin);
+        return (
+          `💳 *KADI YA MALIPO YA PAPOPAY TAYARI!* (#${pending.bookingCode})\n\n` +
+          `💰 Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n` +
+          `👇 Bonyeza *Lipa Sasa (PapoPay)* / *Review and pay* hapo chini kukamilisha malipo yako.`
+        );
+      }
+
+      // 2. Check payment status from Firestore & payment_callbacks
+      if (
+        rawCmd === 'CMD:CHECK_MONGIKE_PAY' ||
+        rawCmd === 'CHECK_MONGIKE_PAY' ||
+        /^(?:🔍\s*)?(?:hakiki(?:\s*malipo)?|check(?:\s*status)?|tayari|nimelipa|imekamilika|status)$/i.test(rawTrim)
+      ) {
+        const statusRes = await checkMongikeOrderPaymentStatus(dbAdmin, {
+          orderId: pending.orderId,
+          collection: 'orders',
+        });
+
+        if (statusRes.state === 'paid') {
+          const paidAmt = Number(statusRes.amount || pending.amount || 0);
+          const paidCard = buildPaidOrderStatusPayload({
+            refCode: pending.bookingCode || 'WT',
+            orderId: pending.orderId,
+            merchantName: pending.targetName || 'PapoWallet Deposit',
+            itemTitle:
+              pending.purpose === 'wallet_topup'
+                ? 'Weka Pesa PapoWallet'
+                : pending.targetName || 'Malipo ya PapoPay',
+            amount: paidAmt,
+            methodLabel: 'Mongike Mobile Money',
+            newBalance: statusRes.newWalletBalance,
+          });
+          session.step = 'START';
+          delete session.service;
+          delete session.details.pendingMongikePayment;
+          delete session.details.lastPendingMongike;
+          session.details = {
+            ...preserveCustomerFields(session.details, lang),
+            paidOrderStatus: paidCard,
+          };
+          await saveMetaSession(session, dbAdmin);
+          return (
+            `✅ *MALIPO YAMETHIBITISHWA!* 💚\n` +
+            `🔖 Rejea: *#${pending.bookingCode}*${statusRes.gatewayRef ? ` • Ref: *${statusRes.gatewayRef}*` : ''}\n\n` +
+            `- Kiasi: *TZS ${paidAmt.toLocaleString()}/=*\n` +
+            (statusRes.newWalletBalance !== undefined
+              ? `- Salio Jipya la PapoWallet: *TZS ${Number(statusRes.newWalletBalance).toLocaleString()}/=*\n`
+              : '') +
+            `\n🎉 Salio na E-Risiti yako vimehifadhiwa kikamilifu!`
+          );
+        }
+
+        if (statusRes.state === 'failed') {
+          pending.pushStatus = 'failed';
+          pending.pushError = statusRes.errorMessage || 'Ombi halikukamilika.';
+          session.details.pendingMongikePayment = pending;
+          session.details.lastPendingMongike = pending;
+          await saveMetaSession(session, dbAdmin);
+          return (
+            `⚠️ *OMBI LA MALIPO HALIKUKAMILIKA* (#${pending.bookingCode})\n\n` +
+            `- Simu: *${pending.phone}*\n` +
+            `- Sababu: *${pending.pushError}*\n\n` +
+            `👇 Bonyeza *🔄 Tuma Push Tena*, andika namba nyingine ya simu (mf. *0755123456*), au bonyeza *💳 Lipa Mtandaoni*.`
+          );
+        }
+
+        return (
+          `⏳ *INASUBIRI UTHIBITISHO WA PIN KWENYE SIMU* (#${pending.bookingCode})\n\n` +
+          `- Simu: *${pending.phone}*\n` +
+          `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+          `Bado hatujapokea uthibitisho kutoka mtandao wa simu. Hakikisha umeingiza PIN kwenye kisanduku cha USSD kwenye skrini ya simu yako.\n` +
+          `Kama hujapokea ujumbe wa PIN, bonyeza *🔄 Tuma Push Tena* au *💳 Lipa Mtandaoni*!`
+        );
+      }
+
+      // 3. Retry USSD push (or switch phone number if user typed a valid TZ phone like 0755123456)
+      const typedDigits = rawTrim.replace(/\D/g, '');
+      const isNewPhoneInput = typedDigits.length >= 9 && typedDigits.length <= 13;
+      const isRetryAction =
+        rawCmd === 'CMD:RETRY_MONGIKE_PAY' ||
+        rawCmd === 'RETRY_MONGIKE_PAY' ||
+        /^(?:🔄\s*)?(?:tuma\s*(?:push\s*)?tena|retry|resend|jaribu\s*tena)$/i.test(rawTrim);
+
+      if (isRetryAction || isNewPhoneInput) {
+        const targetPhone = isNewPhoneInput
+          ? rawTrim.startsWith('+')
+            ? rawTrim
+            : typedDigits.startsWith('0')
+            ? `+255${typedDigits.slice(1)}`
+            : typedDigits.startsWith('255')
+            ? `+${typedDigits}`
+            : `+255${typedDigits.slice(-9)}`
+          : pending.phone;
+
+        if (isNewPhoneInput) {
+          await savePhonePref(targetPhone);
+          if (dbAdmin && pending.orderId) {
+            await dbAdmin.collection('orders').doc(String(pending.orderId)).set(
+              { customerPhone: targetPhone, updatedAt: new Date().toISOString() },
+              { merge: true }
+            ).catch(() => {});
+          }
+        }
+
+        const retryRes = await initiateMongikePayment(
+          {
+            orderId: String(pending.orderId),
+            amount: Number(pending.amount || 5000),
+            buyerPhone: targetPhone,
+            feePayer: 'MERCHANT',
+            collection: 'orders',
+          },
+          dbAdmin,
+          {
+            autoSimulateWebhook: true,
+            onSimulatedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+          }
+        );
+
+        const nextGatewayRef = retryRes?.data?.gateway_ref || retryRes?.data?.id || pending.gatewayRef || '';
+        const updatedPending = {
+          ...pending,
+          phone: targetPhone,
+          gatewayRef: nextGatewayRef,
+          pushStatus: retryRes.status === 'error' ? 'failed' : 'pending',
+          pushError: retryRes.status === 'error' ? retryRes.message : '',
+          sandbox: Boolean(retryRes.sandbox),
+          createdAtMs: Date.now(),
+        };
+        session.details.pendingMongikePayment = updatedPending;
+        session.details.lastPendingMongike = updatedPending;
+        await saveMetaSession(session, dbAdmin);
+
+        if (retryRes.status === 'error') {
+          return (
+            `⚠️ *PUSH IMESHINDIKANA KWENDA ${targetPhone}* (#${pending.bookingCode})\n\n` +
+            `- Sababu: *${retryRes.message}*\n\n` +
+            `Andika namba nyingine ya simu (mf. *0755123456*), au bonyeza *💳 Lipa Mtandaoni* hapa chini.`
+          );
+        }
+
+        return (
+          `🔄 *USSD PUSH IMETUMWA TENA!* (#${pending.bookingCode})\n\n` +
+          `- Simu: *${targetPhone}*\n` +
+          `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+          `🔐 *Angalia skrini ya simu yako ${targetPhone}* na uingize PIN kwenye kisanduku cha mtandao.\n` +
+          `⚠️ *Usiandike PIN yako hapa WhatsApp!*`
+        );
+      }
+
+      // 4. CRITICAL UX/SECURITY FIX: If user accidentally types a 3–6 digit PIN (e.g. "5353") into WhatsApp chat!
+      if (/^\d{3,6}$/.test(rawTrim)) {
+        return (
+          `🔐 *TAHADHARI YA USALAMA: Usiandike PIN yako hapa WhatsApp!*\n\n` +
+          `Namba yako ya siri (PIN) inaingizwa kwenye *kisanduku cha USSD cha mtandao (M-Pesa / Mixx / Airtel Money)* kinachojitokeza kwenye skrini ya simu yako *${pending.phone}*, na *SIYO* hapa kwenye ujumbe.\n\n` +
+          `Kama ujumbe huo wa PIN haujatokea kwenye simu yako *${pending.phone}*:\n` +
+          `• Bonyeza *🔄 Tuma Push Tena* hapa chini\n` +
+          `• Au tuma namba nyingine ya simu ya malipo (mf. *0755123456*)\n` +
+          `• Au bonyeza *💳 Lipa Mtandaoni* kulipa moja kwa moja.`
+        );
+      }
+
+      return (
+        `⏳ *Muamala #${pending.bookingCode} (TZS ${Number(pending.amount || 0).toLocaleString()}/=)* bado unasubiri.\n\n` +
+        `Bonyeza *🔍 Hakiki Malipo*, *🔄 Tuma Push Tena*, au *💳 Lipa Mtandaoni* hapa chini (au andika *00* kurudi Menyu Kuu).`
+      );
+    }
   }
 
   // Reset to default
@@ -12047,6 +12434,14 @@ export function recordInboundMetaPhoneNumberId(senderId?: string, phoneNumberId?
   if (cleanSender) {
     senderWhatsAppPhoneNumberIds.set(cleanSender, cleanPhoneId);
   }
+}
+
+export function getLastWhatsAppPhoneNumberId(senderId?: string): string {
+  const cleanSender = String(senderId || '').trim();
+  if (cleanSender && senderWhatsAppPhoneNumberIds.has(cleanSender)) {
+    return senderWhatsAppPhoneNumberIds.get(cleanSender) || '';
+  }
+  return globalLastWhatsAppPhoneNumberId || '';
 }
 
 export interface MetaWelcomeCommand {

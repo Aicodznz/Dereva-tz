@@ -195,34 +195,88 @@ export async function initiateMongikePayment(
     return simulatedResponse;
   }
 
-  try {
+    try {
     const uniqueOrderId = `${orderId}-${Date.now()}`;
     console.log(
       `[Mongike Payment] Initiating live USSD push. Order: ${orderId} -> Ref: ${uniqueOrderId}, Phone: ${cleanPhone}, Amount: ${numericAmount}`
     );
 
-    const response = await fetch(MONGIKE_TANZANIA_MOMO_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        order_id: uniqueOrderId,
-        amount: numericAmount,
-        buyer_phone: cleanPhone,
-        fee_payer: feePayer,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    let response: Response;
+    try {
+      response = await fetch(MONGIKE_TANZANIA_MOMO_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          order_id: uniqueOrderId,
+          amount: numericAmount,
+          buyer_phone: cleanPhone,
+          fee_payer: feePayer,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-    const data: any = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    const rawText = await response.text().catch(() => '');
+    let data: any = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      data = rawText ? { message: rawText.slice(0, 240) } : {};
+    }
+
+    if (!response.ok || String(data?.status || '').toLowerCase() === 'error') {
+      const errMsg =
+        data?.message ||
+        data?.error?.message ||
+        (typeof data?.error === 'string' ? data.error : '') ||
+        data?.detail ||
+        `Mongike API ilikataa ombi la malipo (HTTP ${response.status})`;
       console.error('[Mongike Payment] API error:', response.status, data);
+      if (dbAdmin) {
+        try {
+          await Promise.allSettled([
+            dbAdmin.collection(collection).doc(String(orderId)).set(
+              cleanUndefined({
+                gatewayOrderId: uniqueOrderId,
+                paymentProvider: 'mongike',
+                paymentPushStatus: 'failed',
+                paymentError: errMsg,
+                updatedAt: new Date().toISOString(),
+              }),
+              { merge: true }
+            ),
+            dbAdmin.collection('payment_callbacks').doc(String(orderId)).set(
+              cleanUndefined({
+                order_id: orderId,
+                gateway_order_id: uniqueOrderId,
+                targetCollection: collection,
+                provider: 'mongike',
+                mode: 'live',
+                status: 'FAILED',
+                http_status: response.status,
+                error_message: errMsg,
+                buyer_phone: cleanPhone,
+                amount: numericAmount,
+                raw_init_response: data,
+                updated_at: new Date().toISOString(),
+              }),
+              { merge: true }
+            ),
+          ]);
+        } catch {}
+      }
       return {
         status: 'error',
-        message: data?.message || 'Mongike API ilikataa ombi la malipo',
+        message: errMsg,
         sandbox: false,
-        httpStatus: response.status,
+        httpStatus: response.status || 400,
         error: data,
       };
     }
@@ -237,6 +291,8 @@ export async function initiateMongikePayment(
               gatewayRef,
               gatewayOrderId: uniqueOrderId,
               paymentProvider: 'mongike',
+              paymentPushStatus: 'sent',
+              paymentError: null,
               updatedAt: new Date().toISOString(),
             }),
             { merge: true }
@@ -275,12 +331,166 @@ export async function initiateMongikePayment(
       },
     };
   } catch (err: any) {
+    const isAbort = err?.name === 'AbortError';
+    const failMsg = isAbort
+      ? 'Muda wa kusubiri Mongike USSD Push umeisha (timeout). Tafadhali jaribu tena.'
+      : 'Imeshindikana kuwasiliana na Mongike. Jaribu tena.';
     console.error('[Mongike Payment] Network failure:', err?.message || err);
+    if (dbAdmin && orderId) {
+      try {
+        await Promise.allSettled([
+          dbAdmin.collection(collection).doc(String(orderId)).set(
+            cleanUndefined({
+              paymentProvider: 'mongike',
+              paymentPushStatus: 'failed',
+              paymentError: failMsg,
+              updatedAt: new Date().toISOString(),
+            }),
+            { merge: true }
+          ),
+          dbAdmin.collection('payment_callbacks').doc(String(orderId)).set(
+            cleanUndefined({
+              order_id: orderId,
+              targetCollection: collection,
+              provider: 'mongike',
+              mode: 'live',
+              status: 'FAILED',
+              http_status: isAbort ? 504 : 500,
+              error_message: err?.message || failMsg,
+              buyer_phone: cleanPhone,
+              amount: numericAmount,
+              updated_at: new Date().toISOString(),
+            }),
+            { merge: true }
+          ),
+        ]);
+      } catch {}
+    }
     return {
       status: 'error',
-      message: 'Imeshindikana kuwasiliana na Mongike. Jaribu tena.',
+      message: failMsg,
       sandbox: false,
-      httpStatus: 500,
+      httpStatus: isAbort ? 504 : 500,
+    };
+  }
+}
+
+export async function checkMongikeOrderPaymentStatus(
+  dbAdmin: any,
+  params: { orderId: string; collection?: 'orders' | 'rides' }
+): Promise<{
+  state: 'paid' | 'pending' | 'failed';
+  amount: number;
+  gatewayRef?: string;
+  errorMessage?: string;
+  newWalletBalance?: number;
+  sandbox?: boolean;
+}> {
+  const { orderId, collection = 'orders' } = params;
+  if (!dbAdmin || !orderId) {
+    return { state: 'pending', amount: 0 };
+  }
+
+  try {
+    const [docSnap, cbSnap] = await Promise.all([
+      dbAdmin.collection(collection).doc(String(orderId)).get().catch(() => null),
+      dbAdmin.collection('payment_callbacks').doc(String(orderId)).get().catch(() => null),
+    ]);
+
+    const rec = docSnap?.exists ? docSnap.data() || {} : {};
+    const cb = cbSnap?.exists ? cbSnap.data() || {} : {};
+    const amount = Number(rec.totalAmount || rec.total || rec.fare || cb.amount || 0);
+    const gatewayRef = String(rec.gatewayRef || cb.reference_id || '').trim() || undefined;
+    const recPayStatus = String(rec.paymentStatus || '').trim().toLowerCase();
+    const cbStatus = String(cb.status || '').trim().toUpperCase();
+
+    if (
+      recPayStatus === 'paid' ||
+      ['COMPLETED', 'SUCCESS', 'PAID', 'SETTLED'].includes(cbStatus)
+    ) {
+      const settled = await settlePaidMongikeOrder(dbAdmin, {
+        targetId: String(orderId),
+        targetType: collection,
+        amount,
+        gatewayRef,
+      }).catch(() => null);
+
+      return {
+        state: 'paid',
+        amount,
+        gatewayRef,
+        newWalletBalance: settled?.newPayerBalance ?? rec.newWalletBalance,
+        sandbox: cb.mode === 'sandbox',
+      };
+    }
+
+    // In serverless environments (e.g. Vercel), the sandbox 2500ms timer may have been suspended after HTTP 200.
+    // Complete sandbox transactions cleanly when the user taps "Hakiki Malipo" after 2 seconds.
+    if (cb.mode === 'sandbox' && cbStatus === 'PENDING') {
+      const updatedMs = Date.parse(String(cb.updated_at || '')) || 0;
+      if (!updatedMs || Date.now() - updatedMs >= 1800) {
+        await dbAdmin.collection(collection).doc(String(orderId)).set(
+          cleanUndefined({
+            paymentStatus: 'paid',
+            updatedAt: new Date().toISOString(),
+            gatewayRef: gatewayRef || null,
+          }),
+          { merge: true }
+        );
+        await dbAdmin.collection('payment_callbacks').doc(String(orderId)).set(
+          cleanUndefined({
+            order_id: orderId,
+            targetCollection: collection,
+            provider: 'mongike',
+            mode: 'sandbox',
+            status: 'COMPLETED',
+            reference_id: gatewayRef,
+            amount,
+            updated_at: new Date().toISOString(),
+          }),
+          { merge: true }
+        );
+        const settled = await settlePaidMongikeOrder(dbAdmin, {
+          targetId: String(orderId),
+          targetType: collection,
+          amount,
+          gatewayRef,
+        }).catch(() => null);
+
+        return {
+          state: 'paid',
+          amount,
+          gatewayRef,
+          newWalletBalance: settled?.newPayerBalance,
+          sandbox: true,
+        };
+      }
+    }
+
+    if (
+      rec.paymentPushStatus === 'failed' ||
+      ['FAILED', 'ERROR', 'CANCELLED', 'EXPIRED'].includes(cbStatus)
+    ) {
+      return {
+        state: 'failed',
+        amount,
+        gatewayRef,
+        errorMessage: String(rec.paymentError || cb.error_message || 'Ombi la malipo halikukamilika.'),
+        sandbox: cb.mode === 'sandbox',
+      };
+    }
+
+    return {
+      state: 'pending',
+      amount,
+      gatewayRef,
+      sandbox: cb.mode === 'sandbox',
+    };
+  } catch (err: any) {
+    return {
+      state: 'pending',
+      amount: 0,
+      errorMessage: err?.message,
     };
   }
 }
