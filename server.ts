@@ -8,6 +8,8 @@ import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndT
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
+import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
+import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
 
 dotenv.config();
 
@@ -1311,6 +1313,36 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
       sandbox: result.sandbox,
       data: result.data,
     });
+  });
+
+  // PapoPay WhatsApp Express Checkout (PapoWallet PIN, Card, or Mongike Mobile Money)
+  app.post("/api/payments/papopay-whatsapp-checkout", async (req, res) => {
+    try {
+      const { statusCode, payload } = await processPapoPayWhatsAppCheckout(dbAdmin, req.body || {});
+      return res.status(statusCode).json(payload);
+    } catch (err: any) {
+      console.error("[PapoPay WhatsApp Checkout] Error:", err);
+      return res.status(500).json({ ok: false, error: "Hitilafu ya mfumo wakati wa kuchakata malipo." });
+    }
+  });
+
+  // PapoPay Wallet Balance Summary for In-Chat Checkout Sheet
+  app.get("/api/payments/papopay-wallet-balance", async (req, res) => {
+    try {
+      const phone = String(req.query.phone || "").trim();
+      if (phone.replace(/\D/g, "").length < 9) {
+        return res.json({ found: false, walletBalance: 0, points: 0, isCardFrozen: false });
+      }
+      const summary = await getPapoWalletSummaryAndStatement(dbAdmin, phone);
+      return res.json({
+        found: summary.found,
+        walletBalance: summary.walletBalance,
+        points: summary.points,
+        isCardFrozen: summary.isCardFrozen,
+      });
+    } catch {
+      return res.json({ found: false, walletBalance: 0, points: 0, isCardFrozen: false });
+    }
   });
 
   // Mobile Money / Mongike Payment Webhook Callback Endpoint

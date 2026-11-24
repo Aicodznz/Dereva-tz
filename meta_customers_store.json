@@ -141,5 +141,14 @@
     "lang": "sw",
     "createdAt": 1795426620674,
     "updatedAt": 1795426620674
+  },
+  "whatsapp:255712345002": {
+    "senderId": "255712345002",
+    "channel": "whatsapp",
+    "name": "Luku 10000 14285930219",
+    "phone": "+255712345002",
+    "lang": "sw",
+    "createdAt": 1795470538164,
+    "updatedAt": 1795470538164
   }
 }

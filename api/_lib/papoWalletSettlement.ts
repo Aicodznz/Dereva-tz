@@ -558,3 +558,555 @@ export async function executeDirectPapoWalletPayment(
 
   return { ok: true, newPayerBalance: nextPayerBal };
 }
+
+/**
+ * Resolves a P2P recipient by phone number, 9-digit PapoPay Wallet ID, or name.
+ */
+export async function resolveP2PRecipient(
+  dbAdmin: any,
+  rawRecipient: string
+): Promise<{
+  uid: string | null;
+  displayName: string;
+  phone: string;
+  walletId?: string;
+}> {
+  const clean = String(rawRecipient || '').trim();
+  const { digits, phoneVariants } = buildSettlementPhoneVariants(clean);
+
+  if (dbAdmin && clean) {
+    // 1. Try matching existing user by phone
+    if (phoneVariants.length > 0) {
+      for (const field of ['phone', 'phoneNumber', 'normalizedPhone']) {
+        try {
+          const snap = await dbAdmin
+            .collection('users')
+            .where(field, 'in', phoneVariants.slice(0, 10))
+            .limit(1)
+            .get();
+          if (!snap.empty) {
+            const docSnap = snap.docs[0];
+            const d = docSnap.data() || {};
+            return {
+              uid: docSnap.id,
+              displayName: d.displayName || d.fullName || d.name || clean,
+              phone: d.phoneNumber || d.phone || (digits.length >= 9 ? `+255${digits.slice(-9)}` : clean),
+              walletId: d.walletId || undefined,
+            };
+          }
+        } catch {}
+      }
+    }
+
+    // 2. Try matching by walletId (e.g. 118504625)
+    const compact = clean.replace(/\s+/g, '');
+    if (compact.length >= 6) {
+      try {
+        const wSnap = await dbAdmin
+          .collection('users')
+          .where('walletId', '==', compact)
+          .limit(1)
+          .get();
+        if (!wSnap.empty) {
+          const docSnap = wSnap.docs[0];
+          const d = docSnap.data() || {};
+          return {
+            uid: docSnap.id,
+            displayName: d.displayName || d.fullName || d.name || `Wallet ${compact}`,
+            phone: d.phoneNumber || d.phone || '',
+            walletId: compact,
+          };
+        }
+      } catch {}
+    }
+
+    // 3. Fallback create/ensure wallet account when a valid phone number is provided
+    if (digits.length >= 9) {
+      const ensured = await findOrEnsureWalletUser(dbAdmin, {
+        phone: `+255${digits.slice(-9)}`,
+        displayName: `Mteja ${digits.slice(-4)}`,
+        createIfMissing: true,
+      });
+      if (ensured) {
+        return {
+          uid: ensured.uid,
+          displayName: ensured.data?.displayName || `Mteja ${digits.slice(-4)}`,
+          phone: ensured.data?.phone || `+255${digits.slice(-9)}`,
+          walletId: ensured.data?.walletId,
+        };
+      }
+    }
+  }
+
+  return {
+    uid: null,
+    displayName: clean,
+    phone: digits.length >= 9 ? `+255${digits.slice(-9)}` : '',
+  };
+}
+
+/**
+ * Atomic P2P PapoWallet Transfer (0% fee). Debits sender and credits recipient.
+ */
+export async function executePapoWalletTransfer(
+  dbAdmin: any,
+  params: {
+    payerUid?: string;
+    payerPhone: string;
+    payerName: string;
+    recipientQuery: string;
+    amount: number;
+    note?: string;
+  }
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  refCode?: string;
+  newPayerBalance?: number;
+  recipient?: { uid: string | null; displayName: string; phone: string };
+}> {
+  const amt = Math.round(Number(params.amount || 0));
+  if (!dbAdmin || !Number.isFinite(amt) || amt < 100) {
+    return { ok: false, reason: 'Kiasi cha chini cha kutuma ni TZS 100.' };
+  }
+
+  const payer = await findOrEnsureWalletUser(dbAdmin, {
+    uid: params.payerUid,
+    phone: params.payerPhone,
+    displayName: params.payerName,
+    createIfMissing: false,
+  });
+  if (!payer) {
+    return {
+      ok: false,
+      reason: 'Akaunti yako ya PapoWallet haijawekewa pesa bado. Weka pesa kwanza kupitia Mongike Push.',
+    };
+  }
+
+  const recipient = await resolveP2PRecipient(dbAdmin, params.recipientQuery);
+  if (!recipient.uid && !recipient.phone) {
+    return {
+      ok: false,
+      reason: 'Hatukuweza kutambua namba ya simu au Wallet ID ya mpokeaji.',
+    };
+  }
+  if (recipient.uid && recipient.uid === payer.uid) {
+    return { ok: false, reason: 'Huwezi kujitumia pesa kwako mwenyewe.' };
+  }
+
+  const refCode = `PAPO-TRF-${Math.floor(100000 + Math.random() * 900000)}`;
+  const nowIso = new Date().toISOString();
+  const noteText = String(params.note || 'P2P PapoWallet').trim().slice(0, 120);
+
+  let nextPayerBal = 0;
+  try {
+    if (typeof dbAdmin.runTransaction === 'function') {
+      await dbAdmin.runTransaction(async (tx: any) => {
+        const payerRef = dbAdmin.collection('users').doc(payer.uid);
+        const pSnap = await tx.get(payerRef);
+        const curBal = Number(pSnap.data()?.walletBalance || 0);
+        if (curBal < amt) {
+          throw new Error(`INSUFFICIENT:${curBal}`);
+        }
+        nextPayerBal = curBal - amt;
+        tx.set(payerRef, { walletBalance: nextPayerBal, updatedAt: nowIso }, { merge: true });
+
+        if (recipient.uid) {
+          const recRef = dbAdmin.collection('users').doc(recipient.uid);
+          const rSnap = await tx.get(recRef);
+          const recBal = Number(rSnap.exists ? rSnap.data()?.walletBalance || 0 : 0);
+          tx.set(recRef, { walletBalance: recBal + amt, updatedAt: nowIso }, { merge: true });
+        }
+      });
+    } else {
+      const curBal = Number(payer.data?.walletBalance || 0);
+      if (curBal < amt) {
+        return {
+          ok: false,
+          reason: `Salio la PapoWallet halitoshi (Una TZS ${curBal.toLocaleString()}, unahitaji TZS ${amt.toLocaleString()}).`,
+        };
+      }
+      nextPayerBal = curBal - amt;
+      await dbAdmin.collection('users').doc(payer.uid).set(
+        { walletBalance: nextPayerBal, updatedAt: nowIso },
+        { merge: true }
+      );
+      if (recipient.uid) {
+        const recSnap = await dbAdmin.collection('users').doc(recipient.uid).get().catch(() => null);
+        const recBal = Number(recSnap?.exists ? recSnap.data()?.walletBalance || 0 : 0);
+        await dbAdmin.collection('users').doc(recipient.uid).set(
+          { walletBalance: recBal + amt, updatedAt: nowIso },
+          { merge: true }
+        );
+      }
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.startsWith('INSUFFICIENT:')) {
+      const bal = Number(msg.split(':')[1] || 0);
+      return {
+        ok: false,
+        reason: `Salio la PapoWallet halitoshi (Una TZS ${bal.toLocaleString()}, unahitaji TZS ${amt.toLocaleString()}).`,
+      };
+    }
+    return { ok: false, reason: 'Hitilafu ya mfumo wakati wa kutuma pesa.' };
+  }
+
+  await dbAdmin.collection('payments').add(
+    cleanUndefined({
+      uid: payer.uid,
+      phone: params.payerPhone,
+      title: `Tuma Pesa kwa ${recipient.displayName}`,
+      subtitle: `PAPO-TO-PAPO (0% ADA) • ${noteText}`,
+      amount: amt,
+      type: 'debit',
+      category: 'transfer',
+      status: 'completed',
+      refCode,
+      createdAt: nowIso,
+      createdAtMs: Date.now(),
+    })
+  );
+
+  if (recipient.uid) {
+    await dbAdmin.collection('payments').add(
+      cleanUndefined({
+        uid: recipient.uid,
+        phone: recipient.phone || '',
+        title: `Umepokea Pesa kutoka ${params.payerName || params.payerPhone}`,
+        subtitle: `PAPO-TO-PAPO (0% ADA) • ${noteText}`,
+        amount: amt,
+        type: 'credit',
+        category: 'transfer',
+        status: 'completed',
+        refCode,
+        createdAt: nowIso,
+        createdAtMs: Date.now(),
+      })
+    );
+  }
+
+  return {
+    ok: true,
+    refCode,
+    newPayerBalance: nextPayerBal,
+    recipient: {
+      uid: recipient.uid,
+      displayName: recipient.displayName,
+      phone: recipient.phone,
+    },
+  };
+}
+
+/**
+ * Generates a Wakala cash-out code (0.2% fee) and atomically deducts from PapoWallet.
+ */
+export async function executePapoWalletWithdrawal(
+  dbAdmin: any,
+  params: {
+    payerUid?: string;
+    phone: string;
+    displayName: string;
+    amount: number;
+    agentName?: string;
+  }
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  withdrawCode?: string;
+  fee?: number;
+  totalDebit?: number;
+  newBalance?: number;
+  refCode?: string;
+}> {
+  const amt = Math.round(Number(params.amount || 0));
+  if (!dbAdmin || !Number.isFinite(amt) || amt < 1000) {
+    return { ok: false, reason: 'Kiasi cha chini cha kutoa kwa Wakala ni TZS 1,000.' };
+  }
+
+  const userRec = await findOrEnsureWalletUser(dbAdmin, {
+    uid: params.payerUid,
+    phone: params.phone,
+    displayName: params.displayName,
+    createIfMissing: false,
+  });
+  if (!userRec) {
+    return { ok: false, reason: 'Akaunti ya PapoWallet haikupatikana au haina salio.' };
+  }
+
+  const fee = Math.max(100, Math.round(amt * 0.002));
+  const totalDebit = amt + fee;
+  const withdrawCode = String(Math.floor(100000 + Math.random() * 900000));
+  const refCode = `WTH-${withdrawCode}`;
+  const nowIso = new Date().toISOString();
+  let newBalance = 0;
+
+  try {
+    if (typeof dbAdmin.runTransaction === 'function') {
+      await dbAdmin.runTransaction(async (tx: any) => {
+        const ref = dbAdmin.collection('users').doc(userRec.uid);
+        const snap = await tx.get(ref);
+        const curBal = Number(snap.data()?.walletBalance || 0);
+        if (curBal < totalDebit) {
+          throw new Error(`INSUFFICIENT:${curBal}`);
+        }
+        newBalance = curBal - totalDebit;
+        tx.set(ref, { walletBalance: newBalance, updatedAt: nowIso }, { merge: true });
+      });
+    } else {
+      const curBal = Number(userRec.data?.walletBalance || 0);
+      if (curBal < totalDebit) {
+        return {
+          ok: false,
+          reason: `Salio halitoshi kutoa TZS ${amt.toLocaleString()} + Ada TZS ${fee.toLocaleString()} (Una TZS ${curBal.toLocaleString()}).`,
+        };
+      }
+      newBalance = curBal - totalDebit;
+      await dbAdmin.collection('users').doc(userRec.uid).set(
+        { walletBalance: newBalance, updatedAt: nowIso },
+        { merge: true }
+      );
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.startsWith('INSUFFICIENT:')) {
+      const bal = Number(msg.split(':')[1] || 0);
+      return {
+        ok: false,
+        reason: `Salio halitoshi kutoa TZS ${amt.toLocaleString()} + Ada TZS ${fee.toLocaleString()} (Una TZS ${bal.toLocaleString()}).`,
+      };
+    }
+    return { ok: false, reason: 'Imeshindwa kuanzisha muamala wa kutoa pesa.' };
+  }
+
+  await dbAdmin.collection('payments').add(
+    cleanUndefined({
+      uid: userRec.uid,
+      phone: params.phone,
+      title: `Toa Pesa kwa Wakala (${params.agentName || 'PapoPay Wakala'})`,
+      subtitle: `MSIMBO: ${withdrawCode} • Ada 0.2% (TZS ${fee.toLocaleString()})`,
+      amount: totalDebit,
+      type: 'debit',
+      category: 'withdraw',
+      status: 'completed',
+      refCode,
+      withdrawCode,
+      createdAt: nowIso,
+      createdAtMs: Date.now(),
+    })
+  );
+
+  return { ok: true, withdrawCode, fee, totalDebit, newBalance, refCode };
+}
+
+/**
+ * Fetches PapoWallet balance, PapoPoints, card state, and latest ledger transactions.
+ */
+export async function getPapoWalletSummaryAndStatement(
+  dbAdmin: any,
+  phone: string
+): Promise<{
+  found: boolean;
+  uid?: string;
+  walletId: string;
+  walletBalance: number;
+  points: number;
+  isCardFrozen: boolean;
+  transactions: Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    amount: number;
+    type: 'credit' | 'debit';
+    refCode: string;
+    createdAtMs: number;
+  }>;
+}> {
+  const userRec = phone
+    ? await findOrEnsureWalletUser(dbAdmin, { phone, createIfMissing: false })
+    : null;
+
+  if (!userRec || !dbAdmin) {
+    return {
+      found: false,
+      walletId: '118504625',
+      walletBalance: 0,
+      points: 0,
+      isCardFrozen: false,
+      transactions: [],
+    };
+  }
+
+  let txs: any[] = [];
+  try {
+    const pSnap = await dbAdmin
+      .collection('payments')
+      .where('uid', '==', userRec.uid)
+      .limit(25)
+      .get();
+    txs = (pSnap.docs || [])
+      .map((d: any) => {
+        const p = d.data() || {};
+        const ms =
+          Number(p.createdAtMs || 0) ||
+          (typeof p.createdAt?.toMillis === 'function'
+            ? p.createdAt.toMillis()
+            : Date.parse(String(p.createdAt || '')) || 0);
+        return {
+          id: d.id,
+          title: String(p.title || 'Muamala wa PapoPay'),
+          subtitle: String(p.subtitle || ''),
+          amount: Number(p.amount || 0),
+          type: (p.type === 'debit' ? 'debit' : 'credit') as 'credit' | 'debit',
+          refCode: String(p.refCode || d.id.slice(-8).toUpperCase()),
+          createdAtMs: ms,
+        };
+      })
+      .sort((a: any, b: any) => b.createdAtMs - a.createdAtMs)
+      .slice(0, 8);
+  } catch {}
+
+  const digits = String(phone || '').replace(/\D/g, '');
+  const derivedWalletId = userRec.data?.walletId || (digits.length >= 9 ? `PP${digits.slice(-7)}` : '118504625');
+
+  return {
+    found: true,
+    uid: userRec.uid,
+    walletId: derivedWalletId,
+    walletBalance: Number(userRec.data?.walletBalance || 0),
+    points: Number(userRec.data?.points || 0),
+    isCardFrozen: Boolean(userRec.data?.virtualCardFrozen),
+    transactions: txs,
+  };
+}
+
+/**
+ * Freezes or unfreezes user's PapoPay Virtual Mastercard.
+ */
+export async function toggleVirtualMastercardFreeze(
+  dbAdmin: any,
+  phone: string,
+  freeze: boolean
+): Promise<{ ok: boolean; isCardFrozen: boolean }> {
+  const userRec = await findOrEnsureWalletUser(dbAdmin, { phone, createIfMissing: true });
+  if (!userRec || !dbAdmin) return { ok: false, isCardFrozen: freeze };
+  await dbAdmin.collection('users').doc(userRec.uid).set(
+    { virtualCardFrozen: freeze, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
+  return { ok: true, isCardFrozen: freeze };
+}
+
+/**
+ * Tops up a Student NFC Card from parent's PapoWallet.
+ */
+export async function topUpStudentNfcCardFromWallet(
+  dbAdmin: any,
+  params: {
+    phone: string;
+    studentNameOrCard: string;
+    amount: number;
+  }
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  studentName?: string;
+  cardNumber?: string;
+  newWalletBalance?: number;
+  refCode?: string;
+}> {
+  const amt = Math.round(Number(params.amount || 0));
+  if (!dbAdmin || !Number.isFinite(amt) || amt < 500) {
+    return { ok: false, reason: 'Kiasi cha chini cha kuongeza kadi ya mwanafunzi ni TZS 500.' };
+  }
+
+  const userRec = await findOrEnsureWalletUser(dbAdmin, { phone: params.phone, createIfMissing: false });
+  if (!userRec) {
+    return { ok: false, reason: 'Akaunti ya PapoWallet haikupatikana. Weka salio kwanza.' };
+  }
+
+  const refCode = `STD-${Math.floor(100000 + Math.random() * 900000)}`;
+  const nowIso = new Date().toISOString();
+  let newWalletBalance = 0;
+
+  try {
+    if (typeof dbAdmin.runTransaction === 'function') {
+      await dbAdmin.runTransaction(async (tx: any) => {
+        const ref = dbAdmin.collection('users').doc(userRec.uid);
+        const snap = await tx.get(ref);
+        const curBal = Number(snap.data()?.walletBalance || 0);
+        if (curBal < amt) {
+          throw new Error(`INSUFFICIENT:${curBal}`);
+        }
+        newWalletBalance = curBal - amt;
+        const existingCards: any[] = Array.isArray(snap.data()?.studentCards) ? snap.data().studentCards : [];
+        const needle = params.studentNameOrCard.trim().toLowerCase();
+        let matched = false;
+        const updatedCards = existingCards.map((c: any) => {
+          if (
+            !matched &&
+            (String(c.cardNumber || '').toLowerCase().includes(needle) ||
+              String(c.studentName || '').toLowerCase().includes(needle))
+          ) {
+            matched = true;
+            return { ...c, balance: Number(c.balance || 0) + amt };
+          }
+          return c;
+        });
+        if (!matched) {
+          updatedCards.push({
+            id: `std_${Date.now()}`,
+            studentName: params.studentNameOrCard.trim(),
+            cardNumber: /^TZ-STD-/i.test(params.studentNameOrCard.trim())
+              ? params.studentNameOrCard.trim().toUpperCase()
+              : `TZ-STD-${Math.floor(10000 + Math.random() * 89999)}`,
+            balance: amt,
+          });
+        }
+        tx.set(ref, { walletBalance: newWalletBalance, studentCards: updatedCards, updatedAt: nowIso }, { merge: true });
+      });
+    } else {
+      const curBal = Number(userRec.data?.walletBalance || 0);
+      if (curBal < amt) {
+        return { ok: false, reason: `Salio la PapoWallet halitoshi (Una TZS ${curBal.toLocaleString()}).` };
+      }
+      newWalletBalance = curBal - amt;
+      await dbAdmin.collection('users').doc(userRec.uid).set(
+        { walletBalance: newWalletBalance, updatedAt: nowIso },
+        { merge: true }
+      );
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.startsWith('INSUFFICIENT:')) {
+      const bal = Number(msg.split(':')[1] || 0);
+      return { ok: false, reason: `Salio la PapoWallet halitoshi (Una TZS ${bal.toLocaleString()}).` };
+    }
+    return { ok: false, reason: 'Hitilafu wakati wa kuongeza salio la kadi.' };
+  }
+
+  await dbAdmin.collection('payments').add(
+    cleanUndefined({
+      uid: userRec.uid,
+      phone: params.phone,
+      title: `Salio Kadi ya Mwanafunzi (${params.studentNameOrCard})`,
+      subtitle: `STUDENT NFC CARD • COMPLETED`,
+      amount: amt,
+      type: 'debit',
+      category: 'student',
+      status: 'completed',
+      refCode,
+      createdAt: nowIso,
+      createdAtMs: Date.now(),
+    })
+  );
+
+  return {
+    ok: true,
+    studentName: params.studentNameOrCard.trim(),
+    cardNumber: refCode,
+    newWalletBalance,
+    refCode,
+  };
+}
+

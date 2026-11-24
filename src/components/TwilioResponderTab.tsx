@@ -52,11 +52,14 @@ import { AutomationStudioTabs } from './AutomationStudioTabs';
 import { WhatsAppWelcomeSettingsCard } from './admin/WhatsAppWelcomeSettingsCard';
 import { handleMetaInput } from '../lib/metaBot';
 import { handleSMSInput } from '../lib/smsBot';
+import { WhatsAppInteractiveMessageView } from './common/WhatsAppInteractiveSheet';
 
 interface Message {
   sender: 'customer' | 'bot';
   text: string;
   timestamp: string;
+  media?: any[];
+  interactive?: any;
 }
 
 export function getInitialNodes() {
@@ -1370,18 +1373,20 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
     toast.success("Node imefutwa!");
   };
 
-  const sendSimulatedMetaMessage = async (text: string) => {
+  const sendSimulatedMetaMessage = async (text: string, displayLabel?: string) => {
     if (!text.trim()) return;
 
     const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    const userMsg: Message = { sender: 'customer', text, timestamp: timeString };
+    const userMsg: Message = { sender: 'customer', text: displayLabel || text, timestamp: timeString };
     setMetaChatMessages(prev => [...prev, userMsg]);
     setIsLoadingMeta(true);
     setMetaInputText('');
 
     try {
       let replyText = "";
+      let replyMedia: any[] | undefined;
+      let replyInteractive: any;
       try {
         const response = await fetch('/api/meta/simulate', {
           method: 'POST',
@@ -1398,6 +1403,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
         if (response.ok) {
           const data = await response.json();
           replyText = data.reply;
+          replyMedia = Array.isArray(data.media) ? data.media : undefined;
+          replyInteractive = data.interactive || undefined;
         }
       } catch (e) {
         console.warn("Server meta simulate API not reached, using local fallback:", e);
@@ -1410,6 +1417,8 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
       const botMsg: Message = {
         sender: 'bot',
         text: replyText,
+        media: replyMedia,
+        interactive: replyInteractive,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMetaChatMessages(prev => [...prev, botMsg]);
@@ -3756,6 +3765,44 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                             }`}
                           >
                             <p className="whitespace-pre-wrap">{msg.text}</p>
+                            {Array.isArray(msg.media) && msg.media.length > 0 && (
+                              <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                                {msg.media.map((att: any, idx: number) =>
+                                  att?.url ? (
+                                    <div key={idx} className="rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white">
+                                      <img
+                                        src={att.url}
+                                        alt={att.caption || 'Papo Hapo Media'}
+                                        referrerPolicy="no-referrer"
+                                        className="w-full max-h-36 object-contain"
+                                      />
+                                      {att.caption && (
+                                        <p className="px-2 py-1 text-[9.5px] text-neutral-600">{att.caption}</p>
+                                      )}
+                                    </div>
+                                  ) : null
+                                )}
+                              </div>
+                            )}
+                            {msg.sender === 'bot' && msg.interactive && (
+                              <WhatsAppInteractiveMessageView
+                                interactive={msg.interactive}
+                                isDark={false}
+                                defaultPhone={metaSenderId}
+                                onSelectReply={(replyId, label) => sendSimulatedMetaMessage(replyId, label || replyId)}
+                                onPaymentCompleted={(receiptPayload) => {
+                                  setMetaChatMessages((prev) => [
+                                    ...prev,
+                                    {
+                                      sender: 'bot',
+                                      text: receiptPayload?.body?.text || '✅ Malipo ya PapoPay yamekamilika!',
+                                      interactive: receiptPayload,
+                                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    },
+                                  ]);
+                                }}
+                              />
+                            )}
                             <div className={`mt-1.5 pt-1.5 border-t ${msg.sender === 'customer' ? 'border-white/10' : 'border-neutral-100 dark:border-neutral-800'} flex items-center justify-between text-[8px] ${msg.sender === 'customer' ? 'text-white/60 group-hover:text-white' : 'text-neutral-400 group-hover:text-fuchsia-500'} transition-colors`}>
                               <span className="flex items-center gap-1 font-bold uppercase tracking-wider">
                                 <span className={`w-1 h-1 rounded-full ${msg.sender === 'customer' ? 'bg-white/70' : 'bg-fuchsia-500'}`}></span>
@@ -3789,6 +3836,34 @@ export const TwilioResponderTab: React.FC<TwilioResponderTabProps> = ({ vendorId
                     Bofya Mifano Kuendesha AI Flow:
                   </span>
                   <div className="flex gap-1.5 overflow-x-auto pb-2 pt-0.5 px-0.5 scrollbar-none scroll-smooth">
+                    <button
+                      onClick={() => sendSimulatedMetaMessage("PapoPay")}
+                      disabled={isLoadingMeta}
+                      className="px-2.5 py-1.5 bg-[#008069] hover:bg-[#006b57] text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
+                    >
+                       💳 PapoPay Menu
+                    </button>
+                    <button
+                      onClick={() => sendSimulatedMetaMessage("Tuma pesa")}
+                      disabled={isLoadingMeta}
+                      className="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
+                    >
+                       💸 Tuma Pesa
+                    </button>
+                    <button
+                      onClick={() => sendSimulatedMetaMessage("LUKU 10000 14285930219")}
+                      disabled={isLoadingMeta}
+                      className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
+                    >
+                       ⚡ Lipa LUKU
+                    </button>
+                    <button
+                      onClick={() => sendSimulatedMetaMessage("Link ya malipo")}
+                      disabled={isLoadingMeta}
+                      className="px-2.5 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap active:scale-95 duration-100 shrink-0 select-none cursor-pointer shadow-xs"
+                    >
+                       🔗 Review & Pay
+                    </button>
                     <button
                       onClick={() => sendSimulatedMetaMessage("Habari! Naomba dereva wa Taxi kutoka Posta kwenda Mwenge")}
                       disabled={isLoadingMeta}

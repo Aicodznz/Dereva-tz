@@ -10,7 +10,7 @@ import {
   Flame, MapPin, Coffee, LayoutGrid, Calendar, ArrowLeftRight, 
   Layers, TrendingUp, Gift, Tag, Link2, MessageSquare, Trophy, 
   UserCheck, X, FileText, Globe, Clock, Shield, Sliders, ScanFace, Smile,
-  Scan, Activity, UserX, UserPlus
+  Scan, Activity, UserX, UserPlus, Delete
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
@@ -34,6 +34,7 @@ import { PapoPayKioskTerminal } from './PapoPayKioskTerminal';
 import { PysourceVisionCheckout } from './PysourceVisionCheckout';
 import { FaceRegistrationModal } from './FaceRegistrationModal';
 import { PapoPayWakalaPOS } from './PapoPayWakalaPOS';
+import WhatsAppAIAssistantModal from '../common/WhatsAppAIAssistantModal';
 
 export type PapoPayNavSection = 
   | 'overview' 
@@ -210,6 +211,163 @@ export default function PapoPayHome() {
       setIsFaceRegistered(true);
     }
   }, [profile?.hasFaceEnrolled]);
+
+  // WhatsApp Assistant & Express /pay Deep-Link Checkout State
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [expressCheckoutOpen, setExpressCheckoutOpen] = useState(false);
+  const [expressStep, setExpressStep] = useState<'review' | 'pin' | 'paid'>('review');
+  const [expressRecipientPhone, setExpressRecipientPhone] = useState('');
+  const [expressRecipientName, setExpressRecipientName] = useState('PapoPay Merchant');
+  const [expressAmount, setExpressAmount] = useState<number>(0);
+  const [expressRef, setExpressRef] = useState('');
+  const [expressOrderId, setExpressOrderId] = useState('');
+  const [expressTitle, setExpressTitle] = useState('Malipo ya PapoPay');
+  const [expressPurpose, setExpressPurpose] = useState('pay_vendor');
+  const [expressBuyerPhone, setExpressBuyerPhone] = useState(
+    profile?.phoneNumber || profile?.phone || user?.phoneNumber || ''
+  );
+  const [expressMethod, setExpressMethod] = useState<
+    'papowallet' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'
+  >('papowallet');
+  const [expressPin, setExpressPin] = useState('');
+  const [expressSubmitting, setExpressSubmitting] = useState(false);
+  const [expressError, setExpressError] = useState('');
+  const [expressReceipt, setExpressReceipt] = useState<{
+    referenceId: string;
+    amount: number;
+    merchantName: string;
+    methodLabel: string;
+    status: 'paid' | 'pending';
+    token?: string | null;
+    cashbackPoints?: number;
+    message?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const p = profile?.phoneNumber || profile?.phone || user?.phoneNumber || '';
+    if (p && !expressBuyerPhone) {
+      setExpressBuyerPhone(p);
+    }
+  }, [profile?.phoneNumber, profile?.phone, user?.phoneNumber, expressBuyerPhone]);
+
+  useEffect(() => {
+    const amountRaw = Number(searchParams.get('amount') || 0);
+    const toParam = (searchParams.get('to') || '').trim();
+    const nameParam = (searchParams.get('name') || '').trim();
+    const refParam = (searchParams.get('ref') || '').trim();
+    const orderIdParam = (searchParams.get('orderId') || '').trim();
+    const titleParam = (searchParams.get('title') || '').trim();
+    const purposeParam = (searchParams.get('purpose') || '').trim();
+    const modeParam = (searchParams.get('mode') || '').trim();
+
+    if (
+      Number.isFinite(amountRaw) &&
+      amountRaw >= 100 &&
+      (toParam || nameParam || refParam || modeParam === 'whatsapp')
+    ) {
+      setExpressAmount(Math.round(amountRaw));
+      setExpressRecipientPhone(toParam);
+      setExpressRecipientName(nameParam || toParam || 'PapoPay Merchant');
+      setExpressRef(refParam || `PP-${Math.floor(100000 + Math.random() * 899999)}`);
+      setExpressOrderId(orderIdParam);
+      setExpressTitle(titleParam || `Malipo kwenda ${nameParam || toParam || 'PapoPay'}`);
+      setExpressPurpose(purposeParam || 'pay_vendor');
+      setExpressStep('review');
+      setExpressPin('');
+      setExpressError('');
+      setExpressReceipt(null);
+      setExpressCheckoutOpen(true);
+    }
+  }, [searchParams]);
+
+  const handleExpressCheckoutSubmit = async (pinOverride?: string) => {
+    const cleanPhone = expressBuyerPhone.trim();
+    if (cleanPhone.replace(/\D/g, '').length < 9) {
+      setExpressError('Weka namba sahihi ya simu ya mlipaji (mf. 0712345678).');
+      return;
+    }
+
+    const needsPin = expressMethod === 'papowallet' || expressMethod === 'card';
+    const activePin = (pinOverride ?? expressPin).trim();
+    if (needsPin && !/^\d{4}$/.test(activePin)) {
+      setExpressError('Ingiza PIN yako ya tarakimu 4.');
+      return;
+    }
+
+    setExpressSubmitting(true);
+    setExpressError('');
+    try {
+      const resp = await fetch('/api/payments/papopay-whatsapp-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: expressAmount,
+          method: expressMethod,
+          buyerPhone: cleanPhone,
+          payerName: profile?.displayName || profile?.fullName || user?.displayName || 'Mteja wa PapoPay',
+          recipientName: expressRecipientName,
+          recipientPhone: expressRecipientPhone,
+          title: expressTitle,
+          purpose: expressPurpose,
+          orderId: expressOrderId,
+          referenceId: expressRef,
+          pin: needsPin ? activePin : undefined,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        setExpressError(json?.error || json?.message || 'Malipo yameshindikana. Hakiki taarifa zako.');
+        setExpressSubmitting(false);
+        return;
+      }
+
+      if (typeof json.newBalance === 'number' && !user?.uid) {
+        setBalanceTZS(json.newBalance);
+      } else if (json.status === 'paid' && !user?.uid) {
+        setBalanceTZS((prev) => Math.max(0, prev - expressAmount));
+      }
+      if (typeof json.cashbackPoints === 'number' && !user?.uid) {
+        setCoinsBalance((prev) => prev + json.cashbackPoints);
+      }
+
+      const newTx: TransactionItem = {
+        id: `tx_wa_${Date.now()}`,
+        title: `${expressTitle} (${json.merchantName || expressRecipientName})`,
+        subtitle: json.token
+          ? `TOKEN: ${json.token} • ${json.methodLabel || expressMethod.toUpperCase()}`
+          : `${json.methodLabel || expressMethod.toUpperCase()} • ${json.status === 'paid' ? 'COMPLETED' : 'PENDING USSD'}`,
+        amount: expressAmount,
+        type: 'debit',
+        category: expressPurpose === 'pay_bill' ? 'bill' : 'merchant',
+        date: 'Leo',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        refCode: `TRX: ${json.referenceId || expressRef}`,
+        status: json.status === 'paid' ? 'completed' : 'pending',
+      };
+      setTransactions((prev) => [newTx, ...prev]);
+
+      setExpressReceipt({
+        referenceId: json.referenceId || expressRef,
+        amount: expressAmount,
+        merchantName: json.merchantName || expressRecipientName,
+        methodLabel: json.methodLabel || expressMethod.toUpperCase(),
+        status: json.status === 'paid' ? 'paid' : 'pending',
+        token: json.token || null,
+        cashbackPoints: json.cashbackPoints || 0,
+        message: json.message,
+      });
+      setExpressStep('paid');
+      toast.success(
+        json.status === 'paid'
+          ? `TZS ${expressAmount.toLocaleString()} zimelipwa kikamilifu!`
+          : 'Ombi la malipo limetumwa kwenye simu yako!'
+      );
+    } catch (err: any) {
+      setExpressError('Hitilafu ya mtandao: ' + (err?.message || 'Jaribu tena.'));
+    } finally {
+      setExpressSubmitting(false);
+    }
+  };
   const [faceDailyLimit, setFaceDailyLimit] = useState(500000);
   const [facePayTarget, setFacePayTarget] = useState<{ amount: number; recipient: string; service: string }>({
     amount: 25500,
@@ -970,10 +1128,20 @@ export default function PapoPayHome() {
               </button>
             </div>
 
+            {/* Tumia PapoPay Kwenye WhatsApp Button */}
+            <button
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+              title="Tumia PapoPay Kwenye WhatsApp"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">PapoPay WhatsApp</span>
+            </button>
+
             {/* Quick Deposit Button */}
             <button
               onClick={() => setIsTopUpModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#3b66f5] hover:bg-[#2f55e0] text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#3b66f5] hover:bg-[#2f55e0] text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Weka Salio</span>
@@ -1196,6 +1364,18 @@ export default function PapoPayHome() {
                   POS
                 </span>
               </Link>
+
+              {/* Tumia PapoPay Kwenye WhatsApp */}
+              <button
+                onClick={() => setIsWhatsAppModalOpen(true)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200/80 dark:border-emerald-800/40 group cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                  <span className="font-bold">PapoPay Kwenye WhatsApp</span>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-75" />
+              </button>
 
               {/* My Virtual Cards & Student NFC */}
               <button
@@ -1675,6 +1855,30 @@ export default function PapoPayHome() {
                     </div>
                   </div>
                   <div className="w-7 h-7 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400 group-hover:text-purple-600 flex items-center justify-center transition-colors">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* Card 9: Tumia PapoPay Kwenye WhatsApp */}
+                <div
+                  onClick={() => setIsWhatsAppModalOpen(true)}
+                  className="sm:col-span-2 lg:col-span-4 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#075E54] via-[#0d7367] to-[#128C7E] text-white shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm text-white flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black tracking-tight">
+                        Tumia PapoPay Kwenye WhatsApp (In-Chat Checkout)
+                      </h3>
+                      <p className="text-xs text-emerald-100 mt-0.5">
+                        Angalia salio, tuma pesa 0% ada, lipa LUKU, toa pesa kwa Wakala, gawana bili na tuma kadi za Review &amp; Pay moja kwa moja ndani ya WhatsApp.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-white text-[#075E54] font-black text-xs flex items-center justify-center gap-2 shrink-0 group-hover:bg-emerald-50 transition-colors">
+                    <span>Fungua PapoPay WhatsApp</span>
                     <ArrowUpRight className="w-4 h-4" />
                   </div>
                 </div>
@@ -3619,18 +3823,20 @@ export default function PapoPayHome() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    toast.success('Risiti imetumwa kwenye WhatsApp yako!');
-                  }}
-                  className="py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-neutral-200"
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `🧾 *STAKABADHI YA PAPOPAY*\n• Muamala: ${selectedReceipt.title}\n• Kiasi: ${formatAmount(selectedReceipt.amount)}\n• Rejea: ${selectedReceipt.refCode}\n• Hali: Imethibitishwa`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#1fb857] transition-colors"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
-                </button>
+                  <span>Tuma WhatsApp</span>
+                </a>
                 <button
                   onClick={() => setIsReceiptModalOpen(false)}
-                  className="py-2.5 rounded-xl bg-[#3b66f5] text-white font-black text-xs uppercase hover:bg-blue-600"
+                  className="min-h-[44px] py-2.5 rounded-xl bg-[#3b66f5] text-white font-black text-xs uppercase hover:bg-blue-600 cursor-pointer"
                 >
                   Funga
                 </button>
@@ -3639,6 +3845,371 @@ export default function PapoPayHome() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ========================================================================= */}
+      {/* MODAL 2B: WHATSAPP EXPRESS /pay REVIEW & PAY CHECKOUT SHEET */}
+      {/* ========================================================================= */}
+      <AnimatePresence>
+        {expressCheckoutOpen && (
+          <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center sm:p-4 bg-black/75 backdrop-blur-sm">
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="bg-white dark:bg-[#111625] rounded-t-3xl sm:rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800"
+            >
+              {expressStep === 'paid' && expressReceipt ? (
+                <div className="bg-[#00A884] text-white p-6 space-y-5 text-center">
+                  <div className="w-16 h-16 rounded-full bg-white text-[#00A884] mx-auto flex items-center justify-center shadow-lg">
+                    <Check className="w-9 h-9 stroke-[3]" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-100">
+                      {expressReceipt.status === 'paid' ? 'Paid successfully' : 'Ombi Limetumwa'}
+                    </p>
+                    <h3 className="text-3xl font-black tabular-nums">
+                      TZS {expressReceipt.amount.toLocaleString()}
+                    </h3>
+                    <p className="text-sm font-semibold text-emerald-50">
+                      Kwenda: {expressReceipt.merchantName}
+                    </p>
+                    <p className="text-xs text-emerald-100 font-mono">
+                      #{expressReceipt.referenceId} • {expressReceipt.methodLabel}
+                    </p>
+                  </div>
+
+                  {expressReceipt.token && (
+                    <div className="p-3.5 rounded-2xl bg-white/15 backdrop-blur-sm text-left space-y-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-100 block">
+                        Tokeni yako ya LUKU
+                      </span>
+                      <span className="text-lg font-black font-mono tracking-wider block">
+                        {expressReceipt.token}
+                      </span>
+                    </div>
+                  )}
+
+                  {expressReceipt.message && expressReceipt.status === 'pending' && (
+                    <p className="text-xs bg-white/15 rounded-xl p-3 text-emerald-50">
+                      {expressReceipt.message}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const summary =
+                          `✅ PapoPay Risiti\n` +
+                          `Rejea: #${expressReceipt.referenceId}\n` +
+                          `Mpokeaji: ${expressReceipt.merchantName}\n` +
+                          `Kiasi: TZS ${expressReceipt.amount.toLocaleString()}/=\n` +
+                          `Njia: ${expressReceipt.methodLabel}` +
+                          (expressReceipt.token ? `\nLUKU Token: ${expressReceipt.token}` : '');
+                        navigator.clipboard?.writeText(summary);
+                        toast.success('Risiti imenakiliwa!');
+                      }}
+                      className="min-h-[44px] py-2.5 px-3 rounded-2xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>Nakili Risiti</span>
+                    </button>
+
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `✅ *RISITI YA PAPOPAY*\n• Rejea: #${expressReceipt.referenceId}\n• Kwenda: ${expressReceipt.merchantName}\n• Kiasi: TZS ${expressReceipt.amount.toLocaleString()}/=\n• Njia: ${expressReceipt.methodLabel}` +
+                          (expressReceipt.token ? `\n• LUKU Token: ${expressReceipt.token}` : '')
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[44px] py-2.5 px-3 rounded-2xl bg-white text-[#075E54] hover:bg-emerald-50 text-xs font-black flex items-center justify-center gap-1.5"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Tuma WhatsApp</span>
+                    </a>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpressCheckoutOpen(false)}
+                    className="w-full min-h-[44px] py-2.5 rounded-2xl border border-white/40 text-white text-xs font-bold hover:bg-white/10 cursor-pointer"
+                  >
+                    Rudi Kwenye PapoPay
+                  </button>
+                </div>
+              ) : expressStep === 'pin' ? (
+                <div>
+                  <div className="bg-[#0B2D71] text-white px-5 py-4 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExpressStep('review');
+                        setExpressPin('');
+                        setExpressError('');
+                      }}
+                      className="min-h-[44px] min-w-[44px] -ml-2 flex items-center justify-center text-white/90 hover:text-white cursor-pointer"
+                      aria-label="Rudi nyuma"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="text-center min-w-0">
+                      <p className="text-[11px] text-blue-200 truncate">{expressRecipientName}</p>
+                      <p className="text-base font-black tabular-nums">TZS {expressAmount.toLocaleString()}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExpressCheckoutOpen(false)}
+                      className="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-white/80 hover:text-white cursor-pointer"
+                      aria-label="Funga"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-5">
+                    <div className="text-center space-y-1">
+                      <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                        Ingiza PIN ya PapoPay (Tarakimu 4)
+                      </p>
+                      <p className="text-[11px] text-neutral-400">
+                        Namba: {expressBuyerPhone || '—'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-3">
+                      {[0, 1, 2, 3].map((idx) => (
+                        <div
+                          key={idx}
+                          className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-xl font-black transition-all ${
+                            expressPin.length > idx
+                              ? 'border-[#008069] bg-emerald-50 dark:bg-emerald-950/40 text-neutral-900 dark:text-white'
+                              : 'border-neutral-300 dark:border-neutral-700 text-neutral-300'
+                          }`}
+                        >
+                          {expressPin.length > idx ? '•' : ''}
+                        </div>
+                      ))}
+                    </div>
+
+                    {expressError && (
+                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-semibold text-center">
+                        {expressError}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                        <button
+                          key={digit}
+                          type="button"
+                          disabled={expressSubmitting}
+                          onClick={() => {
+                            if (expressPin.length >= 4) return;
+                            const next = expressPin + digit;
+                            setExpressPin(next);
+                            setExpressError('');
+                            if (next.length === 4) {
+                              handleExpressCheckoutSubmit(next);
+                            }
+                          }}
+                          className="min-h-[52px] rounded-2xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-lg font-black text-neutral-900 dark:text-white tabular-nums transition-colors cursor-pointer"
+                        >
+                          {digit}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={expressSubmitting}
+                        onClick={() => setExpressPin((prev) => prev.slice(0, -1))}
+                        className="min-h-[52px] rounded-2xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center text-neutral-700 dark:text-neutral-200 cursor-pointer"
+                        aria-label="Futa tarakimu"
+                      >
+                        <Delete className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={expressSubmitting}
+                        onClick={() => {
+                          if (expressPin.length >= 4) return;
+                          const next = expressPin + '0';
+                          setExpressPin(next);
+                          setExpressError('');
+                          if (next.length === 4) {
+                            handleExpressCheckoutSubmit(next);
+                          }
+                        }}
+                        className="min-h-[52px] rounded-2xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-lg font-black text-neutral-900 dark:text-white tabular-nums transition-colors cursor-pointer"
+                      >
+                        0
+                      </button>
+                      <button
+                        type="button"
+                        disabled={expressSubmitting || expressPin.length < 4}
+                        onClick={() => handleExpressCheckoutSubmit()}
+                        className="min-h-[52px] rounded-2xl bg-[#008069] hover:bg-[#016a56] disabled:opacity-50 text-white flex items-center justify-center font-black cursor-pointer"
+                        aria-label="Thibitisha PIN"
+                      >
+                        {expressSubmitting ? (
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Check className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-[#075E54] text-white px-5 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center font-black text-sm shrink-0">
+                        {expressRecipientName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black truncate">Review and pay</h3>
+                        <p className="text-[11px] text-emerald-100 font-mono truncate">
+                          #{expressRef}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExpressCheckoutOpen(false)}
+                      className="min-h-[44px] min-w-[44px] -mr-2 flex items-center justify-center text-white/80 hover:text-white cursor-pointer"
+                      aria-label="Funga"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block">
+                            Mpokeaji
+                          </span>
+                          <p className="text-sm font-black text-neutral-900 dark:text-white truncate">
+                            {expressRecipientName}
+                          </p>
+                          <p className="text-xs text-neutral-500 truncate">{expressTitle}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block">
+                            Jumla
+                          </span>
+                          <span className="text-lg font-black font-mono tabular-nums text-[#075E54] dark:text-emerald-400">
+                            TZS {expressAmount.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1.5">
+                        Namba Yako ya Simu (Mlipaji)
+                      </label>
+                      <input
+                        type="tel"
+                        value={expressBuyerPhone}
+                        onChange={(e) => {
+                          setExpressBuyerPhone(e.target.value);
+                          setExpressError('');
+                        }}
+                        placeholder="0712345678"
+                        className="w-full min-h-[44px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold text-neutral-900 dark:text-white focus:outline-none focus:border-[#008069]"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                          Chagua Njia ya Malipo
+                        </label>
+                        <span className="text-[11px] font-mono font-bold text-[#3b66f5] tabular-nums">
+                          Salio: TZS {balanceTZS.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { id: 'papowallet', label: 'PapoPay Wallet', sub: '0% Ada • Papo Hapo' },
+                          { id: 'mpesa', label: 'M-Pesa', sub: 'USSD Push' },
+                          { id: 'tigopesa', label: 'Mixx by Yas', sub: 'Tigo Pesa Push' },
+                          { id: 'airtel', label: 'Airtel Money', sub: 'USSD Push' },
+                          { id: 'halopesa', label: 'HaloPesa', sub: 'USSD Push' },
+                          { id: 'card', label: 'Mastercard / Visa', sub: 'Virtual Card' },
+                        ] as const).map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setExpressMethod(m.id);
+                              setExpressError('');
+                            }}
+                            className={`min-h-[48px] p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                              expressMethod === m.id
+                                ? 'border-[#008069] bg-emerald-50 dark:bg-emerald-950/40'
+                                : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-neutral-50'
+                            }`}
+                          >
+                            <div className="text-xs font-black text-neutral-900 dark:text-white">
+                              {m.label}
+                            </div>
+                            <div className="text-[10px] text-neutral-500">{m.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {expressError && (
+                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-semibold">
+                        {expressError}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={expressSubmitting}
+                      onClick={() => {
+                        if (expressBuyerPhone.replace(/\D/g, '').length < 9) {
+                          setExpressError('Weka namba sahihi ya simu ya mlipaji (mf. 0712345678).');
+                          return;
+                        }
+                        if (expressMethod === 'papowallet' || expressMethod === 'card') {
+                          setExpressPin('');
+                          setExpressError('');
+                          setExpressStep('pin');
+                        } else {
+                          handleExpressCheckoutSubmit();
+                        }
+                      }}
+                      className="w-full min-h-[48px] py-3 rounded-2xl bg-[#008069] hover:bg-[#016a56] disabled:opacity-60 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                    >
+                      {expressSubmitting ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Lock className="w-4 h-4" />
+                      )}
+                      <span>
+                        {expressMethod === 'papowallet' || expressMethod === 'card'
+                          ? `Endelea Kulipa TZS ${expressAmount.toLocaleString()}`
+                          : `Tuma Push ya TZS ${expressAmount.toLocaleString()}`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PapoPay Kwenye WhatsApp Interactive Modal */}
+      <WhatsAppAIAssistantModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+        initialMode="papopay"
+      />
 
       {/* PapoPay Face Payment (Smile-to-Pay) Modal */}
       <FacePaymentModal
