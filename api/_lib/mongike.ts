@@ -4,6 +4,9 @@ import { settlePaidMongikeOrder } from './papoWalletSettlement.js';
 export const MONGIKE_TANZANIA_MOMO_ENDPOINT =
   'https://mongike.com/api/v1/payments/mobile-money/tanzania';
 
+export const PAPO_LIPA_NAMBA = '5656565';
+export const PAPO_LIPA_NAMBA_NAME = 'Papo Hapo Super App';
+
 export interface MongikePaymentResult {
   status: string;
   message: string;
@@ -382,6 +385,7 @@ export async function checkMongikeOrderPaymentStatus(
   state: 'paid' | 'pending' | 'failed';
   amount: number;
   gatewayRef?: string;
+  paymentMethod?: string;
   errorMessage?: string;
   newWalletBalance?: number;
   sandbox?: boolean;
@@ -467,6 +471,21 @@ export async function checkMongikeOrderPaymentStatus(
       }
     }
 
+    // If customer chose or switched to Lipa Namba 5656565 (manual Admin confirmation),
+    // treat status as pending Admin confirmation rather than a failed Mongike USSD push.
+    if (
+      String(rec.paymentMethod || '').toLowerCase() === 'lipanamba' ||
+      rec.paymentPushStatus === 'awaiting_admin_confirm'
+    ) {
+      return {
+        state: 'pending',
+        amount,
+        gatewayRef,
+        paymentMethod: 'lipanamba',
+        sandbox: cb.mode === 'sandbox',
+      };
+    }
+
     if (
       rec.paymentPushStatus === 'failed' ||
       ['FAILED', 'ERROR', 'CANCELLED', 'EXPIRED'].includes(cbStatus)
@@ -475,6 +494,7 @@ export async function checkMongikeOrderPaymentStatus(
         state: 'failed',
         amount,
         gatewayRef,
+        paymentMethod: String(rec.paymentMethod || '') || undefined,
         errorMessage: String(rec.paymentError || cb.error_message || 'Ombi la malipo halikukamilika.'),
         sandbox: cb.mode === 'sandbox',
       };
@@ -484,6 +504,7 @@ export async function checkMongikeOrderPaymentStatus(
       state: 'pending',
       amount,
       gatewayRef,
+      paymentMethod: String(rec.paymentMethod || '') || undefined,
       sandbox: cb.mode === 'sandbox',
     };
   } catch (err: any) {
@@ -493,6 +514,135 @@ export async function checkMongikeOrderPaymentStatus(
       errorMessage: err?.message,
     };
   }
+}
+
+export async function confirmManualOrderPayment(
+  dbAdmin: any,
+  params: {
+    orderId: string;
+    collection?: 'orders' | 'rides';
+    adminUid: string;
+    adminEmail?: string;
+    transactionRef?: string;
+    note?: string;
+    onConfirmedPaid?: (info: {
+      targetId: string;
+      targetType: 'orders' | 'rides';
+      amount: number;
+      gatewayRef: string;
+    }) => Promise<any> | any;
+  }
+): Promise<{
+  ok: boolean;
+  statusCode?: number;
+  error?: string;
+  alreadyPaid?: boolean;
+  orderId?: string;
+  amount?: number;
+  gatewayRef?: string;
+  newWalletBalance?: number;
+}> {
+  const { orderId, collection = 'orders', adminUid, adminEmail, transactionRef, note, onConfirmedPaid } = params;
+  if (!dbAdmin || !orderId) {
+    return { ok: false, statusCode: 400, error: 'Order ID au kanzidata haikupatikana.' };
+  }
+
+  const docRef = dbAdmin.collection(collection).doc(String(orderId));
+  const snap = await docRef.get().catch(() => null);
+  if (!snap?.exists) {
+    return { ok: false, statusCode: 404, error: 'Oda haikupatikana kwenye mfumo.' };
+  }
+
+  const rec = snap.data() || {};
+  const amount = Math.max(0, Math.round(Number(rec.totalAmount || rec.total || rec.fare || 0)));
+  const cleanRef = String(
+    transactionRef || rec.lipaNambaRef || rec.gatewayRef || `LIPA-${PAPO_LIPA_NAMBA}-${String(orderId).slice(-6).toUpperCase()}`
+  ).trim();
+
+  if (String(rec.paymentStatus || '').toLowerCase() === 'paid') {
+    const settled = await settlePaidMongikeOrder(dbAdmin, {
+      targetId: String(orderId),
+      targetType: collection,
+      amount,
+      gatewayRef: cleanRef,
+    }).catch(() => null);
+    return {
+      ok: true,
+      alreadyPaid: true,
+      orderId: String(orderId),
+      amount,
+      gatewayRef: cleanRef,
+      newWalletBalance: settled?.newPayerBalance ?? rec.newWalletBalance,
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  await docRef.set(
+    cleanUndefined({
+      paymentStatus: 'paid',
+      paymentPushStatus: 'confirmed_by_admin',
+      paymentError: null,
+      paymentMethod: rec.paymentMethod || 'lipanamba',
+      paymentMethodLabel: rec.paymentMethodLabel || `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`,
+      lipaNambaNumber: rec.lipaNambaNumber || PAPO_LIPA_NAMBA,
+      lipaNambaRef: cleanRef,
+      gatewayRef: cleanRef,
+      confirmedByAdminUid: adminUid,
+      confirmedByAdminEmail: adminEmail || null,
+      adminConfirmNote: note || null,
+      paidAt: nowIso,
+      updatedAt: nowIso,
+    }),
+    { merge: true }
+  );
+
+  await dbAdmin.collection('payment_callbacks').doc(String(orderId)).set(
+    cleanUndefined({
+      order_id: String(orderId),
+      targetCollection: collection,
+      provider: 'lipanamba_manual',
+      lipa_namba: PAPO_LIPA_NAMBA,
+      status: 'COMPLETED',
+      reference_id: cleanRef,
+      amount,
+      confirmed_by_admin_uid: adminUid,
+      confirmed_by_admin_email: adminEmail || null,
+      updated_at: nowIso,
+    }),
+    { merge: true }
+  );
+
+  const settled = await settlePaidMongikeOrder(dbAdmin, {
+    targetId: String(orderId),
+    targetType: collection,
+    amount,
+    gatewayRef: cleanRef,
+  }).catch((err) => {
+    console.warn('[Confirm Manual Payment] Settlement warning:', err);
+    return null;
+  });
+
+  if (onConfirmedPaid) {
+    await Promise.resolve(
+      onConfirmedPaid({
+        targetId: String(orderId),
+        targetType: collection,
+        amount,
+        gatewayRef: cleanRef,
+      })
+    ).catch((err) => {
+      console.warn('[Confirm Manual Payment] WhatsApp notify warning:', err);
+    });
+  }
+
+  return {
+    ok: true,
+    alreadyPaid: false,
+    orderId: String(orderId),
+    amount,
+    gatewayRef: cleanRef,
+    newWalletBalance: settled?.newPayerBalance,
+  };
 }
 
 export async function processMongikeWebhook(

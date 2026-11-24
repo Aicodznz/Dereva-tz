@@ -20,6 +20,7 @@ interface CallbackRecord {
   reference_id?: string;
   amount?: number;
   mode?: string;
+  error_message?: string;
   updated_at?: string;
 }
 
@@ -133,6 +134,22 @@ export const MongikeGatewayCard: React.FC = () => {
       </CardHeader>
 
       <CardContent className="p-5 space-y-5">
+        {statusData?.recentCallbacks?.some((cb) =>
+          /not\s*activated|suspended|access\s*denied/i.test(String(cb.error_message || ''))
+        ) && (
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+            <div className="text-xs space-y-1 leading-relaxed">
+              <div className="font-black uppercase tracking-wide">
+                Tahadhari: Application ya Mongike Haijawashwa au Imesimamishwa
+              </div>
+              <p>
+                Mongike imerudisha: <b>&ldquo;{statusData.recentCallbacks.find((cb) => cb.error_message)?.error_message}&rdquo;</b>.
+                Ingia kwenye dashibodi ya <b>mongike.com</b> uhakikishe Application ipo <b>Active</b> (au weka API Key mpya iliyo Active kwenye Secrets ya seva).
+              </p>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800 space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-neutral-800 dark:text-neutral-200">
@@ -201,6 +218,9 @@ export const MongikeGatewayCard: React.FC = () => {
                     const paid = ['COMPLETED', 'SUCCESS', 'PAID', 'SETTLED'].includes(
                       String(cb.status || '').toUpperCase()
                     );
+                    const failed = ['FAILED', 'ERROR', 'CANCELLED'].includes(
+                      String(cb.status || '').toUpperCase()
+                    );
                     return (
                       <tr key={cb.id}>
                         <td className="py-2 px-3 font-mono font-bold text-neutral-800 dark:text-neutral-200">
@@ -217,11 +237,18 @@ export const MongikeGatewayCard: React.FC = () => {
                             className={`border-none text-[10px] font-black uppercase ${
                               paid
                                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                : failed
+                                ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                                 : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
                             }`}
                           >
                             {cb.status || 'PENDING'}
                           </Badge>
+                          {cb.error_message && (
+                            <div className="text-[10px] text-red-600 dark:text-red-400 mt-1 max-w-[260px] leading-snug">
+                              {cb.error_message}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 px-3 text-[11px] text-neutral-400">
                           {cb.updated_at ? new Date(cb.updated_at).toLocaleString() : '-'}

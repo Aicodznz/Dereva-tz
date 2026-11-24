@@ -7,7 +7,8 @@ import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
 import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, notifyFundisNewJobToWhatsApp, processDueScheduledBookings, sendWhatsAppPromoBroadcast, generateVisualReceiptQrBuffer, clearMetaHumanHandoverState, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely, processAbandonedSessionsRecovery, listSosAlerts, resolveSosAlert, getMetaTemplateSettings, saveMetaTemplateSettings } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
-import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook } from "./api/_lib/mongike";
+import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook, confirmManualOrderPayment } from "./api/_lib/mongike";
+import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
 
@@ -1315,7 +1316,7 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     });
   });
 
-  // PapoPay WhatsApp Express Checkout (PapoWallet PIN, Card, or Mongike Mobile Money)
+  // PapoPay WhatsApp Express Checkout (PapoWallet PIN, Card, Lipa Namba 5656565, or Mongike Mobile Money)
   app.post("/api/payments/papopay-whatsapp-checkout", async (req, res) => {
     try {
       const { statusCode, payload } = await processPapoPayWhatsAppCheckout(dbAdmin, req.body || {});
@@ -1323,6 +1324,38 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     } catch (err: any) {
       console.error("[PapoPay WhatsApp Checkout] Error:", err);
       return res.status(500).json({ ok: false, error: "Hitilafu ya mfumo wakati wa kuchakata malipo." });
+    }
+  });
+
+  // Admin Manual Confirmation for Lipa Namba 5656565 / Pending Payments
+  app.post("/api/payments/confirm-manual", async (req, res) => {
+    try {
+      const authRes = await verifyAdminRequest(req.headers.authorization, dbAdmin);
+      if ('error' in authRes) {
+        return res.status(authRes.status).json({ ok: false, error: authRes.error });
+      }
+      const { orderId, collection, transactionRef, note } = req.body || {};
+      const cleanOrderId = String(orderId || "").trim();
+      if (!cleanOrderId || cleanOrderId.length > 128) {
+        return res.status(400).json({ ok: false, error: "Kitambulisho cha oda hakipo au si sahihi." });
+      }
+      const colName: "orders" | "rides" = collection === "rides" ? "rides" : "orders";
+      const result = await confirmManualOrderPayment(dbAdmin, {
+        orderId: cleanOrderId,
+        collection: colName,
+        adminUid: authRes.admin.uid,
+        adminEmail: authRes.admin.email,
+        transactionRef: typeof transactionRef === "string" ? transactionRef.trim().slice(0, 80) : undefined,
+        note: typeof note === "string" ? note.trim().slice(0, 200) : undefined,
+        onConfirmedPaid: (info) => notifyMongikePaymentPaidToWhatsApp(info, dbAdmin),
+      });
+      if (!result.ok) {
+        return res.status(result.statusCode || 400).json({ ok: false, error: result.error });
+      }
+      return res.status(200).json(result);
+    } catch (err: any) {
+      console.error("[Confirm Manual Payment] Error:", err);
+      return res.status(500).json({ ok: false, error: "Hitilafu ya seva wakati wa kuthibitisha malipo." });
     }
   });
 

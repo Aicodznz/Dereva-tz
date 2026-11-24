@@ -35,6 +35,7 @@ import { PysourceVisionCheckout } from './PysourceVisionCheckout';
 import { FaceRegistrationModal } from './FaceRegistrationModal';
 import { PapoPayWakalaPOS } from './PapoPayWakalaPOS';
 import WhatsAppAIAssistantModal from '../common/WhatsAppAIAssistantModal';
+import { PAPO_LIPA_NAMBA, PAPO_LIPA_NAMBA_NAME } from '../../constants/lipaNamba';
 
 export type PapoPayNavSection = 
   | 'overview' 
@@ -174,8 +175,9 @@ export default function PapoPayHome() {
 
   // Top Up form state
   const [topUpAmount, setTopUpAmount] = useState('25000');
-  const [topUpMethod, setTopUpMethod] = useState<'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'>('mpesa');
+  const [topUpMethod, setTopUpMethod] = useState<'lipanamba' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'>('lipanamba');
   const [topUpPhone, setTopUpPhone] = useState(profile?.phoneNumber || profile?.phone || '');
+  const [topUpLipaRef, setTopUpLipaRef] = useState('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
   const [topUpStatusNote, setTopUpStatusNote] = useState('');
 
@@ -227,8 +229,9 @@ export default function PapoPayHome() {
     profile?.phoneNumber || profile?.phone || user?.phoneNumber || ''
   );
   const [expressMethod, setExpressMethod] = useState<
-    'papowallet' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'
+    'papowallet' | 'lipanamba' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'
   >('papowallet');
+  const [expressLipaRef, setExpressLipaRef] = useState('');
   const [expressPin, setExpressPin] = useState('');
   const [expressSubmitting, setExpressSubmitting] = useState(false);
   const [expressError, setExpressError] = useState('');
@@ -237,7 +240,7 @@ export default function PapoPayHome() {
     amount: number;
     merchantName: string;
     methodLabel: string;
-    status: 'paid' | 'pending';
+    status: 'paid' | 'pending' | 'pending_admin_confirm';
     token?: string | null;
     cashbackPoints?: number;
     message?: string;
@@ -312,6 +315,7 @@ export default function PapoPayHome() {
           orderId: expressOrderId,
           referenceId: expressRef,
           pin: needsPin ? activePin : undefined,
+          transactionRef: expressMethod === 'lipanamba' ? expressLipaRef.trim() || undefined : undefined,
         }),
       });
       const json = await resp.json().catch(() => ({}));
@@ -330,19 +334,32 @@ export default function PapoPayHome() {
         setCoinsBalance((prev) => prev + json.cashbackPoints);
       }
 
+      const mappedStatus: 'paid' | 'pending' | 'pending_admin_confirm' =
+        json.status === 'paid'
+          ? 'paid'
+          : json.status === 'pending_admin_confirm'
+          ? 'pending_admin_confirm'
+          : 'pending';
+
       const newTx: TransactionItem = {
         id: `tx_wa_${Date.now()}`,
         title: `${expressTitle} (${json.merchantName || expressRecipientName})`,
         subtitle: json.token
           ? `TOKEN: ${json.token} • ${json.methodLabel || expressMethod.toUpperCase()}`
-          : `${json.methodLabel || expressMethod.toUpperCase()} • ${json.status === 'paid' ? 'COMPLETED' : 'PENDING USSD'}`,
+          : `${json.methodLabel || expressMethod.toUpperCase()} • ${
+              mappedStatus === 'paid'
+                ? 'COMPLETED'
+                : mappedStatus === 'pending_admin_confirm'
+                ? `INASUBIRI ADMIN (Lipa Namba ${PAPO_LIPA_NAMBA})`
+                : 'PENDING USSD'
+            }`,
         amount: expressAmount,
         type: 'debit',
         category: expressPurpose === 'pay_bill' ? 'bill' : 'merchant',
         date: 'Leo',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         refCode: `TRX: ${json.referenceId || expressRef}`,
-        status: json.status === 'paid' ? 'completed' : 'pending',
+        status: mappedStatus === 'paid' ? 'completed' : 'pending',
       };
       setTransactions((prev) => [newTx, ...prev]);
 
@@ -351,15 +368,17 @@ export default function PapoPayHome() {
         amount: expressAmount,
         merchantName: json.merchantName || expressRecipientName,
         methodLabel: json.methodLabel || expressMethod.toUpperCase(),
-        status: json.status === 'paid' ? 'paid' : 'pending',
+        status: mappedStatus,
         token: json.token || null,
         cashbackPoints: json.cashbackPoints || 0,
         message: json.message,
       });
       setExpressStep('paid');
       toast.success(
-        json.status === 'paid'
+        mappedStatus === 'paid'
           ? `TZS ${expressAmount.toLocaleString()} zimelipwa kikamilifu!`
+          : mappedStatus === 'pending_admin_confirm'
+          ? `Taarifa ya Lipa Namba ${PAPO_LIPA_NAMBA} imetumwa kwa Admin kuthibitishwa!`
           : 'Ombi la malipo limetumwa kwenye simu yako!'
       );
     } catch (err: any) {
@@ -682,7 +701,7 @@ export default function PapoPayHome() {
     return `TZS ${amtTZS.toLocaleString()}`;
   };
 
-  // Top Up Handler via Mongike Mobile Money USSD Push + Webhook/Settlement Listener
+  // Top Up Handler via Lipa Namba 5656565 (Admin Confirm) or Mongike Mobile Money USSD Push
   const handleExecuteTopUp = async () => {
     const val = Math.round(Number(topUpAmount));
     const cleanPhone = topUpPhone.trim();
@@ -695,11 +714,20 @@ export default function PapoPayHome() {
       return;
     }
 
+    const isLipaNamba = topUpMethod === 'lipanamba';
+    const cleanLipaRef = topUpLipaRef.trim();
+    const depositCode = `WT-${Math.floor(1000 + Math.random() * 9000)}`;
+
     setIsProcessingTopUp(true);
-    setTopUpStatusNote('Inatuma ombi la Mongike USSD Push kwenye simu yako...');
+    setTopUpStatusNote(
+      isLipaNamba
+        ? `Inatuma taarifa ya Lipa Namba ${PAPO_LIPA_NAMBA} kwa Admin kuthibitisha...`
+        : 'Inatuma ombi la Mongike USSD Push kwenye simu yako...'
+    );
 
     try {
       const orderRef = await addDoc(collection(db, 'orders'), {
+        bookingCode: depositCode,
         customerId: user?.uid || `web-${cleanPhone.replace(/\D/g, '')}`,
         payerUid: user?.uid || null,
         customerName: profile?.displayName || profile?.fullName || user?.displayName || 'Mteja wa PapoPay',
@@ -709,8 +737,20 @@ export default function PapoPayHome() {
         service: 'PapoWallet TopUp',
         orderType: 'wallet_topup',
         paymentPurpose: 'wallet_topup',
-        paymentMethod: topUpMethod === 'card' ? 'mongike' : topUpMethod,
-        paymentMethodLabel: `Mongike (${topUpMethod.toUpperCase()})`,
+        paymentMethod: isLipaNamba ? 'lipanamba' : topUpMethod === 'card' ? 'mongike' : topUpMethod,
+        paymentMethodLabel: isLipaNamba
+          ? `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`
+          : `Mongike (${topUpMethod.toUpperCase()})`,
+        ...(isLipaNamba
+          ? {
+              lipaNambaNumber: PAPO_LIPA_NAMBA,
+              lipaNambaName: PAPO_LIPA_NAMBA_NAME,
+              lipaNambaRef: cleanLipaRef || null,
+              customerReportedPaid: true,
+              paymentPushStatus: 'awaiting_admin_confirm',
+              skipAutoMongikePush: true,
+            }
+          : {}),
         paymentStatus: 'pending',
         status: 'pending',
         totalAmount: val,
@@ -720,39 +760,59 @@ export default function PapoPayHome() {
         updatedAt: serverTimestamp(),
       });
 
-      const resp = await fetch('/api/payments/initiate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: orderRef.id,
+      if (isLipaNamba) {
+        await addDoc(collection(db, 'notifications'), {
+          type: 'lipa_namba_confirm',
+          title: `Lipa Namba ${PAPO_LIPA_NAMBA}: TZS ${val.toLocaleString()} (#${depositCode})`,
+          message: `${profile?.displayName || cleanPhone} ametuma taarifa za kuweka TZS ${val.toLocaleString()}/= kupitia Lipa Namba ${PAPO_LIPA_NAMBA}.${cleanLipaRef ? ` Kumbukumbu: ${cleanLipaRef}` : ''}`,
+          orderId: orderRef.id,
+          bookingCode: depositCode,
           amount: val,
-          buyer_phone: cleanPhone,
-          fee_payer: 'CUSTOMER',
-          collection: 'orders',
-        }),
-      });
-      const json = await resp.json().catch(() => ({}));
+          customerPhone: cleanPhone,
+          lipaNambaRef: cleanLipaRef || null,
+          read: false,
+          createdAt: serverTimestamp(),
+        }).catch(() => {});
 
-      if (!resp.ok || json.status === 'error') {
-        setIsProcessingTopUp(false);
-        setTopUpStatusNote('');
-        toast.error(json?.message || 'Mongike imekataa ombi la malipo. Hakiki akaunti au jaribu tena.');
-        return;
+        setTopUpStatusNote(
+          `Taarifa #${depositCode} imetumwa! Inasubiri Admin athibitishe malipo ya Lipa Namba ${PAPO_LIPA_NAMBA}...`
+        );
+        toast.info(`Taarifa #${depositCode} imepokelewa! Admin anathibitisha malipo yako.`);
+      } else {
+        const resp = await fetch('/api/payments/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: orderRef.id,
+            amount: val,
+            buyer_phone: cleanPhone,
+            fee_payer: 'CUSTOMER',
+            collection: 'orders',
+          }),
+        });
+        const json = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || json.status === 'error') {
+          setIsProcessingTopUp(false);
+          setTopUpStatusNote('');
+          toast.error(json?.message || 'Mongike imekataa ombi la malipo. Tumia Lipa Namba 5656565.');
+          return;
+        }
+
+        setTopUpStatusNote(
+          json.sandbox
+            ? 'Ombi la majaribio (Sandbox) limetumwa! Inasubiri uthibitisho wa malipo...'
+            : 'USSD Push imetumwa! Ingiza PIN kwenye simu yako kukamilisha.'
+        );
+        toast.info('Ombi la malipo limetumwa kwenye simu yako! Ingiza PIN kukamilisha.');
       }
-
-      setTopUpStatusNote(
-        json.sandbox
-          ? 'Ombi la majaribio (Sandbox) limetumwa! Inasubiri uthibitisho wa malipo...'
-          : 'USSD Push imetumwa! Ingiza PIN kwenye simu yako kukamilisha.'
-      );
-      toast.info('Ombi la malipo limetumwa kwenye simu yako! Ingiza PIN kukamilisha.');
 
       let unsubWatch: (() => void) | null = null;
       const timeoutHandle = window.setTimeout(() => {
         if (unsubWatch) unsubWatch();
         setIsProcessingTopUp(false);
         setTopUpStatusNote('');
-      }, 90000);
+      }, isLipaNamba ? 180000 : 90000);
 
       unsubWatch = onSnapshot(
         doc(db, 'orders', orderRef.id),
@@ -768,8 +828,13 @@ export default function PapoPayHome() {
             }
             setIsProcessingTopUp(false);
             setTopUpStatusNote('');
+            setTopUpLipaRef('');
             setIsTopUpModalOpen(false);
-            toast.success(`🎉 TZS ${val.toLocaleString()} zimewekwa kwenye PapoWallet yako kupitia Mongike!`);
+            toast.success(
+              isLipaNamba
+                ? `🎉 TZS ${val.toLocaleString()} zimeongezwa baada ya uthibitisho wa Lipa Namba ${PAPO_LIPA_NAMBA}!`
+                : `🎉 TZS ${val.toLocaleString()} zimewekwa kwenye PapoWallet yako kupitia Mongike!`
+            );
           }
         },
         () => {}
@@ -2046,8 +2111,9 @@ export default function PapoPayHome() {
                     <label className="text-xs font-bold uppercase text-neutral-400 block mb-2">
                       Chagua Mtandao / Njia ya Malipo
                     </label>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
+                        { id: 'lipanamba', name: `Lipa Namba ${PAPO_LIPA_NAMBA}`, color: 'border-emerald-500 text-emerald-700' },
                         { id: 'mpesa', name: 'M-Pesa', color: 'border-red-500 text-red-600' },
                         { id: 'tigopesa', name: 'Tigo Pesa', color: 'border-blue-500 text-blue-600' },
                         { id: 'airtel', name: 'Airtel Money', color: 'border-red-600 text-red-600' },
@@ -2058,9 +2124,9 @@ export default function PapoPayHome() {
                           key={m.id}
                           type="button"
                           onClick={() => setTopUpMethod(m.id as any)}
-                          className={`p-3 rounded-2xl border text-xs font-bold text-center transition-all ${
+                          className={`p-3 rounded-2xl border text-xs font-bold text-center transition-all cursor-pointer ${
                             topUpMethod === m.id
-                              ? 'bg-blue-50 dark:bg-blue-950/40 border-[#3b66f5] text-[#3b66f5] shadow-xs'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-700 dark:text-emerald-300 shadow-xs'
                               : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
                           }`}
                         >
@@ -2069,6 +2135,42 @@ export default function PapoPayHome() {
                       ))}
                     </div>
                   </div>
+
+                  {topUpMethod === 'lipanamba' && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                            Lipa Namba Rasmi • {PAPO_LIPA_NAMBA_NAME}
+                          </p>
+                          <p className="text-2xl font-black font-mono text-emerald-900 dark:text-emerald-100">
+                            {PAPO_LIPA_NAMBA}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(PAPO_LIPA_NAMBA);
+                            toast.success(`Lipa Namba ${PAPO_LIPA_NAMBA} imenakiliwa!`);
+                          }}
+                          className="px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Nakili</span>
+                        </button>
+                      </div>
+                      <p className="text-xs text-emerald-800 dark:text-emerald-200">
+                        Lipa kwenda <strong>{PAPO_LIPA_NAMBA}</strong> ({PAPO_LIPA_NAMBA_NAME}) kisha weka namba ya muamala (SMS) hapa chini na ubonyeze kitufe ili Admin athibitishe:
+                      </p>
+                      <input
+                        type="text"
+                        value={topUpLipaRef}
+                        onChange={(e) => setTopUpLipaRef(e.target.value)}
+                        placeholder="Namba ya Muamala / SMS (mf. BH82K9...)"
+                        className="w-full bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-700 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="text-xs font-bold uppercase text-neutral-400 block mb-2">
@@ -2110,17 +2212,28 @@ export default function PapoPayHome() {
                     />
                   </div>
 
+                  {topUpStatusNote && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 font-semibold flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                      <span>{topUpStatusNote}</span>
+                    </div>
+                  )}
+
                   <button
                     disabled={isProcessingTopUp}
                     onClick={handleExecuteTopUp}
-                    className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                   >
                     {isProcessingTopUp ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
                     ) : (
                       <Download className="w-5 h-5" />
                     )}
-                    <span>Weka TZS {Number(topUpAmount || 0).toLocaleString()} Kwenye PapoPay</span>
+                    <span>
+                      {topUpMethod === 'lipanamba'
+                        ? `Nimelipa TZS ${Number(topUpAmount || 0).toLocaleString()} (Lipa Namba ${PAPO_LIPA_NAMBA})`
+                        : `Weka TZS ${Number(topUpAmount || 0).toLocaleString()} Kwenye PapoPay`}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -3719,10 +3832,11 @@ export default function PapoPayHome() {
 
               <div>
                 <label className="text-[10px] font-bold uppercase text-neutral-400 block mb-1.5">
-                  Chagua Mtandao (Mongike Push)
+                  Chagua Njia (Lipa Namba {PAPO_LIPA_NAMBA} / Simu)
                 </label>
-                <div className="grid grid-cols-4 gap-1.5 mb-3">
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
                   {([
+                    { id: 'lipanamba', label: `Lipa ${PAPO_LIPA_NAMBA}` },
                     { id: 'mpesa', label: 'M-Pesa' },
                     { id: 'tigopesa', label: 'Mixx / Tigo' },
                     { id: 'airtel', label: 'Airtel' },
@@ -3734,7 +3848,7 @@ export default function PapoPayHome() {
                       onClick={() => setTopUpMethod(net.id)}
                       className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
                         topUpMethod === net.id
-                          ? 'bg-[#3b66f5] text-white border-[#3b66f5]'
+                          ? 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'
                       }`}
                     >
@@ -3742,6 +3856,39 @@ export default function PapoPayHome() {
                     </button>
                   ))}
                 </div>
+
+                {topUpMethod === 'lipanamba' && (
+                  <div className="mb-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">
+                          Lipa Namba ({PAPO_LIPA_NAMBA_NAME})
+                        </div>
+                        <div className="text-lg font-black font-mono text-emerald-900 dark:text-emerald-100">
+                          {PAPO_LIPA_NAMBA}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(PAPO_LIPA_NAMBA);
+                          toast.success(`Lipa Namba ${PAPO_LIPA_NAMBA} imenakiliwa!`);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Nakili</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={topUpLipaRef}
+                      onChange={(e) => setTopUpLipaRef(e.target.value)}
+                      placeholder="Namba ya Muamala / SMS (hiari, mf. BH82K9...)"
+                      className="w-full bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-700 px-3 py-2 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                )}
 
                 <label className="text-[10px] font-bold uppercase text-neutral-400 block mb-1">
                   Namba ya Simu ya Malipo
@@ -3774,7 +3921,11 @@ export default function PapoPayHome() {
                 )}
                 <span>
                   {isProcessingTopUp
-                    ? 'Inasubiri PIN ya Mongike...'
+                    ? topUpMethod === 'lipanamba'
+                      ? 'Inasubiri Uthibitisho wa Admin...'
+                      : 'Inasubiri PIN ya Mongike...'
+                    : topUpMethod === 'lipanamba'
+                    ? `Nimelipa TZS ${Number(topUpAmount || 0).toLocaleString()} (${PAPO_LIPA_NAMBA})`
                     : `Tuma Push ya TZS ${Number(topUpAmount || 0).toLocaleString()}`}
                 </span>
               </button>
@@ -3859,28 +4010,52 @@ export default function PapoPayHome() {
               className="bg-white dark:bg-[#111625] rounded-t-3xl sm:rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800"
             >
               {expressStep === 'paid' && expressReceipt ? (
-                <div className="bg-[#00A884] text-white p-6 space-y-5 text-center">
-                  <div className="w-16 h-16 rounded-full bg-white text-[#00A884] mx-auto flex items-center justify-center shadow-lg">
-                    <Check className="w-9 h-9 stroke-[3]" />
+                <div
+                  className={`${
+                    expressReceipt.status === 'paid'
+                      ? 'bg-[#00A884]'
+                      : expressReceipt.status === 'pending_admin_confirm'
+                      ? 'bg-amber-600'
+                      : 'bg-blue-600'
+                  } text-white p-6 space-y-5 text-center`}
+                >
+                  <div
+                    className={`w-16 h-16 rounded-full bg-white mx-auto flex items-center justify-center shadow-lg ${
+                      expressReceipt.status === 'paid'
+                        ? 'text-[#00A884]'
+                        : expressReceipt.status === 'pending_admin_confirm'
+                        ? 'text-amber-600'
+                        : 'text-blue-600'
+                    }`}
+                  >
+                    {expressReceipt.status === 'paid' ? (
+                      <Check className="w-9 h-9 stroke-[3]" />
+                    ) : (
+                      <Clock className="w-9 h-9 stroke-[2.5]" />
+                    )}
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-100">
-                      {expressReceipt.status === 'paid' ? 'Paid successfully' : 'Ombi Limetumwa'}
+                    <p className="text-xs font-bold uppercase tracking-wider text-white/90">
+                      {expressReceipt.status === 'paid'
+                        ? 'Paid successfully'
+                        : expressReceipt.status === 'pending_admin_confirm'
+                        ? `Inasubiri Admin (${PAPO_LIPA_NAMBA})`
+                        : 'Ombi la USSD Limetumwa'}
                     </p>
                     <h3 className="text-3xl font-black tabular-nums">
                       TZS {expressReceipt.amount.toLocaleString()}
                     </h3>
-                    <p className="text-sm font-semibold text-emerald-50">
+                    <p className="text-sm font-semibold text-white/95">
                       Kwenda: {expressReceipt.merchantName}
                     </p>
-                    <p className="text-xs text-emerald-100 font-mono">
+                    <p className="text-xs text-white/85 font-mono">
                       #{expressReceipt.referenceId} • {expressReceipt.methodLabel}
                     </p>
                   </div>
 
                   {expressReceipt.token && (
                     <div className="p-3.5 rounded-2xl bg-white/15 backdrop-blur-sm text-left space-y-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-100 block">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-white/90 block">
                         Tokeni yako ya LUKU
                       </span>
                       <span className="text-lg font-black font-mono tracking-wider block">
@@ -3889,8 +4064,8 @@ export default function PapoPayHome() {
                     </div>
                   )}
 
-                  {expressReceipt.message && expressReceipt.status === 'pending' && (
-                    <p className="text-xs bg-white/15 rounded-xl p-3 text-emerald-50">
+                  {expressReceipt.message && expressReceipt.status !== 'paid' && (
+                    <p className="text-xs bg-white/15 rounded-xl p-3 text-white/95">
                       {expressReceipt.message}
                     </p>
                   )}
@@ -4133,6 +4308,7 @@ export default function PapoPayHome() {
                       <div className="grid grid-cols-2 gap-2">
                         {([
                           { id: 'papowallet', label: 'PapoPay Wallet', sub: '0% Ada • Papo Hapo' },
+                          { id: 'lipanamba', label: `Lipa Namba ${PAPO_LIPA_NAMBA}`, sub: `${PAPO_LIPA_NAMBA_NAME}` },
                           { id: 'mpesa', label: 'M-Pesa', sub: 'USSD Push' },
                           { id: 'tigopesa', label: 'Mixx by Yas', sub: 'Tigo Pesa Push' },
                           { id: 'airtel', label: 'Airtel Money', sub: 'USSD Push' },
@@ -4160,6 +4336,39 @@ export default function PapoPayHome() {
                         ))}
                       </div>
                     </div>
+
+                    {expressMethod === 'lipanamba' && (
+                      <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">
+                              Lipa Namba ({PAPO_LIPA_NAMBA_NAME})
+                            </div>
+                            <div className="text-base font-black font-mono text-emerald-900 dark:text-emerald-100">
+                              {PAPO_LIPA_NAMBA}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(PAPO_LIPA_NAMBA);
+                              toast.success(`Lipa Namba ${PAPO_LIPA_NAMBA} imenakiliwa!`);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Nakili</span>
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={expressLipaRef}
+                          onChange={(e) => setExpressLipaRef(e.target.value)}
+                          placeholder="Namba ya Muamala / SMS (mf. BH82K9...)"
+                          className="w-full bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-700 px-3 py-2 rounded-lg text-xs font-mono font-bold"
+                        />
+                      </div>
+                    )}
 
                     {expressError && (
                       <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-semibold">
@@ -4193,6 +4402,8 @@ export default function PapoPayHome() {
                       <span>
                         {expressMethod === 'papowallet' || expressMethod === 'card'
                           ? `Endelea Kulipa TZS ${expressAmount.toLocaleString()}`
+                          : expressMethod === 'lipanamba'
+                          ? `Nimelipa TZS ${expressAmount.toLocaleString()} (${PAPO_LIPA_NAMBA})`
                           : `Tuma Push ya TZS ${expressAmount.toLocaleString()}`}
                       </span>
                     </button>

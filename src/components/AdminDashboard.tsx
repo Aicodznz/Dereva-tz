@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc, deleteDoc, addDoc, setDoc, getDoc, serverTimestamp, where } from 'firebase/firestore';
 import { VendorProfile, Order, Product } from '../types';
+import { PAPO_LIPA_NAMBA, PAPO_LIPA_NAMBA_NAME } from '../constants/lipaNamba';
 import { storageService } from '../services/storageService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
-  Check, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, Edit, ArrowLeft, 
+  Check, CheckCircle2, X, ShieldAlert, Store, UserCheck, Image as ImageIcon, Edit, ArrowLeft, 
   Bell, Plus, Trash2, Send, LayoutDashboard, Megaphone, Home,
   Users, ShoppingBag, DollarSign, MessageCircle, AlertTriangle,
   ExternalLink, Search, Ban, History, BarChart3, Settings, Info, CreditCard, Star, Key,
@@ -403,6 +404,8 @@ export default function AdminDashboard() {
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+  const [manualRefInputs, setManualRefInputs] = useState<Record<string, string>>({});
   const [allProducts, setAllProducts] = useState<ProductWithVendor[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -699,6 +702,65 @@ export default function AdminDashboard() {
       totalUsers: allUsers.length
     };
   }, [allOrders, vendors, allUsers]);
+
+  const pendingLipaNambaOrders = useMemo(() => {
+    return allOrders.filter((o: any) => {
+      if (!o?.id || o.paymentStatus === 'paid') return false;
+      return (
+        o.paymentMethod === 'lipanamba' ||
+        o.paymentPushStatus === 'awaiting_admin_confirm' ||
+        Boolean(o.lipaNambaRef) ||
+        o.customerReportedPaid === true
+      );
+    });
+  }, [allOrders]);
+
+  const confirmOrderPaymentViaServer = async (order: any, txRefOverride?: string) => {
+    if (!order?.id) return;
+    setConfirmingOrderId(order.id);
+    const toastId = toast.loading(`Inathibitisha malipo ya #${order.bookingCode || order.id.slice(-6).toUpperCase()}...`);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        toast.error('Tafadhali ingia tena kama Admin ili kuthibitisha malipo.', { id: toastId });
+        return;
+      }
+      const resolvedRef = (
+        txRefOverride ??
+        manualRefInputs[order.id] ??
+        order.lipaNambaRef ??
+        ''
+      ).trim();
+
+      const resp = await fetch('/api/payments/confirm-manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          collection: 'orders',
+          transactionRef: resolvedRef || undefined,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        toast.error(json?.error || 'Imeshindwa kuthibitisha malipo.', { id: toastId });
+        return;
+      }
+      toast.success(
+        json.alreadyPaid
+          ? 'Oda hii ilikuwa imeshalipwa tayari.'
+          : 'Malipo yamethibitishwa! Salio limeongezwa na risiti imetumwa WhatsApp.',
+        { id: toastId }
+      );
+    } catch (err: any) {
+      toast.error(`Hitilafu ya mtandao: ${err?.message || 'Jaribu tena.'}`, { id: toastId });
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
 
   const handleSaveSettings = async () => {
     try {
@@ -1337,7 +1399,94 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <div className="md:col-span-2 lg:col-span-4">
+            <div className="md:col-span-2 lg:col-span-4 space-y-6">
+              <Card className="rounded-[2.5rem] border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-xl overflow-hidden">
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] uppercase tracking-wider">
+                        Lipa Namba {PAPO_LIPA_NAMBA}
+                      </Badge>
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        {PAPO_LIPA_NAMBA_NAME}
+                      </span>
+                    </div>
+                    <CardTitle className="text-xl font-black text-neutral-900 dark:text-white mt-1.5">
+                      Uthibitisho wa Malipo ya Lipa Namba ({pendingLipaNambaOrders.length} Yanasubiri)
+                    </CardTitle>
+                    <CardDescription className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+                      Wateja waliolipia kupitia Lipa Namba {PAPO_LIPA_NAMBA} huonekana hapa. Bonyeza Thibitisha Malipo ili kuongeza salio lao na kutuma risiti WhatsApp papo hapo.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setActiveTab('orders')}
+                    className="rounded-xl border-emerald-300 text-emerald-800 dark:text-emerald-200 font-bold text-xs shrink-0 cursor-pointer"
+                  >
+                    Fungua Oda Zote
+                  </Button>
+                </CardHeader>
+                {pendingLipaNambaOrders.length > 0 && (
+                  <CardContent className="space-y-3 pt-0">
+                    {pendingLipaNambaOrders.slice(0, 5).map((order: any) => (
+                      <div
+                        key={order.id}
+                        className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-emerald-200/80 dark:border-emerald-800/40"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-sm text-neutral-900 dark:text-white">
+                              #{order.bookingCode || order.id?.slice(-8).toUpperCase()}
+                            </span>
+                            <Badge className="bg-amber-500 text-white border-none text-[10px] font-black">
+                              TZS {Number(order.totalAmount || 0).toLocaleString()}
+                            </Badge>
+                            {order.customerReportedPaid && (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-none text-[10px] font-bold">
+                                Mteja Amesema Amelipa
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-300 font-semibold">
+                            {order.customerName || 'Mteja'} • {order.customerPhone || 'Hakuna simu'} •{' '}
+                            {order.paymentMethodLabel || `Lipa Namba ${PAPO_LIPA_NAMBA}`}
+                          </p>
+                          {order.lipaNambaRef && (
+                            <p className="text-xs font-mono font-black text-emerald-700 dark:text-emerald-300">
+                              Kumbukumbu / SMS: {order.lipaNambaRef}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <Input
+                            type="text"
+                            value={manualRefInputs[order.id] ?? order.lipaNambaRef ?? ''}
+                            onChange={(e) =>
+                              setManualRefInputs((prev) => ({ ...prev, [order.id]: e.target.value }))
+                            }
+                            placeholder="Namba ya muamala (hiari)"
+                            className="h-9 w-full sm:w-44 rounded-xl text-xs font-mono"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={confirmingOrderId === order.id}
+                            onClick={() => confirmOrderPaymentViaServer(order)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs h-9 px-4 gap-1.5 cursor-pointer"
+                          >
+                            {confirmingOrderId === order.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>Thibitisha Malipo</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                )}
+              </Card>
+
               <MongikeGatewayCard />
             </div>
           </motion.div>
@@ -2101,6 +2250,91 @@ export default function AdminDashboard() {
 
         {activeTab === 'orders' && (
           <motion.div key="orders" className="space-y-6">
+             <Card className="rounded-[2.5rem] border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-xl overflow-hidden">
+                <div className="p-6 md:p-8 bg-emerald-700 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="bg-white text-emerald-800 border-none font-black text-[10px] uppercase">
+                        Lipa Namba {PAPO_LIPA_NAMBA}
+                      </Badge>
+                      <span className="text-xs font-bold text-emerald-100">{PAPO_LIPA_NAMBA_NAME}</span>
+                    </div>
+                    <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-wide mt-1">
+                      Thibitisha Malipo ya Lipa Namba ({pendingLipaNambaOrders.length})
+                    </h3>
+                  </div>
+                  <Badge className="bg-amber-400 text-neutral-950 border-none px-4 py-1.5 font-black text-xs w-fit">
+                    {pendingLipaNambaOrders.length > 0 ? `${pendingLipaNambaOrders.length} Yanasubiri` : 'Hakuna Yanayosubiri'}
+                  </Badge>
+                </div>
+                {pendingLipaNambaOrders.length > 0 ? (
+                  <div className="p-6 space-y-3">
+                    {pendingLipaNambaOrders.map((order: any) => (
+                      <div
+                        key={`lipa-${order.id}`}
+                        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-neutral-900 border border-emerald-200 dark:border-emerald-800/50 shadow-sm"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-base text-neutral-900 dark:text-white">
+                              #{order.bookingCode || order.id?.slice(-8).toUpperCase()}
+                            </span>
+                            <Badge className="bg-orange-600 text-white border-none text-xs font-black">
+                              TZS {Number(order.totalAmount || 0).toLocaleString()}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                              {order.subType || order.type || 'order'}
+                            </Badge>
+                            {order.customerReportedPaid && (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-none text-[10px] font-bold">
+                                ✓ Mteja Amelipa
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-300 font-semibold">
+                            Mteja: {order.customerName || 'Mteja'} ({order.customerPhone || 'No Phone'}) •{' '}
+                            {order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Hivi punde'}
+                          </p>
+                          {order.lipaNambaRef && (
+                            <p className="text-xs font-mono font-black text-emerald-700 dark:text-emerald-300">
+                              Kumbukumbu ya Muamala: {order.lipaNambaRef}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <Input
+                            type="text"
+                            value={manualRefInputs[order.id] ?? order.lipaNambaRef ?? ''}
+                            onChange={(e) =>
+                              setManualRefInputs((prev) => ({ ...prev, [order.id]: e.target.value }))
+                            }
+                            placeholder="Namba ya muamala / SMS"
+                            className="h-10 w-full sm:w-52 rounded-xl text-xs font-mono"
+                          />
+                          <Button
+                            size="sm"
+                            disabled={confirmingOrderId === order.id}
+                            onClick={() => confirmOrderPaymentViaServer(order)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs h-10 px-5 gap-1.5 cursor-pointer"
+                          >
+                            {confirmingOrderId === order.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
+                            <span>Thibitisha Malipo</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-xs font-semibold text-emerald-800/80 dark:text-emerald-200/80">
+                    Malipo yote ya Lipa Namba {PAPO_LIPA_NAMBA} yameshakamilika au hakuna ombi jipya linalosubiri.
+                  </div>
+                )}
+             </Card>
+
              <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden">
                 <div className="p-8 bg-neutral-900 text-white flex justify-between items-center">
                    <h3 className="text-2xl font-black uppercase italic tracking-widest">{t('admin_global_live_feed')}</h3>
@@ -2111,26 +2345,43 @@ export default function AdminDashboard() {
                       <thead>
                         <tr className="bg-neutral-50 text-left">
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_order_ref')}</th>
-                           <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_merchant')}</th>
+                           <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_merchant')} / Mteja</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('admin_payment')}</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400">{t('status')}</th>
                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400 text-right">{t('admin_value')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
-                         {allOrders.map((order, idx) => (
+                         {allOrders.map((order: any, idx) => (
                            <tr key={order.id || `order-row-${idx}`}>
                               <td className="px-8 py-6">
-                                 <span className="font-black text-neutral-900">#{order.id?.slice(-8).toUpperCase()}</span>
+                                 <span className="font-black text-neutral-900">
+                                   #{order.bookingCode || order.id?.slice(-8).toUpperCase()}
+                                 </span>
                                  <p className="text-[10px] text-neutral-400">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'Just now'}</p>
                               </td>
                               <td className="px-8 py-6 italic font-bold text-sm text-neutral-600">
-                                 {vendors.find(v => v.id === order.vendorId)?.businessName || (order.vendorId ? `ID: ${order.vendorId.slice(0, 8)}...` : 'Unknown Merchant')}
+                                 <div>{vendors.find(v => v.id === order.vendorId)?.businessName || order.vendorName || (order.vendorId ? `ID: ${order.vendorId.slice(0, 8)}...` : 'PapoWallet / Platform')}</div>
+                                 {(order.customerName || order.customerPhone) && (
+                                   <p className="text-[11px] not-italic font-semibold text-neutral-400">
+                                     {order.customerName || 'Mteja'} {order.customerPhone ? `• ${order.customerPhone}` : ''}
+                                   </p>
+                                 )}
                               </td>
-                              <td className="px-8 py-6">
-                                 <Badge className={`${order.paymentStatus === 'paid' ? 'bg-green-400' : 'bg-red-400'} text-white border-none font-black text-[8px] uppercase`}>
+                              <td className="px-8 py-6 space-y-1">
+                                 <Badge className={`${order.paymentStatus === 'paid' ? 'bg-green-500' : order.paymentMethod === 'lipanamba' ? 'bg-amber-500' : 'bg-red-400'} text-white border-none font-black text-[8px] uppercase`}>
                                    {order.paymentStatus || 'pending'}
                                  </Badge>
+                                 {(order.paymentMethodLabel || order.paymentMethod === 'lipanamba') && (
+                                   <p className="text-[10px] font-bold text-neutral-500">
+                                     {order.paymentMethodLabel || `Lipa Namba ${PAPO_LIPA_NAMBA}`}
+                                   </p>
+                                 )}
+                                 {order.lipaNambaRef && (
+                                   <p className="text-[10px] font-mono font-bold text-emerald-700">
+                                     Ref: {order.lipaNambaRef}
+                                   </p>
+                                 )}
                               </td>
                               <td className="px-8 py-6">
                                  <Badge variant="outline" className="border-neutral-200 text-neutral-400 font-bold uppercase text-[8px]">
@@ -2138,20 +2389,18 @@ export default function AdminDashboard() {
                                  </Badge>
                               </td>
                               <td className="px-8 py-6 text-right">
-                                 <div className="flex justify-end gap-2">
+                                 <div className="flex justify-end items-center gap-2">
                                     {order.paymentStatus !== 'paid' && (
                                       <Button 
                                         size="sm" 
-                                        className="bg-green-600 text-white rounded-xl font-bold text-[10px]"
-                                        onClick={async () => {
-                                          await updateDoc(doc(db, 'orders', order.id!), { paymentStatus: 'paid' });
-                                          toast.success('Markup as Paid');
-                                        }}
+                                        disabled={confirmingOrderId === order.id}
+                                        className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[10px] cursor-pointer"
+                                        onClick={() => confirmOrderPaymentViaServer(order)}
                                       >
-                                        Mark Paid
+                                        {confirmingOrderId === order.id ? 'Inathibitisha...' : 'Thibitisha Malipo'}
                                       </Button>
                                     )}
-                                    <span className="font-black text-orange-600">TZS {order.totalAmount.toLocaleString()}</span>
+                                    <span className="font-black text-orange-600">TZS {Number(order.totalAmount || 0).toLocaleString()}</span>
                                  </div>
                               </td>
                            </tr>

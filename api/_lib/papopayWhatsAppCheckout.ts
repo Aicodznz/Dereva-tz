@@ -1,5 +1,5 @@
 import { cleanUndefined } from '../_lib/getFirestoreDb.js';
-import { initiateMongikePayment } from '../_lib/mongike.js';
+import { initiateMongikePayment, PAPO_LIPA_NAMBA, PAPO_LIPA_NAMBA_NAME } from '../_lib/mongike.js';
 import { notifyMongikePaymentPaidToWhatsApp, sendMetaOutboundMessage } from '../_lib/metaBot.js';
 import {
   executeDirectPapoWalletPayment,
@@ -20,10 +20,12 @@ export interface PapoPayWhatsAppCheckoutInput {
   referenceId?: string;
   pin?: string;
   shippingAddress?: string;
+  transactionRef?: string;
 }
 
 const VALID_METHODS = new Set([
   'papowallet',
+  'lipanamba',
   'mpesa',
   'tigopesa',
   'airtel',
@@ -33,6 +35,7 @@ const VALID_METHODS = new Set([
 
 const METHOD_LABELS: Record<string, string> = {
   papowallet: 'PapoPay Wallet',
+  lipanamba: `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`,
   mpesa: 'M-Pesa (Vodacom)',
   tigopesa: 'Mixx by Yas',
   airtel: 'Airtel Money',
@@ -265,6 +268,58 @@ export async function processPapoPayWhatsAppCheckout(
         cashbackPoints,
         token: lukuToken,
         paidAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  // Lipa Namba 5656565 Manual Admin Confirmation Flow
+  if (rawMethod === 'lipanamba') {
+    const cleanTxRef = String(body?.transactionRef || '').trim().slice(0, 80);
+    await dbAdmin.collection('orders').doc(finalOrderId).set(
+      cleanUndefined({
+        paymentMethod: 'lipanamba',
+        paymentMethodLabel: methodLabel,
+        lipaNambaNumber: PAPO_LIPA_NAMBA,
+        lipaNambaName: PAPO_LIPA_NAMBA_NAME,
+        lipaNambaRef: cleanTxRef || null,
+        customerReportedPaid: true,
+        paymentPushStatus: 'awaiting_admin_confirm',
+        paymentError: null,
+        paymentStatus: 'pending',
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+
+    await dbAdmin.collection('notifications').add({
+      type: 'lipa_namba_confirm',
+      title: `Lipa Namba ${PAPO_LIPA_NAMBA}: TZS ${amt.toLocaleString()} (#${finalRef})`,
+      message: `${payerName} (${buyerPhone}) ametuma taarifa za kulipa TZS ${amt.toLocaleString()}/= kwenda Lipa Namba ${PAPO_LIPA_NAMBA}.${cleanTxRef ? ` Kumbukumbu: ${cleanTxRef}` : ''}`,
+      orderId: finalOrderId,
+      bookingCode: finalRef,
+      amount: amt,
+      customerPhone: buyerPhone,
+      lipaNambaRef: cleanTxRef || null,
+      read: false,
+      createdAt: new Date().toISOString(),
+    }).catch(() => {});
+
+    return {
+      statusCode: 200,
+      payload: {
+        ok: true,
+        status: 'pending_admin_confirm',
+        orderId: finalOrderId,
+        referenceId: finalRef,
+        refCode: finalRef,
+        amount: amt,
+        method: 'lipanamba',
+        methodLabel,
+        lipaNambaNumber: PAPO_LIPA_NAMBA,
+        lipaNambaName: PAPO_LIPA_NAMBA_NAME,
+        transactionRef: cleanTxRef || null,
+        merchantName: resolvedPayee.displayName || recipientName,
+        message: `Taarifa ya malipo ya Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME}) imepokelewa! Admin anahakiki na utapokea risiti WhatsApp punde.`,
       },
     };
   }

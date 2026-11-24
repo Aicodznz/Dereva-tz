@@ -10,6 +10,8 @@ import {
   initiateMongikePayment,
   isMobileMoneyPaymentMethod,
   isMongikeLiveConfigured,
+  PAPO_LIPA_NAMBA,
+  PAPO_LIPA_NAMBA_NAME,
   type MongikePaymentResult,
 } from './mongike.js';
 import {
@@ -131,6 +133,7 @@ export interface MetaSession {
     | 'PAPOPAY_BILL_ACCOUNT'
     | 'PAPOPAY_BILL_AMOUNT'
     | 'PAPOPAY_TOPUP_AMOUNT'
+    | 'PAPOPAY_TOPUP_METHOD'
     | 'PAPOPAY_TOPUP_PHONE'
     | 'PAPOPAY_PAY_TARGET'
     | 'PAPOPAY_PAY_AMOUNT'
@@ -3814,15 +3817,19 @@ export function buildWhatsAppInteractive(
     return sanitizeWhatsAppInteractivePayload(session.details.paidOrderStatus);
   }
 
-  // 1c. Pending Mongike Mobile Money USSD Push actions (Check status, Retry push, Pay via Link)
+  // 1c. Pending Mongike Mobile Money USSD Push or Lipa Namba 5656565 actions
   if (session?.step === 'PAPOPAY_WAIT_PUSH') {
     const pendingPush = session?.details?.pendingMongikePayment;
-    const isFailed = pendingPush?.pushStatus === 'failed';
+    const isLipaNamba =
+      pendingPush?.paymentMethod === 'lipanamba' || pendingPush?.pushStatus === 'awaiting_admin_confirm';
+    const isFailed = !isLipaNamba && pendingPush?.pushStatus === 'failed';
     return sanitizeWhatsAppInteractivePayload({
       type: 'button',
       header: {
         type: 'text',
-        text: isFailed
+        text: isLipaNamba
+          ? `🏪 Lipa Namba ${PAPO_LIPA_NAMBA}`
+          : isFailed
           ? isEn
             ? '⚠️ USSD Push Issue'
             : '⚠️ Tatizo la USSD Push'
@@ -3832,15 +3839,51 @@ export function buildWhatsAppInteractive(
       },
       body: { text: rawStripped },
       footer: {
-        text: pendingPush?.phone
-          ? `Simu: ${pendingPush.phone} • Usiandike PIN hapa`
+        text: isLipaNamba
+          ? `Lipa Namba: ${PAPO_LIPA_NAMBA} • ${PAPO_LIPA_NAMBA_NAME}`
+          : pendingPush?.phone
+          ? isEn
+            ? `Phone: ${pendingPush.phone} • Never enter PIN here`
+            : `Simu: ${pendingPush.phone} • Usiandike PIN hapa`
+          : isEn
+          ? 'Never enter PIN in WhatsApp chat'
           : 'Usiandike PIN kwenye chat ya WhatsApp',
       },
       action: {
+        buttons: isLipaNamba
+          ? [
+              { type: 'reply', reply: { id: 'CMD:CONFIRM_LIPANAMBA_SENT', title: isEn ? '✅ I Have Paid' : '✅ Nimelipa Tayari' } },
+              { type: 'reply', reply: { id: 'CMD:CHECK_MONGIKE_PAY', title: isEn ? '🔍 Check Status' : '🔍 Hakiki Hali' } },
+              { type: 'reply', reply: { id: 'CMD:OPEN_EXPRESS_PAY_CARD', title: isEn ? '💳 Pay via Link' : '💳 Lipa Mtandaoni' } },
+            ]
+          : isFailed
+          ? [
+              { type: 'reply', reply: { id: 'CMD:SWITCH_TO_LIPANAMBA', title: `🏪 Lipa ${PAPO_LIPA_NAMBA}` } },
+              { type: 'reply', reply: { id: 'CMD:RETRY_MONGIKE_PAY', title: isEn ? '🔄 Resend Push' : '🔄 Tuma Push Tena' } },
+              { type: 'reply', reply: { id: 'CMD:OPEN_EXPRESS_PAY_CARD', title: isEn ? '💳 Pay via Link' : '💳 Lipa Mtandaoni' } },
+            ]
+          : [
+              { type: 'reply', reply: { id: 'CMD:CHECK_MONGIKE_PAY', title: isEn ? '🔍 Check Status' : '🔍 Hakiki Malipo' } },
+              { type: 'reply', reply: { id: 'CMD:SWITCH_TO_LIPANAMBA', title: `🏪 Lipa ${PAPO_LIPA_NAMBA}` } },
+              { type: 'reply', reply: { id: 'CMD:RETRY_MONGIKE_PAY', title: isEn ? '🔄 Resend Push' : '🔄 Tuma Push Tena' } },
+            ],
+      },
+    });
+  }
+
+  // 1d. Top-up payment method choice (Lipa Namba 5656565 vs Mongike Push)
+  if (session?.step === 'PAPOPAY_TOPUP_METHOD') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'button',
+      header: { type: 'text', text: isEn ? '📥 Choose Top-Up Method' : '📥 Weka Pesa PapoWallet' },
+      body: { text: cleanBody },
+      footer: { text: `Lipa Namba: ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})` },
+      action: {
         buttons: [
-          { type: 'reply', reply: { id: 'CMD:CHECK_MONGIKE_PAY', title: isEn ? '🔍 Check Status' : '🔍 Hakiki Malipo' } },
-          { type: 'reply', reply: { id: 'CMD:RETRY_MONGIKE_PAY', title: isEn ? '🔄 Resend Push' : '🔄 Tuma Push Tena' } },
-          { type: 'reply', reply: { id: 'CMD:OPEN_EXPRESS_PAY_CARD', title: isEn ? '💳 Pay via Link' : '💳 Lipa Mtandaoni' } },
+          { type: 'reply', reply: { id: 'CMD:TOPUP_LIPANAMBA', title: `🏪 Lipa ${PAPO_LIPA_NAMBA}` } },
+          { type: 'reply', reply: { id: 'CMD:TOPUP_MONGIKE', title: isEn ? '📱 Mobile Push' : '📱 Mongike Push' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
         ],
       },
     });
@@ -4746,14 +4789,21 @@ export function buildWhatsAppInteractive(
   if (session?.step === 'PAPOPAY_PAY_METHOD') {
     const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
     return sanitizeWhatsAppInteractivePayload({
-      type: 'button',
-      header: { type: 'text', text: '💳 Chagua Njia ya Malipo' },
+      type: 'list',
+      header: { type: 'text', text: isEn ? '💳 Choose Payment Method' : '💳 Chagua Njia ya Malipo' },
       body: { text: cleanBody },
       action: {
-        buttons: [
-          { type: 'reply', reply: { id: '1', title: '📱 Simu (Mongike)' } },
-          { type: 'reply', reply: { id: '2', title: '💰 PapoWallet' } },
-          { type: 'reply', reply: { id: '3', title: '🧾 Kadi Checkout' } },
+        button: isEn ? '💳 Choose Method' : '💳 Chagua Njia',
+        sections: [
+          {
+            title: isEn ? 'Payment Options' : 'Njia za Malipo',
+            rows: [
+              { id: '4', title: `🏪 Lipa Namba ${PAPO_LIPA_NAMBA}`, description: `${PAPO_LIPA_NAMBA_NAME} (Admin Confirm)` },
+              { id: '1', title: '📱 Simu (Mongike Push)', description: 'M-Pesa / Mixx by Yas / Airtel' },
+              { id: '2', title: '💰 PapoWallet Salio', description: 'Lipa papo hapo +5% PapoPoints' },
+              { id: '3', title: '🧾 Kadi ya Checkout', description: 'Review & Pay WhatsApp Card' },
+            ],
+          },
         ],
       },
     });
@@ -6646,16 +6696,17 @@ async function processMetaInputCore(
       : `📍 *Kutoka:* ${gpsLoc.name}\n\n*Unaenda wapi?* _(Andika eneo au tuma 📍 Location)_:`;
   }
 
-  // --- 0C2. MONGIKE PENDING PUSH RECOVERY & PIN-SAFETY GUARD (e.g. if user types PIN "5353" or taps Check/Retry after reset) ---
+  // --- 0C2. MONGIKE & LIPA NAMBA PENDING PAYMENT RECOVERY & PIN-SAFETY GUARD ---
   const activePendingMongike =
     session.details?.pendingMongikePayment || session.details?.lastPendingMongike;
   const hasRecentPendingMongike =
     Boolean(activePendingMongike?.orderId) &&
-    Date.now() - Number(activePendingMongike?.createdAtMs || 0) < 15 * 60 * 1000;
+    Date.now() - Number(activePendingMongike?.createdAtMs || 0) < 30 * 60 * 1000;
   const isMongikeWaitAction =
-    /^(?:CMD:)?(?:CHECK_MONGIKE_PAY|RETRY_MONGIKE_PAY|OPEN_EXPRESS_PAY_CARD)$/i.test(cleanInput);
+    /^(?:CMD:)?(?:CHECK_MONGIKE_PAY|RETRY_MONGIKE_PAY|OPEN_EXPRESS_PAY_CARD|SWITCH_TO_LIPANAMBA|CONFIRM_LIPANAMBA_SENT)$/i.test(cleanInput);
   const looksLikeTypedWalletPinAfterPush =
     hasRecentPendingMongike &&
+    activePendingMongike?.paymentMethod !== 'lipanamba' &&
     (!session.service || session.step === 'START' || session.step === 'COLLECTING_ROUTE') &&
     /^\d{4,6}$/.test(cleanInput);
 
@@ -10765,6 +10816,7 @@ async function routeToServiceFlow(
       'PAPOPAY_BILL_ACCOUNT',
       'PAPOPAY_BILL_AMOUNT',
       'PAPOPAY_TOPUP_AMOUNT',
+      'PAPOPAY_TOPUP_METHOD',
       'PAPOPAY_TOPUP_PHONE',
       'PAPOPAY_PAY_TARGET',
       'PAPOPAY_PAY_AMOUNT',
@@ -11077,7 +11129,10 @@ async function routeToServiceFlow(
       return wakalaMsg;
     };
 
-    const finalizePapoPayTopUp = async (payPhone: string) => {
+    const finalizePapoPayTopUp = async (
+      payPhone: string,
+      method: 'mongike' | 'lipanamba' = 'lipanamba'
+    ) => {
       const ppCode = `WT-${Math.floor(1000 + Math.random() * 9000)}`;
       const amt = Number(session.details.topUpAmount || 5000);
       const custName = session.details.customerName || 'Mteja wa PapoWallet';
@@ -11087,6 +11142,7 @@ async function routeToServiceFlow(
         createIfMissing: true,
       });
 
+      const isLipaNamba = method === 'lipanamba';
       const createdOrderId = await triggerAutomatedOrder(
         dbAdmin,
         'papopay-wallet',
@@ -11105,14 +11161,74 @@ async function routeToServiceFlow(
           orderType: 'wallet_topup',
           paymentPurpose: 'wallet_topup',
           payerUid: walletUser?.uid || null,
-          paymentMethod: 'mongike',
-          paymentMethodLabel: 'Mongike Mobile Money',
+          paymentMethod: isLipaNamba ? 'lipanamba' : 'mongike',
+          paymentMethodLabel: isLipaNamba
+            ? `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`
+            : 'Mongike Mobile Money',
+          lipaNambaNumber: isLipaNamba ? PAPO_LIPA_NAMBA : undefined,
+          lipaNambaName: isLipaNamba ? PAPO_LIPA_NAMBA_NAME : undefined,
+          paymentPushStatus: isLipaNamba ? 'awaiting_admin_confirm' : undefined,
+          skipAutoMongikePush: isLipaNamba,
           paymentStatus: 'pending',
           metaSenderId: session.senderId,
           metaChannel: session.channel,
           metaPhoneNumberId: getLastWhatsAppPhoneNumberId(session.senderId),
         }
       );
+
+      if (isLipaNamba) {
+        if (dbAdmin && createdOrderId) {
+          await dbAdmin.collection('notifications').add({
+            type: 'lipa_namba_confirm',
+            title: `Lipa Namba ${PAPO_LIPA_NAMBA}: TZS ${amt.toLocaleString()} (#${ppCode})`,
+            message: `${custName} (${payPhone}) amechagua kulipa TZS ${amt.toLocaleString()}/= kupitia Lipa Namba ${PAPO_LIPA_NAMBA} kuweka PapoWallet.`,
+            orderId: createdOrderId,
+            bookingCode: ppCode,
+            amount: amt,
+            customerPhone: payPhone,
+            read: false,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        const pendingPayload = {
+          orderId: createdOrderId || ppCode,
+          bookingCode: ppCode,
+          amount: amt,
+          phone: payPhone,
+          targetName: 'PapoWallet Deposit',
+          payeePhone: '',
+          purpose: 'wallet_topup',
+          paymentMethod: 'lipanamba',
+          lipaNambaNumber: PAPO_LIPA_NAMBA,
+          pushStatus: 'awaiting_admin_confirm',
+          createdAtMs: Date.now(),
+        };
+
+        session.service = 'papopay';
+        session.step = 'PAPOPAY_WAIT_PUSH';
+        session.details = {
+          ...preserveCustomerFields(session.details, lang),
+          pendingMongikePayment: pendingPayload,
+          lastPendingMongike: pendingPayload,
+        };
+        await saveMetaSession(session, dbAdmin);
+
+        return (
+          `🏪 *LIPA KUPITIA LIPA NAMBA ${PAPO_LIPA_NAMBA}*\n` +
+          `🔖 Rejea: *#${ppCode}*\n\n` +
+          `- Jina la Lipa Namba: *${PAPO_LIPA_NAMBA_NAME}*\n` +
+          `- Namba ya Kulipia: *${PAPO_LIPA_NAMBA}*\n` +
+          `- Kiasi cha Kulipa: *TZS ${amt.toLocaleString()}/=*\n` +
+          `- Akaunti / Simu Yako: *${payPhone}*\n\n` +
+          `📱 *Hatua za Kulipa (M-Pesa / Mixx by Yas / Airtel Money / Halopesa):*\n` +
+          `1. Fungua menyu ya mtandao wako (mf. *150*00# / *150*01# / *150*60#)\n` +
+          `2. Chagua *Lipa Kwa Simu / Lipa Namba*\n` +
+          `3. Weka Lipa Namba: *${PAPO_LIPA_NAMBA}*\n` +
+          `4. Hakiki jina: *${PAPO_LIPA_NAMBA_NAME}* na uweke *TZS ${amt.toLocaleString()}*\n\n` +
+          `👇 Ukishalipa, bonyeza *✅ Nimelipa Tayari* au andika/bandika *namba ya muamala (SMS Code)* hapa ili Admin athibitishe na salio liongezeke mara moja!`
+        );
+      }
 
       const mongikeRes = createdOrderId ? triggeredOrderMongikeResults.get(createdOrderId) : undefined;
       const pushFailed = !createdOrderId || mongikeRes?.status === 'error';
@@ -11127,6 +11243,7 @@ async function routeToServiceFlow(
         targetName: 'PapoWallet Deposit',
         payeePhone: '',
         purpose: 'wallet_topup',
+        paymentMethod: 'mongike',
         gatewayRef,
         pushStatus: pushFailed ? 'failed' : 'pending',
         pushError: pushErrorMsg,
@@ -11144,15 +11261,19 @@ async function routeToServiceFlow(
       await saveMetaSession(session, dbAdmin);
 
       if (pushFailed) {
+        const isMerchantAccIssue = /not\s*activated|suspended|access\s*denied|invalid\s*(?:api\s*)?key|unauthorized/i.test(
+          pushErrorMsg
+        );
         return (
           `⚠️ *OMBI LA USSD PUSH HALIKUWEZA KUTUMWA* (#${ppCode})\n\n` +
           `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
           `- Simu ya Malipo: *${payPhone}*\n` +
           `- Sababu: *${pushErrorMsg || 'Mtandao wa Mongike USSD haujapokea ombi'}*\n\n` +
-          `💡 *Unachoweza kufanya sasa:*\n` +
-          `• Bonyeza *🔄 Tuma Push Tena* hapa chini\n` +
-          `• Au andika *namba nyingine ya simu* (mf. Vodacom *0755...* au Tigo *0712...*)\n` +
-          `• Au bonyeza *💳 Lipa Mtandaoni* kukamilisha kwa Link/Kadi.`
+          (isMerchantAccIssue
+            ? `💡 *Lipa Haraka Bila USSD Push:* Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* hapa chini ulipie moja kwa moja kupitia Lipa Namba *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) ili Admin athibitishe papo hapo.`
+            : `💡 *Unachoweza kufanya sasa:*\n` +
+              `• Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* kulipia moja kwa moja kwa Lipa Namba\n` +
+              `• Au bonyeza *🔄 Tuma Push Tena* / andika namba nyingine ya simu`)
         );
       }
 
@@ -11164,11 +11285,14 @@ async function routeToServiceFlow(
         `- Njia: *Mongike Mobile Money Push*${mongikeRes?.sandbox ? ' (Sandbox Test Mode)' : ''}\n\n` +
         `🔐 *Angalia skrini ya simu yako ${payPhone}*: Ingiza PIN kwenye kisanduku cha *M-Pesa / Mixx / Airtel Money* kinachojitokeza.\n` +
         `⚠️ *TAHADHARI:* Usiandike PIN yako hapa kwenye ujumbe wa WhatsApp!\n\n` +
-        `👇 Ukishathibitisha au kama ujumbe wa PIN umechelewa, tumia vitufe hapa chini:`
+        `👇 Ukishathibitisha au ukitaka kulipa kwa *Lipa Namba ${PAPO_LIPA_NAMBA}*, tumia vitufe hapa chini:`
       );
     };
 
-    const finalizePapoPay = async (payPhone: string, mode: 'mongike' | 'papowallet' | 'checkout_card' = 'mongike') => {
+    const finalizePapoPay = async (
+      payPhone: string,
+      mode: 'mongike' | 'papowallet' | 'checkout_card' | 'lipanamba' = 'mongike'
+    ) => {
       const ppCode = `PP-${Math.floor(1000 + Math.random() * 9000)}`;
       const amt = Number(session.details.payAmount || 5000);
       const billMeta = session.details.billMeta || null;
@@ -11241,20 +11365,81 @@ async function routeToServiceFlow(
           payeeName: targetName,
           payeePhone: payee.phone || '',
           payeeKind: payee.kind || 'bill',
-          paymentMethod: mode === 'papowallet' ? 'papowallet' : mode === 'checkout_card' ? 'papopay_checkout' : 'mongike',
+          paymentMethod:
+            mode === 'papowallet'
+              ? 'papowallet'
+              : mode === 'checkout_card'
+              ? 'papopay_checkout'
+              : mode === 'lipanamba'
+              ? 'lipanamba'
+              : 'mongike',
           paymentMethodLabel:
             mode === 'papowallet'
               ? 'PapoWallet Salio'
               : mode === 'checkout_card'
               ? 'WhatsApp Review & Pay'
+              : mode === 'lipanamba'
+              ? `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`
               : 'Mongike Mobile Money',
+          lipaNambaNumber: mode === 'lipanamba' ? PAPO_LIPA_NAMBA : undefined,
+          lipaNambaName: mode === 'lipanamba' ? PAPO_LIPA_NAMBA_NAME : undefined,
+          paymentPushStatus: mode === 'lipanamba' ? 'awaiting_admin_confirm' : undefined,
           paymentStatus: mode === 'papowallet' ? 'paid' : 'pending',
-          skipAutoMongikePush: mode === 'checkout_card',
+          skipAutoMongikePush: mode === 'checkout_card' || mode === 'lipanamba',
           metaSenderId: session.senderId,
           metaChannel: session.channel,
           metaPhoneNumberId: getLastWhatsAppPhoneNumberId(session.senderId),
         }
       );
+
+      if (mode === 'lipanamba') {
+        if (dbAdmin && createdOrderId) {
+          await dbAdmin.collection('notifications').add({
+            type: 'lipa_namba_confirm',
+            title: `Lipa Namba ${PAPO_LIPA_NAMBA}: TZS ${amt.toLocaleString()} (#${ppCode})`,
+            message: `${custName} (${payPhone}) amechagua kulipa TZS ${amt.toLocaleString()}/= kwenda ${targetName} kupitia Lipa Namba ${PAPO_LIPA_NAMBA}.`,
+            orderId: createdOrderId,
+            bookingCode: ppCode,
+            amount: amt,
+            customerPhone: payPhone,
+            read: false,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        const pendingPayload = {
+          orderId: createdOrderId || ppCode,
+          bookingCode: ppCode,
+          amount: amt,
+          phone: payPhone,
+          targetName,
+          payeePhone: payee.phone || '',
+          purpose,
+          paymentMethod: 'lipanamba',
+          lipaNambaNumber: PAPO_LIPA_NAMBA,
+          pushStatus: 'awaiting_admin_confirm',
+          createdAtMs: Date.now(),
+        };
+
+        session.service = 'papopay';
+        session.step = 'PAPOPAY_WAIT_PUSH';
+        session.details = {
+          ...preserveCustomerFields({ ...session.details, savedBills: updatedSavedBills }, lang),
+          pendingMongikePayment: pendingPayload,
+          lastPendingMongike: pendingPayload,
+        };
+        await saveMetaSession(session, dbAdmin);
+
+        return (
+          `🏪 *LIPA KUPITIA LIPA NAMBA ${PAPO_LIPA_NAMBA}*\n` +
+          `🔖 Rejea: *#${ppCode}*\n\n` +
+          `- Huduma / Mpokeaji: *${targetName}*\n` +
+          `- Namba ya Kulipia: *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*)\n` +
+          `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n\n` +
+          `📱 Lipa kwenda *Lipa Namba ${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) kupitia M-Pesa / Mixx by Yas / Airtel Money / Halopesa.\n` +
+          `👇 Ukishalipa, bonyeza *✅ Nimelipa Tayari* au andika *namba ya muamala (SMS Code)* hapa ili Admin athibitishe!`
+        );
+      }
 
       if (mode === 'checkout_card') {
         const cardPayload = buildOrderDetailsPayload({
@@ -11382,6 +11567,7 @@ async function routeToServiceFlow(
         targetName,
         payeePhone: payee.phone || '',
         purpose,
+        paymentMethod: 'mongike',
         gatewayRef,
         pushStatus: pushFailed ? 'failed' : 'pending',
         pushError: pushErrorMsg,
@@ -11399,13 +11585,18 @@ async function routeToServiceFlow(
       await saveMetaSession(session, dbAdmin);
 
       if (pushFailed) {
+        const isMerchantAccIssue = /not\s*activated|suspended|access\s*denied|invalid\s*(?:api\s*)?key|unauthorized/i.test(
+          pushErrorMsg
+        );
         return (
           `⚠️ *OMBI LA MONGIKE USSD PUSH HALIKUWEZA KUTUMWA* (#${ppCode})\n\n` +
           `- Mpokeaji / Bili: *${targetName}*\n` +
           `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
           `- Simu: *${payPhone}*\n` +
           `- Sababu: *${pushErrorMsg || 'Mtandao wa Mongike haujapokea ombi'}*\n\n` +
-          `👇 Bonyeza *🔄 Tuma Push Tena*, tuma namba nyingine ya simu, au bonyeza *💳 Lipa Mtandaoni*:`
+          (isMerchantAccIssue
+            ? `💡 *Lipa Haraka:* Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* hapa chini kulipia moja kwa moja kupitia Lipa Namba *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) ili Admin athibitishe papo hapo.`
+            : `👇 Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}*, *🔄 Tuma Push Tena*, au *💳 Lipa Mtandaoni*:`)
         );
       }
 
@@ -11434,8 +11625,9 @@ async function routeToServiceFlow(
         `Chagua njia ya malipo:\n` +
         `1. 📱 *Lipa kwa Simu (Mongike USSD Push)* — M-Pesa / Mixx by Yas / Airtel Money\n` +
         `2. 💰 *Lipa Kutoka PapoWallet* (Salio lako: *TZS ${walletBal.toLocaleString()}* • +5% Pointi)\n` +
-        `3. 🧾 *Fungua Kadi ya Checkout WhatsApp (Review & Pay)*\n\n` +
-        `Andika *1*, *2* au *3*:`
+        `3. 🧾 *Fungua Kadi ya Checkout WhatsApp (Review & Pay)*\n` +
+        `4. 🏪 *Lipa Namba ${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) — Admin Athibitishe\n\n` +
+        `Chagua kwenye menyu au andika *1*, *2*, *3* au *4*:`
       );
     };
 
@@ -11592,7 +11784,7 @@ async function routeToServiceFlow(
         session.step = 'PAPOPAY_TOPUP_AMOUNT';
         await saveMetaSession(session, dbAdmin);
         return (
-          `📥 *Weka Pesa Kwenye PapoWallet (Mongike Push)*\n\n` +
+          `📥 *Weka Pesa Kwenye PapoWallet (Lipa Namba ${PAPO_LIPA_NAMBA} / Simu)*\n\n` +
           `💰 Andika *kiasi cha TZS* unachotaka kuweka kwenye pochi yako (Mfano: *5000*, *20000*, au *50000*):`
         );
       }
@@ -12108,15 +12300,42 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka kiasi sahihi kuanzia TZS 500 (Mfano: *5000* au *20000*):`;
       }
       session.details.topUpAmount = amt;
-      if (knownPhone) {
-        return await finalizePapoPayTopUp(knownPhone);
-      }
-      session.step = 'PAPOPAY_TOPUP_PHONE';
+      session.step = 'PAPOPAY_TOPUP_METHOD';
       await saveMetaSession(session, dbAdmin);
       return (
         `📥 Kiasi cha kuweka: *TZS ${amt.toLocaleString()}/=*\n\n` +
-        `📞 Andika *namba yako ya simu* (M-Pesa / Mixx by Yas / Airtel Money / Halopesa) kupokea ombi la PIN (Mfano: *0712345678*):`
+        `Chagua njia ya kuweka pesa:\n` +
+        `1. 🏪 *Lipa Namba ${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) — Admin athibitishe papo hapo\n` +
+        `2. 📱 *Mongike Mobile Money Push* — M-Pesa / Mixx by Yas / Airtel\n\n` +
+        `Chagua *1* au *2*:`
       );
+    }
+
+    if (session.step === 'PAPOPAY_TOPUP_METHOD') {
+      const rawT = input.trim();
+      const lowerT = rawT.toLowerCase();
+      const isLipaPick =
+        rawT === '1' ||
+        rawT.toUpperCase() === 'CMD:TOPUP_LIPANAMBA' ||
+        /lipa\s*namba|5656565|wakala|admin/i.test(lowerT);
+      const isPushPick =
+        rawT === '2' ||
+        rawT.toUpperCase() === 'CMD:TOPUP_MONGIKE' ||
+        /mongike|push|ussd/i.test(lowerT);
+
+      if (!isLipaPick && !isPushPick) {
+        return `⚠️ Tafadhali chagua *1* (*Lipa Namba ${PAPO_LIPA_NAMBA}*) au *2* (*Mongike Push*):`;
+      }
+      const chosenMethod: 'lipanamba' | 'mongike' = isLipaPick ? 'lipanamba' : 'mongike';
+      session.details.topUpMethod = chosenMethod;
+      if (knownPhone) {
+        return await finalizePapoPayTopUp(knownPhone, chosenMethod);
+      }
+      session.step = 'PAPOPAY_TOPUP_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      return chosenMethod === 'lipanamba'
+        ? `📞 Andika *namba yako ya simu* utakayotumia kulipa kwenda Lipa Namba *${PAPO_LIPA_NAMBA}* (Mfano: *0712345678*):`
+        : `📞 Andika *namba yako ya simu* (M-Pesa / Mixx by Yas / Airtel Money / Halopesa) kupokea ombi la PIN (Mfano: *0712345678*):`;
     }
 
     if (session.step === 'PAPOPAY_TOPUP_PHONE') {
@@ -12128,7 +12347,9 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
       }
       await savePhonePref(topPhone);
-      return await finalizePapoPayTopUp(topPhone);
+      const topMethod: 'lipanamba' | 'mongike' =
+        session.details.topUpMethod === 'mongike' ? 'mongike' : 'lipanamba';
+      return await finalizePapoPayTopUp(topPhone, topMethod);
     }
 
     if (session.step === 'PAPOPAY_PAY_TARGET') {
@@ -12157,11 +12378,18 @@ async function routeToServiceFlow(
 
     if (session.step === 'PAPOPAY_PAY_METHOD') {
       const c = input.trim();
-      if (c !== '1' && c !== '2' && c !== '3') {
-        return `⚠️ Tafadhali chagua *1* (Mongike Push), *2* (PapoWallet) au *3* (Kadi Checkout):`;
+      const cLower = c.toLowerCase();
+      const isLipaPick = c === '4' || /lipa\s*namba|5656565/i.test(cLower);
+      if (c !== '1' && c !== '2' && c !== '3' && !isLipaPick) {
+        return `⚠️ Tafadhali chagua *1* (Mongike Push), *2* (PapoWallet), *3* (Kadi Checkout), au *4* (*Lipa Namba ${PAPO_LIPA_NAMBA}*):`;
       }
-      const mode: 'mongike' | 'papowallet' | 'checkout_card' =
-        c === '2' ? 'papowallet' : c === '3' ? 'checkout_card' : 'mongike';
+      const mode: 'mongike' | 'papowallet' | 'checkout_card' | 'lipanamba' = isLipaPick
+        ? 'lipanamba'
+        : c === '2'
+        ? 'papowallet'
+        : c === '3'
+        ? 'checkout_card'
+        : 'mongike';
       session.details.payMode = mode;
 
       if (knownPhone) {
@@ -12171,6 +12399,8 @@ async function routeToServiceFlow(
       await saveMetaSession(session, dbAdmin);
       return mode === 'papowallet'
         ? `📞 Andika *namba ya simu* ya akaunti yako ya PapoWallet (Mfano: *0712345678*):`
+        : mode === 'lipanamba'
+        ? `📞 Andika *namba yako ya simu* utakayotumia kulipia kwenda Lipa Namba *${PAPO_LIPA_NAMBA}* (Mfano: *0712345678*):`
         : `📞 Andika *namba yako ya simu* kupokea ombi la PIN la malipo (Mfano: *0712345678*):`;
     }
 
@@ -12183,11 +12413,13 @@ async function routeToServiceFlow(
         return `⚠️ Tafadhali weka namba sahihi ya simu (Mfano: *0712345678*):`;
       }
       await savePhonePref(payPhone);
-      const mode: 'mongike' | 'papowallet' | 'checkout_card' =
+      const mode: 'mongike' | 'papowallet' | 'checkout_card' | 'lipanamba' =
         session.details.payMode === 'papowallet'
           ? 'papowallet'
           : session.details.payMode === 'checkout_card'
           ? 'checkout_card'
+          : session.details.payMode === 'lipanamba'
+          ? 'lipanamba'
           : 'mongike';
       return await finalizePapoPay(payPhone, mode);
     }
@@ -12202,6 +12434,113 @@ async function routeToServiceFlow(
 
       const rawTrim = input.trim();
       const rawCmd = rawTrim.toUpperCase();
+
+      // 0. Switch pending or failed payment to Lipa Namba 5656565
+      if (
+        rawCmd === 'CMD:SWITCH_TO_LIPANAMBA' ||
+        rawCmd === 'SWITCH_TO_LIPANAMBA' ||
+        /^(?:🏪\s*)?(?:lipa\s*(?:kwa\s*)?(?:namba\s*)?5656565|lipa\s*namba|5656565)$/i.test(rawTrim)
+      ) {
+        if (dbAdmin && pending.orderId) {
+          await dbAdmin.collection('orders').doc(String(pending.orderId)).set(
+            cleanUndefined({
+              paymentMethod: 'lipanamba',
+              paymentMethodLabel: `Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})`,
+              lipaNambaNumber: PAPO_LIPA_NAMBA,
+              lipaNambaName: PAPO_LIPA_NAMBA_NAME,
+              paymentPushStatus: 'awaiting_admin_confirm',
+              paymentError: null,
+              updatedAt: new Date().toISOString(),
+            }),
+            { merge: true }
+          ).catch(() => {});
+
+          await dbAdmin.collection('notifications').add({
+            type: 'lipa_namba_confirm',
+            title: `Lipa Namba ${PAPO_LIPA_NAMBA}: TZS ${Number(pending.amount || 0).toLocaleString()} (#${pending.bookingCode})`,
+            message: `${pending.phone || 'Mteja'} amehamia kulipa kupitia Lipa Namba ${PAPO_LIPA_NAMBA} kwa muamala #${pending.bookingCode}.`,
+            orderId: String(pending.orderId),
+            bookingCode: pending.bookingCode,
+            amount: Number(pending.amount || 0),
+            customerPhone: pending.phone || '',
+            read: false,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        const switchedPending = {
+          ...pending,
+          paymentMethod: 'lipanamba',
+          lipaNambaNumber: PAPO_LIPA_NAMBA,
+          pushStatus: 'awaiting_admin_confirm',
+          pushError: '',
+          createdAtMs: Date.now(),
+        };
+        session.details.pendingMongikePayment = switchedPending;
+        session.details.lastPendingMongike = switchedPending;
+        await saveMetaSession(session, dbAdmin);
+
+        return (
+          `🏪 *LIPA KUPITIA LIPA NAMBA ${PAPO_LIPA_NAMBA}*\n` +
+          `🔖 Rejea: *#${pending.bookingCode}*\n\n` +
+          `- Jina la Lipa Namba: *${PAPO_LIPA_NAMBA_NAME}*\n` +
+          `- Namba ya Kulipia: *${PAPO_LIPA_NAMBA}*\n` +
+          `- Kiasi cha Kulipa: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+          `📱 Lipa moja kwa moja kwenda Lipa Namba *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) kupitia M-Pesa / Mixx by Yas / Airtel Money / Halopesa.\n\n` +
+          `👇 Ukishalipa, bonyeza *✅ Nimelipa Tayari* au andika *namba ya muamala (SMS Code)* hapa ili Admin athibitishe!`
+        );
+      }
+
+      // 0b. Customer confirms they have paid via Lipa Namba 5656565
+      if (
+        rawCmd === 'CMD:CONFIRM_LIPANAMBA_SENT' ||
+        rawCmd === 'CONFIRM_LIPANAMBA_SENT' ||
+        (pending.paymentMethod === 'lipanamba' && /^(?:✅\s*)?(?:nimelipa\s*tayari|nimeshalipa|paid\s*already|i\s*have\s*paid)$/i.test(rawTrim))
+      ) {
+        if (dbAdmin && pending.orderId) {
+          await dbAdmin.collection('orders').doc(String(pending.orderId)).set(
+            cleanUndefined({
+              paymentMethod: 'lipanamba',
+              lipaNambaNumber: PAPO_LIPA_NAMBA,
+              customerReportedPaid: true,
+              paymentPushStatus: 'awaiting_admin_confirm',
+              updatedAt: new Date().toISOString(),
+            }),
+            { merge: true }
+          ).catch(() => {});
+
+          await dbAdmin.collection('notifications').add({
+            type: 'lipa_namba_confirm',
+            title: `🔔 Mteja Amelipa ${PAPO_LIPA_NAMBA}: TZS ${Number(pending.amount || 0).toLocaleString()} (#${pending.bookingCode})`,
+            message: `${pending.phone || 'Mteja'} amethibitisha amelipa TZS ${Number(pending.amount || 0).toLocaleString()}/= kwenda Lipa Namba ${PAPO_LIPA_NAMBA}. Fungua Orders kuthibitisha.`,
+            orderId: String(pending.orderId),
+            bookingCode: pending.bookingCode,
+            amount: Number(pending.amount || 0),
+            customerPhone: pending.phone || '',
+            read: false,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        const updatedPending = {
+          ...pending,
+          paymentMethod: 'lipanamba',
+          customerReportedPaid: true,
+          pushStatus: 'awaiting_admin_confirm',
+          createdAtMs: Date.now(),
+        };
+        session.details.pendingMongikePayment = updatedPending;
+        session.details.lastPendingMongike = updatedPending;
+        await saveMetaSession(session, dbAdmin);
+
+        return (
+          `⏳ *TAARIFA YAKO IMEPOKELEWA!* (#${pending.bookingCode})\n\n` +
+          `- Njia: *Lipa Namba ${PAPO_LIPA_NAMBA} (${PAPO_LIPA_NAMBA_NAME})*\n` +
+          `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+          `Admin amepewa taarifa ya kuhakiki muamala wako. Utapokea *E-Risiti & salio lako WhatsApp* mara tu atakapobonyeza *Thibitisha*!\n\n` +
+          `📝 _Hiari:_ Unaweza kuandika/kubandika *namba ya muamala (mf. BH82K9...)* hapa sasa hivi au ubonyeze *🔍 Hakiki Hali* muda mfupi ujao.`
+        );
+      }
 
       // 1. Open Express Checkout link/card as instant backup
       if (
@@ -12244,7 +12583,8 @@ async function routeToServiceFlow(
       if (
         rawCmd === 'CMD:CHECK_MONGIKE_PAY' ||
         rawCmd === 'CHECK_MONGIKE_PAY' ||
-        /^(?:🔍\s*)?(?:hakiki(?:\s*malipo)?|check(?:\s*status)?|tayari|nimelipa|imekamilika|status)$/i.test(rawTrim)
+        /^(?:🔍\s*)?(?:hakiki(?:\s*malipo|\s*hali)?|check(?:\s*status)?|tayari|imekamilika|status)$/i.test(rawTrim) ||
+        (pending.paymentMethod !== 'lipanamba' && /^nimelipa$/i.test(rawTrim))
       ) {
         const statusRes = await checkMongikeOrderPaymentStatus(dbAdmin, {
           orderId: pending.orderId,
@@ -12262,7 +12602,10 @@ async function routeToServiceFlow(
                 ? 'Weka Pesa PapoWallet'
                 : pending.targetName || 'Malipo ya PapoPay',
             amount: paidAmt,
-            methodLabel: 'Mongike Mobile Money',
+            methodLabel:
+              pending.paymentMethod === 'lipanamba' || statusRes.paymentMethod === 'lipanamba'
+                ? `Lipa Namba ${PAPO_LIPA_NAMBA}`
+                : 'Mongike Mobile Money',
             newBalance: statusRes.newWalletBalance,
           });
           session.step = 'START';
@@ -12285,6 +12628,16 @@ async function routeToServiceFlow(
           );
         }
 
+        if (pending.paymentMethod === 'lipanamba' || statusRes.paymentMethod === 'lipanamba') {
+          return (
+            `⏳ *INASUBIRI UTHIBITISHO WA ADMIN* (#${pending.bookingCode})\n\n` +
+            `- Lipa Namba: *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*)\n` +
+            `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+            `Malipo yako bado yanasubiri kuthibitishwa na Admin. Mara tu yakithibitishwa utapokea E-Risiti papo hapo!\n` +
+            `📝 Unaweza kutuma *namba ya muamala (SMS Code)* hapa kama bado hujaituma.`
+          );
+        }
+
         if (statusRes.state === 'failed') {
           pending.pushStatus = 'failed';
           pending.pushError = statusRes.errorMessage || 'Ombi halikukamilika.';
@@ -12295,7 +12648,7 @@ async function routeToServiceFlow(
             `⚠️ *OMBI LA MALIPO HALIKUKAMILIKA* (#${pending.bookingCode})\n\n` +
             `- Simu: *${pending.phone}*\n` +
             `- Sababu: *${pending.pushError}*\n\n` +
-            `👇 Bonyeza *🔄 Tuma Push Tena*, andika namba nyingine ya simu (mf. *0755123456*), au bonyeza *💳 Lipa Mtandaoni*.`
+            `👉 Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* kulipa moja kwa moja kwa Lipa Namba *${PAPO_LIPA_NAMBA}* ili Admin athibitishe, au *🔄 Tuma Push Tena*.`
           );
         }
 
@@ -12304,13 +12657,67 @@ async function routeToServiceFlow(
           `- Simu: *${pending.phone}*\n` +
           `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
           `Bado hatujapokea uthibitisho kutoka mtandao wa simu. Hakikisha umeingiza PIN kwenye kisanduku cha USSD kwenye skrini ya simu yako.\n` +
-          `Kama hujapokea ujumbe wa PIN, bonyeza *🔄 Tuma Push Tena* au *💳 Lipa Mtandaoni*!`
+          `Kama hujapokea ujumbe wa PIN, bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* au *🔄 Tuma Push Tena*!`
+        );
+      }
+
+      // 2b. Capture customer-pasted SMS / transaction code when paying via Lipa Namba 5656565
+      const typedDigits = rawTrim.replace(/\D/g, '');
+      const isNewPhoneInput =
+        typedDigits.length >= 9 &&
+        typedDigits.length <= 13 &&
+        !/[a-z]/i.test(rawTrim) &&
+        pending.paymentMethod !== 'lipanamba';
+
+      if (pending.paymentMethod === 'lipanamba' && rawTrim.length >= 4 && !/^(?:00|menu|hi|anza)$/i.test(rawTrim)) {
+        const cleanTxRef = rawTrim.slice(0, 80);
+        if (dbAdmin && pending.orderId) {
+          await dbAdmin.collection('orders').doc(String(pending.orderId)).set(
+            cleanUndefined({
+              paymentMethod: 'lipanamba',
+              lipaNambaNumber: PAPO_LIPA_NAMBA,
+              lipaNambaRef: cleanTxRef,
+              customerReportedPaid: true,
+              paymentPushStatus: 'awaiting_admin_confirm',
+              updatedAt: new Date().toISOString(),
+            }),
+            { merge: true }
+          ).catch(() => {});
+
+          await dbAdmin.collection('notifications').add({
+            type: 'lipa_namba_confirm',
+            title: `Kumbukumbu ${PAPO_LIPA_NAMBA}: ${cleanTxRef} (#${pending.bookingCode})`,
+            message: `${pending.phone || 'Mteja'} ametuma namba ya muamala "${cleanTxRef}" kwa malipo ya TZS ${Number(pending.amount || 0).toLocaleString()}/=.`,
+            orderId: String(pending.orderId),
+            bookingCode: pending.bookingCode,
+            amount: Number(pending.amount || 0),
+            customerPhone: pending.phone || '',
+            lipaNambaRef: cleanTxRef,
+            read: false,
+            createdAt: new Date().toISOString(),
+          }).catch(() => {});
+        }
+
+        const updatedPending = {
+          ...pending,
+          lipaNambaRef: cleanTxRef,
+          customerReportedPaid: true,
+          createdAtMs: Date.now(),
+        };
+        session.details.pendingMongikePayment = updatedPending;
+        session.details.lastPendingMongike = updatedPending;
+        await saveMetaSession(session, dbAdmin);
+
+        return (
+          `✅ *NAMBA YA MUAMALA IMEPOKELEWA!* (#${pending.bookingCode})\n\n` +
+          `- Kumbukumbu: *${cleanTxRef}*\n` +
+          `- Lipa Namba: *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*)\n` +
+          `- Kiasi: *TZS ${Number(pending.amount || 0).toLocaleString()}/=*\n\n` +
+          `Admin amepewa taarifa ya kuhakiki muamala huu. Utapokea *E-Risiti yako WhatsApp* mara tu atakapothibitisha!`
         );
       }
 
       // 3. Retry USSD push (or switch phone number if user typed a valid TZ phone like 0755123456)
-      const typedDigits = rawTrim.replace(/\D/g, '');
-      const isNewPhoneInput = typedDigits.length >= 9 && typedDigits.length <= 13;
       const isRetryAction =
         rawCmd === 'CMD:RETRY_MONGIKE_PAY' ||
         rawCmd === 'RETRY_MONGIKE_PAY' ||
@@ -12355,6 +12762,7 @@ async function routeToServiceFlow(
         const nextGatewayRef = retryRes?.data?.gateway_ref || retryRes?.data?.id || pending.gatewayRef || '';
         const updatedPending = {
           ...pending,
+          paymentMethod: 'mongike',
           phone: targetPhone,
           gatewayRef: nextGatewayRef,
           pushStatus: retryRes.status === 'error' ? 'failed' : 'pending',
@@ -12367,10 +12775,15 @@ async function routeToServiceFlow(
         await saveMetaSession(session, dbAdmin);
 
         if (retryRes.status === 'error') {
+          const isMerchantAccIssue = /not\s*activated|suspended|access\s*denied|invalid\s*(?:api\s*)?key|unauthorized/i.test(
+            String(retryRes.message || '')
+          );
           return (
             `⚠️ *PUSH IMESHINDIKANA KWENDA ${targetPhone}* (#${pending.bookingCode})\n\n` +
             `- Sababu: *${retryRes.message}*\n\n` +
-            `Andika namba nyingine ya simu (mf. *0755123456*), au bonyeza *💳 Lipa Mtandaoni* hapa chini.`
+            (isMerchantAccIssue
+              ? `👉 Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* hapa chini kulipia moja kwa moja kupitia Lipa Namba *${PAPO_LIPA_NAMBA}* (*${PAPO_LIPA_NAMBA_NAME}*) ili Admin athibitishe papo hapo.`
+              : `Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}*, andika namba nyingine ya simu (mf. *0755123456*), au bonyeza *💳 Lipa Mtandaoni*.`)
           );
         }
 
@@ -12389,15 +12802,15 @@ async function routeToServiceFlow(
           `🔐 *TAHADHARI YA USALAMA: Usiandike PIN yako hapa WhatsApp!*\n\n` +
           `Namba yako ya siri (PIN) inaingizwa kwenye *kisanduku cha USSD cha mtandao (M-Pesa / Mixx / Airtel Money)* kinachojitokeza kwenye skrini ya simu yako *${pending.phone}*, na *SIYO* hapa kwenye ujumbe.\n\n` +
           `Kama ujumbe huo wa PIN haujatokea kwenye simu yako *${pending.phone}*:\n` +
-          `• Bonyeza *🔄 Tuma Push Tena* hapa chini\n` +
-          `• Au tuma namba nyingine ya simu ya malipo (mf. *0755123456*)\n` +
+          `• Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}* kulipa kwa Lipa Namba\n` +
+          `• Au bonyeza *🔄 Tuma Push Tena*\n` +
           `• Au bonyeza *💳 Lipa Mtandaoni* kulipa moja kwa moja.`
         );
       }
 
       return (
         `⏳ *Muamala #${pending.bookingCode} (TZS ${Number(pending.amount || 0).toLocaleString()}/=)* bado unasubiri.\n\n` +
-        `Bonyeza *🔍 Hakiki Malipo*, *🔄 Tuma Push Tena*, au *💳 Lipa Mtandaoni* hapa chini (au andika *00* kurudi Menyu Kuu).`
+        `Bonyeza *🏪 Lipa ${PAPO_LIPA_NAMBA}*, *🔍 Hakiki Malipo*, au *💳 Lipa Mtandaoni* hapa chini (au andika *00* kurudi Menyu Kuu).`
       );
     }
   }
