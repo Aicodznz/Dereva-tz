@@ -36,6 +36,7 @@ interface GatewayStatusPayload {
   endpoint: string;
   webhookPath: string;
   gatewayWebhookPath?: string;
+  gatewayWebhookUrl?: string;
   lipaNamba?: string;
   dalipay?: {
     configured: boolean;
@@ -56,11 +57,9 @@ export const MongikeGatewayCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
-  const originUrl =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'https://your-app-domain.com';
-  const gatewayWebhookUrl = `${originUrl}${statusData?.gatewayWebhookPath || '/webhooks/gateway'}`;
+  const gatewayWebhookUrl =
+    statusData?.gatewayWebhookUrl ||
+    `https://dereva-tz.onrender.com${statusData?.gatewayWebhookPath || '/webhooks/gateway'}`;
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);

@@ -8,7 +8,7 @@ import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndT
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
 import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, PAPO_LIPA_NAMBA, processMongikeWebhook, confirmManualOrderPayment } from "./api/_lib/mongike";
-import { getDaliPayConfig, processDaliPayWebhook, verifyDaliPaySignature } from "./api/_lib/dalipay";
+import { getDaliPayConfig, getPublicWebhookCallbackUrl, processDaliPayWebhook, verifyDaliPaySignature } from "./api/_lib/dalipay";
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
@@ -1300,6 +1300,7 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
           : MONGIKE_TANZANIA_MOMO_ENDPOINT,
         webhookPath: dalipayCfg.configured ? "/webhooks/gateway" : "/api/payments/webhook",
         gatewayWebhookPath: "/webhooks/gateway",
+        gatewayWebhookUrl: getPublicWebhookCallbackUrl(),
         lipaNamba: PAPO_LIPA_NAMBA,
         dalipay: {
           configured: dalipayCfg.configured,

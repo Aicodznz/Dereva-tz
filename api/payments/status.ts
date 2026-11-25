@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
 import { isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, PAPO_LIPA_NAMBA } from '../_lib/mongike';
-import { getDaliPayConfig } from '../_lib/dalipay';
+import { getDaliPayConfig, getPublicWebhookCallbackUrl } from '../_lib/dalipay';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -49,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : MONGIKE_TANZANIA_MOMO_ENDPOINT,
       webhookPath: dalipayCfg.configured ? '/webhooks/gateway' : '/api/payments/webhook',
       gatewayWebhookPath: '/webhooks/gateway',
+      gatewayWebhookUrl: getPublicWebhookCallbackUrl(),
       lipaNamba: PAPO_LIPA_NAMBA,
       dalipay: {
         configured: dalipayCfg.configured,

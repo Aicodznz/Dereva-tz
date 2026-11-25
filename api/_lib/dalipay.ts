@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { cleanUndefined } from './getFirestoreDb.js';
 import { findOrEnsureWalletUser, settlePaidMongikeOrder } from './papoWalletSettlement.js';
 
-export const DEFAULT_DALIPAY_BASE_URL = 'https://api.dalipay.co.tz/api/v1';
+export const DEFAULT_DALIPAY_BASE_URL = 'https://app.dalipay.co.tz/api/v1';
 
 export interface DaliPayConfigStatus {
   configured: boolean;
@@ -30,12 +30,19 @@ export function getDaliPayConfig(): DaliPayConfigStatus & {
   secretKey: string;
   callbackSecret: string;
 } {
-  const publicKey = String(process.env.DALIPAY_PUBLIC_KEY || '').trim();
-  const secretKey = String(process.env.DALIPAY_SECRET_KEY || '').trim();
-  const callbackSecret = String(process.env.DALIPAY_CALLBACK_SECRET || '').trim();
-  const baseUrl = String(process.env.DALIPAY_BASE_URL || DEFAULT_DALIPAY_BASE_URL)
-    .trim()
+  const cleanEnv = (v?: string) =>
+    String(v || '')
+      .trim()
+      .replace(/^["']+|["']+$/g, '')
+      .trim();
+  const publicKey = cleanEnv(process.env.DALIPAY_PUBLIC_KEY);
+  const secretKey = cleanEnv(process.env.DALIPAY_SECRET_KEY);
+  const callbackSecret = cleanEnv(process.env.DALIPAY_CALLBACK_SECRET);
+  let baseUrl = (cleanEnv(process.env.DALIPAY_BASE_URL) || DEFAULT_DALIPAY_BASE_URL)
     .replace(/\/+$/, '');
+  if (/^https?:\/\/api\.dalipay\.co\.tz(\/|$)/i.test(baseUrl)) {
+    baseUrl = baseUrl.replace(/^https?:\/\/api\.dalipay\.co\.tz/i, 'https://app.dalipay.co.tz');
+  }
   const collectionsPath = `/${String(process.env.DALIPAY_COLLECTIONS_PATH || '/collections')
     .trim()
     .replace(/^\/+/, '')}`;
@@ -150,13 +157,22 @@ export function verifyDaliPaySignature(
   return { valid: false, enforced: true, reason: 'Invalid X-Signature HMAC-SHA256 digest' };
 }
 
-function getPublicWebhookCallbackUrl(): string {
-  const base = String(
-    process.env.APP_PUBLIC_URL || process.env.APP_URL || ''
-  )
+export const DEFAULT_PUBLIC_APP_URL = 'https://dereva-tz.onrender.com';
+
+export function getPublicWebhookCallbackUrl(): string {
+  const explicitWebhook = String(process.env.DALIPAY_WEBHOOK_URL || '').trim();
+  if (/^https?:\/\//i.test(explicitWebhook)) {
+    return explicitWebhook;
+  }
+  const publicBase = String(process.env.APP_PUBLIC_URL || '')
     .trim()
+    .replace(/^["']+|["']+$/g, '')
     .replace(/\/+$/, '');
-  return base ? `${base}/webhooks/gateway` : '';
+  const base =
+    publicBase && /^https?:\/\//i.test(publicBase)
+      ? publicBase
+      : DEFAULT_PUBLIC_APP_URL;
+  return `${base}/webhooks/gateway`;
 }
 
 export async function initiateDaliPayCollection(
@@ -237,7 +253,7 @@ export async function initiateDaliPayCollection(
       data = rawText ? { message: rawText.slice(0, 240) } : {};
     }
 
-    if (!response.ok || String(data?.status || '').toLowerCase() === 'error') {
+    if (!response.ok || data?.success === false || String(data?.status || '').toLowerCase() === 'error') {
       const errMsg =
         data?.message ||
         data?.error?.message ||
@@ -502,7 +518,7 @@ export async function initiateDaliPayDisbursement(
       data = rawText ? { message: rawText.slice(0, 240) } : {};
     }
 
-    if (!response.ok || String(data?.status || '').toLowerCase() === 'error') {
+    if (!response.ok || data?.success === false || String(data?.status || '').toLowerCase() === 'error') {
       const errMsg =
         data?.message ||
         data?.error?.message ||
