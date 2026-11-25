@@ -101,6 +101,58 @@ export async function verifyOpsOrAdminRequest(
   };
 }
 
+export function normalizeAdminPhoneForWhatsApp(rawPhone?: string): string {
+  const digits = String(rawPhone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('255') && digits.length >= 12) return digits.slice(0, 12);
+  if (digits.startsWith('0') && digits.length >= 10) return `255${digits.slice(1, 10)}`;
+  if (digits.length === 9) return `255${digits}`;
+  return digits;
+}
+
+export async function resolveWhatsAppPhoneNumberId(
+  dbAdmin: any,
+  recipientPhone?: string
+): Promise<string | undefined> {
+  const envId = cleanEnv(
+    process.env.META_WHATSAPP_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID
+  );
+  if (envId) return envId;
+  if (!dbAdmin) return undefined;
+
+  try {
+    if (recipientPhone) {
+      const sessSnap = await dbAdmin
+        .collection('meta_sessions')
+        .doc(`whatsapp:${recipientPhone}`)
+        .get()
+        .catch(() => null);
+      const pid = String(sessSnap?.data()?.details?.metaPhoneNumberId || '').trim();
+      if (pid) return pid;
+    }
+
+    const welcomeSnap = await dbAdmin
+      .collection('app_settings')
+      .doc('meta_welcome')
+      .get()
+      .catch(() => null);
+    const welcomePid = String(welcomeSnap?.data()?.phoneNumberId || '').trim();
+    if (welcomePid) return welcomePid;
+
+    const anyWaSess = await dbAdmin
+      .collection('meta_sessions')
+      .where('channel', '==', 'whatsapp')
+      .limit(5)
+      .get()
+      .catch(() => null);
+    for (const d of anyWaSess?.docs || []) {
+      const pid = String(d.data()?.details?.metaPhoneNumberId || '').trim();
+      if (pid) return pid;
+    }
+  } catch {}
+  return undefined;
+}
+
 export async function dispatchOpsWebhookEvent(
   eventName: string,
   payload: Record<string, any>

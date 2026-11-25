@@ -10,6 +10,8 @@ import {
   Bot,
   CheckCircle2,
   Copy,
+  ExternalLink,
+  Eye,
   RefreshCw,
   Send,
   ShieldAlert,
@@ -48,11 +50,35 @@ interface OpsBriefingData {
   whatsappSummaryText: string;
 }
 
+function normalizePhoneForWaLink(raw?: string): string {
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('255') && digits.length >= 12) return digits.slice(0, 12);
+  if (digits.startsWith('0') && digits.length >= 10) return `255${digits.slice(1, 10)}`;
+  if (digits.length === 9) return `255${digits}`;
+  return digits;
+}
+
+function formatWhatsAppFailureHint(reason?: string): string {
+  const r = String(reason || '').toLowerCase();
+  if (!r) return 'Imeshindwa kutuma moja kwa moja kupitia WhatsApp Cloud API.';
+  if (r.includes('missing meta_whatsapp_access_token') || r.includes('phonenumberid')) {
+    return 'Seva hii haina META_WHATSAPP_ACCESS_TOKEN au Phone Number ID — tumia "Fungua Kwenye WhatsApp" hapa chini.';
+  }
+  if (r.includes('131047') || r.includes('24') || r.includes('window') || r.includes('re-engagement')) {
+    return 'Namba hii haijawasiliana na bot ndani ya saa 24. Tuma neno "Menu" kwenda bot ya WhatsApp au tumia "Fungua Kwenye WhatsApp" hapa chini.';
+  }
+  return `WhatsApp API: ${reason}`;
+}
+
 export const AdminOpsBriefingCard: React.FC = () => {
   const [briefing, setBriefing] = useState<OpsBriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [copiedEndpoint, setCopiedEndpoint] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [lastSendHint, setLastSendHint] = useState<string | null>(null);
   const [adminPhone, setAdminPhone] = useState(() => {
     try {
       return localStorage.getItem('papo_admin_briefing_phone') || '';
@@ -62,6 +88,11 @@ export const AdminOpsBriefingCard: React.FC = () => {
   });
 
   const opsEndpointUrl = 'https://dereva-tz.onrender.com/api/ops/briefing';
+  const normalizedWaDigits = normalizePhoneForWaLink(adminPhone);
+  const waDirectUrl =
+    normalizedWaDigits.length >= 11 && briefing?.whatsappSummaryText
+      ? `https://wa.me/${normalizedWaDigits}?text=${encodeURIComponent(briefing.whatsappSummaryText)}`
+      : '';
 
   const loadBriefing = useCallback(async () => {
     setLoading(true);
@@ -90,6 +121,7 @@ export const AdminOpsBriefingCard: React.FC = () => {
 
   const handleSendWhatsAppBriefing = async () => {
     setSending(true);
+    setLastSendHint(null);
     try {
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
@@ -118,8 +150,13 @@ export const AdminOpsBriefingCard: React.FC = () => {
         toast.success(`Muhtasari umetumwa WhatsApp kwenda +${data.recipientPhone}!`);
       } else if (data.webhookDispatched) {
         toast.success('Muhtasari umetumwa kwenda Nod / n8n Webhook!');
-      } else {
+      } else if (!data.recipientPhone) {
         toast.info('Weka namba ya WhatsApp ya Admin au ADMIN_WHATSAPP_PHONE ili kutuma ujumbe.');
+      } else {
+        const hint = formatWhatsAppFailureHint(data.whatsappReason);
+        setLastSendHint(hint);
+        setShowPreview(true);
+        toast.warning(hint);
       }
     } catch (err: any) {
       toast.error(err?.message || 'Imeshindwa kutuma muhtasari');
@@ -136,6 +173,18 @@ export const AdminOpsBriefingCard: React.FC = () => {
       setTimeout(() => setCopiedEndpoint(false), 2500);
     } catch {
       toast.error('Imeshindwa kunakili');
+    }
+  };
+
+  const handleCopySummary = async () => {
+    if (!briefing?.whatsappSummaryText) return;
+    try {
+      await navigator.clipboard.writeText(briefing.whatsappSummaryText);
+      setCopiedSummary(true);
+      toast.success('Ripoti imenakiliwa!');
+      setTimeout(() => setCopiedSummary(false), 2500);
+    } catch {
+      toast.error('Imeshindwa kunakili ripoti');
     }
   };
 
@@ -167,17 +216,30 @@ export const AdminOpsBriefingCard: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={loadBriefing}
-            disabled={loading}
-            className="h-8 text-xs font-bold rounded-xl self-start sm:self-auto"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Sasisha Takwimu
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPreview((p) => !p)}
+              disabled={!briefing?.whatsappSummaryText}
+              className="h-8 text-xs font-bold rounded-xl"
+            >
+              <Eye className="w-3.5 h-3.5 mr-1.5" />
+              {showPreview ? 'Ficha Ripoti' : 'Onyesha Ripoti'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={loadBriefing}
+              disabled={loading}
+              className="h-8 text-xs font-bold rounded-xl"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Sasisha Takwimu
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
@@ -266,6 +328,11 @@ export const AdminOpsBriefingCard: React.FC = () => {
                 {sending ? 'Inatuma...' : 'Tuma Ripoti Sasa'}
               </Button>
             </div>
+            {lastSendHint && (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                {lastSendHint}
+              </div>
+            )}
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
               Inatuma muhtasari wa malipo yanayosubiri uthibitisho wa Lipa Namba {briefing?.lipaNamba || '5656565'}, takwimu za DaliPay, na maombi ya madereva/wachuuzi kwenda WhatsApp yako (na webhook ya Nod/n8n kama imewekwa).
             </p>
@@ -297,6 +364,42 @@ export const AdminOpsBriefingCard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {showPreview && briefing?.whatsappSummaryText && (
+          <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900/80 border border-neutral-200/70 dark:border-neutral-800 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-black uppercase tracking-wide text-neutral-800 dark:text-neutral-200">
+                Hakikisho la Ripoti ya WhatsApp
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopySummary}
+                  className="h-8 px-3 rounded-xl text-xs font-bold"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  {copiedSummary ? 'Imenakiliwa' : 'Nakili Ripoti'}
+                </Button>
+                {waDirectUrl && (
+                  <a
+                    href={waDirectUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
+                  >
+                    <span>Fungua Kwenye WhatsApp</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+            <pre className="whitespace-pre-wrap font-sans text-xs text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-950 border border-neutral-200/70 dark:border-neutral-800 rounded-xl p-3 leading-relaxed">
+              {briefing.whatsappSummaryText}
+            </pre>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

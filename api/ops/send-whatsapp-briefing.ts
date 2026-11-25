@@ -3,6 +3,8 @@ import { getFirestoreDb } from '../_lib/getFirestoreDb';
 import {
   buildAdminOpsBriefing,
   dispatchOpsWebhookEvent,
+  normalizeAdminPhoneForWhatsApp,
+  resolveWhatsAppPhoneNumberId,
   verifyOpsOrAdminRequest,
 } from '../_lib/opsBriefing';
 import { sendMetaOutboundMessage } from '../_lib/metaBot';
@@ -23,21 +25,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rawPhone = String(
       (req.body as any)?.phone || process.env.ADMIN_WHATSAPP_PHONE || ''
     ).trim();
-    const digits = rawPhone.replace(/\D/g, '');
-    const normalizedPhone = digits.startsWith('0') && digits.length >= 10
-      ? `255${digits.slice(1, 10)}`
-      : digits.length === 9
-      ? `255${digits}`
-      : digits;
+    const normalizedPhone = normalizeAdminPhoneForWhatsApp(rawPhone);
 
     let whatsappSent = false;
+    let whatsappReason = '';
     if (normalizedPhone.length >= 11) {
+      const phoneNumberId = await resolveWhatsAppPhoneNumberId(db, normalizedPhone);
       const sendRes = await sendMetaOutboundMessage({
         channel: 'whatsapp',
         recipientId: normalizedPhone,
+        phoneNumberId,
         text: briefing.whatsappSummaryText,
+        templateFallback: {
+          category: 'utility',
+          bodyParams: [
+            `Lipa Namba: ${briefing.lipaNambaPendingCount} pending (TZS ${briefing.lipaNambaPendingTotalTzs.toLocaleString()}) • DaliPay OK: ${briefing.dalipay.completedCount}`,
+          ],
+        },
       });
       whatsappSent = Boolean(sendRes?.sent);
+      whatsappReason = String(sendRes?.reason || '');
+    } else {
+      whatsappReason = 'MISSING_PHONE';
     }
 
     const webhookDispatched = await dispatchOpsWebhookEvent('ops.daily_briefing', briefing);
@@ -45,6 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       ok: true,
       whatsappSent,
+      whatsappReason: whatsappReason || undefined,
       recipientPhone: normalizedPhone || undefined,
       webhookDispatched,
       briefing,

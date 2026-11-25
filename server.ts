@@ -12,7 +12,7 @@ import { getDaliPayConfig, getPublicWebhookCallbackUrl, processDaliPayWebhook, v
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
-import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
+import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, normalizeAdminPhoneForWhatsApp, resolveWhatsAppPhoneNumberId, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
 
 dotenv.config();
 
@@ -1507,27 +1507,34 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
       }
       const briefing = await buildAdminOpsBriefing(dbAdmin);
       const rawPhone = String(req.body?.phone || process.env.ADMIN_WHATSAPP_PHONE || "").trim();
-      const digits = rawPhone.replace(/\D/g, "");
-      const normalizedPhone =
-        digits.startsWith("0") && digits.length >= 10
-          ? `255${digits.slice(1, 10)}`
-          : digits.length === 9
-          ? `255${digits}`
-          : digits;
+      const normalizedPhone = normalizeAdminPhoneForWhatsApp(rawPhone);
 
       let whatsappSent = false;
+      let whatsappReason = "";
       if (normalizedPhone.length >= 11) {
+        const phoneNumberId = await resolveWhatsAppPhoneNumberId(dbAdmin, normalizedPhone);
         const sendRes = await sendMetaOutboundMessage({
           channel: "whatsapp",
           recipientId: normalizedPhone,
+          phoneNumberId,
           text: briefing.whatsappSummaryText,
+          templateFallback: {
+            category: "utility",
+            bodyParams: [
+              `Lipa Namba: ${briefing.lipaNambaPendingCount} pending (TZS ${briefing.lipaNambaPendingTotalTzs.toLocaleString()}) • DaliPay OK: ${briefing.dalipay.completedCount}`,
+            ],
+          },
         });
         whatsappSent = Boolean(sendRes?.sent);
+        whatsappReason = String(sendRes?.reason || "");
+      } else {
+        whatsappReason = "MISSING_PHONE";
       }
       const webhookDispatched = await dispatchOpsWebhookEvent("ops.daily_briefing", briefing);
       return res.json({
         ok: true,
         whatsappSent,
+        whatsappReason: whatsappReason || undefined,
         recipientPhone: normalizedPhone || undefined,
         webhookDispatched,
         briefing,
