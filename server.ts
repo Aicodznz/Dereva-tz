@@ -12,10 +12,19 @@ import { getDaliPayConfig, getPublicWebhookCallbackUrl, processDaliPayWebhook, v
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
+import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
 
 dotenv.config();
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[Server] Unhandled Promise Rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[Server] Uncaught Exception:", err);
+});
 
 async function startServer() {
   const app = express();
@@ -1441,7 +1450,29 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
         ).catch((notifyErr) => {
           console.warn("[DaliPay Webhook] WhatsApp payment notify warning:", notifyErr);
         });
+      } else if (
+        outcome.kind === "disbursement" &&
+        outcome.disbursementInfo?.recipientPhone &&
+        dbAdmin
+      ) {
+        const dInfo = outcome.disbursementInfo;
+        if (outcome.isPaid) {
+          await sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: dInfo.recipientPhone,
+            text: `✅ *PESA IMETUMWA KWENYE SIMU YAKO (#${outcome.realOrderId})*\n\n• Kiasi: *TZS ${Number(dInfo.amount || outcome.amount || 0).toLocaleString()}/=*\n• Mtandao: *${dInfo.network || "Mobile Money"}*\n• Rejea ya DaliPay: *${outcome.gatewayRef}*\n\nAsante kwa kutumia PapoPay!`,
+          }).catch(() => {});
+        } else if (outcome.isFailed && dInfo.refundedAmount) {
+          await sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: dInfo.recipientPhone,
+            text: `⚠️ *KUTUMA PESA HAKUKUKAMILIKA (#${outcome.realOrderId})*\n\nMuamala wa kutuma pesa kwenda ${dInfo.network || "simu"} umeshindikana.\n💰 *Salio lako la TZS ${Number(dInfo.refundedAmount).toLocaleString()}/= limerudishwa PapoWallet yako kiotomatiki.*`,
+          }).catch(() => {});
+        }
       }
+      dispatchOpsWebhookEvent(`dalipay.${outcome.kind}.${outcome.normalizedStatus.toLowerCase()}`, {
+        ...outcome,
+      }).catch(() => {});
       return res.status(200).json({ ok: true, status: "SUCCESS", provider: "dalipay", ...outcome });
     } catch (err: any) {
       console.error("[DaliPay Webhook] Error:", err);
@@ -1452,6 +1483,60 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
   // DaliPay Webhook Endpoints (matches https://<domain>/webhooks/gateway & /api/webhooks/gateway)
   app.post("/webhooks/gateway", handleDaliPayWebhookRequest);
   app.post("/api/webhooks/gateway", handleDaliPayWebhookRequest);
+
+  // Operations Daily Briefing & Nod/n8n Automation Bridge
+  app.get("/api/ops/briefing", async (req, res) => {
+    try {
+      const auth = await verifyOpsOrAdminRequest(req, dbAdmin);
+      if (!auth.authorized) {
+        return res.status(401).json({ ok: false, error: auth.error || "Unauthorized" });
+      }
+      const briefing = await buildAdminOpsBriefing(dbAdmin);
+      return res.json({ ok: true, actor: auth.actor, ...briefing });
+    } catch (err: any) {
+      console.error("[Ops Briefing API] Error:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to build ops briefing" });
+    }
+  });
+
+  app.post("/api/ops/send-whatsapp-briefing", async (req, res) => {
+    try {
+      const auth = await verifyOpsOrAdminRequest(req, dbAdmin);
+      if (!auth.authorized) {
+        return res.status(401).json({ ok: false, error: auth.error || "Unauthorized" });
+      }
+      const briefing = await buildAdminOpsBriefing(dbAdmin);
+      const rawPhone = String(req.body?.phone || process.env.ADMIN_WHATSAPP_PHONE || "").trim();
+      const digits = rawPhone.replace(/\D/g, "");
+      const normalizedPhone =
+        digits.startsWith("0") && digits.length >= 10
+          ? `255${digits.slice(1, 10)}`
+          : digits.length === 9
+          ? `255${digits}`
+          : digits;
+
+      let whatsappSent = false;
+      if (normalizedPhone.length >= 11) {
+        const sendRes = await sendMetaOutboundMessage({
+          channel: "whatsapp",
+          recipientId: normalizedPhone,
+          text: briefing.whatsappSummaryText,
+        });
+        whatsappSent = Boolean(sendRes?.sent);
+      }
+      const webhookDispatched = await dispatchOpsWebhookEvent("ops.daily_briefing", briefing);
+      return res.json({
+        ok: true,
+        whatsappSent,
+        recipientPhone: normalizedPhone || undefined,
+        webhookDispatched,
+        briefing,
+      });
+    } catch (err: any) {
+      console.error("[Ops Send Briefing API] Error:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to send ops briefing" });
+    }
+  });
 
   // Mobile Money / Unified Gateway Webhook Callback Endpoint
   app.post("/api/payments/webhook", async (req: any, res) => {
@@ -2497,29 +2582,18 @@ The JSON output must contain the following keys:
     res.status(200).json({ status: "ok", port: PORT });
   });
 
-  // Vite middleware for development (initialize asynchronously so port 3000 binds immediately)
+  // Vite middleware for development (ensure Vite is ready before binding port 3000)
   if (process.env.NODE_ENV !== "production") {
-    const viteReadyPromise = import("vite").then(({ createServer: createViteServer }) =>
-      createViteServer({
-        server: {
-          middlewareMode: true,
-          hmr: false,
-          watch: { ignored: ["**/*"] },
-        },
-        appType: "spa",
-      })
-    );
-    viteReadyPromise.catch((err) => {
-      console.error("[Vite Middleware] Failed to initialize Vite dev server:", err);
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        watch: { ignored: ["**/*"] },
+      },
+      appType: "spa",
     });
-    app.use(async (req, res, next) => {
-      try {
-        const vite = await viteReadyPromise;
-        return vite.middlewares(req, res, next);
-      } catch (err) {
-        next(err);
-      }
-    });
+    app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -2528,10 +2602,12 @@ The JSON output must contain the following keys:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
+    // Defer background Firestore watchers slightly so initial HTTP/pre-warm requests return immediately
+    setTimeout(() => {
     // Real-time Firestore backup watcher for WhatsApp/Meta rides (fires even if client HTTP fails)
     subscribeCollectionChanges(
       'rides',
@@ -2732,7 +2808,12 @@ The JSON output must contain the following keys:
         console.warn('[Abandoned Recovery Processor] Warning:', err?.message || err);
       });
     }, 5 * 60_000);
+    }, 2500);
   });
+
+  // Prevent Node's default 5s keepAliveTimeout from causing "connection reset by peer" behind Go/Nginx proxies
+  httpServer.keepAliveTimeout = 65_000;
+  httpServer.headersTimeout = 66_000;
 }
 
 startServer().catch((err) => {

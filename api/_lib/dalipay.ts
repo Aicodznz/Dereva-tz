@@ -453,6 +453,8 @@ export async function initiateDaliPayDisbursement(
   params: {
     reference: string;
     amount: number;
+    fee?: number;
+    totalDebit?: number;
     recipientPhone: string;
     recipientName?: string;
     reason?: string;
@@ -582,6 +584,9 @@ export async function initiateDaliPayDisbursement(
             recipientName: params.recipientName || 'PapoPay User',
             payerUid: params.payerUid || null,
             amount: numericAmount,
+            fee: typeof params.fee === 'number' ? params.fee : 0,
+            totalDebit: typeof params.totalDebit === 'number' ? params.totalDebit : numericAmount,
+            refundedOnFailure: false,
             status: isCompleted ? 'completed' : 'pending',
             rawResponse: data,
             createdAt: nowIso,
@@ -642,6 +647,13 @@ export async function processDaliPayWebhook(
   amount: number;
   gatewayRef: string;
   normalizedStatus: string;
+  disbursementInfo?: {
+    recipientPhone?: string;
+    network?: string;
+    amount?: number;
+    refundedAmount?: number;
+    payerUid?: string;
+  };
 }> {
   const dataObj = payload?.data && typeof payload.data === 'object' ? payload.data : payload || {};
   const rawRef = String(
@@ -654,11 +666,12 @@ export async function processDaliPayWebhook(
       payload?.reference ||
       ''
   ).trim();
-  const realOrderId = extractRealOrderIdFromGatewayRef(rawRef);
+  let realOrderId = extractRealOrderIdFromGatewayRef(rawRef);
   const gatewayRef = String(
     dataObj.gateway_ref ||
       dataObj.transaction_id ||
       dataObj.reference_id ||
+      dataObj.reference ||
       payload?.transaction_id ||
       rawRef
   ).trim();
@@ -671,20 +684,44 @@ export async function processDaliPayWebhook(
   let isDisbursement =
     rawEvent.includes('disbursement') ||
     rawEvent.includes('payout') ||
-    realOrderId.startsWith('WTH-');
+    realOrderId.startsWith('WTH-') ||
+    realOrderId.startsWith('DISB-');
 
   let targetType: 'orders' | 'rides' | 'disbursements' = isDisbursement ? 'disbursements' : 'orders';
+  let disbursementInfo: {
+    recipientPhone?: string;
+    network?: string;
+    amount?: number;
+    refundedAmount?: number;
+    payerUid?: string;
+  } | undefined;
 
-  if (dbAdmin && realOrderId) {
+  if (dbAdmin && (realOrderId || gatewayRef)) {
     try {
-      const cbSnap = await dbAdmin.collection('payment_callbacks').doc(realOrderId).get().catch(() => null);
+      let cbSnap = realOrderId
+        ? await dbAdmin.collection('payment_callbacks').doc(realOrderId).get().catch(() => null)
+        : null;
+      if ((!cbSnap || !cbSnap.exists) && gatewayRef) {
+        const cbQuery = await dbAdmin
+          .collection('payment_callbacks')
+          .where('reference_id', '==', gatewayRef)
+          .limit(1)
+          .get()
+          .catch(() => null);
+        const foundDoc = cbQuery?.docs?.[0];
+        if (foundDoc) {
+          cbSnap = foundDoc;
+          realOrderId = String(foundDoc.data()?.order_id || foundDoc.id || realOrderId);
+        }
+      }
+
       const cbCol = cbSnap?.exists ? String(cbSnap.data()?.targetCollection || '') : '';
       if (cbCol === 'disbursements') {
         isDisbursement = true;
         targetType = 'disbursements';
       } else if (cbCol === 'rides') {
         targetType = 'rides';
-      } else if (!isDisbursement) {
+      } else if (!isDisbursement && realOrderId) {
         const ordSnap = await dbAdmin.collection('orders').doc(realOrderId).get().catch(() => null);
         if (!ordSnap?.exists) {
           const rideSnap = await dbAdmin.collection('rides').doc(realOrderId).get().catch(() => null);
@@ -702,17 +739,94 @@ export async function processDaliPayWebhook(
 
       const nowIso = new Date().toISOString();
 
-      if (isDisbursement) {
-        await dbAdmin.collection('disbursements').doc(realOrderId).set(
-          cleanUndefined({
-            status: isPaid ? 'completed' : isFailed ? 'failed' : 'pending',
-            gatewayRef: gatewayRef || null,
-            webhookPayload: payload,
-            updatedAt: nowIso,
-          }),
-          { merge: true }
-        );
-      } else {
+      if (isDisbursement && realOrderId) {
+        const disbRef = dbAdmin.collection('disbursements').doc(realOrderId);
+        const disbSnap = await disbRef.get().catch(() => null);
+        const disbData = disbSnap?.exists ? disbSnap.data() || {} : {};
+        const payerUid = String(disbData.payerUid || '').trim();
+        const refundAmt = Number(disbData.totalDebit || disbData.amount || numericAmount || 0);
+        let refundedAmount = 0;
+
+        if (isFailed && payerUid && refundAmt > 0 && disbData.refundedOnFailure !== true) {
+          try {
+            if (typeof dbAdmin.runTransaction === 'function') {
+              await dbAdmin.runTransaction(async (tx: any) => {
+                const freshDisb = await tx.get(disbRef);
+                if (freshDisb.data()?.refundedOnFailure === true) return;
+                const userRef = dbAdmin.collection('users').doc(payerUid);
+                const userSnap = await tx.get(userRef);
+                const curBal = Number(userSnap.data()?.walletBalance || 0);
+                tx.set(userRef, { walletBalance: curBal + refundAmt, updatedAt: nowIso }, { merge: true });
+                tx.set(
+                  disbRef,
+                  cleanUndefined({
+                    status: 'failed',
+                    refundedOnFailure: true,
+                    refundedAmount: refundAmt,
+                    gatewayRef: gatewayRef || null,
+                    webhookPayload: payload,
+                    updatedAt: nowIso,
+                  }),
+                  { merge: true }
+                );
+              });
+            } else {
+              const userRef = dbAdmin.collection('users').doc(payerUid);
+              const userSnap = await userRef.get();
+              const curBal = Number(userSnap.data()?.walletBalance || 0);
+              await userRef.set({ walletBalance: curBal + refundAmt, updatedAt: nowIso }, { merge: true });
+              await disbRef.set(
+                cleanUndefined({
+                  status: 'failed',
+                  refundedOnFailure: true,
+                  refundedAmount: refundAmt,
+                  gatewayRef: gatewayRef || null,
+                  webhookPayload: payload,
+                  updatedAt: nowIso,
+                }),
+                { merge: true }
+              );
+            }
+            refundedAmount = refundAmt;
+            await dbAdmin.collection('payments').add(
+              cleanUndefined({
+                uid: payerUid,
+                phone: disbData.recipientPhone || '',
+                title: `Rejesho la Toa Pesa (${realOrderId})`,
+                subtitle: `DaliPay ilishindikana — fedha zimerudishwa`,
+                amount: refundAmt,
+                type: 'credit',
+                category: 'refund',
+                status: 'completed',
+                refCode: `REV-${realOrderId}`,
+                gatewayRef: gatewayRef || realOrderId,
+                createdAt: nowIso,
+                createdAtMs: Date.now(),
+              })
+            );
+          } catch (refundErr) {
+            console.warn('[DaliPay Webhook] Disbursement auto-refund warning:', refundErr);
+          }
+        } else {
+          await disbRef.set(
+            cleanUndefined({
+              status: isPaid ? 'completed' : isFailed ? 'failed' : 'pending',
+              gatewayRef: gatewayRef || null,
+              webhookPayload: payload,
+              updatedAt: nowIso,
+            }),
+            { merge: true }
+          );
+        }
+
+        disbursementInfo = {
+          recipientPhone: disbData.recipientPhone ? String(disbData.recipientPhone) : undefined,
+          network: disbData.network ? String(disbData.network) : undefined,
+          amount: Number(disbData.amount || numericAmount || 0),
+          refundedAmount: refundedAmount || undefined,
+          payerUid: payerUid || undefined,
+        };
+      } else if (realOrderId) {
         if (isPaid) {
           await dbAdmin.collection(targetType).doc(realOrderId).set(
             cleanUndefined({
@@ -749,22 +863,24 @@ export async function processDaliPayWebhook(
         }
       }
 
-      await dbAdmin.collection('payment_callbacks').doc(realOrderId).set(
-        cleanUndefined({
-          order_id: realOrderId,
-          gateway_order_id: rawRef || realOrderId,
-          targetCollection: targetType,
-          provider: 'dalipay',
-          kind: isDisbursement ? 'disbursement' : 'collection',
-          status: rawStatus || 'UNKNOWN',
-          reference_id: gatewayRef,
-          amount: numericAmount,
-          error_message: isFailed ? String(dataObj?.reason || dataObj?.message || '') || undefined : undefined,
-          raw_payload: payload,
-          updated_at: nowIso,
-        }),
-        { merge: true }
-      );
+      if (realOrderId) {
+        await dbAdmin.collection('payment_callbacks').doc(realOrderId).set(
+          cleanUndefined({
+            order_id: realOrderId,
+            gateway_order_id: rawRef || realOrderId,
+            targetCollection: targetType,
+            provider: 'dalipay',
+            kind: isDisbursement ? 'disbursement' : 'collection',
+            status: rawStatus || 'UNKNOWN',
+            reference_id: gatewayRef,
+            amount: numericAmount,
+            error_message: isFailed ? String(dataObj?.reason || dataObj?.message || '') || undefined : undefined,
+            raw_payload: payload,
+            updated_at: nowIso,
+          }),
+          { merge: true }
+        );
+      }
     } catch (err) {
       console.warn('[DaliPay Webhook] DB update warning:', err);
     }
@@ -779,6 +895,7 @@ export async function processDaliPayWebhook(
     amount: numericAmount,
     gatewayRef,
     normalizedStatus: rawStatus || 'UNKNOWN',
+    disbursementInfo,
   };
 }
 
@@ -874,6 +991,8 @@ export async function executePapoWalletMobileDisbursement(
     {
       reference: refCode,
       amount: amt,
+      fee,
+      totalDebit,
       recipientPhone: params.phone,
       recipientName: params.displayName,
       reason: `PapoWallet Cash-Out #${refCode}`,

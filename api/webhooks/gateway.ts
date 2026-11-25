@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
 import { processDaliPayWebhook, verifyDaliPaySignature } from '../_lib/dalipay';
-import { notifyMongikePaymentPaidToWhatsApp } from '../_lib/metaBot';
+import { notifyMongikePaymentPaidToWhatsApp, sendMetaOutboundMessage } from '../_lib/metaBot';
+import { dispatchOpsWebhookEvent } from '../_lib/opsBriefing';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -46,7 +47,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
         db
       ).catch(() => {});
+    } else if (
+      outcome.kind === 'disbursement' &&
+      outcome.disbursementInfo?.recipientPhone &&
+      db
+    ) {
+      const dInfo = outcome.disbursementInfo;
+      if (outcome.isPaid) {
+        await sendMetaOutboundMessage({
+          channel: 'whatsapp',
+          recipientId: dInfo.recipientPhone,
+          text: `✅ *PESA IMETUMWA KWENYE SIMU YAKO (#${outcome.realOrderId})*\n\n• Kiasi: *TZS ${Number(dInfo.amount || outcome.amount || 0).toLocaleString()}/=*\n• Mtandao: *${dInfo.network || 'Mobile Money'}*\n• Rejea ya DaliPay: *${outcome.gatewayRef}*\n\nAsante kwa kutumia PapoPay!`,
+        }).catch(() => {});
+      } else if (outcome.isFailed && dInfo.refundedAmount) {
+        await sendMetaOutboundMessage({
+          channel: 'whatsapp',
+          recipientId: dInfo.recipientPhone,
+          text: `⚠️ *KUTUMA PESA HAKUKUKAMILIKA (#${outcome.realOrderId})*\n\nMuamala wa kutuma pesa kwenda ${dInfo.network || 'simu'} umeshindikana.\n💰 *Salio lako la TZS ${Number(dInfo.refundedAmount).toLocaleString()}/= limerudishwa PapoWallet yako kiotomatiki.*`,
+        }).catch(() => {});
+      }
     }
+
+    dispatchOpsWebhookEvent(`dalipay.${outcome.kind}.${outcome.normalizedStatus.toLowerCase()}`, {
+      ...outcome,
+    }).catch(() => {});
 
     return res.status(200).json({ ok: true, status: 'success', ...outcome });
   } catch (error: any) {

@@ -35,6 +35,7 @@ import { TwilioResponderTab } from './TwilioResponderTab';
 import { MetaMcpHub } from './admin/MetaMcpHub';
 import { WhatsAppCustomersManager } from './admin/WhatsAppCustomersManager';
 import { MongikeGatewayCard } from './admin/MongikeGatewayCard';
+import { AdminOpsBriefingCard } from './admin/AdminOpsBriefingCard';
 import { LiveUsersMonitor } from './admin/LiveUsersMonitor';
 import { DriverProfileDetails } from './admin/DriverProfileDetails';
 import { WidgetCanvasBuilder } from './admin/WidgetCanvasBuilder';
@@ -1488,6 +1489,7 @@ export default function AdminDashboard() {
               </Card>
 
               <MongikeGatewayCard />
+              <AdminOpsBriefingCard />
             </div>
           </motion.div>
         )}
