@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getFirestoreDb } from '../_lib/getFirestoreDb';
-import { isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT } from '../_lib/mongike';
+import { isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, PAPO_LIPA_NAMBA } from '../_lib/mongike';
+import { getDaliPayConfig } from '../_lib/dalipay';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -10,7 +11,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const dbAdmin = getFirestoreDb();
-    const configured = isMongikeLiveConfigured();
+    const mongikeConfigured = isMongikeLiveConfigured();
+    const dalipayCfg = getDaliPayConfig();
+    const activeProvider = dalipayCfg.configured
+      ? 'dalipay'
+      : mongikeConfigured
+      ? 'mongike'
+      : 'sandbox';
     let recentCallbacks: any[] = [];
 
     if (dbAdmin) {
@@ -28,16 +35,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(200).json({
-      provider: 'mongike',
-      configured,
-      mode: configured ? 'live' : 'sandbox',
-      endpoint: MONGIKE_TANZANIA_MOMO_ENDPOINT,
-      webhookPath: '/api/payments/webhook',
+      provider: activeProvider,
+      configured: dalipayCfg.configured || mongikeConfigured,
+      mode: dalipayCfg.configured
+        ? dalipayCfg.mode === 'test'
+          ? 'sandbox'
+          : 'live'
+        : mongikeConfigured
+        ? 'live'
+        : 'sandbox',
+      endpoint: dalipayCfg.configured
+        ? `${dalipayCfg.baseUrl}${dalipayCfg.collectionsPath}`
+        : MONGIKE_TANZANIA_MOMO_ENDPOINT,
+      webhookPath: dalipayCfg.configured ? '/webhooks/gateway' : '/api/payments/webhook',
+      gatewayWebhookPath: '/webhooks/gateway',
+      lipaNamba: PAPO_LIPA_NAMBA,
+      dalipay: {
+        configured: dalipayCfg.configured,
+        mode: dalipayCfg.mode,
+        hasCallbackSecret: dalipayCfg.hasCallbackSecret,
+        collectionsEndpoint: `${dalipayCfg.baseUrl}${dalipayCfg.collectionsPath}`,
+        disbursementsEndpoint: `${dalipayCfg.baseUrl}${dalipayCfg.disbursementsPath}`,
+      },
+      mongike: {
+        configured: mongikeConfigured,
+        mode: mongikeConfigured ? 'live' : 'sandbox',
+      },
       recentCallbacks,
     });
   } catch (err: any) {
     return res.status(500).json({
-      error: err?.message || 'Failed to read Mongike status',
+      error: err?.message || 'Failed to read gateway status',
     });
   }
 }

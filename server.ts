@@ -7,7 +7,8 @@ import { handleSMSInput, getSession, saveSession } from "./src/lib/smsBot";
 import { handleMetaInputWithMedia, sendMetaOutboundMessage, sendWhatsAppReadAndTyping, notifyRideStatusToMeta, notifyVendorNewOrderToWhatsApp, notifyCustomerOrderStatusToMeta, notifyMongikePaymentPaidToWhatsApp, notifyPartnerApprovedToWhatsApp, notifyDriversNewJobToWhatsApp, notifyFundisNewJobToWhatsApp, processDueScheduledBookings, sendWhatsAppPromoBroadcast, generateVisualReceiptQrBuffer, clearMetaHumanHandoverState, extractMetaWebhookMessages, claimMetaWebhookMessage, enqueueMetaSenderTask, lookupCustomerAllTrackables, recordInboundMetaPhoneNumberId, getMetaWelcomeSettings, saveMetaWelcomeSettings, syncMetaConversationalAutomation, getMetaConversationalAutomationStatus, listMetaCustomersForAdmin, setMetaCustomerBlockedState, deleteMetaCustomerCompletely, processAbandonedSessionsRecovery, listSosAlerts, resolveSosAlert, getMetaTemplateSettings, saveMetaTemplateSettings } from "./src/lib/metaBot";
 import { getFirestoreDb, subscribeCollectionChanges } from "./api/_lib/getFirestoreDb";
 import { getHistory, addMessageToHistory, clearHistory } from "./api/_lib/historyStore";
-import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, processMongikeWebhook, confirmManualOrderPayment } from "./api/_lib/mongike";
+import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_ENDPOINT, PAPO_LIPA_NAMBA, processMongikeWebhook, confirmManualOrderPayment } from "./api/_lib/mongike";
+import { getDaliPayConfig, processDaliPayWebhook, verifyDaliPaySignature } from "./api/_lib/dalipay";
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
@@ -26,7 +27,12 @@ async function startServer() {
       ? parseInt(process.env.PORT, 10)
       : 3000;
 
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({
+    limit: '15mb',
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
   // Chat history log using local historyStore file
@@ -1255,10 +1261,16 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     }
   });
 
-  // Mongike Integration Status & Recent Callbacks (no API key exposed)
+  // Unified Payment Gateway Status (DaliPay + Mongike + Lipa Namba 5656565 — no secrets exposed)
   app.get("/api/payments/status", async (_req, res) => {
     try {
-      const configured = isMongikeLiveConfigured();
+      const mongikeConfigured = isMongikeLiveConfigured();
+      const dalipayCfg = getDaliPayConfig();
+      const activeProvider = dalipayCfg.configured
+        ? "dalipay"
+        : mongikeConfigured
+        ? "mongike"
+        : "sandbox";
       let recentCallbacks: any[] = [];
       if (dbAdmin) {
         try {
@@ -1274,15 +1286,36 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
         } catch {}
       }
       return res.json({
-        provider: "mongike",
-        configured,
-        mode: configured ? "live" : "sandbox",
-        endpoint: MONGIKE_TANZANIA_MOMO_ENDPOINT,
-        webhookPath: "/api/payments/webhook",
+        provider: activeProvider,
+        configured: dalipayCfg.configured || mongikeConfigured,
+        mode: dalipayCfg.configured
+          ? dalipayCfg.mode === "test"
+            ? "sandbox"
+            : "live"
+          : mongikeConfigured
+          ? "live"
+          : "sandbox",
+        endpoint: dalipayCfg.configured
+          ? `${dalipayCfg.baseUrl}${dalipayCfg.collectionsPath}`
+          : MONGIKE_TANZANIA_MOMO_ENDPOINT,
+        webhookPath: dalipayCfg.configured ? "/webhooks/gateway" : "/api/payments/webhook",
+        gatewayWebhookPath: "/webhooks/gateway",
+        lipaNamba: PAPO_LIPA_NAMBA,
+        dalipay: {
+          configured: dalipayCfg.configured,
+          mode: dalipayCfg.mode,
+          hasCallbackSecret: dalipayCfg.hasCallbackSecret,
+          collectionsEndpoint: `${dalipayCfg.baseUrl}${dalipayCfg.collectionsPath}`,
+          disbursementsEndpoint: `${dalipayCfg.baseUrl}${dalipayCfg.disbursementsPath}`,
+        },
+        mongike: {
+          configured: mongikeConfigured,
+          mode: mongikeConfigured ? "live" : "sandbox",
+        },
         recentCallbacks,
       });
     } catch (err: any) {
-      return res.status(500).json({ error: err?.message || "Failed to read Mongike status" });
+      return res.status(500).json({ error: err?.message || "Failed to read gateway status" });
     }
   });
 
@@ -1378,9 +1411,60 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     }
   });
 
-  // Mobile Money / Mongike Payment Webhook Callback Endpoint
-  app.post("/api/payments/webhook", async (req, res) => {
-    const payload = req.body;
+  const handleDaliPayWebhookRequest = async (req: any, res: any) => {
+    try {
+      const rawBody =
+        req.rawBody ||
+        (typeof req.body === "string" ? req.body : JSON.stringify(req.body || {}));
+      const sigCheck = verifyDaliPaySignature(rawBody, req.headers["x-signature"]);
+      if (!sigCheck.valid) {
+        return res.status(401).json({ ok: false, error: sigCheck.reason || "Invalid X-Signature" });
+      }
+      const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+      const outcome = await processDaliPayWebhook(payload, dbAdmin);
+      if (
+        outcome.kind === "collection" &&
+        outcome.isPaid &&
+        outcome.realOrderId &&
+        outcome.targetType !== "disbursements" &&
+        dbAdmin
+      ) {
+        await notifyMongikePaymentPaidToWhatsApp(
+          {
+            targetId: outcome.realOrderId,
+            targetType: outcome.targetType,
+            amount: outcome.amount,
+            gatewayRef: outcome.gatewayRef,
+          },
+          dbAdmin
+        ).catch((notifyErr) => {
+          console.warn("[DaliPay Webhook] WhatsApp payment notify warning:", notifyErr);
+        });
+      }
+      return res.status(200).json({ ok: true, status: "SUCCESS", provider: "dalipay", ...outcome });
+    } catch (err: any) {
+      console.error("[DaliPay Webhook] Error:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Webhook failed" });
+    }
+  };
+
+  // DaliPay Webhook Endpoints (matches https://<domain>/webhooks/gateway & /api/webhooks/gateway)
+  app.post("/webhooks/gateway", handleDaliPayWebhookRequest);
+  app.post("/api/webhooks/gateway", handleDaliPayWebhookRequest);
+
+  // Mobile Money / Unified Gateway Webhook Callback Endpoint
+  app.post("/api/payments/webhook", async (req: any, res) => {
+    const payload = req.body || {};
+    const hasDaliSig = Boolean(req.headers["x-signature"]);
+    const isDaliPayload =
+      hasDaliSig ||
+      Boolean(payload?.event) ||
+      Boolean(payload?.data?.external_reference) ||
+      Boolean(payload?.external_reference);
+    if (isDaliPayload) {
+      return await handleDaliPayWebhookRequest(req, res);
+    }
+
     console.log("[Payment Webhook] Received payment callback notification:", JSON.stringify(payload));
 
     try {

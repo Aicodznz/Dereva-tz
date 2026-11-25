@@ -3,6 +3,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/webhooks/gateway",
+      "destination": "/api/webhooks/gateway"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

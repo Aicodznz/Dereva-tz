@@ -14,6 +14,7 @@ import {
   PAPO_LIPA_NAMBA_NAME,
   type MongikePaymentResult,
 } from './mongike.js';
+import { executePapoWalletMobileDisbursement, isDaliPayConfigured } from './dalipay.js';
 import {
   executeDirectPapoWalletPayment,
   executePapoWalletTransfer,
@@ -4787,21 +4788,29 @@ export function buildWhatsAppInteractive(
 
   if (session?.step === 'PAPOPAY_TRANSFER_CONFIRM' || session?.step === 'PAPOPAY_WITHDRAW_CONFIRM') {
     const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    const isTransfer = session.step === 'PAPOPAY_TRANSFER_CONFIRM';
     return sanitizeWhatsAppInteractivePayload({
       type: 'button',
       header: {
         type: 'text',
-        text:
-          session.step === 'PAPOPAY_TRANSFER_CONFIRM'
-            ? (isEn ? '💸 Confirm Transfer' : '💸 Thibitisha Kutuma')
-            : (isEn ? '🏧 Confirm Withdrawal' : '🏧 Thibitisha Kutoa Pesa'),
+        text: isTransfer
+          ? (isEn ? '💸 Confirm Transfer' : '💸 Thibitisha Kutuma')
+          : (isEn ? '🏧 Confirm Withdrawal' : '🏧 Thibitisha Kutoa Pesa'),
       },
       body: { text: cleanBody },
       action: {
-        buttons: [
-          { type: 'reply', reply: { id: '1', title: isEn ? '✅ Confirm & Send' : '✅ Ndio, Kamilisha' } },
-          { type: 'reply', reply: { id: '2', title: isEn ? '❌ Cancel' : '❌ Sitisha' } },
-        ],
+        buttons: isTransfer
+          ? [
+              { type: 'reply', reply: { id: '1', title: isEn ? '✅ Confirm & Send' : '✅ Ndio, Kamilisha' } },
+              { type: 'reply', reply: { id: '2', title: isEn ? '❌ Cancel' : '❌ Sitisha' } },
+            ]
+          : [
+              { type: 'reply' as const, reply: { id: '1', title: isEn ? '🏪 Wakala Code' : '🏪 Msimbo Wakala' } },
+              ...(isDaliPayConfigured()
+                ? [{ type: 'reply' as const, reply: { id: 'CMD:WITHDRAW_MOMO', title: isEn ? '📱 Mobile Money' : '📱 Kwenda Simu' } }]
+                : []),
+              { type: 'reply' as const, reply: { id: '2', title: isEn ? '❌ Cancel' : '❌ Sitisha' } },
+            ],
       },
     });
   }
@@ -12017,25 +12026,31 @@ async function routeToServiceFlow(
       session.details.withdrawFee = fee;
       session.step = 'PAPOPAY_WITHDRAW_CONFIRM';
       await saveMetaSession(session, dbAdmin);
+      const daliReady = isDaliPayConfigured();
       return lang === 'en'
         ? (
-            `[[EN_NATIVE]]🏧 *Confirm Agent Cash Withdrawal*\n\n` +
+            `[[EN_NATIVE]]🏧 *Confirm Cash Withdrawal*\n\n` +
             `- Cash to Receive: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Agent Fee (0.2%${minApplied ? ', min TZS 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Fee (0.2%${minApplied ? ', min TZS 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
             `- Total to be Deducted: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
-            `1. ✅ *Confirm & Generate Wakala Code*\n2. ❌ *Cancel*`
+            `1. 🏪 *Wakala Cash-Out Code*\n` +
+            (daliReady ? `3. 📱 *Send to Mobile Money (DaliPay)*\n` : '') +
+            `2. ❌ *Cancel*`
           )
         : (
-            `🏧 *Thibitisha Kutoa Pesa kwa Wakala*\n\n` +
+            `🏧 *Thibitisha Kutoa Pesa*\n\n` +
             `- Kiasi Unachopokea: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Ada ya Wakala (0.2%${minApplied ? ', kima cha chini 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Ada (0.2%${minApplied ? ', kima cha chini 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
             `- Jumla Itakayokatwa: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
-            `1. ✅ *Ndio, Tengeneza Msimbo wa Wakala*\n2. ❌ *Sitisha*`
+            `1. 🏪 *Tengeneza Msimbo wa Wakala*\n` +
+            (daliReady ? `3. 📱 *Tuma Kwenda Simu (DaliPay)*\n` : '') +
+            `2. ❌ *Sitisha*`
           );
     }
 
     if (session.step === 'PAPOPAY_WITHDRAW_CONFIRM') {
       const c = input.trim().toLowerCase();
+      const rawCmd = input.trim().toUpperCase();
       if (c === '2' || c.includes('sitisha') || c.includes('hapana') || c.includes('cancel')) {
         session.step = 'START';
         delete session.service;
@@ -12045,11 +12060,28 @@ async function routeToServiceFlow(
           ? `[[EN_NATIVE]]❌ Cash withdrawal cancelled. Reply *Menu* to continue.`
           : `❌ Ombi la kutoa pesa limesitishwa. Andika *Menu* kuendelea.`;
       }
-      if (c !== '1' && !c.includes('ndio') && !c.includes('tengeneza') && !c.includes('confirm')) {
+
+      const isMobilePayout =
+        rawCmd === 'CMD:WITHDRAW_MOMO' ||
+        rawCmd === 'WITHDRAW_MOMO' ||
+        c === '3' ||
+        c.includes('mobile money') ||
+        c.includes('kwenda simu') ||
+        c.includes('dalipay');
+
+      const isWakalaPayout =
+        c === '1' ||
+        c.includes('ndio') ||
+        c.includes('tengeneza') ||
+        c.includes('confirm') ||
+        c.includes('wakala');
+
+      if (!isMobilePayout && !isWakalaPayout) {
         return lang === 'en'
-          ? `[[EN_NATIVE]]⚠️ Reply *1* to get your Wakala withdrawal code or *2* to cancel:`
-          : `⚠️ Bonyeza *1* kupata msimbo wa wakala au *2* kusitisha:`;
+          ? `[[EN_NATIVE]]⚠️ Reply *1* for Wakala code${isDaliPayConfigured() ? ', *3* for Mobile Money,' : ''} or *2* to cancel:`
+          : `⚠️ Bonyeza *1* kupata msimbo wa wakala${isDaliPayConfigured() ? ', *3* kwenda simu,' : ''} au *2* kusitisha:`;
       }
+
       const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
       if (!payerPhone) {
         return lang === 'en'
@@ -12057,6 +12089,58 @@ async function routeToServiceFlow(
           : `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
       }
       const amt = Number(session.details.withdrawAmount || 0);
+
+      if (isMobilePayout) {
+        const mobRes = await executePapoWalletMobileDisbursement(dbAdmin, {
+          phone: payerPhone,
+          displayName: session.details.customerName || 'Mteja wa PapoPay',
+          amount: amt,
+        });
+        if (!mobRes.ok) {
+          session.step = 'START';
+          delete session.service;
+          session.details = preserveCustomerFields(session.details, lang);
+          await saveMetaSession(session, dbAdmin);
+          return lang === 'en'
+            ? `[[EN_NATIVE]]⚠️ Mobile payout failed: ${mobRes.reason}`
+            : `⚠️ Kutuma kwenda simu kulishindikana: ${mobRes.reason}`;
+        }
+        const paidCard = buildPaidOrderStatusPayload({
+          refCode: mobRes.refCode || 'DISB',
+          merchantName: `PapoPay Mobile Payout (${mobRes.network || 'MoMo'})`,
+          itemTitle: `To ${payerPhone} via DaliPay`,
+          amount: mobRes.totalDebit || amt,
+          methodLabel: 'DaliPay Disbursement',
+          newBalance: mobRes.newBalance,
+        });
+        session.step = 'START';
+        delete session.service;
+        session.details = {
+          ...preserveCustomerFields(session.details, lang),
+          paidOrderStatus: paidCard,
+        };
+        await saveMetaSession(session, dbAdmin);
+        return lang === 'en'
+          ? (
+              `[[EN_NATIVE]]✅ *MOBILE MONEY PAYOUT ${mobRes.status === 'completed' ? 'SENT' : 'INITIATED'}!* 📱\n` +
+              `🔖 Ref: *#${mobRes.refCode}*\n\n` +
+              `- Network: *${mobRes.network || 'Mobile Money'}*\n` +
+              `- Recipient Phone: *${payerPhone}*\n` +
+              `- Cash Sent: *TZS ${amt.toLocaleString()}/=*\n` +
+              `- Fee Deducted: TZS ${Number(mobRes.fee || 0).toLocaleString()}\n` +
+              `- New PapoWallet Balance: *TZS ${Number(mobRes.newBalance || 0).toLocaleString()}/=*`
+            )
+          : (
+              `✅ *OMBI LA KUTOA PESA KWENDA SIMU ${mobRes.status === 'completed' ? 'LIMETUMWA' : 'LIMEPOKELEWA'}!* 📱\n` +
+              `🔖 Rejea: *#${mobRes.refCode}*\n\n` +
+              `- Mtandao: *${mobRes.network || 'Mobile Money'}*\n` +
+              `- Simu ya Mpokeaji: *${payerPhone}*\n` +
+              `- Kiasi Kilichotumwa: *TZS ${amt.toLocaleString()}/=*\n` +
+              `- Ada Iliyokatwa: TZS ${Number(mobRes.fee || 0).toLocaleString()}\n` +
+              `- Salio Jipya la PapoWallet: *TZS ${Number(mobRes.newBalance || 0).toLocaleString()}/=*`
+            );
+      }
+
       const res = await executePapoWalletWithdrawal(dbAdmin, {
         phone: payerPhone,
         displayName: session.details.customerName || 'Mteja wa PapoPay',

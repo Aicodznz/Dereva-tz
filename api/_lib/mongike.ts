@@ -1,5 +1,6 @@
 import { cleanUndefined } from './getFirestoreDb.js';
 import { settlePaidMongikeOrder } from './papoWalletSettlement.js';
+import { initiateDaliPayCollection, isDaliPayConfigured } from './dalipay.js';
 
 export const MONGIKE_TANZANIA_MOMO_ENDPOINT =
   'https://mongike.com/api/v1/payments/mobile-money/tanzania';
@@ -10,6 +11,7 @@ export const PAPO_LIPA_NAMBA_NAME = 'Papo Hapo Super App';
 export interface MongikePaymentResult {
   status: string;
   message: string;
+  provider?: 'dalipay' | 'mongike' | 'sandbox';
   sandbox?: boolean;
   httpStatus?: number;
   data?: {
@@ -54,7 +56,7 @@ export function normalizePhoneForMongike(rawPhone?: string): string {
 
 export function isMobileMoneyPaymentMethod(method?: string): boolean {
   const m = String(method || '').trim().toLowerCase();
-  return ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'mobile_money', 'mongike', 'yas', 'mixx'].includes(m);
+  return ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'mobile_money', 'mongike', 'dalipay', 'yas', 'mixx'].includes(m);
 }
 
 /**
@@ -103,6 +105,30 @@ export async function initiateMongikePayment(
       message: 'Taarifa za malipo hazijakamilika (orderId, kiasi, au namba ya simu).',
       httpStatus: 400,
     };
+  }
+
+  // Prefer DaliPay Collections API whenever DALIPAY_PUBLIC_KEY & DALIPAY_SECRET_KEY are configured
+  if (isDaliPayConfigured()) {
+    const daliRes = await initiateDaliPayCollection(
+      {
+        orderId,
+        amount: numericAmount,
+        buyerPhone: cleanPhone,
+        collection,
+      },
+      dbAdmin
+    );
+    if (daliRes.status === 'success' && daliRes.data?.status === 'COMPLETED' && opts?.onSimulatedPaid) {
+      await Promise.resolve(
+        opts.onSimulatedPaid({
+          targetId: String(orderId),
+          targetType: collection,
+          amount: numericAmount,
+          gatewayRef: daliRes.data.gateway_ref,
+        })
+      ).catch(() => {});
+    }
+    return daliRes as MongikePaymentResult;
   }
 
   const isLive = isMongikeLiveConfigured();
