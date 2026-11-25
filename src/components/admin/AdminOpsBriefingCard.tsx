@@ -3,21 +3,45 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { auth } from '../../firebase';
 import {
   Activity,
+  BellRing,
   Bot,
+  CalendarClock,
   CheckCircle2,
   Copy,
   ExternalLink,
   Eye,
   RefreshCw,
+  Save,
   Send,
   ShieldAlert,
   Store,
   Users,
 } from 'lucide-react';
+
+type OpsIntervalPreset = '1h' | '6h' | '12h' | 'daily' | 'weekly' | 'monthly';
+
+interface OpsRealtimeTriggers {
+  newCustomer: boolean;
+  newProduct: boolean;
+  newDriverOrVendor: boolean;
+  newOrderOrService: boolean;
+  lipaNambaPending: boolean;
+}
+
+interface OpsAutomationSettings {
+  enabled: boolean;
+  adminPhone: string;
+  intervalPreset: OpsIntervalPreset;
+  lastSentAtMs: number;
+  nextDueAtMs: number;
+  updatedAt?: string;
+  realtimeTriggers: OpsRealtimeTriggers;
+}
 
 interface OpsBriefingData {
   generatedAt: string;
@@ -42,6 +66,13 @@ interface OpsBriefingData {
     openOrders: number;
     unresolvedSos: number;
   };
+  catalogStats?: {
+    customers: number;
+    products: number;
+    vendors: number;
+    drivers: number;
+    fundis: number;
+  };
   automation: {
     hasAutomationKey: boolean;
     hasOpsWebhookUrl: boolean;
@@ -49,6 +80,31 @@ interface OpsBriefingData {
   };
   whatsappSummaryText: string;
 }
+
+const DEFAULT_TRIGGERS: OpsRealtimeTriggers = {
+  newCustomer: false,
+  newProduct: false,
+  newDriverOrVendor: true,
+  newOrderOrService: false,
+  lipaNambaPending: true,
+};
+
+const INTERVAL_OPTIONS: { value: OpsIntervalPreset; label: string }[] = [
+  { value: '1h', label: 'Kila Saa 1' },
+  { value: '6h', label: 'Kila Saa 6' },
+  { value: '12h', label: 'Kila Saa 12' },
+  { value: 'daily', label: 'Kila Siku (Saa 24)' },
+  { value: 'weekly', label: 'Kila Wiki (Siku 7)' },
+  { value: 'monthly', label: 'Kila Mwezi' },
+];
+
+const TRIGGER_ITEMS: { key: keyof OpsRealtimeTriggers; label: string; hint: string }[] = [
+  { key: 'newCustomer', label: 'Mteja Mpya', hint: 'Mtumiaji mpya akijiunga' },
+  { key: 'newProduct', label: 'Bidhaa Mpya', hint: 'Bidhaa/huduma mpya ikiongezwa' },
+  { key: 'newDriverOrVendor', label: 'Dereva / Mchuuzi / Fundi Mpya', hint: 'Mshirika mpya akisajiliwa' },
+  { key: 'newOrderOrService', label: 'Oda / Safari / Huduma Mpya', hint: 'Oda au ombi jipya la safari' },
+  { key: 'lipaNambaPending', label: 'Malipo ya Lipa Namba 5656565', hint: 'Malipo yakisubiri uthibitisho' },
+];
 
 function normalizePhoneForWaLink(raw?: string): string {
   const digits = String(raw || '').replace(/\D/g, '');
@@ -59,9 +115,25 @@ function normalizePhoneForWaLink(raw?: string): string {
   return digits;
 }
 
+function formatSwDateTime(ms?: number): string {
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return '—';
+  try {
+    return new Date(ms).toLocaleString('sw-TZ', {
+      timeZone: 'Africa/Dar_es_Salaam',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return new Date(ms).toLocaleString();
+  }
+}
+
 function formatWhatsAppFailureHint(reason?: string): string {
   const r = String(reason || '').toLowerCase();
   if (!r) return 'Imeshindwa kutuma moja kwa moja kupitia WhatsApp Cloud API.';
+  if (r === 'self_bot_number') {
+    return 'Hiyo (+255 775 985 358) ni namba ya huduma inayotuma ujumbe — weka namba yako binafsi ya mpokeaji (mf. 0687225353).';
+  }
   if (r.includes('missing meta_whatsapp_access_token') || r.includes('phonenumberid')) {
     return 'Seva hii haina META_WHATSAPP_ACCESS_TOKEN au Phone Number ID — tumia "Fungua Kwenye WhatsApp" hapa chini.';
   }
@@ -75,6 +147,7 @@ export const AdminOpsBriefingCard: React.FC = () => {
   const [briefing, setBriefing] = useState<OpsBriefingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
   const [copiedEndpoint, setCopiedEndpoint] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -87,12 +160,48 @@ export const AdminOpsBriefingCard: React.FC = () => {
     }
   });
 
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [intervalPreset, setIntervalPreset] = useState<OpsIntervalPreset>('daily');
+  const [realtimeTriggers, setRealtimeTriggers] = useState<OpsRealtimeTriggers>(DEFAULT_TRIGGERS);
+  const [lastSentAtMs, setLastSentAtMs] = useState(0);
+  const [nextDueAtMs, setNextDueAtMs] = useState(0);
+
   const opsEndpointUrl = 'https://dereva-tz.onrender.com/api/ops/briefing';
   const normalizedWaDigits = normalizePhoneForWaLink(adminPhone);
   const waDirectUrl =
     normalizedWaDigits.length >= 11 && briefing?.whatsappSummaryText
       ? `https://wa.me/${normalizedWaDigits}?text=${encodeURIComponent(briefing.whatsappSummaryText)}`
       : '';
+
+  const applyScheduleSettings = useCallback((settings?: OpsAutomationSettings | null) => {
+    if (!settings) return;
+    setScheduleEnabled(Boolean(settings.enabled));
+    setIntervalPreset(settings.intervalPreset || 'daily');
+    setRealtimeTriggers({
+      newCustomer: Boolean(settings.realtimeTriggers?.newCustomer),
+      newProduct: Boolean(settings.realtimeTriggers?.newProduct),
+      newDriverOrVendor:
+        typeof settings.realtimeTriggers?.newDriverOrVendor === 'boolean'
+          ? settings.realtimeTriggers.newDriverOrVendor
+          : true,
+      newOrderOrService: Boolean(settings.realtimeTriggers?.newOrderOrService),
+      lipaNambaPending:
+        typeof settings.realtimeTriggers?.lipaNambaPending === 'boolean'
+          ? settings.realtimeTriggers.lipaNambaPending
+          : true,
+    });
+    setLastSentAtMs(Number(settings.lastSentAtMs || 0));
+    setNextDueAtMs(Number(settings.nextDueAtMs || 0));
+    if (settings.adminPhone) {
+      setAdminPhone((prev) => {
+        if (prev.trim()) return prev;
+        try {
+          localStorage.setItem('papo_admin_briefing_phone', settings.adminPhone);
+        } catch {}
+        return settings.adminPhone;
+      });
+    }
+  }, []);
 
   const loadBriefing = useCallback(async () => {
     setLoading(true);
@@ -102,18 +211,31 @@ export const AdminOpsBriefingCard: React.FC = () => {
         setLoading(false);
         return;
       }
-      const res = await fetch('/api/ops/briefing', {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (!res.ok) throw new Error('Imeshindwa kupakia muhtasari wa shughuli');
-      const data = await res.json();
+      const [briefingRes, scheduleRes] = await Promise.all([
+        fetch('/api/ops/briefing', {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }),
+        fetch('/api/ops/schedule', {
+          headers: { Authorization: `Bearer ${idToken}` },
+        }).catch(() => null),
+      ]);
+
+      if (!briefingRes.ok) throw new Error('Imeshindwa kupakia muhtasari wa shughuli');
+      const data = await briefingRes.json();
       setBriefing(data);
+
+      if (scheduleRes && scheduleRes.ok) {
+        const schedData = await scheduleRes.json().catch(() => null);
+        if (schedData?.settings) {
+          applyScheduleSettings(schedData.settings);
+        }
+      }
     } catch (err: any) {
       toast.error(err?.message || 'Hitilafu wakati wa kusoma muhtasari');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyScheduleSettings]);
 
   useEffect(() => {
     loadBriefing();
@@ -165,6 +287,77 @@ export const AdminOpsBriefingCard: React.FC = () => {
     }
   };
 
+  const handleSaveSchedule = async () => {
+    const cleanedPhone = normalizePhoneForWaLink(adminPhone);
+    if (cleanedPhone === '255775985358') {
+      toast.warning(
+        'Hiyo (+255 775 985 358) ni namba ya huduma inayotuma ujumbe — weka namba yako binafsi ya mpokeaji.'
+      );
+      return;
+    }
+
+    if (
+      scheduleEnabled &&
+      cleanedPhone.length < 11 &&
+      !briefing?.automation?.hasAdminPhone &&
+      !briefing?.automation?.hasOpsWebhookUrl
+    ) {
+      toast.warning('Weka namba yako ya WhatsApp ya Admin (au OPS_WEBHOOK_URL) ili kuwasha ratiba ya kiotomatiki.');
+      return;
+    }
+
+    setSavingSchedule(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        toast.error('Ingia kama Admin kwanza.');
+        return;
+      }
+
+      try {
+        localStorage.setItem('papo_admin_briefing_phone', adminPhone.trim());
+      } catch {}
+
+      const res = await fetch('/api/ops/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          enabled: scheduleEnabled,
+          adminPhone: adminPhone.trim(),
+          intervalPreset,
+          realtimeTriggers,
+          resetScheduleFromNow: true,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || 'Imeshindwa kuhifadhi ratiba');
+      }
+
+      if (data?.settings) {
+        applyScheduleSettings(data.settings);
+      }
+
+      if (scheduleEnabled) {
+        const nextStr = formatSwDateTime(data?.settings?.nextDueAtMs);
+        toast.success(`Ratiba ya kiotomatiki imewashwa! Ripoti ijayo: ${nextStr}`);
+      } else {
+        toast.success('Mipangilio ya ratiba imehifadhiwa (imezimwa).');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu wakati wa kuhifadhi ratiba');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleToggleTrigger = (key: keyof OpsRealtimeTriggers, checked: boolean) => {
+    setRealtimeTriggers((prev) => ({ ...prev, [key]: checked }));
+  };
+
   const handleCopyEndpoint = async () => {
     try {
       await navigator.clipboard.writeText(opsEndpointUrl);
@@ -211,7 +404,7 @@ export const AdminOpsBriefingCard: React.FC = () => {
                 )}
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                Pata ripoti ya papo hapo ya Lipa Namba {briefing?.lipaNamba || '5656565'}, DaliPay, na maombi ya washirika — au unganisha ajenti wa Nod / n8n.
+                Pata ripoti ya papo hapo au weka ratiba ya kiotomatiki ya Lipa Namba {briefing?.lipaNamba || '5656565'}, DaliPay, bidhaa, wateja, na madereva.
               </CardDescription>
             </div>
           </div>
@@ -302,6 +495,11 @@ export const AdminOpsBriefingCard: React.FC = () => {
               <ShieldAlert className="w-3 h-3" />
               <span>SOS Hai: {briefing?.liveOps.unresolvedSos || 0}</span>
             </div>
+            {briefing?.catalogStats && (
+              <div className="text-[10px] text-neutral-500 pt-0.5">
+                Wateja {briefing.catalogStats.customers} • Bidhaa {briefing.catalogStats.products} • Madereva {briefing.catalogStats.drivers}
+              </div>
+            )}
           </div>
         </div>
 
@@ -315,7 +513,7 @@ export const AdminOpsBriefingCard: React.FC = () => {
                 type="tel"
                 value={adminPhone}
                 onChange={(e) => setAdminPhone(e.target.value)}
-                placeholder="Namba ya Admin (mf. 0755123456)"
+                placeholder="Namba ya Admin (mf. 0687225353)"
                 className="h-9 rounded-xl text-xs bg-white dark:bg-neutral-950"
               />
               <Button
@@ -334,7 +532,7 @@ export const AdminOpsBriefingCard: React.FC = () => {
               </div>
             )}
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              Inatuma muhtasari wa malipo yanayosubiri uthibitisho wa Lipa Namba {briefing?.lipaNamba || '5656565'}, takwimu za DaliPay, na maombi ya madereva/wachuuzi kwenda WhatsApp yako (na webhook ya Nod/n8n kama imewekwa).
+              Inatumwa <b>kutoka</b> namba ya huduma (+255 775 985 358) <b>kwenda</b> namba binafsi ya Admin uliyoiweka hapa (au webhook ya Nod/n8n kama imewekwa).
             </p>
           </div>
 
@@ -359,7 +557,130 @@ export const AdminOpsBriefingCard: React.FC = () => {
             </div>
             <div className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed space-y-1">
               <div>
-                Weka Secret <code className="font-mono font-bold">OPS_AUTOMATION_KEY</code> (kutumia kama header <code className="font-mono">X-Ops-Key</code>) kisha <b>Nod</b> au <b>n8n</b> inaweza kuvuta ripoti kila siku au kupokea matukio kupitia <code className="font-mono font-bold">OPS_WEBHOOK_URL</code>.
+                Weka Secret <code className="font-mono font-bold">OPS_AUTOMATION_KEY</code> (kutumia kama header <code className="font-mono">X-Ops-Key</code>) kisha <b>Nod</b> au <b>n8n</b> inaweza kuvuta ripoti au kupokea matukio kupitia <code className="font-mono font-bold">OPS_WEBHOOK_URL</code>.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Automated Scheduled Briefings & Realtime Event Alerts */}
+        <div className="p-4 rounded-2xl border border-indigo-200/70 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-200/60 dark:border-indigo-900/40">
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 shrink-0">
+                <CalendarClock className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-black uppercase tracking-wide text-neutral-900 dark:text-neutral-100 flex items-center gap-2 flex-wrap">
+                  <span>Ratiba ya Kiotomatiki &amp; Arifa za Matukio</span>
+                  {scheduleEnabled ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-none text-[10px] font-black uppercase">
+                      INAFANYA KAZI
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-none text-[10px] font-bold uppercase">
+                      IMEZIMWA
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
+                  Chagua muda wa kupokea ripoti za jumla kiotomatiki na matukio ya papo hapo kwenda WhatsApp yako na Nod / n8n.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-start sm:self-auto">
+              <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+                {scheduleEnabled ? 'Imewashwa' : 'Washa Ratiba'}
+              </span>
+              <Switch
+                checked={scheduleEnabled}
+                onCheckedChange={setScheduleEnabled}
+                aria-label="Washa Ripoti na Arifa za Kiotomatiki"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-5 space-y-3">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="ops-interval-select"
+                  className="block text-[11px] font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300"
+                >
+                  Muda wa Kurudia Ripoti
+                </label>
+                <select
+                  id="ops-interval-select"
+                  value={intervalPreset}
+                  onChange={(e) => setIntervalPreset(e.target.value as OpsIntervalPreset)}
+                  className="w-full h-9 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-3 text-xs font-semibold text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {INTERVAL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white/90 dark:bg-neutral-950/90 border border-neutral-200/70 dark:border-neutral-800 space-y-1.5 text-[11px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-neutral-500 font-medium">Ripoti Ijayo:</span>
+                  <span className="font-bold text-neutral-900 dark:text-neutral-100">
+                    {scheduleEnabled && nextDueAtMs > 0 ? formatSwDateTime(nextDueAtMs) : 'Haijawashwa'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-neutral-500 font-medium">Mwisho Kutumwa:</span>
+                  <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                    {lastSentAtMs > 0 ? formatSwDateTime(lastSentAtMs) : 'Bado'}
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleSaveSchedule}
+                disabled={savingSchedule}
+                className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+              >
+                <Save className="w-3.5 h-3.5 mr-1.5" />
+                {savingSchedule ? 'Inahifadhi Ratiba...' : 'Hifadhi Ratiba'}
+              </Button>
+            </div>
+
+            <div className="lg:col-span-7 space-y-2">
+              <div className="text-[11px] font-black uppercase tracking-wider text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5">
+                <BellRing className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Arifa za Papo Hapo (Kila Tukio Likifanyika)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TRIGGER_ITEMS.map((item) => {
+                  const checked = Boolean(realtimeTriggers[item.key]);
+                  return (
+                    <label
+                      key={item.key}
+                      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                        checked
+                          ? 'bg-white dark:bg-neutral-950 border-indigo-300 dark:border-indigo-700'
+                          : 'bg-white/60 dark:bg-neutral-950/50 border-neutral-200/70 dark:border-neutral-800'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">
+                          {item.label}
+                        </div>
+                        <div className="text-[10px] text-neutral-500 truncate">{item.hint}</div>
+                      </div>
+                      <Switch
+                        checked={checked}
+                        onCheckedChange={(val) => handleToggleTrigger(item.key, val)}
+                        aria-label={item.label}
+                      />
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>

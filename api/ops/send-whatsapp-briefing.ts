@@ -27,9 +27,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ).trim();
     const normalizedPhone = normalizeAdminPhoneForWhatsApp(rawPhone);
 
+    const botPublicDigits = normalizeAdminPhoneForWhatsApp(
+      process.env.META_WHATSAPP_PUBLIC_NUMBER || '255775985358'
+    );
+
     let whatsappSent = false;
     let whatsappReason = '';
-    if (normalizedPhone.length >= 11) {
+    if (normalizedPhone.length >= 11 && normalizedPhone === botPublicDigits) {
+      whatsappReason = 'SELF_BOT_NUMBER';
+    } else if (normalizedPhone.length >= 11) {
       const phoneNumberId = await resolveWhatsAppPhoneNumberId(db, normalizedPhone);
       const sendRes = await sendMetaOutboundMessage({
         channel: 'whatsapp',

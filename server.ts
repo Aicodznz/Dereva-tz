@@ -12,7 +12,7 @@ import { getDaliPayConfig, getPublicWebhookCallbackUrl, processDaliPayWebhook, v
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
 import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
-import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, normalizeAdminPhoneForWhatsApp, resolveWhatsAppPhoneNumberId, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
+import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, getOpsAutomationSettings, normalizeAdminPhoneForWhatsApp, pollRealtimeOpsEvents, processScheduledOpsBriefing, resolveWhatsAppPhoneNumberId, saveOpsAutomationSettings, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
 
 dotenv.config();
 
@@ -1509,9 +1509,15 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
       const rawPhone = String(req.body?.phone || process.env.ADMIN_WHATSAPP_PHONE || "").trim();
       const normalizedPhone = normalizeAdminPhoneForWhatsApp(rawPhone);
 
+      const botPublicDigits = normalizeAdminPhoneForWhatsApp(
+        process.env.META_WHATSAPP_PUBLIC_NUMBER || "255775985358"
+      );
+
       let whatsappSent = false;
       let whatsappReason = "";
-      if (normalizedPhone.length >= 11) {
+      if (normalizedPhone.length >= 11 && normalizedPhone === botPublicDigits) {
+        whatsappReason = "SELF_BOT_NUMBER";
+      } else if (normalizedPhone.length >= 11) {
         const phoneNumberId = await resolveWhatsAppPhoneNumberId(dbAdmin, normalizedPhone);
         const sendRes = await sendMetaOutboundMessage({
           channel: "whatsapp",
@@ -1542,6 +1548,39 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     } catch (err: any) {
       console.error("[Ops Send Briefing API] Error:", err);
       return res.status(500).json({ ok: false, error: err?.message || "Failed to send ops briefing" });
+    }
+  });
+
+  app.get("/api/ops/schedule", async (req, res) => {
+    try {
+      const auth = await verifyOpsOrAdminRequest(req, dbAdmin);
+      if (!auth.authorized) {
+        return res.status(401).json({ ok: false, error: auth.error || "Unauthorized" });
+      }
+      const settings = await getOpsAutomationSettings(dbAdmin, true);
+      return res.json({ ok: true, settings });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to read ops schedule" });
+    }
+  });
+
+  app.post("/api/ops/schedule", async (req, res) => {
+    try {
+      const auth = await verifyOpsOrAdminRequest(req, dbAdmin);
+      if (!auth.authorized) {
+        return res.status(401).json({ ok: false, error: auth.error || "Unauthorized" });
+      }
+      const body = req.body || {};
+      const settings = await saveOpsAutomationSettings(dbAdmin, {
+        enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
+        adminPhone: typeof body.adminPhone === "string" ? body.adminPhone : undefined,
+        intervalPreset: body.intervalPreset,
+        realtimeTriggers: body.realtimeTriggers,
+        resetScheduleFromNow: Boolean(body.resetScheduleFromNow),
+      });
+      return res.json({ ok: true, settings });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to save ops schedule" });
     }
   });
 
@@ -2802,10 +2841,16 @@ The JSON output must contain the following keys:
     // Warm Meta template config cache on boot
     getMetaTemplateSettings(dbAdmin).catch(() => {});
 
-    // Scheduled rides background processor (every 60s): send customer reminders & dispatch nearby drivers when within 30 min window
+    // Scheduled rides & Admin Ops Briefing + real-time triggers processor (every 60s)
     setInterval(() => {
       processDueScheduledBookings(dbAdmin, sendMetaOutboundMessage).catch((err) => {
         console.warn('[Scheduled Rides Processor] Warning:', err?.message || err);
+      });
+      processScheduledOpsBriefing(dbAdmin, sendMetaOutboundMessage).catch((err) => {
+        console.warn('[Ops Briefing Scheduler] Warning:', err?.message || err);
+      });
+      pollRealtimeOpsEvents(dbAdmin, sendMetaOutboundMessage).catch((err) => {
+        console.warn('[Ops Realtime Trigger] Warning:', err?.message || err);
       });
     }, 60_000);
 
