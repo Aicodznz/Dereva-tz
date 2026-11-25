@@ -2310,7 +2310,10 @@ Response Schema:
     return { intent: 'ecommerce', confidence: 0.92 };
   }
   if (
+    cleaned.includes('papopay') ||
     cleaned.includes('salio') ||
+    cleaned.includes('balance') ||
+    cleaned.includes('statement') ||
     cleaned.includes('wallet') ||
     cleaned.includes('lipa') ||
     cleaned.includes('wakala') ||
@@ -2327,7 +2330,10 @@ Response Schema:
     cleaned.includes('kifurushi') ||
     cleaned.includes('credit') ||
     cleaned.includes('tuma pesa') ||
+    cleaned.includes('send money') ||
     cleaned.includes('toa pesa') ||
+    cleaned.includes('withdraw') ||
+    cleaned.includes('cash out') ||
     cleaned.includes('gawana') ||
     cleaned.includes('split bill') ||
     cleaned.includes('mwanafunzi') ||
@@ -3814,7 +3820,31 @@ export function buildWhatsAppInteractive(
     return sanitizeWhatsAppInteractivePayload(session.details.pendingOrderDetails);
   }
   if (session?.details?.paidOrderStatus) {
-    return sanitizeWhatsAppInteractivePayload(session.details.paidOrderStatus);
+    const paidPayload: any = JSON.parse(JSON.stringify(session.details.paidOrderStatus));
+    if (paidPayload?.fallbackInteractive?.type === 'button') {
+      const ref =
+        paidPayload?.papopayMeta?.referenceId ||
+        paidPayload?.action?.parameters?.reference_id ||
+        '';
+      if (rawStripped) {
+        paidPayload.fallbackInteractive.body = {
+          text: clampMetaBodyText(rawStripped, 1024),
+        };
+      }
+      paidPayload.fallbackInteractive.footer = {
+        text: isEn
+          ? `PapoPay E-Receipt${ref ? ` • #${ref}` : ''}`
+          : `PapoPay E-Risiti${ref ? ` • #${ref}` : ''}`,
+      };
+      paidPayload.fallbackInteractive.action = {
+        buttons: [
+          { type: 'reply', reply: { id: 'CMD:MY_ORDERS', title: isEn ? '📋 Orders & Receipts' : '📋 Oda & Risiti' } },
+          { type: 'reply', reply: { id: 'papopay', title: '💳 PapoPay' } },
+          { type: 'reply', reply: { id: '00', title: isEn ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
+        ],
+      };
+    }
+    return sanitizeWhatsAppInteractivePayload(paidPayload);
   }
 
   // 1c. Pending Mongike Mobile Money USSD Push or Lipa Namba 5656565 actions
@@ -4729,7 +4759,7 @@ export function buildWhatsAppInteractive(
             title: isEn ? 'Wallet & Transfers' : 'Mkoba & Kutuma Pesa',
             rows: [
               { id: '1', title: isEn ? '💰 Balance & History' : '💰 Salio & Historia', description: isEn ? 'Balance, points & last 8 txns' : 'Salio, PapoPoints & risiti 8' },
-              { id: '2', title: isEn ? '📥 Top Up Wallet' : '📥 Weka Pesa Wallet', description: isEn ? 'Deposit via Mongike Push' : 'M-Pesa / Mixx / Airtel Push' },
+              { id: '2', title: isEn ? '📥 Top Up Wallet' : '📥 Weka Pesa Wallet', description: isEn ? 'Lipa 5656565 or Mobile Push' : 'Lipa 5656565 / Mobile Push' },
               { id: '7', title: isEn ? '💸 Send Money (0% Fee)' : '💸 Tuma Pesa (0% Ada)', description: isEn ? 'Send to Phone or Wallet ID' : 'Kwenda simu au Wallet ID' },
               { id: '8', title: isEn ? '🏧 Cash Out & Agents' : '🏧 Toa Pesa & Mawakala', description: isEn ? '0.2% fee • Cash-out code' : 'Ada 0.2% • Msimbo & Mawakala' },
             ],
@@ -4759,7 +4789,13 @@ export function buildWhatsAppInteractive(
     const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
     return sanitizeWhatsAppInteractivePayload({
       type: 'button',
-      header: { type: 'text', text: session.step === 'PAPOPAY_TRANSFER_CONFIRM' ? '💸 Thibitisha Kutuma' : '🏧 Thibitisha Kutoa Pesa' },
+      header: {
+        type: 'text',
+        text:
+          session.step === 'PAPOPAY_TRANSFER_CONFIRM'
+            ? (isEn ? '💸 Confirm Transfer' : '💸 Thibitisha Kutuma')
+            : (isEn ? '🏧 Confirm Withdrawal' : '🏧 Thibitisha Kutoa Pesa'),
+      },
       body: { text: cleanBody },
       action: {
         buttons: [
@@ -10969,19 +11005,29 @@ async function routeToServiceFlow(
       cashbackPoints?: number;
     }): WhatsAppInteractivePayload => {
       const amt = Math.max(0, Math.round(Number(params.amount || 0)));
+      const extraLines: string[] = [];
+      if (params.itemTitle) extraLines.push(`📋 ${params.itemTitle}`);
+      if (params.token) extraLines.push(`⚡ Token: *${params.token}*${params.units ? ` (${params.units} kWh)` : ''}`);
+      if (params.newBalance !== undefined && Number.isFinite(Number(params.newBalance))) {
+        extraLines.push(`💰 ${lang === 'en' ? 'New Balance' : 'Salio Jipya'}: *TZS ${Number(params.newBalance).toLocaleString()}/=*`);
+      }
+      if (params.cashbackPoints && params.cashbackPoints > 0) {
+        extraLines.push(`🎁 +${params.cashbackPoints} PapoPoints`);
+      }
       const fallbackBtns: WhatsAppInteractivePayload = sanitizeWhatsAppInteractivePayload({
         type: 'button',
         body: {
           text:
-            `✅ *MALIPO YAMEKAMILIKA (#${params.refCode})*\n` +
-            `🏷️ *${params.merchantName}* — TZS ${amt.toLocaleString()}/=`,
+            `✅ *${lang === 'en' ? 'PAYMENT COMPLETED' : 'MALIPO YAMEKAMILIKA'} (#${params.refCode})*\n` +
+            `🏷️ *${params.merchantName}* — TZS ${amt.toLocaleString()}/=` +
+            (extraLines.length ? `\n\n${extraLines.join('\n')}` : ''),
         },
-        footer: { text: `PapoPay E-Risiti • #${params.refCode}` },
+        footer: { text: `${lang === 'en' ? 'PapoPay E-Receipt' : 'PapoPay E-Risiti'} • #${params.refCode}` },
         action: {
           buttons: [
-            { type: 'reply', reply: { id: 'CMD:MY_ORDERS', title: '📋 Oda & Risiti' } },
+            { type: 'reply', reply: { id: 'CMD:MY_ORDERS', title: lang === 'en' ? '📋 Orders & Receipts' : '📋 Oda & Risiti' } },
             { type: 'reply', reply: { id: 'papopay', title: '💳 PapoPay' } },
-            { type: 'reply', reply: { id: '00', title: '🏠 Menyu Kuu' } },
+            { type: 'reply', reply: { id: '00', title: lang === 'en' ? '🏠 Main Menu' : '🏠 Menyu Kuu' } },
           ],
         },
       })!;
@@ -11091,7 +11137,7 @@ async function routeToServiceFlow(
         summary.transactions.length > 0
           ? summary.transactions
               .slice(0, 5)
-              .map((t) => `${t.type === 'credit' ? '🟢 +' : '🔴 -'}TZS ${t.amount.toLocaleString()} • ${t.title}`)
+              .map((t) => `${t.type === 'credit' ? '🟢 +' : '🔴 -'}TZS ${t.amount.toLocaleString()} • ${t.title}${t.refCode ? ` (#${t.refCode})` : ''}`)
               .join('\n')
           : `_Bado hakuna miamala ya PapoWallet._`;
 
@@ -11643,10 +11689,9 @@ async function routeToServiceFlow(
     const promptWithdrawAmount = async () => {
       session.step = 'PAPOPAY_WITHDRAW_AMOUNT';
       await saveMetaSession(session, dbAdmin);
-      return (
-        `🏧 *Toa Pesa kwa Wakala (Ada 0.2%)*\n\n` +
-        `💰 Andika *kiasi cha TZS* unachotaka kutoa (Kuanzia *TZS 1,000*, Mfano: *10000* au *50000*):`
-      );
+      return lang === 'en'
+        ? `[[EN_NATIVE]]🏧 *Withdraw Cash at Wakala (Fee 0.2%, min TZS 100)*\n\n💰 Enter the *TZS amount* you want to withdraw (Minimum *TZS 1,000*, e.g. *10000* or *50000*):`
+        : `🏧 *Toa Pesa kwa Wakala (Ada 0.2%, kima cha chini TZS 100)*\n\n💰 Andika *kiasi cha TZS* unachotaka kutoa (Kuanzia *TZS 1,000*, Mfano: *10000* au *50000*):`;
     };
 
     const showCardsMenu = async () => {
@@ -11828,10 +11873,9 @@ async function routeToServiceFlow(
         const agentsPreview = await showNearbyAgents();
         session.step = 'PAPOPAY_WITHDRAW_AMOUNT';
         await saveMetaSession(session, dbAdmin);
-        return (
-          `${agentsPreview}🏧 *Toa Pesa kwa Wakala (Ada 0.2%)*\n\n` +
-          `💰 Andika *kiasi cha TZS* unachotaka kutoa (Kuanzia *TZS 1,000*, Mfano: *20000*):`
-        );
+        return lang === 'en'
+          ? `[[EN_NATIVE]]${agentsPreview}🏧 *Withdraw Cash at Wakala (Fee 0.2%, min TZS 100)*\n\n💰 Enter the *TZS amount* you want to withdraw (Minimum *TZS 1,000*, e.g. *20000*):`
+          : `${agentsPreview}🏧 *Toa Pesa kwa Wakala (Ada 0.2%, kima cha chini TZS 100)*\n\n💰 Andika *kiasi cha TZS* unachotaka kutoa (Kuanzia *TZS 1,000*, Mfano: *20000*):`;
       }
       if (choice === '9') {
         return await showCardsMenu();
@@ -11962,20 +12006,32 @@ async function routeToServiceFlow(
     if (session.step === 'PAPOPAY_WITHDRAW_AMOUNT') {
       const amt = parseInt(input.replace(/\D/g, ''), 10);
       if (!amt || amt < 1000) {
-        return `⚠️ Kiasi cha chini cha kutoa kwa Wakala ni TZS 1,000 (Mfano: *10000*):`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Minimum Wakala withdrawal amount is *TZS 1,000* (e.g. *10000*):`
+          : `⚠️ Kiasi cha chini cha kutoa kwa Wakala ni TZS 1,000 (Mfano: *10000*):`;
       }
-      const fee = Math.max(100, Math.round(amt * 0.002));
+      const rawPctFee = Math.round(amt * 0.002);
+      const fee = Math.max(100, rawPctFee);
+      const minApplied = rawPctFee < 100;
       session.details.withdrawAmount = amt;
       session.details.withdrawFee = fee;
       session.step = 'PAPOPAY_WITHDRAW_CONFIRM';
       await saveMetaSession(session, dbAdmin);
-      return (
-        `🏧 *Thibitisha Kutoa Pesa kwa Wakala*\n\n` +
-        `- Kiasi Unachopokea: *TZS ${amt.toLocaleString()}/=*\n` +
-        `- Ada ya Wakala (0.2%): *TZS ${fee.toLocaleString()}/=*\n` +
-        `- Jumla Itakayokatwa: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
-        `1. ✅ *Ndio, Tengeneza Msimbo wa Wakala*\n2. ❌ *Sitisha*`
-      );
+      return lang === 'en'
+        ? (
+            `[[EN_NATIVE]]🏧 *Confirm Agent Cash Withdrawal*\n\n` +
+            `- Cash to Receive: *TZS ${amt.toLocaleString()}/=*\n` +
+            `- Agent Fee (0.2%${minApplied ? ', min TZS 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Total to be Deducted: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
+            `1. ✅ *Confirm & Generate Wakala Code*\n2. ❌ *Cancel*`
+          )
+        : (
+            `🏧 *Thibitisha Kutoa Pesa kwa Wakala*\n\n` +
+            `- Kiasi Unachopokea: *TZS ${amt.toLocaleString()}/=*\n` +
+            `- Ada ya Wakala (0.2%${minApplied ? ', kima cha chini 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Jumla Itakayokatwa: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
+            `1. ✅ *Ndio, Tengeneza Msimbo wa Wakala*\n2. ❌ *Sitisha*`
+          );
     }
 
     if (session.step === 'PAPOPAY_WITHDRAW_CONFIRM') {
@@ -11985,14 +12041,20 @@ async function routeToServiceFlow(
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `❌ Ombi la kutoa pesa limesitishwa. Andika *Menu* kuendelea.`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]❌ Cash withdrawal cancelled. Reply *Menu* to continue.`
+          : `❌ Ombi la kutoa pesa limesitishwa. Andika *Menu* kuendelea.`;
       }
       if (c !== '1' && !c.includes('ndio') && !c.includes('tengeneza') && !c.includes('confirm')) {
-        return `⚠️ Bonyeza *1* kupata msimbo wa wakala au *2* kusitisha:`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Reply *1* to get your Wakala withdrawal code or *2* to cancel:`
+          : `⚠️ Bonyeza *1* kupata msimbo wa wakala au *2* kusitisha:`;
       }
       const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
       if (!payerPhone) {
-        return `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ We do not have your phone number yet. Reply *Menu* then open *PapoPay -> Top Up* to link your phone first.`
+          : `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
       }
       const amt = Number(session.details.withdrawAmount || 0);
       const res = await executePapoWalletWithdrawal(dbAdmin, {
@@ -12005,12 +12067,14 @@ async function routeToServiceFlow(
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `⚠️ Imeshindikana kutoa pesa: ${res.reason}`;
+        return lang === 'en'
+          ? `[[EN_NATIVE]]⚠️ Withdrawal failed: ${res.reason}`
+          : `⚠️ Imeshindikana kutoa pesa: ${res.reason}`;
       }
       const paidCard = buildPaidOrderStatusPayload({
         refCode: res.refCode || `WTH-${res.withdrawCode}`,
         merchantName: 'PapoPay Wakala Cash-Out',
-        itemTitle: `Msimbo wa Wakala: ${res.withdrawCode}`,
+        itemTitle: lang === 'en' ? `Wakala Code: ${res.withdrawCode}` : `Msimbo wa Wakala: ${res.withdrawCode}`,
         amount: res.totalDebit || amt,
         methodLabel: 'PapoWallet Wakala',
         newBalance: res.newBalance,
@@ -12022,14 +12086,25 @@ async function routeToServiceFlow(
         paidOrderStatus: paidCard,
       };
       await saveMetaSession(session, dbAdmin);
-      return (
-        `✅ *MSIMBO WA WAKALA TAYARI!* 🏧\n\n` +
-        `🔑 *Msimbo wa Siri:* *${res.withdrawCode}*\n` +
-        `💵 *Kiasi cha Kupokea:* *TZS ${amt.toLocaleString()}/=*\n` +
-        `💳 *Ada (0.2%):* TZS ${Number(res.fee || 0).toLocaleString()}\n` +
-        `💰 *Salio Jipya:* *TZS ${Number(res.newBalance || 0).toLocaleString()}/=*\n\n` +
-        `Mwoneshe Wakala yeyote wa *PapoPay* msimbo *${res.withdrawCode}* upate pesa yako taslimu!`
-      );
+      return lang === 'en'
+        ? (
+            `[[EN_NATIVE]]✅ *WAKALA CASH-OUT CODE READY!* 🏧\n` +
+            `🔖 Ref: *#${res.refCode || `WTH-${res.withdrawCode}`}*\n\n` +
+            `🔑 *Secret Wakala Code:* *${res.withdrawCode}*\n` +
+            `💵 *Cash to Collect:* *TZS ${amt.toLocaleString()}/=*\n` +
+            `💳 *Fee Deducted:* TZS ${Number(res.fee || 0).toLocaleString()} (Total: TZS ${Number(res.totalDebit || amt).toLocaleString()}/=)\n` +
+            `💰 *New PapoWallet Balance:* *TZS ${Number(res.newBalance || 0).toLocaleString()}/=*\n\n` +
+            `📍 Show secret code *${res.withdrawCode}* to any *PapoPay Wakala* agent to collect your cash!`
+          )
+        : (
+            `✅ *MSIMBO WA WAKALA TAYARI!* 🏧\n` +
+            `🔖 Rejea: *#${res.refCode || `WTH-${res.withdrawCode}`}*\n\n` +
+            `🔑 *Msimbo wa Siri:* *${res.withdrawCode}*\n` +
+            `💵 *Kiasi cha Kupokea:* *TZS ${amt.toLocaleString()}/=*\n` +
+            `💳 *Ada Iliyokatwa:* TZS ${Number(res.fee || 0).toLocaleString()} (Jumla: TZS ${Number(res.totalDebit || amt).toLocaleString()}/=)\n` +
+            `💰 *Salio Jipya:* *TZS ${Number(res.newBalance || 0).toLocaleString()}/=*\n\n` +
+            `📍 Mwoneshe Wakala yeyote wa *PapoPay* msimbo *${res.withdrawCode}* upate pesa yako taslimu!`
+          );
     }
 
     // CARDS MENU & STUDENT NFC CARD (Option 9)
@@ -13865,6 +13940,17 @@ export async function sendMetaOutboundMessage(params: {
               papopayMeta: _nestedMeta,
               ...wireFallback
             } = rawFbInteractive as any;
+            if (
+              wireFallback?.type === 'button' &&
+              text.length > 1024 &&
+              wireFallback?.body?.text
+            ) {
+              await sendWaPlainText(text);
+              wireFallback.body.text = clampMetaBodyText(
+                wireFallback.footer?.text || '👇 Chagua hatua inayofuata:',
+                1024
+              );
+            }
             const fbRes = await postWaInteractive(wireFallback);
             if (fbRes.ok) {
               console.log(`[Meta Outbound] WhatsApp fallback interactive (${wireFallback.type}) sent to ${recipientId}`);
