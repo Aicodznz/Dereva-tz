@@ -102,6 +102,22 @@ export function detectTanzaniaMobileNetwork(
   return 'MPESA';
 }
 
+export function mapNetworkToDaliPayProvider(
+  network: ReturnType<typeof detectTanzaniaMobileNetwork>
+): 'Airtel' | 'Tigo' | 'Halopesa' | 'Azampesa' | 'Mpesa' {
+  switch (network) {
+    case 'AIRTEL':
+      return 'Airtel';
+    case 'TIGO':
+      return 'Tigo';
+    case 'HALOPESA':
+      return 'Halopesa';
+    case 'MPESA':
+    default:
+      return 'Mpesa';
+  }
+}
+
 export function extractRealOrderIdFromGatewayRef(gatewayOrderId?: string): string {
   const raw = String(gatewayOrderId || '').trim();
   if (!raw) return '';
@@ -208,6 +224,7 @@ export async function initiateDaliPayCollection(
 
   const uniqueOrderId = `${params.orderId}-${Date.now()}`;
   const network = detectTanzaniaMobileNetwork(cleanPhone);
+  const daliProvider = mapNetworkToDaliPayProvider(network);
   const callbackUrl = getPublicWebhookCallbackUrl();
   const endpoint = `${cfg.baseUrl}${cfg.collectionsPath}`;
 
@@ -225,14 +242,17 @@ export async function initiateDaliPayCollection(
         },
         body: JSON.stringify(
           cleanUndefined({
+            external_id: uniqueOrderId,
             reference: uniqueOrderId,
             order_id: uniqueOrderId,
             amount: numericAmount,
             currency: 'TZS',
+            account_number: cleanPhone,
             phone_number: cleanPhone,
             phone: cleanPhone,
             msisdn: cleanPhone,
             network,
+            provider: daliProvider,
             channel: network,
             description: params.description || `PapoPay #${params.orderId}`,
             callback_url: callbackUrl || undefined,
@@ -473,6 +493,7 @@ export async function initiateDaliPayDisbursement(
   }
 
   const endpoint = `${cfg.baseUrl}${cfg.disbursementsPath}`;
+  const daliProvider = mapNetworkToDaliPayProvider(network);
   const callbackUrl = getPublicWebhookCallbackUrl();
   const nowIso = new Date().toISOString();
 
@@ -490,14 +511,17 @@ export async function initiateDaliPayDisbursement(
         },
         body: JSON.stringify(
           cleanUndefined({
+            external_id: params.reference,
             reference: params.reference,
             external_reference: params.reference,
             amount: numericAmount,
             currency: 'TZS',
+            account_number: cleanPhone,
             phone_number: cleanPhone,
             phone: cleanPhone,
             msisdn: cleanPhone,
             network,
+            provider: daliProvider,
             recipient_name: params.recipientName || 'PapoPay User',
             description: params.reason || `PapoWallet Payout #${params.reference}`,
             callback_url: callbackUrl || undefined,
@@ -621,7 +645,9 @@ export async function processDaliPayWebhook(
 }> {
   const dataObj = payload?.data && typeof payload.data === 'object' ? payload.data : payload || {};
   const rawRef = String(
-    dataObj.order_id ||
+    dataObj.external_id ||
+      payload?.external_id ||
+      dataObj.order_id ||
       dataObj.external_reference ||
       dataObj.reference ||
       payload?.order_id ||
