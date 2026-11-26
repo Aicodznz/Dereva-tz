@@ -1110,3 +1110,424 @@ export async function topUpStudentNfcCardFromWallet(
   };
 }
 
+export interface BulkTransferItemInput {
+  recipientQuery: string;
+  amount: number;
+  note?: string;
+}
+
+export interface BulkTransferResolvedItem {
+  uid: string | null;
+  displayName: string;
+  phone: string;
+  walletId?: string;
+  amount: number;
+}
+
+/**
+ * Atomic Multi-Recipient (Bulk) PapoWallet P2P Transfer (0% fee).
+ * Validates all recipients, verifies full batch balance inside one transaction,
+ * deducts total once from sender, and credits every recipient atomically.
+ */
+export async function executePapoWalletBulkTransfer(
+  dbAdmin: any,
+  params: {
+    payerUid?: string;
+    payerPhone: string;
+    payerName: string;
+    items: BulkTransferItemInput[];
+    note?: string;
+  }
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  batchRefCode?: string;
+  totalAmount?: number;
+  newPayerBalance?: number;
+  recipients?: BulkTransferResolvedItem[];
+}> {
+  const rawItems = Array.isArray(params.items) ? params.items : [];
+  if (!dbAdmin || rawItems.length === 0) {
+    return { ok: false, reason: 'Hakuna mpokeaji yeyote aliyechaguliwa.' };
+  }
+  if (rawItems.length > 20) {
+    return { ok: false, reason: 'Kikomo cha kutuma kwa pamoja ni wapokeaji 20 kwa mkupuo mmoja.' };
+  }
+
+  const normalizedItems = rawItems.map((it) => ({
+    recipientQuery: String(it.recipientQuery || '').trim(),
+    amount: Math.round(Number(it.amount || 0)),
+  }));
+
+  for (const it of normalizedItems) {
+    if (!it.recipientQuery) {
+      return { ok: false, reason: 'Kuna namba ya mpokeaji isiyo sahihi.' };
+    }
+    if (!Number.isFinite(it.amount) || it.amount < 100) {
+      return {
+        ok: false,
+        reason: `Kiasi cha chini kwa kila mpokeaji (${it.recipientQuery}) ni TZS 100.`,
+      };
+    }
+  }
+
+  const payer = await findOrEnsureWalletUser(dbAdmin, {
+    uid: params.payerUid,
+    phone: params.payerPhone,
+    displayName: params.payerName,
+    createIfMissing: false,
+  });
+  if (!payer) {
+    return {
+      ok: false,
+      reason: 'Akaunti yako ya PapoWallet haijawekewa pesa bado. Weka pesa kwanza kupitia Mongike Push.',
+    };
+  }
+
+  const resolved: BulkTransferResolvedItem[] = [];
+  for (const it of normalizedItems) {
+    const rec = await resolveP2PRecipient(dbAdmin, it.recipientQuery);
+    if (!rec.uid && !rec.phone) {
+      return {
+        ok: false,
+        reason: `Hatukuweza kutambua namba ya simu au Wallet ID: ${it.recipientQuery}`,
+      };
+    }
+    if (rec.uid && rec.uid === payer.uid) {
+      return {
+        ok: false,
+        reason: `Huwezi kujumuisha namba yako mwenyewe (${it.recipientQuery}) katika malipo ya wengi.`,
+      };
+    }
+    resolved.push({
+      uid: rec.uid,
+      displayName: rec.displayName,
+      phone: rec.phone,
+      walletId: rec.walletId,
+      amount: it.amount,
+    });
+  }
+
+  const totalAmount = resolved.reduce((sum, r) => sum + r.amount, 0);
+  const batchRefCode = `PAPO-BULK-${Math.floor(100000 + Math.random() * 900000)}`;
+  const nowIso = new Date().toISOString();
+  const noteText = String(params.note || 'Bulk P2P PapoWallet').trim().slice(0, 120);
+  let nextPayerBal = 0;
+
+  const creditByUid = new Map<string, number>();
+  for (const r of resolved) {
+    if (r.uid) {
+      creditByUid.set(r.uid, (creditByUid.get(r.uid) || 0) + r.amount);
+    }
+  }
+
+  try {
+    if (typeof dbAdmin.runTransaction === 'function') {
+      await dbAdmin.runTransaction(async (tx: any) => {
+        const payerRef = dbAdmin.collection('users').doc(payer.uid);
+        const pSnap = await tx.get(payerRef);
+        const curBal = Number(pSnap.data()?.walletBalance || 0);
+        if (curBal < totalAmount) {
+          throw new Error(`INSUFFICIENT:${curBal}`);
+        }
+
+        // Perform all recipient reads before any writes (Firestore transaction requirement)
+        const recEntries = Array.from(creditByUid.entries());
+        const recSnaps = await Promise.all(
+          recEntries.map(([uid]) => tx.get(dbAdmin.collection('users').doc(uid)))
+        );
+
+        nextPayerBal = curBal - totalAmount;
+        tx.set(payerRef, { walletBalance: nextPayerBal, updatedAt: nowIso }, { merge: true });
+
+        recEntries.forEach(([uid, addAmt], idx) => {
+          const rSnap = recSnaps[idx];
+          const recBal = Number(rSnap?.exists ? rSnap.data()?.walletBalance || 0 : 0);
+          tx.set(
+            dbAdmin.collection('users').doc(uid),
+            { walletBalance: recBal + addAmt, updatedAt: nowIso },
+            { merge: true }
+          );
+        });
+      });
+    } else {
+      const curBal = Number(payer.data?.walletBalance || 0);
+      if (curBal < totalAmount) {
+        return {
+          ok: false,
+          reason: `Salio la PapoWallet halitoshi (Una TZS ${curBal.toLocaleString()}, jumla ya wote ni TZS ${totalAmount.toLocaleString()}).`,
+        };
+      }
+      nextPayerBal = curBal - totalAmount;
+      await dbAdmin.collection('users').doc(payer.uid).set(
+        { walletBalance: nextPayerBal, updatedAt: nowIso },
+        { merge: true }
+      );
+      for (const [uid, addAmt] of creditByUid.entries()) {
+        const recSnap = await dbAdmin.collection('users').doc(uid).get().catch(() => null);
+        const recBal = Number(recSnap?.exists ? recSnap.data()?.walletBalance || 0 : 0);
+        await dbAdmin.collection('users').doc(uid).set(
+          { walletBalance: recBal + addAmt, updatedAt: nowIso },
+          { merge: true }
+        );
+      }
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.startsWith('INSUFFICIENT:')) {
+      const bal = Number(msg.split(':')[1] || 0);
+      return {
+        ok: false,
+        reason: `Salio la PapoWallet halitoshi (Una TZS ${bal.toLocaleString()}, jumla inayohitajika ni TZS ${totalAmount.toLocaleString()}).`,
+      };
+    }
+    return { ok: false, reason: 'Hitilafu ya mfumo wakati wa kutuma pesa kwa pamoja.' };
+  }
+
+  const nowMs = Date.now();
+  await dbAdmin.collection('payments').add(
+    cleanUndefined({
+      uid: payer.uid,
+      phone: params.payerPhone,
+      title: `Tuma Pesa Kwa Namba ${resolved.length} Kwa Pamoja`,
+      subtitle: `BULK PAPO-TO-PAPO (0% ADA) • ${noteText}`,
+      amount: totalAmount,
+      type: 'debit',
+      category: 'transfer',
+      status: 'completed',
+      refCode: batchRefCode,
+      recipientCount: resolved.length,
+      createdAt: nowIso,
+      createdAtMs: nowMs,
+    })
+  );
+
+  await Promise.all(
+    resolved.map((r, idx) =>
+      r.uid
+        ? dbAdmin.collection('payments').add(
+            cleanUndefined({
+              uid: r.uid,
+              phone: r.phone || '',
+              title: `Umepokea Pesa kutoka ${params.payerName || params.payerPhone}`,
+              subtitle: `BULK PAPO-TO-PAPO (0% ADA) • ${noteText}`,
+              amount: r.amount,
+              type: 'credit',
+              category: 'transfer',
+              status: 'completed',
+              refCode: `${batchRefCode}-${idx + 1}`,
+              batchRefCode,
+              createdAt: nowIso,
+              createdAtMs: nowMs + idx,
+            })
+          )
+        : Promise.resolve()
+    )
+  );
+
+  return {
+    ok: true,
+    batchRefCode,
+    totalAmount,
+    newPayerBalance: nextPayerBal,
+    recipients: resolved,
+  };
+}
+
+export interface ParsedBulkTransferLine {
+  recipientQuery: string;
+  amount: number | null;
+}
+
+export interface ParsedBulkTransferResult {
+  ok: boolean;
+  mode?: 'shared_amount' | 'amounts_per_item';
+  items?: ParsedBulkTransferLine[];
+  errorCode?: 'EMPTY' | 'TOO_MANY' | 'MIXED_AMOUNTS' | 'AMOUNT_TOO_LOW' | 'INVALID_ENTRY';
+  message?: string;
+}
+
+function isValidTargetToken(raw: string): boolean {
+  const compact = String(raw || '').trim().replace(/[\s-]/g, '');
+  if (!compact) return false;
+  if (/^PP\d{6,}$/i.test(compact)) return true;
+  const digits = compact.replace(/\D/g, '');
+  return digits.length >= 6 && digits.length <= 13;
+}
+
+function cleanTargetToken(raw: string): string {
+  const compact = String(raw || '').trim().replace(/[\s-]/g, '');
+  if (/^PP\d+$/i.test(compact)) return compact.toUpperCase();
+  if (compact.startsWith('+')) return `+${compact.slice(1).replace(/\D/g, '')}`;
+  return compact.replace(/\D/g, '');
+}
+
+/**
+ * Parses WhatsApp bulk-transfer text into structured recipient queries & optional per-recipient amounts.
+ * Supports:
+ *  - Shared amount list: "0712345678, 0755111222, 0688999000" or newline/space separated
+ *  - Per-recipient amounts: "0712345678 10000\n0755111222: 15,000/=\n0688999000 - 5000"
+ */
+export function parseBulkTransferInput(rawText: string): ParsedBulkTransferResult {
+  const text = String(rawText || '').trim();
+  if (!text) {
+    return { ok: false, errorCode: 'EMPTY', message: 'Andika angalau namba moja ya simu au Wallet ID.' };
+  }
+
+  // Split by newlines or semicolons first, then commas only when NOT inside a formatted number like 10,000
+  const rawSegments = text
+    .split(/[\n;]+/)
+    .flatMap((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return [];
+      // Split on commas separating recipients, while preserving thousands separators like 15,000 or 1,500,000
+      return trimmed.split(/,(?=\s|\+|PP\d|\d{4,})|,(?!\d{3}\b)/i);
+    })
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (rawSegments.length === 0) {
+    return { ok: false, errorCode: 'EMPTY', message: 'Andika angalau namba moja ya simu au Wallet ID.' };
+  }
+
+  const parsedItems: ParsedBulkTransferLine[] = [];
+
+  for (const seg of rawSegments) {
+    // Strip trailing currency markers like TZS, Tsh, /=
+    const cleanedSeg = seg.replace(/\s*(?:\/=|tzs|tsh)\s*$/i, '').trim();
+
+    // Case A: Explicit separator (: or =) between recipient and amount
+    const explicitSep = cleanedSeg.match(/^(.+?)\s*[:=]\s*(\d[\d,]*)$/);
+    if (explicitSep) {
+      const targetPart = explicitSep[1].trim();
+      const amt = parseInt(explicitSep[2].replace(/,/g, ''), 10);
+      if (!isValidTargetToken(targetPart)) {
+        return {
+          ok: false,
+          errorCode: 'INVALID_ENTRY',
+          message: `Namba "${targetPart}" si sahihi. Tumia mfano: 0712345678 10000`,
+        };
+      }
+      if (!Number.isFinite(amt) || amt < 100) {
+        return {
+          ok: false,
+          errorCode: 'AMOUNT_TOO_LOW',
+          message: `Kiasi cha chini kwa "${targetPart}" ni TZS 100.`,
+        };
+      }
+      parsedItems.push({ recipientQuery: cleanTargetToken(targetPart), amount: amt });
+      continue;
+    }
+
+    // Case B: Whitespace or dash-separated tokens on one line
+    const tokens = cleanedSeg.split(/\s+/).filter(Boolean);
+
+    // Check if the segment is multiple standalone phone numbers separated by spaces:
+    // e.g. "0712345678 0755111222 0688999000"
+    if (
+      tokens.length >= 2 &&
+      tokens.every((t) => {
+        const d = t.replace(/\D/g, '');
+        return (/^(?:0\d{9}|255\d{9})$/.test(d) || /^PP\d{6,}$/i.test(t));
+      })
+    ) {
+      for (const t of tokens) {
+        parsedItems.push({ recipientQuery: cleanTargetToken(t), amount: null });
+      }
+      continue;
+    }
+
+    // Check if trailing token is an amount (with optional '-' separator right before it)
+    const dashOrSpaceAmt = cleanedSeg.match(/^(\+?\d[\d\s-]{5,15}?|PP\d{6,})\s*(?:-\s*|\s+)(\d[\d,]*)$/i);
+    if (dashOrSpaceAmt) {
+      const targetPart = dashOrSpaceAmt[1].trim();
+      const amtToken = dashOrSpaceAmt[2].replace(/,/g, '');
+      const targetDigits = targetPart.replace(/\D/g, '');
+
+      // Avoid mis-parsing a spaced phone number like "0712 345 678" where targetDigits is < 9
+      const looksLikePhoneWithAmount =
+        (/^PP\d{6,}$/i.test(targetPart.replace(/\s+/g, '')) ||
+          (targetDigits.length >= 9 && targetDigits.length <= 12) ||
+          (targetDigits.length >= 6 && cleanedSeg.includes(' - ')));
+
+      if (looksLikePhoneWithAmount) {
+        const amt = parseInt(amtToken, 10);
+        if (!Number.isFinite(amt) || amt < 100) {
+          return {
+            ok: false,
+            errorCode: 'AMOUNT_TOO_LOW',
+            message: `Kiasi cha chini kwa "${targetPart}" ni TZS 100.`,
+          };
+        }
+        parsedItems.push({ recipientQuery: cleanTargetToken(targetPart), amount: amt });
+        continue;
+      }
+    }
+
+    // Case C: Single target without amount (supports spaced phone numbers like "+255 712 345 678")
+    if (isValidTargetToken(cleanedSeg)) {
+      parsedItems.push({ recipientQuery: cleanTargetToken(cleanedSeg), amount: null });
+      continue;
+    }
+
+    return {
+      ok: false,
+      errorCode: 'INVALID_ENTRY',
+      message: `Hatukuweza kuelewa mstari: "${seg}". Tumia mfano: 0712345678, 0755111222 au 0712345678 10000`,
+    };
+  }
+
+  if (parsedItems.length === 0) {
+    return { ok: false, errorCode: 'EMPTY', message: 'Hakuna namba iliyopatikana.' };
+  }
+
+  const withAmount = parsedItems.filter((it) => it.amount !== null);
+  const withoutAmount = parsedItems.filter((it) => it.amount === null);
+
+  if (withAmount.length > 0 && withoutAmount.length > 0) {
+    return {
+      ok: false,
+      errorCode: 'MIXED_AMOUNTS',
+      message:
+        'Baadhi ya namba zina kiasi na nyingine hazina. Weka kiasi kwenye kila mstari, au tuma namba pekee ili uingize kiasi sawa kwa wote.',
+    };
+  }
+
+  // Deduplicate identical recipients in shared_amount mode to prevent accidental double-pay
+  let finalItems = parsedItems;
+  if (withoutAmount.length > 0) {
+    const seen = new Set<string>();
+    const canonKey = (q: string) => {
+      const upper = q.trim().toUpperCase();
+      if (/^PP\d+$/.test(upper)) return upper;
+      const d = upper.replace(/\D/g, '');
+      if (d.length >= 9 && (d.startsWith('0') || d.startsWith('255'))) {
+        return `TZ:${d.slice(-9)}`;
+      }
+      return d || upper;
+    };
+    finalItems = parsedItems.filter((it) => {
+      const k = canonKey(it.recipientQuery);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+
+  if (finalItems.length > 20) {
+    return {
+      ok: false,
+      errorCode: 'TOO_MANY',
+      message: `Umeweka wapokeaji ${finalItems.length}. Kikomo ni wapokeaji 20 kwa mkupuo mmoja.`,
+    };
+  }
+
+  return {
+    ok: true,
+    mode: withAmount.length > 0 ? 'amounts_per_item' : 'shared_amount',
+    items: finalItems,
+  };
+}
+
+
+

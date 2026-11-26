@@ -905,6 +905,8 @@ export async function executePapoWalletMobileDisbursement(
     payerUid?: string;
     phone: string;
     displayName: string;
+    recipientPhone?: string;
+    recipientName?: string;
     amount: number;
   }
 ): Promise<{
@@ -941,6 +943,12 @@ export async function executePapoWalletMobileDisbursement(
   if (!userRec) {
     return { ok: false, reason: 'Akaunti ya PapoWallet haikupatikana au haina salio.' };
   }
+
+  const targetRecipientPhone = String(params.recipientPhone || params.phone).trim();
+  const targetRecipientName = String(params.recipientName || params.displayName || targetRecipientPhone).trim();
+  const isThirdPartySend =
+    Boolean(params.recipientPhone) &&
+    params.recipientPhone!.replace(/\D/g, '').slice(-9) !== params.phone.replace(/\D/g, '').slice(-9);
 
   const fee = Math.max(100, Math.round(amt * 0.002));
   const totalDebit = amt + fee;
@@ -993,9 +1001,11 @@ export async function executePapoWalletMobileDisbursement(
       amount: amt,
       fee,
       totalDebit,
-      recipientPhone: params.phone,
-      recipientName: params.displayName,
-      reason: `PapoWallet Cash-Out #${refCode}`,
+      recipientPhone: targetRecipientPhone,
+      recipientName: targetRecipientName,
+      reason: isThirdPartySend
+        ? `PapoWallet Bulk Send kwenda ${targetRecipientPhone} #${refCode}`
+        : `PapoWallet Cash-Out #${refCode}`,
       payerUid: userRec.uid,
     },
     dbAdmin
@@ -1022,11 +1032,15 @@ export async function executePapoWalletMobileDisbursement(
     cleanUndefined({
       uid: userRec.uid,
       phone: params.phone,
-      title: `Toa Pesa kwenda ${disbRes.network || 'Simu'} (DaliPay)`,
+      recipientPhone: targetRecipientPhone,
+      recipientName: targetRecipientName,
+      title: isThirdPartySend
+        ? `Tuma kwenda ${targetRecipientName} (${disbRes.network || targetRecipientPhone})`
+        : `Toa Pesa kwenda ${disbRes.network || 'Simu'} (DaliPay)`,
       subtitle: `${refCode} • Ada (TZS ${fee.toLocaleString()})`,
       amount: totalDebit,
       type: 'debit',
-      category: 'withdraw',
+      category: isThirdPartySend ? 'transfer' : 'withdraw',
       status: disbRes.status === 'completed' ? 'completed' : 'pending',
       refCode,
       gatewayRef: disbRes.gatewayRef,
