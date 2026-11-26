@@ -1402,22 +1402,42 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     }
   });
 
-  // PapoPay Wallet Balance Summary for In-Chat Checkout Sheet
+  // PapoPay Wallet Balance Summary for In-Chat Checkout Sheet & /papopay Web Sync
   app.get("/api/payments/papopay-wallet-balance", async (req, res) => {
     try {
       const phone = String(req.query.phone || "").trim();
-      if (phone.replace(/\D/g, "").length < 9) {
-        return res.json({ found: false, walletBalance: 0, points: 0, isCardFrozen: false });
+      const uid = String(req.query.uid || "").trim();
+      if (phone.replace(/\D/g, "").length < 9 && !uid) {
+        return res.json({
+          found: false,
+          walletId: "",
+          walletBalance: 0,
+          points: 0,
+          isCardFrozen: false,
+          transactions: [],
+        });
       }
-      const summary = await getPapoWalletSummaryAndStatement(dbAdmin, phone);
+      const summary = await getPapoWalletSummaryAndStatement(dbAdmin, phone, uid || undefined);
       return res.json({
         found: summary.found,
+        uid: summary.uid || null,
+        walletId: summary.walletId,
         walletBalance: summary.walletBalance,
         points: summary.points,
         isCardFrozen: summary.isCardFrozen,
+        displayName: summary.displayName || null,
+        phone: summary.phone || null,
+        transactions: summary.transactions || [],
       });
     } catch {
-      return res.json({ found: false, walletBalance: 0, points: 0, isCardFrozen: false });
+      return res.json({
+        found: false,
+        walletId: "",
+        walletBalance: 0,
+        points: 0,
+        isCardFrozen: false,
+        transactions: [],
+      });
     }
   });
 

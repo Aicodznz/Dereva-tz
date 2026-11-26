@@ -117,35 +117,135 @@ export default function PapoPayHome() {
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Balance state synced with Firestore profile (fallback localStorage)
-  const [balanceTZS, setBalanceTZS] = useState<number>(() => {
+  // Linked WhatsApp / Guest phone from ?phone= query param or sessionStorage
+  const rawPhoneParam = (searchParams.get('phone') || '').trim();
+  const [linkedPhone, setLinkedPhone] = useState<string>(() => {
+    const cleanParam = rawPhoneParam.replace(/\D/g, '');
+    if (cleanParam.length >= 9) return `+255${cleanParam.slice(-9)}`;
     try {
-      if (typeof profile?.walletBalance === 'number') return profile.walletBalance;
-      const saved = localStorage.getItem('papopay_wallet_balance');
-      if (saved) return Number(saved);
+      const saved = sessionStorage.getItem('papopay_linked_phone') || '';
+      if (saved.replace(/\D/g, '').length >= 9) return saved;
     } catch {}
+    return '';
+  });
+  const [linkedPhoneInput, setLinkedPhoneInput] = useState('');
+  const [isSyncingLinkedWallet, setIsSyncingLinkedWallet] = useState(false);
+  const [linkedWalletInfo, setLinkedWalletInfo] = useState<{
+    found: boolean;
+    uid?: string | null;
+    walletId?: string;
+    displayName?: string | null;
+    phone?: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const cleanParam = rawPhoneParam.replace(/\D/g, '');
+    if (cleanParam.length >= 9) {
+      const canonical = `+255${cleanParam.slice(-9)}`;
+      setLinkedPhone(canonical);
+      try {
+        sessionStorage.setItem('papopay_linked_phone', canonical);
+      } catch {}
+    }
+  }, [rawPhoneParam]);
+
+  // Balance state synced with Firestore profile or live API (never fake stale localStorage when unauthenticated)
+  const [balanceTZS, setBalanceTZS] = useState<number>(() => {
+    if (typeof profile?.walletBalance === 'number') return profile.walletBalance;
     return 0;
   });
 
   const [coinsBalance, setCoinsBalance] = useState<number>(() => {
-    try {
-      if (typeof profile?.points === 'number') return profile.points;
-      const saved = localStorage.getItem('papopay_coins_balance');
-      if (saved) return Number(saved);
-    } catch {}
+    if (typeof profile?.points === 'number') return profile.points;
     return 0;
   });
 
   const [showBalance, setShowBalance] = useState(true);
   const [isKycBannerVisible, setIsKycBannerVisible] = useState(true);
 
-  // Sync to storage
+  // Clear legacy fake demo balance/transactions cache if user is not authenticated
   useEffect(() => {
-    try {
-      localStorage.setItem('papopay_wallet_balance', balanceTZS.toString());
-      localStorage.setItem('papopay_coins_balance', coinsBalance.toString());
-    } catch {}
-  }, [balanceTZS, coinsBalance]);
+    if (!user?.uid) {
+      try {
+        localStorage.removeItem('papopay_wallet_balance');
+        localStorage.removeItem('papopay_coins_balance');
+        localStorage.removeItem('papopay_transactions');
+      } catch {}
+    }
+  }, [user?.uid]);
+
+  const syncWalletFromServer = React.useCallback(
+    async (phoneStr: string, uidStr?: string) => {
+      const digits = String(phoneStr || '').replace(/\D/g, '');
+      if (digits.length < 9 && !uidStr) return;
+      setIsSyncingLinkedWallet(true);
+      try {
+        const qs = new URLSearchParams();
+        if (digits.length >= 9) qs.set('phone', digits);
+        if (uidStr) qs.set('uid', uidStr);
+        const resp = await fetch(`/api/payments/papopay-wallet-balance?${qs.toString()}`);
+        const json = await resp.json().catch(() => null);
+        if (!json) return;
+
+        setLinkedWalletInfo({
+          found: Boolean(json.found),
+          uid: json.uid || null,
+          walletId: json.walletId || (digits.length >= 9 ? `PP${digits.slice(-7)}` : ''),
+          displayName: json.displayName || null,
+          phone: json.phone || (digits.length >= 9 ? `+255${digits.slice(-9)}` : null),
+        });
+
+        if (!uidStr || (Number(json.walletBalance || 0) > 0 && Number(profile?.walletBalance || 0) === 0)) {
+          setBalanceTZS(Number(json.walletBalance || 0));
+          setCoinsBalance(Number(json.points || 0));
+        }
+
+        if (Array.isArray(json.transactions) && (!uidStr || json.transactions.length > 0)) {
+          const mapped: TransactionItem[] = json.transactions.map((t: any) => {
+            const ms = Number(t.createdAtMs || 0);
+            const dt = ms ? new Date(ms) : new Date();
+            return {
+              id: String(t.id || `tx_${ms}`),
+              title: String(t.title || 'Muamala wa PapoPay'),
+              subtitle: String(t.subtitle || 'PAPOWALLET • COMPLETED'),
+              amount: Number(t.amount || 0),
+              type: t.type === 'debit' ? 'debit' : 'credit',
+              category: 'topup',
+              date: dt.toLocaleDateString(),
+              time: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              refCode: t.refCode ? `TRX: ${t.refCode}` : 'TRX: PAPO',
+              status: 'completed',
+              meta: { createdMs: ms },
+            };
+          });
+          setTransactions((prev) => {
+            if (!uidStr) return mapped;
+            const seen = new Set(mapped.map((r) => r.id));
+            return [...mapped, ...prev.filter((p) => !seen.has(p.id))].slice(0, 60);
+          });
+        } else if (!uidStr) {
+          setTransactions([]);
+        }
+      } catch {
+      } finally {
+        setIsSyncingLinkedWallet(false);
+      }
+    },
+    [profile?.walletBalance]
+  );
+
+  // Sync WhatsApp / phone wallet when not signed in with Firebase Auth
+  useEffect(() => {
+    if (user?.uid) return;
+    if (linkedPhone.replace(/\D/g, '').length >= 9) {
+      syncWalletFromServer(linkedPhone);
+    } else {
+      setBalanceTZS(0);
+      setCoinsBalance(0);
+      setLinkedWalletInfo(null);
+      setTransactions([]);
+    }
+  }, [user?.uid, linkedPhone, syncWalletFromServer]);
 
   // Live Firestore sync for logged-in user's PapoWallet & points
   useEffect(() => {
@@ -155,17 +255,20 @@ export default function PapoPayHome() {
       (snap) => {
         if (!snap.exists()) return;
         const d = snap.data() as any;
-        if (typeof d.walletBalance === 'number') {
-          setBalanceTZS(d.walletBalance);
-        }
+        const bal = typeof d.walletBalance === 'number' ? d.walletBalance : 0;
+        setBalanceTZS(bal);
         if (typeof d.points === 'number') {
           setCoinsBalance(d.points);
+        }
+        const phoneToCheck = d.phoneNumber || d.phone || linkedPhone;
+        if (bal === 0 && String(phoneToCheck || '').replace(/\D/g, '').length >= 9) {
+          syncWalletFromServer(phoneToCheck, user.uid);
         }
       },
       () => {}
     );
     return () => unsub();
-  }, [user?.uid]);
+  }, [user?.uid, linkedPhone, syncWalletFromServer]);
 
   // Modals state
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState(false);
@@ -176,17 +279,19 @@ export default function PapoPayHome() {
   // Top Up form state
   const [topUpAmount, setTopUpAmount] = useState('25000');
   const [topUpMethod, setTopUpMethod] = useState<'lipanamba' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'>('lipanamba');
-  const [topUpPhone, setTopUpPhone] = useState(profile?.phoneNumber || profile?.phone || '');
+  const [topUpPhone, setTopUpPhone] = useState(
+    profile?.phoneNumber || profile?.phone || linkedPhone || ''
+  );
   const [topUpLipaRef, setTopUpLipaRef] = useState('');
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
   const [topUpStatusNote, setTopUpStatusNote] = useState('');
 
   useEffect(() => {
-    const p = profile?.phoneNumber || profile?.phone;
+    const p = profile?.phoneNumber || profile?.phone || linkedPhone;
     if (p && !topUpPhone) {
       setTopUpPhone(p);
     }
-  }, [profile?.phoneNumber, profile?.phone]);
+  }, [profile?.phoneNumber, profile?.phone, linkedPhone]);
 
   // NFC & Face Payment Interactive state
   const [nfcSubCategory, setNfcSubCategory] = useState<'restaurant' | 'services' | 'transit' | 'face' | 'vision_checkout'>('restaurant');
@@ -226,7 +331,7 @@ export default function PapoPayHome() {
   const [expressTitle, setExpressTitle] = useState('Malipo ya PapoPay');
   const [expressPurpose, setExpressPurpose] = useState('pay_vendor');
   const [expressBuyerPhone, setExpressBuyerPhone] = useState(
-    profile?.phoneNumber || profile?.phone || user?.phoneNumber || ''
+    profile?.phoneNumber || profile?.phone || user?.phoneNumber || linkedPhone || ''
   );
   const [expressMethod, setExpressMethod] = useState<
     'papowallet' | 'lipanamba' | 'mpesa' | 'tigopesa' | 'airtel' | 'halopesa' | 'card'
@@ -247,11 +352,11 @@ export default function PapoPayHome() {
   } | null>(null);
 
   useEffect(() => {
-    const p = profile?.phoneNumber || profile?.phone || user?.phoneNumber || '';
+    const p = profile?.phoneNumber || profile?.phone || user?.phoneNumber || linkedPhone || '';
     if (p && !expressBuyerPhone) {
       setExpressBuyerPhone(p);
     }
-  }, [profile?.phoneNumber, profile?.phone, user?.phoneNumber, expressBuyerPhone]);
+  }, [profile?.phoneNumber, profile?.phone, user?.phoneNumber, linkedPhone, expressBuyerPhone]);
 
   useEffect(() => {
     const amountRaw = Number(searchParams.get('amount') || 0);
@@ -553,95 +658,8 @@ export default function PapoPayHome() {
     } catch {}
   }, [studentCards]);
 
-  // Transactions State
-  const [transactions, setTransactions] = useState<TransactionItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('papopay_transactions');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'tx_101',
-        title: 'Cash-in received from Farid Uttara Cash Point',
-        subtitle: 'AGENT CASH IN • COMPLETED',
-        amount: 250000,
-        type: 'credit',
-        category: 'topup',
-        date: '09 Okt 2026',
-        time: '12:28 PM',
-        refCode: 'TRX: TXNDYRGLCVE7DZY',
-        status: 'completed',
-        meta: { agent: 'Farid Uttara Cash Point', channel: 'Agent POS' }
-      },
-      {
-        id: 'tx_102',
-        title: 'Cash-in received from Farid Uttara Cash Point',
-        subtitle: 'AGENT CASH IN • COMPLETED',
-        amount: 5000,
-        type: 'credit',
-        category: 'topup',
-        date: '09 Okt 2026',
-        time: '11:17 AM',
-        refCode: 'TRX: TXNZK4P5ES9CMYO',
-        status: 'completed',
-        meta: { agent: 'Farid Uttara Cash Point', channel: 'Agent POS' }
-      },
-      {
-        id: 'tx_103',
-        title: 'Exchanging money from USD Wallet to TZS',
-        subtitle: 'EXCHANGE MONEY • COMPLETED',
-        amount: 195000,
-        type: 'credit',
-        category: 'transfer',
-        date: '09 Okt 2026',
-        time: '10:45 AM',
-        refCode: 'TRX: TXNKL89OP124876',
-        status: 'completed'
-      },
-      {
-        id: 'tx_104',
-        title: 'Malipo ya Mgahawa (Ocean View Cafe - Meza No. 4)',
-        subtitle: 'NFC TABLE TAP • COMPLETED',
-        amount: 25500,
-        type: 'debit',
-        category: 'restaurant',
-        date: '09 Okt 2026',
-        time: '01:15 PM',
-        refCode: 'TRX: PAPO-REST-884210',
-        status: 'completed'
-      },
-      {
-        id: 'tx_105',
-        title: 'Nauli ya Daladala (Kivukoni ➔ Mwenge)',
-        subtitle: 'T 482 DFP • NFC TAP NAULI',
-        amount: 600,
-        type: 'debit',
-        category: 'transit',
-        date: '09 Okt 2026',
-        time: '08:20 AM',
-        refCode: 'TRX: PAPO-BUS-110293',
-        status: 'completed'
-      },
-      {
-        id: 'tx_106',
-        title: 'LUKU Umeme Token (Mita: 14285930219)',
-        subtitle: 'TOKEN: 9021-4821-5519-0021-9981',
-        amount: 30000,
-        type: 'debit',
-        category: 'bill',
-        date: '08 Okt 2026',
-        time: '06:14 PM',
-        refCode: 'TRX: PAPO-LUKU-554129',
-        status: 'completed'
-      }
-    ];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('papopay_transactions', JSON.stringify(transactions));
-    } catch {}
-  }, [transactions]);
+  // Transactions State (live Firestore only; no fake hardcoded demo history)
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
 
   // Subscribe to live Firestore payment history for current user (syncs WhatsApp & App top-ups/payments)
   useEffect(() => {
@@ -823,8 +841,15 @@ export default function PapoPayHome() {
             window.clearTimeout(timeoutHandle);
             if (unsubWatch) unsubWatch();
             if (!user?.uid) {
-              setBalanceTZS((prev) => prev + val);
-              setCoinsBalance((prev) => prev + Math.floor(val / 1000) * 5);
+              const cleanDigits = cleanPhone.replace(/\D/g, '');
+              if (cleanDigits.length >= 9) {
+                const canonical = `+255${cleanDigits.slice(-9)}`;
+                setLinkedPhone(canonical);
+                try {
+                  sessionStorage.setItem('papopay_linked_phone', canonical);
+                } catch {}
+                syncWalletFromServer(canonical);
+              }
             }
             setIsProcessingTopUp(false);
             setTopUpStatusNote('');
@@ -1098,9 +1123,25 @@ export default function PapoPayHome() {
     toast.success(`💳 Kadi ya mwanafunzi imeongezewa TZS ${amount.toLocaleString()}!`);
   };
 
-  // User display metadata
-  const userDisplayName = profile?.displayName || profile?.fullName || user?.email?.split('@')[0] || 'Ayesha';
-  const userInitials = userDisplayName.slice(0, 2).toUpperCase();
+  // User display metadata & real Wallet ID (synced across WhatsApp & Web)
+  const resolvedPhoneDigits = String(
+    linkedWalletInfo?.phone || profile?.phoneNumber || profile?.phone || linkedPhone || ''
+  ).replace(/\D/g, '');
+  const activeWalletId =
+    linkedWalletInfo?.walletId ||
+    profile?.walletId ||
+    (resolvedPhoneDigits.length >= 9
+      ? `PP${resolvedPhoneDigits.slice(-7)}`
+      : user?.uid
+      ? `PP${user.uid.slice(-7).toUpperCase()}`
+      : '');
+  const userDisplayName =
+    linkedWalletInfo?.displayName ||
+    profile?.displayName ||
+    profile?.fullName ||
+    user?.email?.split('@')[0] ||
+    (resolvedPhoneDigits.length >= 9 ? `Mteja ${resolvedPhoneDigits.slice(-4)}` : 'PapoPay');
+  const userInitials = (userDisplayName || 'PP').slice(0, 2).toUpperCase();
 
   // Filtered transactions for search
   const filteredTransactions = transactions.filter(t => {
@@ -1259,17 +1300,19 @@ export default function PapoPayHome() {
                 {/* Wallet ID with Copy Icon */}
                 <div className="flex items-center gap-1.5 text-xs text-blue-100 font-mono">
                   <span className="opacity-80">Wallet ID:</span>
-                  <span className="font-bold">118504625</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText('118504625');
-                      toast.success('Wallet ID 118504625 imenakiliwa!');
-                    }}
-                    className="p-1 hover:text-white transition-colors"
-                    title="Copy ID"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
+                  <span className="font-bold">{activeWalletId || 'Haijaunganishwa'}</span>
+                  {activeWalletId && (
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(activeWalletId);
+                        toast.success(`Wallet ID ${activeWalletId} imenakiliwa!`);
+                      }}
+                      className="p-1 hover:text-white transition-colors"
+                      title="Copy ID"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Available Balance + Eye Toggle + Holographic Chip */}
@@ -1317,6 +1360,77 @@ export default function PapoPayHome() {
                     <span>NFC Tap</span>
                   </button>
                 </div>
+
+                {/* WhatsApp / Phone Wallet Sync Status when not logged in via Firebase */}
+                {!user?.uid && (
+                  <div className="pt-2 border-t border-white/15">
+                    {resolvedPhoneDigits.length >= 9 ? (
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-blue-100">
+                        <span className="truncate font-mono">
+                          🟢 WhatsApp: +255{resolvedPhoneDigits.slice(-9)}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => syncWalletFromServer(resolvedPhoneDigits)}
+                            disabled={isSyncingLinkedWallet}
+                            className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white font-bold transition-colors"
+                            title="Sasisha Salio"
+                          >
+                            {isSyncingLinkedWallet ? '...' : '🔄'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLinkedPhone('');
+                              setLinkedWalletInfo(null);
+                              setBalanceTZS(0);
+                              setCoinsBalance(0);
+                              setTransactions([]);
+                              try {
+                                sessionStorage.removeItem('papopay_linked_phone');
+                              } catch {}
+                            }}
+                            className="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white text-[10px] font-bold"
+                          >
+                            Badili
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] text-blue-100/90 leading-tight">
+                          Ingia au weka namba yako ya WhatsApp kuona salio lako halisi:
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="tel"
+                            placeholder="07xx / 06xx..."
+                            value={linkedPhoneInput}
+                            onChange={(e) => setLinkedPhoneInput(e.target.value)}
+                            className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-white/15 border border-white/25 text-white placeholder:text-blue-100/70 text-xs font-mono focus:outline-none focus:bg-white/25"
+                          />
+                          <button
+                            onClick={() => {
+                              const d = linkedPhoneInput.replace(/\D/g, '');
+                              if (d.length < 9) {
+                                toast.error('Weka namba sahihi ya simu (mf. 0687225353).');
+                                return;
+                              }
+                              const canonical = `+255${d.slice(-9)}`;
+                              setLinkedPhone(canonical);
+                              try {
+                                sessionStorage.setItem('papopay_linked_phone', canonical);
+                              } catch {}
+                              setLinkedPhoneInput('');
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-white text-[#1f4fe4] hover:bg-blue-50 text-[11px] font-black shrink-0"
+                          >
+                            Fungua
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
               </div>
             </div>
@@ -3316,7 +3430,7 @@ export default function PapoPayHome() {
                   <button
                     onClick={() => {
                       const perPerson = Math.ceil(Number(splitTotal || 0) / Math.max(1, Number(splitPeople || 1)));
-                      const text = `Habari! Naomba unilipe sehemu yako ya TZS ${perPerson.toLocaleString()} kupitia PapoPay (Wallet ID: 118504625)`;
+                      const text = `Habari! Naomba unilipe sehemu yako ya TZS ${perPerson.toLocaleString()} kupitia PapoPay (${activeWalletId ? `Wallet ID: ${activeWalletId}` : 'PapoWallet'})`;
                       navigator.clipboard.writeText(text);
                       toast.success('Ujumbe wa mgawanyo umenakiliwa! Unaweza kuutuma WhatsApp.');
                     }}

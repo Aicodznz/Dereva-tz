@@ -34,6 +34,7 @@ export interface UserProfile {
   rating?: number;
   category?: VendorCategory;
   walletBalance?: number;
+  walletId?: string;
   points?: number;
   businessName?: string;
   tinNumber?: string;

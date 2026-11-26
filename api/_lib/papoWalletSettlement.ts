@@ -29,11 +29,13 @@ export async function findOrEnsureWalletUser(
 ): Promise<{ uid: string; data: any } | null> {
   if (!dbAdmin) return null;
 
+  const candidates = new Map<string, any>();
+
   if (opts.uid) {
     try {
       const snap = await dbAdmin.collection('users').doc(String(opts.uid)).get();
       if (snap?.exists) {
-        return { uid: snap.id, data: snap.data() || {} };
+        candidates.set(snap.id, snap.data() || {});
       }
     } catch {}
   }
@@ -45,43 +47,77 @@ export async function findOrEnsureWalletUser(
         const qSnap = await dbAdmin
           .collection('users')
           .where(field, 'in', phoneVariants.slice(0, 10))
-          .limit(1)
+          .limit(5)
           .get();
-        if (!qSnap.empty) {
-          const docSnap = qSnap.docs[0];
-          return { uid: docSnap.id, data: docSnap.data() || {} };
+        for (const docSnap of qSnap.docs || []) {
+          if (!candidates.has(docSnap.id)) {
+            candidates.set(docSnap.id, docSnap.data() || {});
+          }
         }
       } catch {}
     }
 
-    // Fallback check deterministic WhatsApp doc ID
-    const waDocId = `meta-whatsapp-${digits}`;
-    try {
-      const waSnap = await dbAdmin.collection('users').doc(waDocId).get();
-      if (waSnap?.exists) {
-        return { uid: waSnap.id, data: waSnap.data() || {} };
-      }
-    } catch {}
-
-    if (opts.createIfMissing && digits.length >= 9) {
-      const fallbackDoc = cleanUndefined({
-        uid: waDocId,
-        displayName: opts.displayName || `Mteja ${digits.slice(-4)}`,
-        fullName: opts.displayName || `Mteja ${digits.slice(-4)}`,
-        phone: `+255${digits.slice(-9)}`,
-        phoneNumber: `+255${digits.slice(-9)}`,
-        normalizedPhone: `255${digits.slice(-9)}`,
-        role: 'customer',
-        status: 'active',
-        walletBalance: 0,
-        points: 0,
-        source: 'whatsapp_papopay',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      await dbAdmin.collection('users').doc(waDocId).set(fallbackDoc, { merge: true });
-      return { uid: waDocId, data: fallbackDoc };
+    const last9 = digits.length >= 9 ? digits.slice(-9) : digits;
+    const deterministicIds = Array.from(
+      new Set(
+        [
+          `meta-whatsapp-${digits}`,
+          last9 ? `meta-whatsapp-255${last9}` : '',
+          last9 ? `meta-whatsapp-0${last9}` : '',
+          last9 ? `web-255${last9}` : '',
+          last9 ? `web-0${last9}` : '',
+        ].filter(Boolean)
+      )
+    );
+    for (const waDocId of deterministicIds) {
+      if (candidates.has(waDocId)) continue;
+      try {
+        const waSnap = await dbAdmin.collection('users').doc(waDocId).get();
+        if (waSnap?.exists) {
+          candidates.set(waSnap.id, waSnap.data() || {});
+        }
+      } catch {}
     }
+  }
+
+  if (candidates.size > 0) {
+    const ranked = Array.from(candidates.entries()).sort((a, b) => {
+      const [idA, dataA] = a;
+      const [idB, dataB] = b;
+      const balA = Number(dataA?.walletBalance || 0);
+      const balB = Number(dataB?.walletBalance || 0);
+      if (balA !== balB) return balB - balA;
+      const isStubA = idA.startsWith('meta-whatsapp-') || idA.startsWith('web-');
+      const isStubB = idB.startsWith('meta-whatsapp-') || idB.startsWith('web-');
+      if (isStubA !== isStubB) return isStubA ? 1 : -1;
+      const ptsA = Number(dataA?.points || 0);
+      const ptsB = Number(dataB?.points || 0);
+      return ptsB - ptsA;
+    });
+    return { uid: ranked[0][0], data: ranked[0][1] };
+  }
+
+  if (phoneVariants.length > 0 && opts.createIfMissing && digits.length >= 9) {
+    const last9 = digits.slice(-9);
+    const waDocId = `meta-whatsapp-${digits}`;
+    const fallbackDoc = cleanUndefined({
+      uid: waDocId,
+      displayName: opts.displayName || `Mteja ${digits.slice(-4)}`,
+      fullName: opts.displayName || `Mteja ${digits.slice(-4)}`,
+      phone: `+255${last9}`,
+      phoneNumber: `+255${last9}`,
+      normalizedPhone: `255${last9}`,
+      walletId: `PP${digits.slice(-7)}`,
+      role: 'customer',
+      status: 'active',
+      walletBalance: 0,
+      points: 0,
+      source: 'whatsapp_papopay',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await dbAdmin.collection('users').doc(waDocId).set(fallbackDoc, { merge: true });
+    return { uid: waDocId, data: fallbackDoc };
   }
 
   return null;
@@ -917,7 +953,8 @@ export async function executePapoWalletWithdrawal(
  */
 export async function getPapoWalletSummaryAndStatement(
   dbAdmin: any,
-  phone: string
+  phone: string,
+  uid?: string
 ): Promise<{
   found: boolean;
   uid?: string;
@@ -925,6 +962,8 @@ export async function getPapoWalletSummaryAndStatement(
   walletBalance: number;
   points: number;
   isCardFrozen: boolean;
+  displayName?: string;
+  phone?: string;
   transactions: Array<{
     id: string;
     title: string;
@@ -935,17 +974,21 @@ export async function getPapoWalletSummaryAndStatement(
     createdAtMs: number;
   }>;
 }> {
-  const userRec = phone
-    ? await findOrEnsureWalletUser(dbAdmin, { phone, createIfMissing: false })
-    : null;
+  const digits = String(phone || '').replace(/\D/g, '');
+  const userRec =
+    phone || uid
+      ? await findOrEnsureWalletUser(dbAdmin, { phone, uid, createIfMissing: false })
+      : null;
 
   if (!userRec || !dbAdmin) {
     return {
       found: false,
-      walletId: '118504625',
+      walletId: digits.length >= 9 ? `PP${digits.slice(-7)}` : '',
       walletBalance: 0,
       points: 0,
       isCardFrozen: false,
+      displayName: undefined,
+      phone: digits.length >= 9 ? `+255${digits.slice(-9)}` : undefined,
       transactions: [],
     };
   }
@@ -979,8 +1022,15 @@ export async function getPapoWalletSummaryAndStatement(
       .slice(0, 8);
   } catch {}
 
-  const digits = String(phone || '').replace(/\D/g, '');
-  const derivedWalletId = userRec.data?.walletId || (digits.length >= 9 ? `PP${digits.slice(-7)}` : '118504625');
+  const userPhoneDigits = String(
+    userRec.data?.phoneNumber || userRec.data?.phone || phone || ''
+  ).replace(/\D/g, '');
+  const idSourceDigits = userPhoneDigits.length >= 9 ? userPhoneDigits : digits;
+  const derivedWalletId =
+    userRec.data?.walletId ||
+    (idSourceDigits.length >= 9
+      ? `PP${idSourceDigits.slice(-7)}`
+      : `PP${userRec.uid.slice(-7).toUpperCase()}`);
 
   return {
     found: true,
@@ -989,6 +1039,11 @@ export async function getPapoWalletSummaryAndStatement(
     walletBalance: Number(userRec.data?.walletBalance || 0),
     points: Number(userRec.data?.points || 0),
     isCardFrozen: Boolean(userRec.data?.virtualCardFrozen),
+    displayName: userRec.data?.displayName || userRec.data?.fullName || undefined,
+    phone:
+      userRec.data?.phoneNumber ||
+      userRec.data?.phone ||
+      (idSourceDigits.length >= 9 ? `+255${idSourceDigits.slice(-9)}` : undefined),
     transactions: txs,
   };
 }

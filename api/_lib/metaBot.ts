@@ -10986,6 +10986,15 @@ async function routeToServiceFlow(
   if (service === 'papopay') {
     const publicBaseUrl = (process.env.APP_PUBLIC_URL || 'https://dereva-tz.onrender.com').replace(/\/+$/, '');
     const waPaymentConfig = String(process.env.META_WHATSAPP_PAYMENT_CONFIG || '').trim();
+    const buildWalletPortalUrl = (tab?: string) => {
+      const pDigits = String(knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? waDigitsFallback : ''))
+        .replace(/\D/g, '');
+      const qs = new URLSearchParams();
+      if (tab) qs.set('tab', tab);
+      if (pDigits.length >= 9) qs.set('phone', pDigits);
+      const qStr = qs.toString();
+      return `${publicBaseUrl}/papopay${qStr ? `?${qStr}` : ''}`;
+    };
     const inPayStep = [
       'PAPOPAY_MENU',
       'PAPOPAY_BILLS_MENU',
@@ -11298,7 +11307,7 @@ async function routeToServiceFlow(
         `- PapoPoints: *${summary.points.toLocaleString()} pts*\n` +
         `- Virtual Mastercard: *${summary.isCardFrozen ? '❄️ Imegandishwa' : '✅ Active'}*\n\n` +
         `🧾 *Miamala ya Hivi Karibuni:*\n${txLines}\n\n` +
-        `🔗 *Dhibiti Wallet yako:* ${publicBaseUrl}/papopay\n\n` +
+        `🔗 *Dhibiti Wallet yako:* ${buildWalletPortalUrl()}\n\n` +
         `_(Andika *Tuma pesa*, *Toa pesa*, *LUKU*, au *00* kurudi Menu)_`
       );
     };
@@ -12017,7 +12026,7 @@ async function routeToServiceFlow(
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `${wakalaMsg}💡 Andika *Toa pesa* kupata msimbo wa kutoa pesa kwa wakala (Ada 0.2%), au fungua: ${publicBaseUrl}/papopay`;
+        return `${wakalaMsg}💡 Andika *Toa pesa* kupata msimbo wa kutoa pesa kwa wakala (Ada 0.2%), au fungua: ${buildWalletPortalUrl()}`;
       }
       if (/\b(mwanafunzi|student\s*card|virtual\s*card|kadi\s*yangu|gandisha)\b/i.test(trimmedLower)) {
         return await showCardsMenu();
@@ -12140,14 +12149,14 @@ async function routeToServiceFlow(
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `${wakalaMsg}🔗 *Tafuta Wakala & Lipa Mtandaoni:* ${publicBaseUrl}/papopay`;
+        return `${wakalaMsg}🔗 *Tafuta Wakala & Lipa Mtandaoni:* ${buildWalletPortalUrl()}`;
       }
       if (choice === '6') {
         session.step = 'START';
         delete session.service;
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
-        return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na Vocha:\n👉 ${publicBaseUrl}/papopay?tab=bills`;
+        return `💳 *PapoPay Digital Wallet & Lipa Papo*\n\nFungua ukurasa wako wa PapoPay kufanya malipo ya QR, kadi ya mwanafunzi, LUKU/DAWASCO na Vocha:\n👉 ${buildWalletPortalUrl('bills')}`;
       }
       if (choice === '7') {
         return await promptTransferRecipient();
