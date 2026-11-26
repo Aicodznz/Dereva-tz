@@ -575,6 +575,7 @@ export async function resolveP2PRecipient(
   const { digits, phoneVariants } = buildSettlementPhoneVariants(clean);
 
   if (dbAdmin && clean) {
+    const queryLast9 = digits.length >= 9 ? digits.slice(-9) : '';
     // 1. Try matching existing user by phone
     if (phoneVariants.length > 0) {
       for (const field of ['phone', 'phoneNumber', 'normalizedPhone']) {
@@ -582,15 +583,27 @@ export async function resolveP2PRecipient(
           const snap = await dbAdmin
             .collection('users')
             .where(field, 'in', phoneVariants.slice(0, 10))
-            .limit(1)
+            .limit(5)
             .get();
           if (!snap.empty) {
-            const docSnap = snap.docs[0];
-            const d = docSnap.data() || {};
+            const docs = snap.docs || [];
+            const exactDoc =
+              docs.find((docItem: any) => {
+                const u = docItem.data() || {};
+                const primaryLast9 = String(u.phoneNumber || u.phone || '').replace(/\D/g, '').slice(-9);
+                return queryLast9 && primaryLast9 === queryLast9;
+              }) || docs[0];
+            const d = exactDoc.data() || {};
+            const docPhoneRaw = String(d.phoneNumber || d.phone || '').trim();
+            const docLast9 = docPhoneRaw.replace(/\D/g, '').slice(-9);
+            const canonicalPhone =
+              queryLast9 && docLast9 !== queryLast9
+                ? `+255${queryLast9}`
+                : docPhoneRaw || (queryLast9 ? `+255${queryLast9}` : clean);
             return {
-              uid: docSnap.id,
+              uid: exactDoc.id,
               displayName: d.displayName || d.fullName || d.name || clean,
-              phone: d.phoneNumber || d.phone || (digits.length >= 9 ? `+255${digits.slice(-9)}` : clean),
+              phone: canonicalPhone,
               walletId: d.walletId || undefined,
             };
           }
@@ -703,7 +716,9 @@ export async function executePapoWalletTransfer(
     if (typeof dbAdmin.runTransaction === 'function') {
       await dbAdmin.runTransaction(async (tx: any) => {
         const payerRef = dbAdmin.collection('users').doc(payer.uid);
+        const recRef = recipient.uid ? dbAdmin.collection('users').doc(recipient.uid) : null;
         const pSnap = await tx.get(payerRef);
+        const rSnap = recRef ? await tx.get(recRef) : null;
         const curBal = Number(pSnap.data()?.walletBalance || 0);
         if (curBal < amt) {
           throw new Error(`INSUFFICIENT:${curBal}`);
@@ -711,9 +726,7 @@ export async function executePapoWalletTransfer(
         nextPayerBal = curBal - amt;
         tx.set(payerRef, { walletBalance: nextPayerBal, updatedAt: nowIso }, { merge: true });
 
-        if (recipient.uid) {
-          const recRef = dbAdmin.collection('users').doc(recipient.uid);
-          const rSnap = await tx.get(recRef);
+        if (recRef && rSnap) {
           const recBal = Number(rSnap.exists ? rSnap.data()?.walletBalance || 0 : 0);
           tx.set(recRef, { walletBalance: recBal + amt, updatedAt: nowIso }, { merge: true });
         }
@@ -1529,5 +1542,170 @@ export function parseBulkTransferInput(rawText: string): ParsedBulkTransferResul
   };
 }
 
+export interface TanzaniaBankOption {
+  id: string;
+  name: string;
+  shortCode: string;
+  description: string;
+}
 
+export const TANZANIA_BANKS: TanzaniaBankOption[] = [
+  { id: 'CRDB', name: 'CRDB Bank', shortCode: 'CRDB', description: 'Tuma kwenda akaunti ya CRDB' },
+  { id: 'NMB', name: 'NMB Bank', shortCode: 'NMB', description: 'Tuma kwenda akaunti ya NMB' },
+  { id: 'NBC', name: 'NBC Bank', shortCode: 'NBC', description: 'Tuma kwenda akaunti ya NBC' },
+  { id: 'PBZ', name: 'PBZ Bank', shortCode: 'PBZ', description: 'People’s Bank of Zanzibar' },
+  { id: 'STANBIC', name: 'Stanbic Bank', shortCode: 'STANBIC', description: 'Tuma kwenda Stanbic Bank' },
+  { id: 'ABSA', name: 'ABSA Bank Tanzania', shortCode: 'ABSA', description: 'Tuma kwenda ABSA Bank' },
+  { id: 'EXIM', name: 'Exim Bank Tanzania', shortCode: 'EXIM', description: 'Tuma kwenda Exim Bank' },
+  { id: 'TCB', name: 'TCB (Postal Bank)', shortCode: 'TCB', description: 'Tanzania Commercial Bank' },
+  { id: 'KCB', name: 'KCB / Equity / Azania', shortCode: 'KCB', description: 'KCB, Equity au Azania Bank' },
+];
 
+export async function executeQueuedExternalTransfer(
+  dbAdmin: any,
+  params: {
+    payerUid?: string;
+    payerPhone: string;
+    payerName: string;
+    destinationType: 'mobile_money' | 'bank';
+    destinationName: string; // e.g. 'M-Pesa', 'Mixx by Yas', 'CRDB Bank'
+    accountOrPhone: string;
+    recipientName: string;
+    amount: number;
+    fee: number;
+    note?: string;
+  }
+): Promise<{
+  ok: boolean;
+  reason?: string;
+  insufficientBalance?: boolean;
+  currentBalance?: number;
+  refCode?: string;
+  fee?: number;
+  totalDebit?: number;
+  newBalance?: number;
+}> {
+  const amt = Math.round(Number(params.amount || 0));
+  const fee = Math.max(0, Math.round(Number(params.fee || 0)));
+  const totalDebit = amt + fee;
+  if (!dbAdmin || !Number.isFinite(amt) || amt < 1000) {
+    return { ok: false, reason: 'Kiasi cha chini cha kutuma nje ya PapoWallet ni TZS 1,000.' };
+  }
+
+  const payer = await findOrEnsureWalletUser(dbAdmin, {
+    uid: params.payerUid,
+    phone: params.payerPhone,
+    displayName: params.payerName,
+    createIfMissing: false,
+  });
+  if (!payer) {
+    return {
+      ok: false,
+      insufficientBalance: true,
+      currentBalance: 0,
+      reason: 'Akaunti yako ya PapoWallet haina salio. Weka pesa kwanza kupitia Mongike Push au Lipa Namba.',
+    };
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const refCode = params.destinationType === 'bank' ? `BANK-${code}` : `MOMO-${code}`;
+  const nowIso = new Date().toISOString();
+  let newBalance = 0;
+
+  try {
+    if (typeof dbAdmin.runTransaction === 'function') {
+      await dbAdmin.runTransaction(async (tx: any) => {
+        const payerRef = dbAdmin.collection('users').doc(payer.uid);
+        const snap = await tx.get(payerRef);
+        const curBal = Number(snap.data()?.walletBalance || 0);
+        if (curBal < totalDebit) {
+          throw new Error(`INSUFFICIENT:${curBal}`);
+        }
+        newBalance = curBal - totalDebit;
+        tx.set(payerRef, { walletBalance: newBalance, updatedAt: nowIso }, { merge: true });
+      });
+    } else {
+      const curBal = Number(payer.data?.walletBalance || 0);
+      if (curBal < totalDebit) {
+        return {
+          ok: false,
+          insufficientBalance: true,
+          currentBalance: curBal,
+          reason: `Salio la PapoWallet halitoshi (Una TZS ${curBal.toLocaleString()}, unahitaji TZS ${totalDebit.toLocaleString()}).`,
+        };
+      }
+      newBalance = curBal - totalDebit;
+      await dbAdmin.collection('users').doc(payer.uid).set(
+        { walletBalance: newBalance, updatedAt: nowIso },
+        { merge: true }
+      );
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.startsWith('INSUFFICIENT:')) {
+      const bal = Number(msg.split(':')[1] || 0);
+      return {
+        ok: false,
+        insufficientBalance: true,
+        currentBalance: bal,
+        reason: `Salio la PapoWallet halitoshi (Una TZS ${bal.toLocaleString()}, unahitaji TZS ${totalDebit.toLocaleString()}).`,
+      };
+    }
+    return { ok: false, reason: 'Imeshindwa kuhakiki salio la PapoWallet.' };
+  }
+
+  await Promise.allSettled([
+    dbAdmin.collection('disbursements').doc(refCode).set(
+      cleanUndefined({
+        reference: refCode,
+        provider: params.destinationType === 'bank' ? 'bank_queue' : 'mobile_queue',
+        channel: params.destinationType,
+        network: params.destinationName,
+        bankName: params.destinationType === 'bank' ? params.destinationName : undefined,
+        accountNumber: params.destinationType === 'bank' ? params.accountOrPhone : undefined,
+        recipientPhone: params.destinationType === 'mobile_money' ? params.accountOrPhone : undefined,
+        recipientName: params.recipientName,
+        payerUid: payer.uid,
+        payerPhone: params.payerPhone,
+        payerName: params.payerName,
+        amount: amt,
+        fee,
+        totalDebit,
+        note: params.note || undefined,
+        refundedOnFailure: false,
+        status: 'pending_admin',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      }),
+      { merge: true }
+    ),
+    dbAdmin.collection('payments').add(
+      cleanUndefined({
+        uid: payer.uid,
+        phone: params.payerPhone,
+        recipientAccount: params.accountOrPhone,
+        recipientName: params.recipientName,
+        title:
+          params.destinationType === 'bank'
+            ? `Tuma Benki: ${params.destinationName} (${params.accountOrPhone})`
+            : `Tuma Simu: ${params.destinationName} (${params.accountOrPhone})`,
+        subtitle: `${refCode} • ${params.recipientName} • Ada TZS ${fee.toLocaleString()}`,
+        amount: totalDebit,
+        type: 'debit',
+        category: params.destinationType === 'bank' ? 'bank_transfer' : 'transfer',
+        status: 'pending',
+        refCode,
+        createdAt: nowIso,
+        createdAtMs: Date.now(),
+      })
+    ),
+  ]);
+
+  return {
+    ok: true,
+    refCode,
+    fee,
+    totalDebit,
+    newBalance,
+  };
+}
