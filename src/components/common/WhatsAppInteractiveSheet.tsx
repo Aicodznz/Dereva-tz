@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ArrowLeft,
+  Banknote,
+  Building2,
+  Car,
   Check,
   CheckCheck,
   ChevronRight,
@@ -7,20 +11,35 @@ import {
   Copy,
   CreditCard,
   Delete,
+  Droplet,
   Eye,
   EyeOff,
   ExternalLink,
+  GraduationCap,
+  HeartPulse,
   HelpCircle,
+  Link2,
   List,
+  Lock,
   MapPin,
+  Package,
+  Phone,
   Plus,
   Receipt,
+  Scissors,
+  Send,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   Smartphone,
+  Sparkles,
   Store,
+  Users,
+  Utensils,
   Wallet,
+  Wrench,
   X,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,8 +73,36 @@ interface WhatsAppInteractiveMessageViewProps {
 type SheetMode =
   | null
   | { kind: 'list'; payload: any }
+  | { kind: 'flow'; payload: any }
   | { kind: 'checkout'; step: 'order_details' | 'address' | 'review' | 'pin' | 'success'; meta: PapoPayOrderMeta }
   | { kind: 'receipt'; meta: PapoPayOrderMeta };
+
+const DEFAULT_HUB_SERVICES = [
+  { key: 'papopay', title: 'PapoPay', statusLabel: 'Wazi', isAvailable: true, badgePill: '24/7', desc: 'Pochi na Malipo' },
+  { key: 'taxi', title: 'PapoRide', statusLabel: 'Wazi', isAvailable: true, desc: 'Safari & Bodaboda' },
+  { key: 'food', title: 'PapoFood', statusLabel: 'Wazi', isAvailable: true, desc: 'Chakula na Meza' },
+  { key: 'grocery', title: 'PapoMart', statusLabel: 'Wazi', isAvailable: true, desc: 'Vyakula na Bidhaa' },
+  { key: 'parcel', title: 'PapoSend', statusLabel: 'Wazi', isAvailable: true, desc: 'Vifurushi na Mizigo' },
+  { key: 'pharmacy', title: 'PapoMed', statusLabel: 'Wazi', isAvailable: true, desc: 'Famasi na Afya' },
+  { key: 'salon', title: 'PapoStyle', statusLabel: 'Wazi', isAvailable: true, desc: 'Saluni na Spa' },
+  { key: 'handyman', title: 'PapoFix', statusLabel: 'Wazi', isAvailable: true, desc: 'Matengenezo na Fundi' },
+  { key: 'hotel', title: 'PapoStay', statusLabel: 'Wazi', isAvailable: true, desc: 'Hoteli na Malazi' },
+];
+
+const HUB_SERVICE_STYLE: Record<string, { bg: string; icon: any }> = {
+  papopay: { bg: 'bg-[#1fa855]', icon: Wallet },
+  taxi: { bg: 'bg-[#f97316]', icon: Car },
+  food: { bg: 'bg-[#ef4444]', icon: Utensils },
+  grocery: { bg: 'bg-[#2563eb]', icon: ShoppingCart },
+  parcel: { bg: 'bg-[#7c3aed]', icon: Package },
+  pharmacy: { bg: 'bg-[#0891b2]', icon: HeartPulse },
+  salon: { bg: 'bg-[#9333ea]', icon: Scissors },
+  handyman: { bg: 'bg-[#16a34a]', icon: Wrench },
+  hotel: { bg: 'bg-[#ea580c]', icon: Building2 },
+  bus_ticket: { bg: 'bg-[#0284c7]', icon: Car },
+  events: { bg: 'bg-[#db2777]', icon: Sparkles },
+  orders: { bg: 'bg-[#0d9488]', icon: ShoppingBag },
+};
 
 interface SavedAddress {
   id: string;
@@ -111,13 +158,122 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
   const [completedResult, setCompletedResult] = useState<any>(null);
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
+  // Native WhatsApp Flows v6.0 Drawer State
+  const [flowScreen, setFlowScreen] = useState<'home' | 'inputs' | 'summary'>('home');
+  const [flowActionId, setFlowActionId] = useState<string>('send_p2p');
+  const [flowChannel, setFlowChannel] = useState<string>('PAPOWALLET');
+  const [flowRecipient, setFlowRecipient] = useState<string>('');
+  const [flowAmount, setFlowAmount] = useState<string>('');
+  const [flowNote, setFlowNote] = useState<string>('');
+  const [flowPin, setFlowPin] = useState<string>('');
+  const [flowError, setFlowError] = useState<string>('');
+  const [flowVerifiedProfile, setFlowVerifiedProfile] = useState<{
+    found: boolean;
+    fullName?: string;
+    username?: string;
+    maskedWalletId?: string;
+    phone?: string;
+    verified?: boolean;
+  } | null>(null);
+  const [flowLookingUp, setFlowLookingUp] = useState<boolean>(false);
+  const [regName, setRegName] = useState<string>('');
+  const [regPhone, setRegPhone] = useState<string>(defaultPhone || '');
+  const [regLang, setRegLang] = useState<'sw' | 'en'>('sw');
+
   useEffect(() => {
     if (defaultPhone && (!payerPhone || payerPhone === '0712345678')) {
       setPayerPhone(defaultPhone);
     }
+    if (defaultPhone && !regPhone) {
+      setRegPhone(defaultPhone);
+    }
   }, [defaultPhone]);
 
+  // Debounced live lookup for @username / Wallet ID / Phone inside PapoPay Flow
+  useEffect(() => {
+    if (sheet?.kind !== 'flow' || flowScreen !== 'inputs' || flowActionId !== 'send_p2p' || flowChannel !== 'PAPOWALLET') {
+      setFlowVerifiedProfile(null);
+      return;
+    }
+    const q = flowRecipient.trim();
+    if (q.length < 3) {
+      setFlowVerifiedProfile(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setFlowLookingUp(true);
+      try {
+        const resp = await fetch(`/api/wallet/recipient-lookup?q=${encodeURIComponent(q)}`);
+        const data = resp.ok ? await resp.json() : null;
+        if (!cancelled && data?.ok) {
+          setFlowVerifiedProfile(data);
+        }
+      } catch {
+        if (!cancelled) setFlowVerifiedProfile(null);
+      } finally {
+        if (!cancelled) setFlowLookingUp(false);
+      }
+    }, 320);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [sheet?.kind, flowScreen, flowActionId, flowChannel, flowRecipient]);
+
   if (!interactive || typeof interactive !== 'object') return null;
+
+  const openWhatsAppFlowDrawer = (payload: any) => {
+    setFlowScreen('home');
+    setFlowActionId('send_p2p');
+    setFlowChannel('PAPOWALLET');
+    setFlowRecipient('');
+    setFlowAmount('');
+    setFlowNote('');
+    setFlowPin('');
+    setFlowError('');
+    setFlowVerifiedProfile(null);
+    setSheet({ kind: 'flow', payload });
+
+    const phoneLookup = payload?.papopayFlowMeta?.walletSummary?.phone || defaultPhone || '';
+    if (String(phoneLookup).replace(/\D/g, '').length >= 9) {
+      fetch(`/api/payments/papopay-wallet-balance?phone=${encodeURIComponent(phoneLookup)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d && typeof d.walletBalance === 'number') {
+            setWalletBalance(d.walletBalance);
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
+  const startPapoPayFlowAction = (actionId: string, defaultChannel: string) => {
+    setFlowActionId(actionId);
+    setFlowChannel(defaultChannel);
+    setFlowRecipient('');
+    setFlowAmount('');
+    setFlowNote('');
+    setFlowPin('');
+    setFlowError('');
+    setFlowVerifiedProfile(null);
+    setFlowScreen('inputs');
+  };
+
+  const submitInstantPapoPayFlow = (payloadObj: Record<string, any>, label: string) => {
+    setSheet(null);
+    onSelectReply(`__FLOW_DATA__:${JSON.stringify(payloadObj)}`, label);
+  };
+
+  const computeFlowFeePreview = (actionId: string, channel: string, amt: number): number => {
+    if (!Number.isFinite(amt) || amt <= 0) return 0;
+    if (actionId === 'topup' || actionId === 'bill_luku' || actionId === 'split_bill' || actionId === 'create_link' || actionId === 'pay_target') {
+      return 0;
+    }
+    if (channel === 'PAPOWALLET') return 0;
+    if (channel === 'BANK') return Math.max(500, Math.round(amt * 0.005));
+    return Math.max(300, Math.round(amt * 0.01));
+  };
 
   const extractOrderMeta = (payload: any): PapoPayOrderMeta => {
     const meta: PapoPayOrderMeta = payload?.papopayMeta || {};
@@ -202,8 +358,8 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
     }
 
     const pinToUse = overridePin ?? pinDigits;
-    if ((paymentMethod === 'papowallet' || paymentMethod === 'card') && !/^\d{4}$/.test(pinToUse)) {
-      setCheckoutError('Ingiza PIN yako ya tarakimu 4.');
+    if ((paymentMethod === 'papowallet' || paymentMethod === 'card') && !/^\d{4,6}$/.test(pinToUse)) {
+      setCheckoutError('Ingiza PIN yako ya tarakimu 4 hadi 6.');
       return;
     }
 
@@ -448,6 +604,43 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
         </div>
       )}
 
+      {/* 5B. NATIVE WHATSAPP FLOWS LAUNCH CARD */}
+      {interactive.type === 'flow' && (() => {
+        const flowCta = interactive?.action?.parameters?.flow_cta || 'Fungua Huduma';
+        const fallbackList = interactive?.fallbackInteractive;
+        return (
+          <div className="mt-2 space-y-1.5 w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => openWhatsAppFlowDrawer(interactive)}
+              className={`w-full min-h-[42px] px-3.5 py-2 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer border ${
+                isDark
+                  ? 'bg-[#00a884] hover:bg-[#009675] text-white border-emerald-400/20 shadow-sm'
+                  : 'bg-[#008069] hover:bg-[#006b57] text-white border-emerald-700/20 shadow-sm'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span>{flowCta}</span>
+            </button>
+
+            {fallbackList?.type === 'list' && (
+              <button
+                type="button"
+                onClick={() => setSheet({ kind: 'list', payload: fallbackList })}
+                className={`w-full min-h-[34px] px-3 py-1 rounded-xl text-[10.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border ${
+                  isDark
+                    ? 'bg-[#182229] hover:bg-[#1f2c34] text-emerald-300 border-white/10'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                }`}
+              >
+                <List className="w-3 h-3 shrink-0" />
+                <span>{fallbackList?.action?.button || 'Orodha ya Haraka'}</span>
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 6. NATIVE ORDER DETAILS CARD (Review & Pay) */}
       {interactive.type === 'order_details' && (() => {
         const meta = extractOrderMeta(interactive);
@@ -637,6 +830,805 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
                 </div>
               </>
             )}
+
+            {/* A2. NATIVE WHATSAPP FLOWS v6.0 DRAWER (Papo Hapo Super Hub / PapoPay Digital Wallet / Registration) */}
+            {sheet.kind === 'flow' && (() => {
+              const flowMeta = sheet.payload?.papopayFlowMeta || {};
+              const flowKind = String(flowMeta?.flowKind || '').toLowerCase();
+
+              // FLOW 1: PAPO HAPO SUPER APP HUB (Matches Screenshot 2)
+              if (flowKind === 'papo_hub') {
+                const hubServices = Array.isArray(flowMeta.services) && flowMeta.services.length > 0
+                  ? flowMeta.services
+                  : DEFAULT_HUB_SERVICES;
+
+                return (
+                  <div className="flex flex-col max-h-[90vh] bg-[#111b21] text-white">
+                    {/* Header */}
+                    <div className="px-4 py-3 flex items-center justify-between border-b border-white/10 shrink-0">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSheet(null)}
+                          className="w-9 h-9 rounded-full hover:bg-white/10 flex items-center justify-center cursor-pointer"
+                          aria-label="Funga"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                        <h4 className="font-bold text-base tracking-tight">Papo Hapo</h4>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                      {/* Illustrated Super App Top Banner */}
+                      <div className="rounded-2xl bg-gradient-to-r from-[#f59e0b] via-[#fbbf24] to-[#10b981] p-3.5 flex items-center justify-between gap-3 text-slate-950 shadow-sm overflow-hidden">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-11 h-11 rounded-2xl bg-white/95 shadow-sm flex items-center justify-center text-[#f97316] shrink-0">
+                            <Car className="w-6 h-6" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 block">
+                              Papo Hapo Super App
+                            </span>
+                            <p className="text-sm font-black leading-tight text-slate-950 truncate">
+                              Huduma zote, papo hapo!
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="w-9 h-9 rounded-xl bg-white/90 flex items-center justify-center text-[#1fa855]">
+                            <Wallet className="w-5 h-5" />
+                          </div>
+                          <div className="w-9 h-9 rounded-xl bg-white/90 flex items-center justify-center text-[#ea580c]">
+                            <Package className="w-5 h-5" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-center pb-1">
+                        <h5 className="text-lg font-extrabold tracking-tight text-white">Huduma zote, papo hapo!</h5>
+                        <p className="text-xs text-slate-300 mt-0.5">Chagua huduma unayotaka.</p>
+                      </div>
+
+                      {/* Vertical Service List */}
+                      <div className="divide-y divide-white/10">
+                        {hubServices.map((srv: any) => {
+                          const style = HUB_SERVICE_STYLE[srv.key] || { bg: 'bg-emerald-600', icon: ShoppingBag };
+                          const IconComp = style.icon;
+                          const isOpen = srv.isAvailable !== false && srv.statusTone !== 'red';
+                          return (
+                            <button
+                              key={srv.key}
+                              type="button"
+                              onClick={() =>
+                                submitInstantPapoPayFlow(
+                                  { flow_type: 'papo_hub', selected_service: srv.key },
+                                  srv.title
+                                )
+                              }
+                              className="w-full min-h-[64px] py-2.5 px-1 flex items-center justify-between gap-3 text-left hover:bg-white/5 active:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-10 h-10 rounded-xl ${style.bg} text-white flex items-center justify-center shrink-0 shadow-xs`}>
+                                  <IconComp className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-white truncate">{srv.title}</span>
+                                    {srv.badgePill && (
+                                      <span className="px-2 py-0.5 rounded-full bg-[#1fa855] text-white text-[10px] font-black leading-none">
+                                        {srv.badgePill}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-300 mt-0.5 truncate">
+                                    <span
+                                      className={`w-2 h-2 rounded-full shrink-0 ${
+                                        isOpen ? 'bg-emerald-400' : 'bg-rose-500'
+                                      }`}
+                                    />
+                                    <span className={isOpen ? 'text-emerald-300 font-medium' : 'text-rose-300 font-medium'}>
+                                      {srv.statusLabel || (isOpen ? 'Wazi' : 'Imefungwa')}
+                                    </span>
+                                    <span className="text-slate-400">·</span>
+                                    <span className="text-slate-300 truncate">{srv.desc}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // FLOW 2: PAPOPAY SUPER WALLET (Matches Screenshot 1 & 3)
+              if (flowKind === 'papopay_home') {
+                const parsedAmt = Math.max(0, Math.round(Number(String(flowAmount || '0').replace(/\D/g, '')) || 0));
+                const feeAmt = computeFlowFeePreview(flowActionId, flowChannel, parsedAmt);
+                const totalAmt = parsedAmt + feeAmt;
+
+                const actionLabelMap: Record<string, string> = {
+                  topup: 'Weka Pesa (Top Up)',
+                  send_p2p: 'Tuma Pesa',
+                  send_bulk: 'Tuma kwa Wengi (Bulk)',
+                  withdraw: 'Toa Pesa',
+                  bill_luku: 'Lipa Bili',
+                  pay_target: 'Lipa Dereva / Duka',
+                  split_bill: 'Gawana Bili',
+                  create_link: 'Link ya Malipo',
+                };
+
+                const requiresPin =
+                  (flowActionId === 'send_p2p' && flowChannel !== 'BANK') ||
+                  (flowActionId === 'withdraw' && flowChannel !== 'WAKALA') ||
+                  (flowActionId === 'send_bulk' && flowChannel === 'PAPOWALLET');
+
+                return (
+                  <div className="flex flex-col max-h-[90vh] bg-[#f7f9f8] text-slate-900">
+                    {/* Top Navigation Bar */}
+                    <div className="px-4 py-3 bg-white border-b border-slate-200/80 flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (flowScreen === 'summary') {
+                              setFlowScreen('inputs');
+                            } else if (flowScreen === 'inputs') {
+                              setFlowScreen('home');
+                            } else {
+                              setSheet(null);
+                            }
+                          }}
+                          className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-700 cursor-pointer"
+                          aria-label="Rudi nyuma"
+                        >
+                          <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <div>
+                          <h4 className="font-bold text-base text-slate-950 leading-tight">
+                            {flowScreen === 'home' ? 'PapoPay' : actionLabelMap[flowActionId] || 'PapoPay'}
+                          </h4>
+                          {flowScreen === 'home' && walletBalance > 0 && (
+                            <p className="text-[11px] font-bold text-[#1fa855] tabular-nums">
+                              Salio: TZS {walletBalance.toLocaleString()}/=
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSheet(null)}
+                        className="w-9 h-9 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+                        aria-label="Funga"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* SCREEN 1: PAPOPAY HOME (Screenshot 1) */}
+                    {flowScreen === 'home' && (
+                      <div className="flex-1 overflow-y-auto px-4 py-3.5 space-y-4">
+                        {/* Hero Illustration & Subtext */}
+                        <div className="text-center space-y-2.5">
+                          <div className="mx-auto w-24 h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/80 border border-emerald-200/60 flex items-center justify-center gap-2 shadow-2xs">
+                            <div className="w-10 h-10 rounded-xl bg-[#1fa855] text-white flex items-center justify-center shadow-xs">
+                              <Wallet className="w-5 h-5" />
+                            </div>
+                            <div className="w-7 h-7 rounded-full bg-amber-400 text-amber-950 font-black text-[9px] flex items-center justify-center border border-amber-300">
+                              TSh
+                            </div>
+                          </div>
+                          <div>
+                            <h5 className="text-lg font-black tracking-tight text-slate-950">
+                              Lipa popote kwa PapoPay
+                            </h5>
+                            <p className="text-xs text-slate-600 mt-0.5 leading-snug">
+                              Weka pesa, tuma, na lipa bili kupitia WhatsApp.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => startPapoPayFlowAction('topup', 'MONGIKE_USSD')}
+                            className="w-full min-h-[44px] rounded-full bg-[#1fa855] hover:bg-[#199349] active:scale-[0.99] text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
+                          >
+                            Weka Pesa (Top Up)
+                          </button>
+                        </div>
+
+                        {/* Section: Tuma Pesa */}
+                        <div className="space-y-2">
+                          <h6 className="text-xs font-extrabold text-slate-900">Tuma Pesa</h6>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { id: 'send_p2p', ch: 'PAPOWALLET', label: 'Tuma MoMo / Benki', icon: Send },
+                              { id: 'send_bulk', ch: 'PAPOWALLET', label: 'Tuma kwa Wengi', icon: Users },
+                              { id: 'withdraw', ch: 'MPESA', label: 'Toa Pesa', icon: Banknote },
+                            ].map((tile) => {
+                              const TileIcon = tile.icon;
+                              return (
+                                <button
+                                  key={tile.id}
+                                  type="button"
+                                  onClick={() => startPapoPayFlowAction(tile.id, tile.ch)}
+                                  className="min-h-[82px] p-2.5 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] hover:bg-emerald-50/40 flex flex-col items-center justify-center gap-1.5 text-center shadow-2xs transition-colors cursor-pointer"
+                                >
+                                  <TileIcon className="w-5 h-5 text-[#1fa855]" />
+                                  <span className="text-[11px] font-semibold text-slate-800 leading-tight">
+                                    {tile.label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Section: Salio na Historia */}
+                        <div className="space-y-1.5">
+                          <h6 className="text-xs font-extrabold text-slate-900">Salio na Historia</h6>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              submitInstantPapoPayFlow(
+                                { flow_type: 'papopay_action', action_id: 'balance_history' },
+                                'Salio & Historia'
+                              )
+                            }
+                            className="w-full min-h-[54px] px-3.5 py-2.5 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] flex items-center justify-between gap-2.5 text-left shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-[#1fa855] flex items-center justify-center shrink-0">
+                                <Wallet className="w-5 h-5" />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-800 truncate">
+                                Salio, pointi na miamala 8 ya mwisho
+                              </span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                          </button>
+                        </div>
+
+                        {/* Section: Lipa Bili */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h6 className="text-xs font-extrabold text-slate-900">Lipa Bili</h6>
+                            <button
+                              type="button"
+                              onClick={() => startPapoPayFlowAction('bill_luku', 'LUKU')}
+                              className="text-[11px] font-bold text-[#1fa855] hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <span>Ona zote</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-center">
+                            {[
+                              { label: 'LUKU', ch: 'LUKU', icon: Zap },
+                              { label: 'Maji', ch: 'MAJI', icon: Droplet },
+                              { label: 'Airtime', ch: 'AIRTIME', icon: Phone },
+                              { label: 'Kadi', ch: 'CARD', icon: CreditCard },
+                            ].map((bill) => {
+                              const BIcon = bill.icon;
+                              return (
+                                <button
+                                  key={bill.label}
+                                  type="button"
+                                  onClick={() => startPapoPayFlowAction('bill_luku', bill.ch)}
+                                  className="flex flex-col items-center gap-1.5 py-1 cursor-pointer group"
+                                >
+                                  <div className="w-12 h-12 rounded-full bg-emerald-100/90 group-hover:bg-[#1fa855] text-[#1fa855] group-hover:text-white flex items-center justify-center transition-colors shadow-2xs">
+                                    <BIcon className="w-5 h-5" />
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-slate-800">{bill.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Section: Zaidi */}
+                        <div className="space-y-2 pb-1">
+                          <h6 className="text-xs font-extrabold text-slate-900">Zaidi</h6>
+                          <div className="grid grid-cols-4 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startPapoPayFlowAction('pay_target', 'PAPOWALLET')}
+                              className="min-h-[74px] p-2 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer"
+                            >
+                              <Car className="w-5 h-5 text-[#1fa855]" />
+                              <span className="text-[10px] font-semibold text-slate-800 leading-tight">Lipa Dereva / Duka</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startPapoPayFlowAction('split_bill', 'PAPOWALLET')}
+                              className="min-h-[74px] p-2 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer"
+                            >
+                              <Users className="w-5 h-5 text-[#1fa855]" />
+                              <span className="text-[10px] font-semibold text-slate-800 leading-tight">Gawana Bili</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startPapoPayFlowAction('create_link', 'PAPOWALLET')}
+                              className="min-h-[74px] p-2 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer"
+                            >
+                              <Link2 className="w-5 h-5 text-[#1fa855]" />
+                              <span className="text-[10px] font-semibold text-slate-800 leading-tight">Link ya Malipo</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                submitInstantPapoPayFlow(
+                                  { flow_type: 'papopay_action', action_id: 'student_card' },
+                                  'Kadi ya Mwanafunzi'
+                                )
+                              }
+                              className="min-h-[74px] p-2 rounded-2xl bg-white border border-slate-200/80 hover:border-[#1fa855] flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer"
+                            >
+                              <GraduationCap className="w-5 h-5 text-[#1fa855]" />
+                              <span className="text-[10px] font-semibold text-slate-800 leading-tight">Kadi ya Mwanafunzi</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SCREEN 2: INPUTS FORM */}
+                    {flowScreen === 'inputs' && (
+                      <>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                          {/* Channel Pills */}
+                          {flowActionId === 'send_p2p' && (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 block">Mtandao / Njia</label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  { id: 'PAPOWALLET', label: 'PapoWallet (0%)' },
+                                  { id: 'MPESA', label: 'M-Pesa' },
+                                  { id: 'TIGOPESA', label: 'Mixx / Tigo' },
+                                  { id: 'AIRTEL', label: 'Airtel' },
+                                  { id: 'HALOPESA', label: 'HaloPesa' },
+                                  { id: 'BANK', label: 'Benki' },
+                                ].map((ch) => (
+                                  <button
+                                    key={ch.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFlowChannel(ch.id);
+                                      setFlowError('');
+                                    }}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                                      flowChannel === ch.id
+                                        ? 'bg-[#1fa855] text-white border-[#1fa855]'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {ch.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {flowActionId === 'withdraw' && (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 block">Chagua Mahali pa Kutoa</label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  { id: 'MPESA', label: 'M-Pesa' },
+                                  { id: 'TIGOPESA', label: 'Mixx / Tigo' },
+                                  { id: 'AIRTEL', label: 'Airtel Money' },
+                                  { id: 'HALOPESA', label: 'HaloPesa' },
+                                  { id: 'WAKALA', label: 'Wakala (Kioski)' },
+                                ].map((ch) => (
+                                  <button
+                                    key={ch.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFlowChannel(ch.id);
+                                      setFlowError('');
+                                    }}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                                      flowChannel === ch.id
+                                        ? 'bg-[#1fa855] text-white border-[#1fa855]'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {ch.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {flowActionId === 'bill_luku' && (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 block">Aina ya Bili</label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  { id: 'LUKU', label: 'Umeme (LUKU)' },
+                                  { id: 'MAJI', label: 'Maji (DAWASA)' },
+                                  { id: 'AIRTIME', label: 'Vocha / Airtime' },
+                                  { id: 'CARD', label: 'Kadi / Bili' },
+                                ].map((ch) => (
+                                  <button
+                                    key={ch.id}
+                                    type="button"
+                                    onClick={() => setFlowChannel(ch.id)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                                      flowChannel === ch.id
+                                        ? 'bg-[#1fa855] text-white border-[#1fa855]'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {ch.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {flowActionId === 'topup' && (
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-slate-700 block">Njia ya Kuweka Pesa</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                {[
+                                  { id: 'MONGIKE_USSD', label: 'Simu (USSD Push)' },
+                                  { id: 'LIPA_NAMBA', label: 'Lipa Namba / Wakala' },
+                                ].map((ch) => (
+                                  <button
+                                    key={ch.id}
+                                    type="button"
+                                    onClick={() => setFlowChannel(ch.id)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                                      flowChannel === ch.id
+                                        ? 'bg-[#1fa855] text-white border-[#1fa855]'
+                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {ch.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Target / Recipient / Account / Count Field */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 block">
+                              {flowActionId === 'send_p2p'
+                                ? flowChannel === 'BANK'
+                                  ? 'Namba ya Akaunti ya Benki'
+                                  : flowChannel === 'PAPOWALLET'
+                                  ? '@Username, Wallet ID (PP...) au Simu'
+                                  : 'Namba ya Simu ya Mpokeaji'
+                                : flowActionId === 'send_bulk'
+                                ? 'Namba au @Usernames (tenganisha kwa koma)'
+                                : flowActionId === 'withdraw'
+                                ? flowChannel === 'WAKALA'
+                                  ? 'Namba ya Wakala (Hiari)'
+                                  : 'Namba ya Simu ya Kupokea Pesa'
+                                : flowActionId === 'bill_luku'
+                                ? `Namba ya Mita / Akaunti (${flowChannel})`
+                                : flowActionId === 'split_bill'
+                                ? 'Idadi ya Watu wa Kugawana (mf. 3)'
+                                : flowActionId === 'create_link'
+                                ? 'Jina la Huduma / Bidhaa (mf. Oda ya Chakula)'
+                                : flowActionId === 'topup'
+                                ? 'Namba ya Simu ya Kulipa (mf. 0712345678)'
+                                : 'Namba ya Dereva / Duka au Msimbo'}
+                            </label>
+                            <input
+                              type="text"
+                              value={flowRecipient}
+                              onChange={(e) => {
+                                setFlowRecipient(e.target.value);
+                                setFlowError('');
+                              }}
+                              placeholder={
+                                flowActionId === 'send_p2p'
+                                  ? flowChannel === 'PAPOWALLET'
+                                    ? '@jumamohamed au PP7225353 au 0712...'
+                                    : flowChannel === 'BANK'
+                                    ? 'Mf. 0150123456700'
+                                    : 'Mf. 0712345678'
+                                  : flowActionId === 'send_bulk'
+                                  ? '0712345678, @amour, PP998811'
+                                  : flowActionId === 'split_bill'
+                                  ? '3'
+                                  : flowActionId === 'create_link'
+                                  ? 'Mf. Malipo ya Viatu / Usafiri'
+                                  : 'Andika hapa...'
+                              }
+                              className="w-full min-h-[44px] px-3.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#1fa855]"
+                            />
+
+                            {/* Live Verified PapoPay Recipient Badge */}
+                            {flowActionId === 'send_p2p' && flowChannel === 'PAPOWALLET' && flowLookingUp && (
+                              <p className="text-[11px] text-slate-500">Inahakiki akaunti ya PapoPay...</p>
+                            )}
+                            {flowActionId === 'send_p2p' &&
+                              flowChannel === 'PAPOWALLET' &&
+                              flowVerifiedProfile?.found && (
+                                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <ShieldCheck className="w-4 h-4 text-[#1fa855] shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-emerald-950 truncate">
+                                        {flowVerifiedProfile.fullName || 'Mteja wa PapoPay'}
+                                      </p>
+                                      <p className="text-[10.5px] text-emerald-800 truncate">
+                                        {flowVerifiedProfile.username ? `${flowVerifiedProfile.username} · ` : ''}
+                                        {flowVerifiedProfile.maskedWalletId || flowVerifiedProfile.phone}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-black text-[#1fa855] uppercase shrink-0">Verified</span>
+                                </div>
+                              )}
+                          </div>
+
+                          {/* Amount Field */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 block">
+                              {flowActionId === 'split_bill' ? 'Jumla ya Bili (TZS)' : 'Kiasi (TZS)'}
+                            </label>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              value={flowAmount}
+                              onChange={(e) => {
+                                setFlowAmount(e.target.value);
+                                setFlowError('');
+                              }}
+                              placeholder="Mf. 10000"
+                              className="w-full min-h-[44px] px-3.5 rounded-xl border border-slate-300 bg-white text-sm font-black tabular-nums text-slate-900 focus:outline-none focus:border-[#1fa855]"
+                            />
+                            <div className="flex flex-wrap gap-1.5">
+                              {[5000, 10000, 25000, 50000].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setFlowAmount(String(preset))}
+                                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#1fa855] text-[11px] font-bold text-slate-700 tabular-nums cursor-pointer"
+                                >
+                                  {preset.toLocaleString()}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Note / Bank Name */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700 block">
+                              {flowActionId === 'send_p2p' && flowChannel === 'BANK'
+                                ? 'Jina la Benki (Mf. CRDB / NMB / NBC)'
+                                : 'Maelezo / Sababu (Hiari)'}
+                            </label>
+                            <input
+                              type="text"
+                              value={flowNote}
+                              onChange={(e) => setFlowNote(e.target.value)}
+                              placeholder={
+                                flowActionId === 'send_p2p' && flowChannel === 'BANK'
+                                  ? 'Mf. CRDB Bank'
+                                  : 'Mf. Malipo ya bidhaa'
+                              }
+                              className="w-full min-h-[40px] px-3.5 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:outline-none focus:border-[#1fa855]"
+                            />
+                          </div>
+
+                          {flowError && (
+                            <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                              {flowError}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!flowRecipient.trim() && flowActionId !== 'topup' && flowChannel !== 'WAKALA') {
+                                setFlowError('Tafadhali jaza mpokeaji, akaunti au maelezo yanayohitajika.');
+                                return;
+                              }
+                              if (parsedAmt < 100) {
+                                setFlowError('Weka kiasi kuanzia TZS 100.');
+                                return;
+                              }
+                              setFlowError('');
+                              setFlowScreen('summary');
+                            }}
+                            className="w-full min-h-[44px] rounded-full bg-[#1fa855] hover:bg-[#199349] text-white font-bold text-sm cursor-pointer"
+                          >
+                            Endelea (Continue)
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* SCREEN 3: SUMMARY & PIN CONFIRMATION (Screenshot 3) */}
+                    {flowScreen === 'summary' && (
+                      <>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2.5 text-xs">
+                            <h6 className="font-black text-sm text-slate-950 pb-2 border-b border-slate-100">
+                              Muhtasari wa Muamala
+                            </h6>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-slate-500">Huduma</span>
+                              <span className="font-bold text-slate-900">{actionLabelMap[flowActionId]}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-slate-500">Njia</span>
+                              <span className="font-bold text-slate-900">{flowChannel}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-slate-500">Mpokeaji / Akaunti</span>
+                              <span className="font-bold text-slate-900 text-right truncate max-w-[60%]">
+                                {flowVerifiedProfile?.found && flowVerifiedProfile.fullName
+                                  ? `${flowVerifiedProfile.fullName} (${flowRecipient})`
+                                  : flowRecipient || payerPhone || 'PapoWallet'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-slate-500">Kiasi</span>
+                              <span className="font-bold text-slate-900 tabular-nums">
+                                TZS {parsedAmt.toLocaleString()}/=
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-slate-500">Ada ya Muamala</span>
+                              <span className="font-bold text-[#1fa855] tabular-nums">
+                                TZS {feeAmt.toLocaleString()}/=
+                              </span>
+                            </div>
+                            <div className="pt-2 border-t border-slate-100 flex justify-between text-sm">
+                              <span className="font-black text-slate-900">Jumla Kuu</span>
+                              <span className="font-black text-slate-950 tabular-nums">
+                                TZS {totalAmt.toLocaleString()}/=
+                              </span>
+                            </div>
+                          </div>
+
+                          {requiresPin && (
+                            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
+                              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <Lock className="w-3.5 h-3.5 text-[#1fa855]" />
+                                <span>Ingiza Transaction PIN yako (Tarakimu 4–6)</span>
+                              </label>
+                              <input
+                                type="password"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={flowPin}
+                                onChange={(e) => {
+                                  setFlowPin(e.target.value.replace(/\D/g, ''));
+                                  setFlowError('');
+                                }}
+                                placeholder="••••"
+                                className="w-full min-h-[44px] px-4 rounded-xl border border-slate-300 text-center text-lg font-black tracking-[0.5em] text-slate-900 focus:outline-none focus:border-[#1fa855]"
+                              />
+                            </div>
+                          )}
+
+                          {flowError && (
+                            <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                              {flowError}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-slate-200 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (requiresPin && !/^\d{4,6}$/.test(flowPin)) {
+                                setFlowError('Weka Transaction PIN sahihi (tarakimu 4 hadi 6).');
+                                return;
+                              }
+                              submitInstantPapoPayFlow(
+                                {
+                                  flow_type: 'papopay_action',
+                                  action_id: flowActionId,
+                                  channel: flowChannel,
+                                  recipient_or_account: flowRecipient.trim() || payerPhone,
+                                  amount: parsedAmt,
+                                  pin: flowPin || undefined,
+                                  note: flowNote.trim() || undefined,
+                                },
+                                `${actionLabelMap[flowActionId]} • TZS ${parsedAmt.toLocaleString()}`
+                              );
+                            }}
+                            className="w-full min-h-[46px] rounded-full bg-[#1fa855] hover:bg-[#199349] text-white font-bold text-sm shadow-sm cursor-pointer"
+                          >
+                            Thibitisha & Tuma
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              // FLOW 3: GENERIC / CUSTOMER REGISTRATION FLOW
+              return (
+                <div className="flex flex-col max-h-[90vh] bg-white text-slate-900">
+                  <div className="px-4 py-3.5 bg-[#008069] text-white flex items-center justify-between shrink-0">
+                    <div>
+                      <h4 className="font-bold text-sm">{sheet.payload?.header?.text || 'Papo Hapo WhatsApp Flow'}</h4>
+                      <p className="text-[11px] text-emerald-100">Kamilisha taarifa zako hapa chini</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSheet(null)}
+                      className="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3 overflow-y-auto">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Jina Kamili</label>
+                      <input
+                        type="text"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="Mf. Juma Mohamed"
+                        className="w-full min-h-[42px] px-3 rounded-xl border border-slate-300 text-xs font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Namba ya Simu</label>
+                      <input
+                        type="tel"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        placeholder="0712345678"
+                        className="w-full min-h-[42px] px-3 rounded-xl border border-slate-300 text-xs font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700">Lugha</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'sw', label: '🇹🇿 Kiswahili' },
+                          { id: 'en', label: '🇬🇧 English' },
+                        ].map((l) => (
+                          <button
+                            key={l.id}
+                            type="button"
+                            onClick={() => setRegLang(l.id as 'sw' | 'en')}
+                            className={`min-h-[40px] rounded-xl text-xs font-bold border cursor-pointer ${
+                              regLang === l.id ? 'bg-[#008069] text-white border-[#008069]' : 'bg-slate-50 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-slate-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        submitInstantPapoPayFlow(
+                          { flow_type: 'register', name: regName.trim(), phone: regPhone.trim(), lang: regLang },
+                          regName.trim() || 'Thibitisha Taarifa'
+                        )
+                      }
+                      className="w-full min-h-[44px] rounded-full bg-[#008069] hover:bg-[#006b57] text-white font-bold text-sm cursor-pointer"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* B. CHECKOUT FLOW STEP 1: ORDER DETAILS */}
             {sheet.kind === 'checkout' && sheet.step === 'order_details' && (
@@ -977,7 +1969,7 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
 
                 <div className="p-5 bg-white flex flex-col items-center space-y-5">
                   <div className="w-full flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    <span>ENTER PAPOPAY 4-DIGIT PIN</span>
+                    <span>ENTER PAPOPAY PIN (4–6 DIGITS)</span>
                     <button
                       type="button"
                       onClick={() => setShowPin((v) => !v)}
@@ -988,13 +1980,14 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-4 py-2">
-                    {[0, 1, 2, 3].map((idx) => {
+                  <div className="flex items-center gap-3 py-2">
+                    {[0, 1, 2, 3, 4, 5].map((idx) => {
                       const char = pinDigits[idx];
+                      if (idx >= 4 && pinDigits.length <= 4) return null;
                       return (
                         <div
                           key={idx}
-                          className="w-11 h-12 border-b-2 border-slate-400 flex items-center justify-center text-2xl font-black text-slate-900 tabular-nums"
+                          className="w-10 h-12 border-b-2 border-slate-400 flex items-center justify-center text-2xl font-black text-slate-900 tabular-nums"
                         >
                           {char ? (showPin ? char : '•') : ''}
                         </div>
@@ -1014,7 +2007,7 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
                         type="button"
                         disabled={submitting}
                         onClick={() => {
-                          if (pinDigits.length < 4) {
+                          if (pinDigits.length < 6) {
                             const next = pinDigits + digit;
                             setPinDigits(next);
                             setCheckoutError('');
@@ -1038,7 +2031,7 @@ export const WhatsAppInteractiveMessageView: React.FC<WhatsAppInteractiveMessage
                       type="button"
                       disabled={submitting}
                       onClick={() => {
-                        if (pinDigits.length < 4) setPinDigits((p) => p + '0');
+                        if (pinDigits.length < 6) setPinDigits((p) => p + '0');
                       }}
                       className="h-12 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-lg font-bold text-[#0e2a66] shadow-xs cursor-pointer"
                     >

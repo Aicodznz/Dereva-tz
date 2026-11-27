@@ -33,6 +33,19 @@ import {
   topUpStudentNfcCardFromWallet,
 } from './papoWalletSettlement.js';
 import {
+  executeSecureMobileWithdrawal,
+  executeSecureP2PTransfer,
+  lookupP2PRecipientVerified,
+  updateWalletSecurityProfile,
+} from './walletEngine.js';
+import {
+  computeTransferFee,
+  computeWithdrawalFee,
+  getMobileMoneyNetworkLabel,
+  getPapoPayTreasurySettings,
+  normalizeMobileMoneyNetwork,
+} from './payoutProviders.js';
+import {
   awardWhatsAppOrderLoyalty,
   handleDriverHubOrAction,
   handleLoyaltyAndReorderCommands,
@@ -66,6 +79,10 @@ import {
   saveMetaTemplateSettings,
   sendWhatsAppPromoBroadcast,
 } from './whatsappAdvancedFeatures.js';
+import {
+  createEnhancedPaymentLink,
+  getPublicAppBaseUrl,
+} from './whatsappFlows.js';
 export {
   notifyPartnerApprovedToWhatsApp,
   notifyDriversNewJobToWhatsApp,
@@ -147,6 +164,7 @@ export interface MetaSession {
     | 'PAPOPAY_TRANSFER_TARGET'
     | 'PAPOPAY_TRANSFER_AMOUNT'
     | 'PAPOPAY_TRANSFER_CONFIRM'
+    | 'PAPOPAY_TRANSFER_PIN'
     | 'PAPOPAY_BULK_INPUT'
     | 'PAPOPAY_BULK_SHARED_AMOUNT'
     | 'PAPOPAY_BULK_CONFIRM'
@@ -158,6 +176,11 @@ export interface MetaSession {
     | 'PAPOPAY_BANK_CONFIRM'
     | 'PAPOPAY_WITHDRAW_AMOUNT'
     | 'PAPOPAY_WITHDRAW_CONFIRM'
+    | 'PAPOPAY_WITHDRAW_NETWORK'
+    | 'PAPOPAY_WITHDRAW_PHONE'
+    | 'PAPOPAY_WITHDRAW_PIN'
+    | 'PAPOPAY_SET_PIN'
+    | 'PAPOPAY_SET_USERNAME'
     | 'PAPOPAY_CARDS_MENU'
     | 'PAPOPAY_STUDENT_TARGET'
     | 'PAPOPAY_STUDENT_AMOUNT'
@@ -294,6 +317,26 @@ export type WhatsAppInteractivePayload =
           mode?: 'draft' | 'published';
         };
       };
+      papopayFlowMeta?: {
+        flowKind: 'papo_hub' | 'papopay_home' | 'papopay_checkout' | 'register';
+        services?: Array<{
+          id: string;
+          key: string;
+          title: string;
+          desc: string;
+          statusLabel: string;
+          statusTone: 'green' | 'red' | 'amber';
+          badgePill?: string;
+        }>;
+        walletSummary?: {
+          phone?: string;
+          walletId?: string;
+          walletBalance?: number;
+          points?: number;
+          username?: string;
+        };
+      };
+      fallbackInteractive?: WhatsAppInteractivePayload;
     }
   | {
       type: 'catalog_message';
@@ -3297,11 +3340,32 @@ function stripBotNavHintLines(raw: string): string {
 
 function getWhatsAppFlowAndCatalogConfig(): {
   catalogId: string;
-  flowIds: { default?: string; register?: string; ride?: string; booking?: string };
+  paymentConfiguration?: string;
+  flowIds: {
+    default?: string;
+    hub?: string;
+    papopay?: string;
+    checkout?: string;
+    register?: string;
+    ride?: string;
+    booking?: string;
+  };
 } {
   let catalogId = String(process.env.META_WHATSAPP_CATALOG_ID || '').trim();
-  const flowIds: { default?: string; register?: string; ride?: string; booking?: string } = {
+  let paymentConfiguration = String(process.env.META_WHATSAPP_PAYMENT_CONFIGURATION || '').trim() || undefined;
+  const flowIds: {
+    default?: string;
+    hub?: string;
+    papopay?: string;
+    checkout?: string;
+    register?: string;
+    ride?: string;
+    booking?: string;
+  } = {
     default: String(process.env.META_WHATSAPP_FLOW_ID || '').trim() || undefined,
+    hub: String(process.env.META_WHATSAPP_FLOW_ID_HUB || '').trim() || undefined,
+    papopay: String(process.env.META_WHATSAPP_FLOW_ID_PAPOPAY || '').trim() || undefined,
+    checkout: String(process.env.META_WHATSAPP_FLOW_ID_CHECKOUT || '').trim() || undefined,
     register: String(process.env.META_WHATSAPP_FLOW_ID_REGISTER || '').trim() || undefined,
     ride: String(process.env.META_WHATSAPP_FLOW_ID_RIDE || '').trim() || undefined,
     booking: String(process.env.META_WHATSAPP_FLOW_ID_BOOKING || '').trim() || undefined,
@@ -3311,15 +3375,21 @@ function getWhatsAppFlowAndCatalogConfig(): {
     if (fs.existsSync(localPath)) {
       const cfg = JSON.parse(fs.readFileSync(localPath, 'utf8'));
       if (!catalogId && cfg?.catalogId) catalogId = String(cfg.catalogId).trim();
+      if (!paymentConfiguration && cfg?.paymentConfiguration) {
+        paymentConfiguration = String(cfg.paymentConfiguration).trim() || undefined;
+      }
       if (cfg?.flowIds && typeof cfg.flowIds === 'object') {
         flowIds.default = flowIds.default || String(cfg.flowIds.default || '').trim() || undefined;
+        flowIds.hub = flowIds.hub || String(cfg.flowIds.hub || cfg.flowIds.default || '').trim() || undefined;
+        flowIds.papopay = flowIds.papopay || String(cfg.flowIds.papopay || '').trim() || undefined;
+        flowIds.checkout = flowIds.checkout || String(cfg.flowIds.checkout || '').trim() || undefined;
         flowIds.register = flowIds.register || String(cfg.flowIds.register || '').trim() || undefined;
         flowIds.ride = flowIds.ride || String(cfg.flowIds.ride || '').trim() || undefined;
         flowIds.booking = flowIds.booking || String(cfg.flowIds.booking || '').trim() || undefined;
       }
     }
   } catch {}
-  return { catalogId, flowIds };
+  return { catalogId, paymentConfiguration, flowIds };
 }
 
 function sanitizeWhatsAppInteractivePayload(
@@ -3419,6 +3489,10 @@ function sanitizeWhatsAppInteractivePayload(
   if (payload.type === 'flow') {
     const flowId = String(payload.action?.parameters?.flow_id || '').trim();
     if (!flowId) return undefined;
+    const cleanFallback =
+      payload.fallbackInteractive && payload.fallbackInteractive.type !== 'flow'
+        ? sanitizeWhatsAppInteractivePayload(payload.fallbackInteractive)
+        : undefined;
     return {
       type: 'flow',
       ...(payload.header?.text ? { header: { type: 'text', text: clampMetaPlainStr(payload.header.text, 60) } } : {}),
@@ -3438,6 +3512,8 @@ function sanitizeWhatsAppInteractivePayload(
           ...(payload.action?.parameters?.mode ? { mode: payload.action.parameters.mode } : {}),
         },
       },
+      ...(payload.papopayFlowMeta ? { papopayFlowMeta: payload.papopayFlowMeta } : {}),
+      ...(cleanFallback ? { fallbackInteractive: cleanFallback } : {}),
     };
   }
 
@@ -4127,50 +4203,124 @@ export function buildWhatsAppInteractive(
       return `${prefix}${customIntro}\n\n${tapHint}`;
     };
 
-    if (allMenuRows.length <= 9) {
+    const hubServicesMeta = active.map((srv) => {
+      const ls = srv.liveStatus;
+      let statusTone: 'green' | 'red' | 'amber' = srv.isMaintenance ? 'amber' : 'green';
+      let statusLabel = srv.isMaintenance
+        ? isEn
+          ? 'Maintenance'
+          : 'Matengenezo'
+        : isEn
+        ? 'Open'
+        : 'Wazi';
+      if (ls) {
+        const rawBadge = isEn ? ls.listBadgeEn : ls.listBadgeSw;
+        if (rawBadge.includes('🔴')) statusTone = 'red';
+        else if (rawBadge.includes('🟠')) statusTone = 'amber';
+        else statusTone = 'green';
+        statusLabel = rawBadge.replace(/^[🟢🔴🟠⚪🟡]+\s*/u, '').trim() || statusLabel;
+      }
+      return {
+        id: srv.displayNum,
+        key: srv.key,
+        title: srv.title,
+        desc: isEn ? srv.enDesc : srv.desc,
+        statusLabel,
+        statusTone,
+        ...(srv.key === 'papopay' ? { badgePill: '24/7' } : {}),
+      };
+    });
+
+    const wrapHubWithFlow = (fallbackList: WhatsAppInteractivePayload | undefined): WhatsAppInteractivePayload | undefined => {
+      if (menuPage === 2 || !fallbackList) return fallbackList;
+      const realHubFlowId = flowIds.hub || flowIds.default;
+      const bodyStr = buildMenuBody(
+        `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap below to open the *Papo Hapo Services Hub* or reply *1–${allMenuRows.length}*.`,
+        `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza hapa chini kufungua *Huduma Zote za Papo Hapo* au andika namba (*1–${allMenuRows.length}*).`
+      );
       return sanitizeWhatsAppInteractivePayload({
-        type: 'list',
-        header: { type: 'text', text: '🟢 Papo Hapo Super App' },
-        body: {
-          text: buildMenuBody(
-            `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
-            `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
-          ),
-        },
-        footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
+        type: 'flow',
+        header: { type: 'text', text: 'Papo Hapo Super App' },
+        body: { text: bodyStr },
+        footer: { text: isEn ? 'Type "SW" for Kiswahili' : 'Andika "EN" kwa English' },
         action: {
-          button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
-          sections: [
-            {
-              title: isEn ? 'Available Services' : 'Huduma Zote',
-              rows: [...allMenuRows, registerShopRow],
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_id: realHubFlowId || 'local_papo_hub_flow',
+            flow_cta: isEn ? 'Open Papo Hapo' : 'Fungua Huduma',
+            flow_action: realHubFlowId ? 'data_exchange' : 'navigate',
+            flow_token: `papo_hub_${String(session?.senderId || 'wa').replace(/\W+/g, '')}_${Date.now()}`,
+            flow_action_payload: {
+              screen: 'HUB_HOME',
+              data: {
+                headline: isEn ? 'All services, right here!' : 'Huduma zote, papo hapo!',
+                subheadline: isEn ? 'Choose a service you want.' : 'Chagua huduma unayotaka.',
+                services: hubServicesMeta.slice(0, 10).map((s) => ({
+                  id: s.key,
+                  title: `${s.title}${s.badgePill ? ` (${s.badgePill})` : ''}`,
+                  description: `${s.statusLabel} • ${s.desc}`,
+                })),
+              },
             },
-          ],
+          },
         },
+        papopayFlowMeta: {
+          flowKind: 'papo_hub',
+          services: hubServicesMeta,
+        },
+        fallbackInteractive: fallbackList,
       });
+    };
+
+    if (allMenuRows.length <= 9) {
+      return wrapHubWithFlow(
+        sanitizeWhatsAppInteractivePayload({
+          type: 'list',
+          header: { type: 'text', text: '🟢 Papo Hapo Super App' },
+          body: {
+            text: buildMenuBody(
+              `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
+              `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
+            ),
+          },
+          footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
+          action: {
+            button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+            sections: [
+              {
+                title: isEn ? 'Available Services' : 'Huduma Zote',
+                rows: [...allMenuRows, registerShopRow],
+              },
+            ],
+          },
+        })
+      );
     }
 
     if (allMenuRows.length === 10) {
-      return sanitizeWhatsAppInteractivePayload({
-        type: 'list',
-        header: { type: 'text', text: '🟢 Papo Hapo Super App' },
-        body: {
-          text: buildMenuBody(
-            `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
-            `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
-          ),
-        },
-        footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
-        action: {
-          button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
-          sections: [
-            {
-              title: isEn ? 'Available Services' : 'Huduma Zote',
-              rows: allMenuRows,
-            },
-          ],
-        },
-      });
+      return wrapHubWithFlow(
+        sanitizeWhatsAppInteractivePayload({
+          type: 'list',
+          header: { type: 'text', text: '🟢 Papo Hapo Super App' },
+          body: {
+            text: buildMenuBody(
+              `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below, or type directly what you need.`,
+              `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* hapo chini kuchagua huduma, au andika unachohitaji moja kwa moja.`
+            ),
+          },
+          footer: { text: isEn ? 'Andika "SW" kwa Kiswahili' : 'Type "EN" for English' },
+          action: {
+            button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+            sections: [
+              {
+                title: isEn ? 'Available Services' : 'Huduma Zote',
+                rows: allMenuRows,
+              },
+            ],
+          },
+        })
+      );
     }
 
     if (menuPage === 2) {
@@ -4215,37 +4365,39 @@ export function buildWhatsAppInteractive(
 
     // Menu Page 1: Top 8 core services + Always-visible My Orders + Working More Services button
     const moreTitles = active.slice(8).map((s) => s.title).join(', ');
-    return sanitizeWhatsAppInteractivePayload({
-      type: 'list',
-      header: { type: 'text', text: '🟢 Papo Hapo Super App' },
-      body: {
-        text: buildMenuBody(
-          `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type any service/number (*1–${allMenuRows.length}*).`,
-          `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* chini au andika huduma/namba (*1–${allMenuRows.length}*).`
-        ),
-      },
-      footer: { text: isEn ? 'Page 1/2 • Type "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
-      action: {
-        button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
-        sections: [
-          {
-            title: isEn ? 'Popular Services' : 'Huduma Kuu',
-            rows: serviceRows.slice(0, 8),
-          },
-          {
-            title: isEn ? 'Orders & More' : 'Oda & Zaidi',
-            rows: [
-              trackRow,
-              {
-                id: '__MENU_PAGE_2__',
-                title: isEn ? `➡️ More (${active.length - 8})` : `➡️ Huduma Zaidi (${active.length - 8})`,
-                description: moreTitles || (isEn ? 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay' : 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay'),
-              },
-            ],
-          },
-        ],
-      },
-    });
+    return wrapHubWithFlow(
+      sanitizeWhatsAppInteractivePayload({
+        type: 'list',
+        header: { type: 'text', text: '🟢 Papo Hapo Super App' },
+        body: {
+          text: buildMenuBody(
+            `${greetingLine}\n\nWelcome to *Papo Hapo Assistant* 🤖!\nTap *📋 Choose Service* below or type any service/number (*1–${allMenuRows.length}*).`,
+            `${greetingLine}\n\nKaribu *Papo Hapo Assistant* 🤖!\nBonyeza *📋 Chagua Huduma* chini au andika huduma/namba (*1–${allMenuRows.length}*).`
+          ),
+        },
+        footer: { text: isEn ? 'Page 1/2 • Type "SW" for Swahili' : 'Ukurasa 1/2 • Type "EN" for English' },
+        action: {
+          button: isEn ? '📋 Choose Service' : '📋 Chagua Huduma',
+          sections: [
+            {
+              title: isEn ? 'Popular Services' : 'Huduma Kuu',
+              rows: serviceRows.slice(0, 8),
+            },
+            {
+              title: isEn ? 'Orders & More' : 'Oda & Zaidi',
+              rows: [
+                trackRow,
+                {
+                  id: '__MENU_PAGE_2__',
+                  title: isEn ? `➡️ More (${active.length - 8})` : `➡️ Huduma Zaidi (${active.length - 8})`,
+                  description: moreTitles || (isEn ? 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay' : 'PapoTicket, PapoBus, PapoRent, PapoMall, PapoPay'),
+                },
+              ],
+            },
+          ],
+        },
+      })
+    );
   }
 
   // 7. GPS Location Prompts vs Saved Location Prompts
@@ -4776,7 +4928,7 @@ export function buildWhatsAppInteractive(
 
   if (session?.step === 'PAPOPAY_MENU' && !session?.details?.forceQuickButtons) {
     const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
-    return sanitizeWhatsAppInteractivePayload({
+    const papopayFallbackList = sanitizeWhatsAppInteractivePayload({
       type: 'list',
       header: { type: 'text', text: '💳 PapoPay & PapoWallet' },
       body: { text: cleanBody },
@@ -4805,6 +4957,40 @@ export function buildWhatsAppInteractive(
           },
         ],
       },
+    });
+    const realPayFlowId = flowIds.papopay;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'flow',
+      header: { type: 'text', text: 'PapoPay — Digital Wallet' },
+      body: {
+        text: isEn
+          ? '💳 *Lipa popote kwa PapoPay*\nDeposit, send money, withdraw or pay bills natively inside WhatsApp.'
+          : '💳 *Lipa popote kwa PapoPay*\nWeka pesa, tuma kwenda MoMo/Benki, toa pesa na lipa bili moja kwa moja kupitia WhatsApp.',
+      },
+      footer: { text: 'PapoPay • Salama na Haraka' },
+      action: {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3',
+          flow_id: realPayFlowId || 'local_papopay_flow',
+          flow_cta: isEn ? 'Open PapoPay' : 'Fungua PapoPay',
+          flow_action: realPayFlowId ? 'data_exchange' : 'navigate',
+          flow_token: `papo_papopay_${String(session?.senderId || 'wa').replace(/\W+/g, '')}_${Date.now()}`,
+          flow_action_payload: {
+            screen: 'PAPOPAY_HOME',
+            data: {
+              wallet_banner: 'Lipa popote kwa PapoPay • Weka pesa, tuma, na lipa bili kupitia WhatsApp.',
+            },
+          },
+        },
+      },
+      papopayFlowMeta: {
+        flowKind: 'papopay_home',
+        walletSummary: {
+          phone: session?.details?.phone || session?.senderId || '',
+        },
+      },
+      fallbackInteractive: papopayFallbackList,
     });
   }
 
@@ -4921,7 +5107,7 @@ export function buildWhatsAppInteractive(
       action: {
         buttons: isTransfer
           ? [
-              { type: 'reply' as const, reply: { id: '1', title: isEn ? '💚 PapoWallet 0%' : '💚 PapoWallet 0%' } },
+              { type: 'reply' as const, reply: { id: '1', title: isEn ? '💚 PapoWallet' : '💚 PapoWallet' } },
               ...(hasValidMobilePhone
                 ? [{ type: 'reply' as const, reply: { id: '3', title: isEn ? `📱 To ${shortNetLabel}` : `📱 Kwenda ${shortNetLabel}` } }]
                 : []),
@@ -4929,11 +5115,32 @@ export function buildWhatsAppInteractive(
             ]
           : [
               { type: 'reply' as const, reply: { id: '1', title: isEn ? '🏪 Wakala Code' : '🏪 Msimbo Wakala' } },
-              ...(isDaliPayConfigured()
-                ? [{ type: 'reply' as const, reply: { id: 'CMD:WITHDRAW_MOMO', title: isEn ? '📱 Mobile Money' : '📱 Kwenda Simu' } }]
-                : []),
+              { type: 'reply' as const, reply: { id: 'CMD:WITHDRAW_MOMO', title: isEn ? '📱 Mobile Money' : '📱 Kwenda Simu' } },
               { type: 'reply' as const, reply: { id: '2', title: isEn ? '❌ Cancel' : '❌ Sitisha' } },
             ],
+      },
+    });
+  }
+
+  if (session?.step === 'PAPOPAY_WITHDRAW_NETWORK') {
+    const cleanBody = rawStripped.split(/\n\s*1\./)[0]?.trim() || rawStripped;
+    return sanitizeWhatsAppInteractivePayload({
+      type: 'list',
+      header: { type: 'text', text: isEn ? '📱 Select Mobile Network' : '📱 Chagua Mtandao wa Simu' },
+      body: { text: cleanBody },
+      action: {
+        button: isEn ? '📱 Choose Network' : '📱 Chagua Mtandao',
+        sections: [
+          {
+            title: isEn ? 'Mobile Money Networks' : 'Mitandao ya Simu Tanzania',
+            rows: [
+              { id: 'NET:MPESA', title: 'Vodacom M-Pesa', description: 'M-Pesa Tanzania' },
+              { id: 'NET:TIGO', title: 'Tigo Pesa (Mixx by Yas)', description: 'Tigo / Mixx by Yas' },
+              { id: 'NET:AIRTEL', title: 'Airtel Money', description: 'Airtel Tanzania' },
+              { id: 'NET:HALOPESA', title: 'HaloPesa', description: 'Halotel Tanzania' },
+            ],
+          },
+        ],
       },
     });
   }
@@ -6113,49 +6320,364 @@ async function processMetaInputCore(
   if (cleanInput.startsWith('__FLOW_DATA__:')) {
     try {
       const flowJson = JSON.parse(cleanInput.slice('__FLOW_DATA__:'.length));
-      const fName = String(flowJson.name || flowJson.full_name || '').trim();
-      const fPhone = String(flowJson.phone || flowJson.phone_number || '').trim();
-      const fLang = flowJson.lang === 'en' || flowJson.language === 'en' ? 'en' : flowJson.lang === 'sw' ? 'sw' : session.details?.lang;
-      if (fName) session.details.customerName = fName;
-      if (fPhone && fPhone.replace(/\D/g, '').length >= 9) session.details.phone = fPhone;
-      if (fLang) session.details.lang = fLang;
-      if (fName || fPhone) {
-        const custObj: MetaCustomerProfile = {
-          senderId,
-          channel,
-          name: session.details.customerName || 'Mteja wa Papo Hapo',
-          phone: session.details.phone || defaultWaPhone || senderId,
-          lang: session.details.lang || 'sw',
-          createdAt: Date.now(),
+      const flowType = String(flowJson.flow_type || '').trim().toLowerCase();
+
+      // A. Native WhatsApp Flow: Papo Hapo Super App Hub service selection
+      if (flowType === 'papo_hub' || flowJson.selected_service) {
+        const srvRaw = String(flowJson.selected_service || 'papopay').trim().toLowerCase();
+        const serviceKeyToCmd: Record<string, string> = {
+          papopay: 'papopay',
+          taxi: 'taxi',
+          food: 'chakula',
+          grocery: 'soko',
+          parcel: 'mzigo',
+          pharmacy: 'pharmacy',
+          salon: 'saluni',
+          handyman: 'fundi',
+          hotel: 'hoteli',
+          bus_ticket: 'mabasi',
+          events: 'tiketi',
+          car_rental: 'kukodisha',
+          ecommerce: 'maduka',
+          orders: 'oda zangu',
         };
-        await saveMetaCustomerProfile(custObj, dbAdmin);
-      }
-      if (flowJson.pickup && flowJson.destination) {
-        session.service = 'taxi';
-        session.details.pickupName = String(flowJson.pickup).trim();
-        session.details.destinationName = String(flowJson.destination).trim();
-        session.details.route = `${session.details.pickupName} - ${session.details.destinationName}`;
-        session.step = 'SELECTING_VEHICLE';
+        const mappedCmd = serviceKeyToCmd[srvRaw] || srvRaw;
+        session.step = 'COLLECTING_ROUTE';
+        session.details.welcomedFirstOpen = true;
+        delete session.service;
+        cleanInput = mappedCmd;
+        cleanedLower = mappedCmd.toLowerCase();
+      } else if (flowType === 'papopay_action' || flowJson.action_id) {
+        // B. Native WhatsApp Flow: PapoPay Super Wallet Actions
+        session.details.welcomedFirstOpen = true;
+        const actId = String(flowJson.action_id || '').trim().toLowerCase();
+        const actChannel = String(flowJson.channel || 'PAPOWALLET').trim().toUpperCase();
+        const recOrAcc = String(flowJson.recipient_or_account || '').trim();
+        const amtNum = Math.max(0, Math.round(Number(String(flowJson.amount || '0').replace(/\D/g, '')) || 0));
+        const flowPin = String(flowJson.pin || '').trim();
+        const noteStr = String(flowJson.note || '').trim();
+        const custPhone = session.details?.phone || defaultWaPhone || '';
+        const custName = session.details?.customerName || 'Mteja wa PapoPay';
+
+        if (actId === 'balance_history') {
+          session.service = 'papopay';
+          session.step = 'PAPOPAY_MENU';
+          cleanInput = '1';
+          cleanedLower = '1';
+        } else if (actId === 'student_card') {
+          session.service = 'papopay';
+          session.step = 'PAPOPAY_MENU';
+          cleanInput = '9';
+          cleanedLower = '9';
+        } else if (actId === 'create_link') {
+          const linkTitle = recOrAcc || noteStr || 'Malipo ya PapoPay';
+          const linkAmt = Math.max(100, amtNum || 5000);
+          const createdLink = await createEnhancedPaymentLink(dbAdmin, {
+            title: linkTitle,
+            amount: linkAmt,
+            merchantName: custName,
+            merchantPhone: custPhone,
+            purpose: 'payment_request',
+          });
+          session.step = 'START';
+          delete session.service;
+          session.details = {
+            ...preserveCustomerFields(session.details, session.details?.lang),
+            pendingOrderDetails: {
+              type: 'order_details',
+              body: {
+                text:
+                  `💳 *${createdLink.merchantName}* — Ombi la Malipo\n` +
+                  `📦 *${createdLink.title}*\n` +
+                  `💰 Jumla: *TZS ${createdLink.amount.toLocaleString()}/=*`,
+              },
+              footer: { text: `PapoPay • Rejea #${createdLink.refCode}` },
+              action: {
+                name: 'review_and_pay',
+                parameters: {
+                  reference_id: createdLink.refCode,
+                  type: 'digital-goods',
+                  payment_settings: [{ type: 'payment_link', payment_link: { uri: createdLink.checkoutUrl } }],
+                  currency: 'TZS',
+                  total_amount: { value: createdLink.amount, offset: 1 },
+                  order: {
+                    status: 'pending',
+                    items: [{ retailer_id: createdLink.refCode, name: createdLink.title, amount: { value: createdLink.amount, offset: 1 }, quantity: 1 }],
+                    subtotal: { value: createdLink.amount, offset: 1 },
+                  },
+                },
+              },
+              papopayMeta: {
+                orderId: createdLink.refCode,
+                referenceId: createdLink.refCode,
+                merchantName: createdLink.merchantName,
+                merchantPhone: createdLink.merchantPhone,
+                itemTitle: createdLink.title,
+                amount: createdLink.amount,
+                purpose: 'payment_request',
+                checkoutUrl: createdLink.checkoutUrl,
+                payerPhone: custPhone,
+              },
+            },
+          };
+          await saveMetaSession(session, dbAdmin);
+          return (
+            `🔗 *ENHANCED PAYMENT LINK IMEUNDWA!* (#${createdLink.refCode})\n\n` +
+            `• Mpokeaji: *${createdLink.merchantName}*\n` +
+            `• Huduma: *${createdLink.title}*\n` +
+            `• Kiasi: *TZS ${createdLink.amount.toLocaleString()}/=*\n\n` +
+            `👉 ${createdLink.checkoutUrl}`
+          );
+        } else if (actId === 'split_bill') {
+          const peopleCount = Math.max(2, Math.min(20, parseInt(recOrAcc.replace(/\D/g, ''), 10) || 2));
+          const totalBill = Math.max(1000, amtNum || 10000);
+          const perPerson = Math.ceil(totalBill / peopleCount);
+          const splitRef = `SPL-${Math.floor(1000 + Math.random() * 9000)}`;
+          const splitLink = await createEnhancedPaymentLink(dbAdmin, {
+            refCode: splitRef,
+            title: `Gawana Bili (${peopleCount} watu)`,
+            amount: perPerson,
+            merchantName: custName,
+            merchantPhone: custPhone,
+            purpose: 'split_bill',
+          });
+          session.step = 'START';
+          delete session.service;
+          session.details = preserveCustomerFields(session.details, session.details?.lang);
+          await saveMetaSession(session, dbAdmin);
+          return (
+            `🤝 *GAWANA BILI TAYARI!* (#${splitRef})\n\n` +
+            `• Jumla ya Bili: *TZS ${totalBill.toLocaleString()}/=*\n` +
+            `• Idadi ya Watu: *${peopleCount}*\n` +
+            `• Kila Mtu Anachangia: *TZS ${perPerson.toLocaleString()}/=*\n\n` +
+            `📩 Tuma link hii kwenye kundi la marafiki:\n👉 ${splitLink.checkoutUrl}`
+          );
+        } else if (actId === 'topup') {
+          const topPhone = recOrAcc.replace(/\D/g, '').length >= 9 ? recOrAcc : custPhone;
+          const topAmt = Math.max(500, amtNum || 5000);
+          session.service = 'papopay';
+          session.details.topUpAmount = topAmt;
+          if (topPhone) session.details.phone = topPhone;
+          session.step = 'PAPOPAY_TOPUP_METHOD';
+          cleanInput = actChannel.includes('MONGIKE') ? '2' : '1';
+          cleanedLower = cleanInput;
+        } else if (actId === 'send_p2p') {
+          if (!custPhone) {
+            return `⚠️ Hatuna namba yako ya simu. Andika *PapoPay -> 2* kusajili simu yako kwanza.`;
+          }
+          if (actChannel === 'PAPOWALLET') {
+            if (!flowPin) {
+              return `⚠️ Weka Transaction PIN yako kutuma TZS ${amtNum.toLocaleString()}/= kwenda ${recOrAcc}.`;
+            }
+            const res = await executeSecureP2PTransfer(dbAdmin, {
+              senderPhone: custPhone,
+              recipientQuery: recOrAcc,
+              amount: amtNum,
+              pin: flowPin,
+              note: noteStr || 'WhatsApp Flow Transfer',
+              channel: 'whatsapp',
+            });
+            session.step = 'START';
+            delete session.service;
+            session.details = preserveCustomerFields(session.details, session.details?.lang);
+            await saveMetaSession(session, dbAdmin);
+            if (!res.ok) {
+              return `⚠️ Imeshindikana kutuma pesa: ${res.reason || 'Hakiki salio na PIN yako.'}`;
+            }
+            const recDigits = String(res.recipient?.phone || '').replace(/\D/g, '');
+            if (recDigits.length >= 9) {
+              sendMetaOutboundMessage({
+                channel: 'whatsapp',
+                recipientId: recDigits,
+                text:
+                  `💸 *UMEPOKEA PESA PAPOWALLET!*\n🔖 Rejea: *#${res.refCode}*\n\n` +
+                  `• Kutoka kwa: *${custName}* (${custPhone})\n` +
+                  `• Kiasi: *TZS ${amtNum.toLocaleString()}/=*\n` +
+                  `• Imekamilika ✅`,
+              }).catch(() => {});
+            }
+            return (
+              `✅ *PESA IMETUMWA PAPO HAPO!* 💚\n🔖 Rejea: *#${res.refCode}*\n\n` +
+              `• Mpokeaji: *${res.recipient?.displayName || recOrAcc}*${res.recipient?.username ? ` (${res.recipient.username})` : ''}\n` +
+              `• Kiasi: *TZS ${amtNum.toLocaleString()}/=*\n` +
+              `• Ada: *TZS ${Number(res.fee || 0).toLocaleString()}/=*\n` +
+              `• Salio Jipya la PapoWallet: *TZS ${Number(res.newSenderBalance || 0).toLocaleString()}/=*`
+            );
+          } else if (actChannel === 'BANK') {
+            const bankName = noteStr || 'Benki (Tanzania)';
+            const bankFee = Math.max(500, Math.round(amtNum * 0.005));
+            const bankRes = await executeQueuedExternalTransfer(dbAdmin, {
+              payerPhone: custPhone,
+              payerName: custName,
+              destinationType: 'bank',
+              destinationName: bankName,
+              accountOrPhone: recOrAcc,
+              recipientName: noteStr || recOrAcc,
+              amount: amtNum,
+              fee: bankFee,
+              note: `WhatsApp Flow Bank Transfer`,
+            });
+            session.step = 'START';
+            delete session.service;
+            session.details = preserveCustomerFields(session.details, session.details?.lang);
+            await saveMetaSession(session, dbAdmin);
+            if (!bankRes.ok) {
+              return `⚠️ ${bankRes.reason || 'Imeshindikana kutuma kwenda benki.'}`;
+            }
+            return (
+              `🏦 *OMBI LA KUTUMA BENKI LIMEPOKELEWA!* (#${bankRes.refCode})\n\n` +
+              `• Akaunti: *${recOrAcc}* (${bankName})\n` +
+              `• Kiasi: *TZS ${amtNum.toLocaleString()}/=*\n` +
+              `• Ada: *TZS ${bankFee.toLocaleString()}/=*\n` +
+              `• Salio Jipya: *TZS ${Number(bankRes.newBalance || 0).toLocaleString()}/=*`
+            );
+          } else {
+            // Mobile Money Transfer via secure DaliPay / Modular Payout Engine
+            const normNet = normalizeMobileMoneyNetwork(actChannel, recOrAcc) || 'MPESA';
+            const wRes = await executeSecureMobileWithdrawal(dbAdmin, {
+              senderPhone: custPhone,
+              amount: amtNum,
+              recipientPhone: recOrAcc || custPhone,
+              network: normNet,
+              pin: flowPin,
+              note: noteStr || 'WhatsApp Flow MoMo Transfer',
+              channel: 'whatsapp',
+            });
+            session.step = 'START';
+            delete session.service;
+            session.details = preserveCustomerFields(session.details, session.details?.lang);
+            await saveMetaSession(session, dbAdmin);
+            if (!wRes.ok) {
+              return `⚠️ Imeshindikana kutuma ${getMobileMoneyNetworkLabel(normNet)}: ${wRes.reason || 'Hakiki salio na PIN yako.'}`;
+            }
+            return (
+              `✅ *MUAMALA WA ${getMobileMoneyNetworkLabel(normNet).toUpperCase()} UMETUMWA!*\n🔖 Rejea: *#${wRes.refCode}*\n\n` +
+              `• Namba: *${recOrAcc || custPhone}*\n` +
+              `• Kiasi: *TZS ${amtNum.toLocaleString()}/=*\n` +
+              `• Ada: *TZS ${Number(wRes.fee || 0).toLocaleString()}/=*\n` +
+              `• Hali: *${wRes.status === 'pending' || wRes.status === 'processing' ? 'Inashughulikiwa (Reserved)' : 'Imekamilika'}*\n` +
+              `• Salio Jipya: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*`
+            );
+          }
+        } else if (actId === 'withdraw') {
+          if (actChannel === 'WAKALA') {
+            session.service = 'papopay';
+            session.step = 'PAPOPAY_WITHDRAW_AMOUNT';
+            cleanInput = String(amtNum || 10000);
+            cleanedLower = cleanInput;
+          } else {
+            const normNet = normalizeMobileMoneyNetwork(actChannel, recOrAcc || custPhone) || 'MPESA';
+            const wRes = await executeSecureMobileWithdrawal(dbAdmin, {
+              senderPhone: custPhone || recOrAcc,
+              amount: amtNum,
+              recipientPhone: recOrAcc || custPhone,
+              network: normNet,
+              pin: flowPin,
+              note: noteStr || 'WhatsApp Flow Withdrawal',
+              channel: 'whatsapp',
+            });
+            session.step = 'START';
+            delete session.service;
+            session.details = preserveCustomerFields(session.details, session.details?.lang);
+            await saveMetaSession(session, dbAdmin);
+            if (!wRes.ok) {
+              return `⚠️ Imeshindikana kutoa pesa: ${wRes.reason || 'Hakiki salio na PIN yako.'}`;
+            }
+            return (
+              `🏧 *OMBI LA KUTOA PESA LIMETUMWA!*\n🔖 Rejea: *#${wRes.refCode}*\n\n` +
+              `• Mtandao: *${getMobileMoneyNetworkLabel(normNet)}*\n` +
+              `• Namba: *${recOrAcc || custPhone}*\n` +
+              `• Kiasi: *TZS ${amtNum.toLocaleString()}/=*\n` +
+              `• Ada: *TZS ${Number(wRes.fee || 0).toLocaleString()}/=*\n` +
+              `• Salio Jipya: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*`
+            );
+          }
+        } else if (actId === 'send_bulk') {
+          const targets = recOrAcc
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .slice(0, 20);
+          if (targets.length === 0 || amtNum < 100) {
+            return `⚠️ Weka namba za wapokeaji (koma) na kiasi kuanzia TZS 100.`;
+          }
+          if (actChannel === 'PAPOWALLET') {
+            const bRes = await executePapoWalletBulkTransfer(dbAdmin, {
+              payerPhone: custPhone,
+              payerName: custName,
+              items: targets.map((t) => ({ recipientQuery: t, amount: amtNum })),
+              note: noteStr || 'WhatsApp Flow Bulk Pay',
+            });
+            session.step = 'START';
+            delete session.service;
+            session.details = preserveCustomerFields(session.details, session.details?.lang);
+            await saveMetaSession(session, dbAdmin);
+            if (!bRes.ok) {
+              return `⚠️ Bulk Pay imeshindikana: ${bRes.reason || 'Salio halitoshi.'}`;
+            }
+            return (
+              `✅ *BULK PAY IMEKAMILIKA (${targets.length} wapokeaji)!* 💚\n🔖 Rejea: *#${bRes.batchRefCode}*\n` +
+              `• Jumla Iliyotumwa: *TZS ${Number(bRes.totalAmount || 0).toLocaleString()}/=*\n` +
+              `• Salio Jipya: *TZS ${Number(bRes.newPayerBalance || 0).toLocaleString()}/=*`
+            );
+          }
+          session.service = 'papopay';
+          session.step = 'PAPOPAY_BULK_INPUT';
+          cleanInput = targets.map((t) => `${t} ${amtNum}`).join('\n');
+          cleanedLower = cleanInput.toLowerCase();
+        } else if (actId === 'bill_luku' || actId === 'pay_target') {
+          const billPrefix = actId === 'bill_luku' ? `${actChannel.toLowerCase()} ${amtNum} ${recOrAcc}`.trim() : '4';
+          session.service = 'papopay';
+          session.step = 'PAPOPAY_MENU';
+          cleanInput = billPrefix;
+          cleanedLower = billPrefix.toLowerCase();
+        }
+      } else {
+        // C. Registration / Taxi Quick Flow
+        const fName = String(flowJson.name || flowJson.full_name || '').trim();
+        const fPhone = String(flowJson.phone || flowJson.phone_number || '').trim();
+        const fLang = flowJson.lang === 'en' || flowJson.language === 'en' ? 'en' : flowJson.lang === 'sw' ? 'sw' : session.details?.lang;
+        if (fName) session.details.customerName = fName;
+        if (fPhone && fPhone.replace(/\D/g, '').length >= 9) session.details.phone = fPhone;
+        if (fLang) session.details.lang = fLang;
+        if (fName || fPhone) {
+          const custObj: MetaCustomerProfile = {
+            senderId,
+            channel,
+            name: session.details.customerName || 'Mteja wa Papo Hapo',
+            phone: session.details.phone || defaultWaPhone || senderId,
+            lang: session.details.lang || 'sw',
+            createdAt: Date.now(),
+          };
+          await saveMetaCustomerProfile(custObj, dbAdmin);
+        }
+        if (flowJson.pickup && flowJson.destination) {
+          session.service = 'taxi';
+          session.details.pickupName = String(flowJson.pickup).trim();
+          session.details.destinationName = String(flowJson.destination).trim();
+          session.details.route = `${session.details.pickupName} - ${session.details.destinationName}`;
+          session.step = 'SELECTING_VEHICLE';
+          await saveMetaSession(session, dbAdmin);
+          const avail = await getLiveDriverAvailability(dbAdmin);
+          const vMsg = formatVehicleChoiceMessage(session.details.pickupName, session.details.destinationName, avail, session.details.lang || 'sw');
+          return session.details.lang === 'en' ? `[[EN_NATIVE]]${vMsg}` : vMsg;
+        }
+        session.step = 'COLLECTING_ROUTE';
+        delete session.service;
         await saveMetaSession(session, dbAdmin);
-        const avail = await getLiveDriverAvailability(dbAdmin);
-        const vMsg = formatVehicleChoiceMessage(session.details.pickupName, session.details.destinationName, avail, session.details.lang || 'sw');
-        return session.details.lang === 'en' ? `[[EN_NATIVE]]${vMsg}` : vMsg;
+        let servicesCfg: any = {};
+        if (dbAdmin) {
+          try {
+            const bizSnap = await dbAdmin.collection('config').doc('business').get();
+            if (bizSnap.exists) servicesCfg = bizSnap.data().services || {};
+          } catch {}
+        }
+        const l = session.details.lang || 'sw';
+        const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesCfg);
+        const welcome = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, session.details.customerName, l, liveStatusMap);
+        const prefix = l === 'en' ? '✅ *Details saved!* \n\n' : '✅ *Taarifa zimehifadhiwa!* \n\n';
+        return l === 'en' ? `[[EN_NATIVE]]${prefix}${welcome}` : `${prefix}${welcome}`;
       }
-      session.step = 'COLLECTING_ROUTE';
-      delete session.service;
-      await saveMetaSession(session, dbAdmin);
-      let servicesCfg: any = {};
-      if (dbAdmin) {
-        try {
-          const bizSnap = await dbAdmin.collection('config').doc('business').get();
-          if (bizSnap.exists) servicesCfg = bizSnap.data().services || {};
-        } catch {}
-      }
-      const l = session.details.lang || 'sw';
-      const liveStatusMap = await getMetaServicesLiveStatusMap(dbAdmin, servicesCfg);
-      const welcome = generateDynamicWelcomeMessage(servicesCfg, chSymbol, undefined, session.details.customerName, l, liveStatusMap);
-      const prefix = l === 'en' ? '✅ *Details saved!* \n\n' : '✅ *Taarifa zimehifadhiwa!* \n\n';
-      return l === 'en' ? `[[EN_NATIVE]]${prefix}${welcome}` : `${prefix}${welcome}`;
     } catch {
       return `⚠️ Imeshindikana kusoma fomu. Tafadhali andika ujumbe wako hapa:`;
     }
@@ -11009,6 +11531,7 @@ async function routeToServiceFlow(
       'PAPOPAY_TRANSFER_TARGET',
       'PAPOPAY_TRANSFER_AMOUNT',
       'PAPOPAY_TRANSFER_CONFIRM',
+      'PAPOPAY_TRANSFER_PIN',
       'PAPOPAY_BULK_INPUT',
       'PAPOPAY_BULK_SHARED_AMOUNT',
       'PAPOPAY_BULK_CONFIRM',
@@ -11020,6 +11543,11 @@ async function routeToServiceFlow(
       'PAPOPAY_BANK_CONFIRM',
       'PAPOPAY_WITHDRAW_AMOUNT',
       'PAPOPAY_WITHDRAW_CONFIRM',
+      'PAPOPAY_WITHDRAW_NETWORK',
+      'PAPOPAY_WITHDRAW_PHONE',
+      'PAPOPAY_WITHDRAW_PIN',
+      'PAPOPAY_SET_PIN',
+      'PAPOPAY_SET_USERNAME',
       'PAPOPAY_CARDS_MENU',
       'PAPOPAY_STUDENT_TARGET',
       'PAPOPAY_STUDENT_AMOUNT',
@@ -11303,12 +11831,17 @@ async function routeToServiceFlow(
         `💰 *SALIO & TAARIFA YA PAPOWALLET*\n\n` +
         `- Simu: *${lookupPhone || 'Bila namba'}*\n` +
         `- Wallet ID: *${summary.walletId}*\n` +
-        `- Salio la PapoWallet: *TZS ${summary.walletBalance.toLocaleString()}/=*\n` +
+        (summary.username ? `- Username: *${summary.username}*\n` : '') +
+        `- Salio Linalopatikana: *TZS ${summary.walletBalance.toLocaleString()}/=*\n` +
+        (Number(summary.reservedBalance || 0) > 0
+          ? `- Fedha Zinazosubiri Kutumwa (Reserved): *TZS ${Number(summary.reservedBalance).toLocaleString()}/=*\n`
+          : '') +
+        `- Transaction PIN: *${summary.hasPinSet ? '🔐 Imewekwa' : '⚠️ Haijawekwa (Andika SET PIN)'}*\n` +
         `- PapoPoints: *${summary.points.toLocaleString()} pts*\n` +
         `- Virtual Mastercard: *${summary.isCardFrozen ? '❄️ Imegandishwa' : '✅ Active'}*\n\n` +
         `🧾 *Miamala ya Hivi Karibuni:*\n${txLines}\n\n` +
         `🔗 *Dhibiti Wallet yako:* ${buildWalletPortalUrl()}\n\n` +
-        `_(Andika *Tuma pesa*, *Toa pesa*, *LUKU*, au *00* kurudi Menu)_`
+        `_(Andika *Tuma pesa*, *Toa pesa*, *SET PIN*, *SET USERNAME*, *LUKU*, au *00* kurudi Menu)_`
       );
     };
 
@@ -11892,8 +12425,8 @@ async function routeToServiceFlow(
       session.step = 'PAPOPAY_TRANSFER_TARGET';
       await saveMetaSession(session, dbAdmin);
       return (
-        `💸 *Tuma Pesa Kutoka PapoPay*\n\n` +
-        `Andika *namba ya simu ya mpokeaji* (M-Pesa, Mixx/Tigo, Airtel, Halopesa au PapoWallet — mfano *0712345678*) au *Wallet ID* yake:\n\n` +
+        `💸 *Tuma Pesa kwa Mtumiaji wa PapoPay*\n\n` +
+        `Andika *@username* ya mpokeaji (mfano: *@amourrashid*), *Wallet ID* (mfano: *PP4225358*), au *namba ya simu* (mfano: *0712345678*):\n\n` +
         `_Au bonyeza *🏦 Kwenda Benki* kutuma kwenda CRDB/NMB/NBC, au *👥 Namba Nyingi* kulipa hadi watu 20 kwa pamoja!_`
       );
     };
@@ -12013,6 +12546,16 @@ async function routeToServiceFlow(
       }
       if (/\b(tuma\s*wengi|namba\s*nyingi|bulk\s*pay|bulk\s*transfer|lipa\s*wengi|lipa\s*wote|mishahara)\b/i.test(trimmedLower)) {
         return await promptBulkTransferInput();
+      }
+      if (/^(set\s*pin|weka\s*pin|badili\s*pin|pin)$/i.test(trimmedLower)) {
+        session.step = 'PAPOPAY_SET_PIN';
+        await saveMetaSession(session, dbAdmin);
+        return `🔐 *Weka / Badili Transaction PIN yako ya PapoPay*\n\nAndika PIN yako mpya ya tarakimu *4 hadi 6* (Mfano: *2580*):`;
+      }
+      if (/^(set\s*username|weka\s*username|username|jina\s*la\s*malipo)$/i.test(trimmedLower)) {
+        session.step = 'PAPOPAY_SET_USERNAME';
+        await saveMetaSession(session, dbAdmin);
+        return `👤 *Weka @username yako ya PapoPay*\n\nAndika jina lako jipya la malipo (herufi 3–20 bila nafasi, mfano: *@amourrashid*):`;
       }
       if (/\b(tuma\s*pesa|send\s*money|transfer|p2p)\b/i.test(trimmedLower)) {
         return await promptTransferRecipient();
@@ -12189,6 +12732,47 @@ async function routeToServiceFlow(
       return `⚠️ Tafadhali chagua namba halali (*1–12* au *00* kurudi Menyu Kuu):`;
     }
 
+    if (session.step === 'PAPOPAY_SET_PIN') {
+      const cleanPin = input.replace(/\s+/g, '');
+      const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      if (!payerPhone) {
+        return `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
+      }
+      const res = await updateWalletSecurityProfile(dbAdmin, {
+        phone: payerPhone,
+        displayName: session.details.customerName || 'Mteja wa PapoPay',
+        newPin: cleanPin,
+      });
+      if (!res.ok) {
+        return `⚠️ ${res.error || 'Weka PIN halali ya tarakimu 4 hadi 6.'}`;
+      }
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+      return `✅ *Transaction PIN imewekwa salama!* 🔐\n\n• Wallet ID: *${res.walletId}*\n• Sasa unaweza kutuma na kutoa pesa kwa usalama wa PIN.`;
+    }
+
+    if (session.step === 'PAPOPAY_SET_USERNAME') {
+      const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      if (!payerPhone) {
+        return `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
+      }
+      const res = await updateWalletSecurityProfile(dbAdmin, {
+        phone: payerPhone,
+        displayName: session.details.customerName || 'Mteja wa PapoPay',
+        username: input.trim(),
+      });
+      if (!res.ok) {
+        return `⚠️ ${res.error || 'Imeshindikana kuhifadhi username.'}`;
+      }
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+      return `✅ *Username yako ya PapoPay imesajiliwa!* 👤\n\n• Username: *${res.username}*\n• Wallet ID: *${res.walletId}*\n\nMarafiki sasa wanaweza kukutumia pesa wakitumia *${res.username}*!`;
+    }
+
     // P2P & EXTERNAL (MOBILE NETWORK / BANK) TRANSFER STEPS (Option 7)
     if (session.step === 'PAPOPAY_TRANSFER_TARGET') {
       const targetRaw = input.trim();
@@ -12237,16 +12821,55 @@ async function routeToServiceFlow(
         );
       }
 
-      if (targetRaw.replace(/\D/g, '').length < 6) {
-        return `⚠️ Tafadhali andika namba sahihi ya simu (Mfano: *0712345678*) au Wallet ID (angalau tarakimu 6), au bonyeza *🏦 Kwenda Benki* / *👥 Namba Nyingi*:`;
+      const compact = targetRaw.replace(/\s+/g, '');
+      const isHandleOrWallet = compact.startsWith('@') || /^PP\d{6,}$/i.test(compact) || /^[a-zA-Z0-9_]{3,24}$/.test(compact);
+      const digitCount = targetRaw.replace(/\D/g, '').length;
+
+      if (!isHandleOrWallet && digitCount < 6) {
+        return `⚠️ Andika *@username* (mfano *@amourrashid*), *Wallet ID* (mfano *PP4225358*), au namba ya simu (*0712345678*):`;
       }
-      const rec = await resolveP2PRecipient(dbAdmin, targetRaw);
-      const netLabel = rec.phone && rec.phone.replace(/\D/g, '').length >= 9 ? formatMobileNetworkDisplay(rec.phone) : '';
-      session.details.transferTarget = rec;
+
+      const verifiedRec = await lookupP2PRecipientVerified(dbAdmin, targetRaw);
+      if (!verifiedRec.found) {
+        // If user entered a valid phone number not yet registered on PapoPay, allow mobile-network send preview
+        if (!compact.startsWith('@') && !/^PP/i.test(compact) && digitCount >= 9 && /^\+?\d[\d\s-]{7,}$/.test(targetRaw)) {
+          const fallbackRec = await resolveP2PRecipient(dbAdmin, targetRaw);
+          const netLabel = fallbackRec.phone ? formatMobileNetworkDisplay(fallbackRec.phone) : '';
+          session.details.transferTarget = {
+            ...fallbackRec,
+            found: false,
+            username: null,
+            maskedWalletId: null,
+            verified: false,
+            recipientQuery: targetRaw,
+          };
+          session.step = 'PAPOPAY_TRANSFER_AMOUNT';
+          await saveMetaSession(session, dbAdmin);
+          return (
+            `👤 Mpokeaji wa Simu: *${fallbackRec.displayName}* (${fallbackRec.phone}${netLabel ? ` • ${netLabel}` : ''})\n` +
+            `_Kumbuka: Namba hii haina akaunti ya PapoPay bado — utaweza kutuma kwenda ${netLabel || 'mtandao wa simu'}._\n\n` +
+            `💰 Andika *kiasi cha TZS* unachotuma (Mfano: *10000*):`
+          );
+        }
+        return `⚠️ Mtumiaji *"${targetRaw}"* hakupatikana kwenye PapoPay. Hakikisha *@username* au *Wallet ID* ni sahihi kisha ujaribu tena:`;
+      }
+
+      const netLabel = verifiedRec.phone && verifiedRec.phone.replace(/\D/g, '').length >= 9
+        ? formatMobileNetworkDisplay(verifiedRec.phone)
+        : '';
+      session.details.transferTarget = {
+        ...verifiedRec,
+        recipientQuery: verifiedRec.username || verifiedRec.walletId || verifiedRec.phone || targetRaw,
+      };
       session.step = 'PAPOPAY_TRANSFER_AMOUNT';
       await saveMetaSession(session, dbAdmin);
       return (
-        `👤 Mpokeaji: *${rec.displayName}*${rec.phone ? ` (${rec.phone}${netLabel ? ` • ${netLabel}` : ''})` : ''}\n\n` +
+        `✅ *Mpokeaji Amepatikana (Verified PapoPay User)*\n\n` +
+        `👤 Jina: *${verifiedRec.displayName}*\n` +
+        (verifiedRec.username ? `🔖 Username: *${verifiedRec.username}*\n` : '') +
+        (verifiedRec.maskedWalletId ? `💳 Wallet ID: *${verifiedRec.maskedWalletId}*\n` : '') +
+        (verifiedRec.phone ? `📱 Simu: ${verifiedRec.phone}${netLabel ? ` (${netLabel})` : ''}\n` : '') +
+        `🛡️ Hali: *${verifiedRec.verified ? 'Verified Account' : 'PapoPay User'}*\n\n` +
         `💰 Andika *kiasi cha TZS* unachotuma (Mfano: *10000*):`
       );
     }
@@ -12259,23 +12882,30 @@ async function routeToServiceFlow(
       const rec = session.details.transferTarget || { displayName: 'Mpokeaji', phone: '' };
       const hasPhone = Boolean(rec.phone && String(rec.phone).replace(/\D/g, '').length >= 9);
       const networkLabel = hasPhone ? formatMobileNetworkDisplay(rec.phone) : 'Mtandao wa Simu';
-      const momoFee = Math.max(100, Math.round(amt * 0.002));
+      const settings = await getPapoPayTreasurySettings(dbAdmin);
+      const p2pFee = computeTransferFee(amt, settings);
+      const momoFee = computeWithdrawalFee(amt, settings);
       const lookupPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
       const payerSummary = lookupPhone ? await getPapoWalletSummaryAndStatement(dbAdmin, lookupPhone) : null;
       const walletBal = Number(payerSummary?.walletBalance || 0);
 
       session.details.transferAmount = amt;
+      session.details.transferFee = p2pFee;
+      session.details.momoFee = momoFee;
+      session.details.draftIdempotencyKey = `wa_trf_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'PAPOPAY_TRANSFER_CONFIRM';
       await saveMetaSession(session, dbAdmin);
       return (
         `💸 *Thibitisha Kutuma Pesa*\n\n` +
-        `- Mpokeaji: *${rec.displayName}*${rec.phone ? ` (${rec.phone})` : ''}\n` +
-        `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
-        `- Salio lako la PapoWallet: *TZS ${walletBal.toLocaleString()}/=*\n\n` +
+        `• Mpokeaji: *${rec.displayName}*${rec.username ? ` (${rec.username})` : ''}${rec.maskedWalletId ? ` • ${rec.maskedWalletId}` : ''}\n` +
+        `• Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+        `• Ada PapoPay-to-PapoPay: *TZS ${p2pFee.toLocaleString()}*\n` +
+        `• Jumla Kukatwa: *TZS ${(amt + p2pFee).toLocaleString()}/=*\n` +
+        `• Salio Linalopatikana: *TZS ${walletBal.toLocaleString()}/=*\n\n` +
         `Chagua wapi pesa iingie:\n` +
-        `1. 💚 *PapoWallet ya Mpokeaji (Ada: TZS 0 — Papo Hapo)*\n` +
+        (rec.found !== false ? `1. 💚 *PapoWallet ya Mpokeaji (Ada: TZS ${p2pFee.toLocaleString()} — Papo Hapo)*\n` : '') +
         (hasPhone
-          ? `3. 📱 *Kwenda ${networkLabel} (${rec.phone})* — Ada: TZS ${momoFee.toLocaleString()}${amt < 1000 ? ' _(Kuanzia TZS 1,000)_' : ''}\n`
+          ? `3. 📱 *Kwenda ${networkLabel} (${rec.phone})* — Ada: TZS ${momoFee.toLocaleString()}\n`
           : '') +
         `2. ❌ *Sitisha*`
       );
@@ -12293,7 +12923,6 @@ async function routeToServiceFlow(
 
       const rec = session.details.transferTarget || { displayName: 'Mpokeaji', phone: '' };
       const amt = Number(session.details.transferAmount || 0);
-      const custName = session.details.customerName || 'Mteja wa PapoPay';
       const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
       if (!payerPhone) {
         return `⚠️ Hatuna namba yako ya simu. Andika *Menu* kisha *PapoPay -> 2* kusajili simu yako kwanza.`;
@@ -12310,7 +12939,7 @@ async function routeToServiceFlow(
         c.includes('confirm');
 
       if (!isMobileNetworkSend && !isWalletSend) {
-        return `⚠️ Bonyeza *1* (PapoWallet 0% Ada), *3* (Kwenda Mtandao wa Simu), au *2* (Sitisha):`;
+        return `⚠️ Bonyeza *1* (PapoWallet), *3* (Kwenda Mtandao wa Simu), au *2* (Sitisha):`;
       }
 
       if (isMobileNetworkSend) {
@@ -12318,81 +12947,77 @@ async function routeToServiceFlow(
         if (targetPhone.replace(/\D/g, '').length < 9) {
           return `⚠️ Namba ya simu ya mpokeaji haikupatikana. Bonyeza *1* kutuma kupitia PapoWallet au *00* kuanza upya.`;
         }
-        if (amt < 1000) {
-          return `⚠️ Kiasi cha chini cha kutuma kwenda mitandao ya simu (M-Pesa / Mixx / Airtel / Halopesa) ni *TZS 1,000*. Bonyeza *1* kutuma kupitia PapoWallet (kuanzia TZS 100), au *0* kubadilisha kiasi.`;
-        }
-        const netLabel = formatMobileNetworkDisplay(targetPhone);
-        const momoFee = Math.max(100, Math.round(amt * 0.002));
-        const payerRec = await findOrEnsureWalletUser(dbAdmin, {
+      } else if (rec.found === false) {
+        return `⚠️ Mpokeaji hana akaunti ya PapoPay bado. Bonyeza *3* kutuma kwenda mtandao wake wa simu au *2* kusitisha.`;
+      }
+
+      const payerSummary = await getPapoWalletSummaryAndStatement(dbAdmin, payerPhone);
+      session.details.pendingTransferMode = isMobileNetworkSend ? 'mobile' : 'wallet';
+      session.details.creatingPinForAction = !payerSummary.hasPinSet;
+      session.step = 'PAPOPAY_TRANSFER_PIN';
+      await saveMetaSession(session, dbAdmin);
+
+      return payerSummary.hasPinSet
+        ? `🔐 *Uthibitisho wa Usalama (Transaction PIN)*\n\nAndika *PIN yako ya PapoPay* (tarakimu 4–6) kuthibitisha kutuma *TZS ${amt.toLocaleString()}/=* kwa *${rec.displayName}*:_`
+        : `🔐 *Weka Transaction PIN yako kwanza*\n\nHujawahi kuweka PIN ya kulinda akaunti yako. Andika PIN mpya ya tarakimu *4 hadi 6* (Mfano: *2580*) ili kuilinda wallet yako na kukamilisha muamala huu:`;
+    }
+
+    if (session.step === 'PAPOPAY_TRANSFER_PIN') {
+      const pinInput = input.trim();
+      if (/^(sitisha|cancel|0|00)$/i.test(pinInput)) {
+        session.step = 'START';
+        delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
+        await saveMetaSession(session, dbAdmin);
+        return `❌ Muamala umesitishwa. Andika *Menu* kuendelea.`;
+      }
+
+      const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      const custName = session.details.customerName || 'Mteja wa PapoPay';
+      const rec = session.details.transferTarget || { displayName: 'Mpokeaji', phone: '' };
+      const amt = Number(session.details.transferAmount || 0);
+      const idemKey = String(session.details.draftIdempotencyKey || `wa_trf_${Date.now()}`);
+      const mode = session.details.pendingTransferMode === 'mobile' ? 'mobile' : 'wallet';
+
+      if (session.details.creatingPinForAction) {
+        const setRes = await updateWalletSecurityProfile(dbAdmin, {
           phone: payerPhone,
           displayName: custName,
-          createIfMissing: false,
+          newPin: pinInput,
         });
-        if (!payerRec) {
-          await setInsufficientBalanceQuickTopup();
-          return `⚠️ Salio la PapoWallet ni *TZS 0* (unahitaji *TZS ${(amt + momoFee).toLocaleString()}*). Bonyeza *📥 Weka Pesa* kuweka salio kwanza.`;
+        if (!setRes.ok) {
+          return `⚠️ ${setRes.error || 'Weka PIN halali ya tarakimu 4 hadi 6:'}`;
         }
+        session.details.creatingPinForAction = false;
+      }
 
-        if (isDaliPayConfigured()) {
-          const mobRes = await executePapoWalletMobileDisbursement(dbAdmin, {
-            payerUid: payerRec.uid,
-            phone: payerPhone,
-            displayName: custName,
-            recipientPhone: targetPhone,
-            recipientName: rec.displayName || targetPhone,
-            amount: amt,
-          });
-          if (!mobRes.ok) {
-            if (/salio|halitoshi|insufficient/i.test(mobRes.reason || '')) {
-              await setInsufficientBalanceQuickTopup();
-              return `⚠️ ${mobRes.reason} Bonyeza *📥 Weka Pesa* kuongeza salio lako sasa.`;
-            }
-            session.step = 'START';
-            delete session.service;
-            session.details = preserveCustomerFields(session.details, lang);
-            await saveMetaSession(session, dbAdmin);
-            return `⚠️ Imeshindikana kutuma kwenda ${netLabel}: ${mobRes.reason}`;
-          }
-
-          session.step = 'START';
-          delete session.service;
-          session.details = preserveCustomerFields(session.details, lang);
-          await saveMetaSession(session, dbAdmin);
-
-          return (
-            `✅ *PESA IMETUMWA KWENDA ${netLabel.toUpperCase()}!* 📱💚\n` +
-            `🔖 Rejea: *#${mobRes.refCode}*\n\n` +
-            `- Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
-            `- Mtandao: *${mobRes.network || netLabel}*\n` +
-            `- Kiasi Alichopokea: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Ada (0.2%): *TZS ${Number(mobRes.fee || momoFee).toLocaleString()}/=*\n` +
-            `- Salio Jipya PapoWallet: *TZS ${Number(mobRes.newBalance || 0).toLocaleString()}/=*`
-          );
-        }
-
-        // Atomic external mobile money queue + Admin alert when DaliPay keys aren't configured
-        const qRes = await executeQueuedExternalTransfer(dbAdmin, {
-          payerUid: payerRec.uid,
-          payerPhone,
-          payerName: custName,
-          destinationType: 'mobile_money',
-          destinationName: netLabel,
-          accountOrPhone: targetPhone,
-          recipientName: rec.displayName || targetPhone,
+      if (mode === 'mobile') {
+        const targetPhone = String(rec.phone || '').trim();
+        const detectedNet = normalizeMobileMoneyNetwork(undefined, targetPhone) || 'MPESA';
+        const wRes = await executeSecureMobileWithdrawal(dbAdmin, {
+          senderPhone: payerPhone,
+          network: detectedNet,
+          recipientPhone: targetPhone,
           amount: amt,
-          fee: momoFee,
-          note: `WhatsApp Cross-Network (${netLabel})`,
+          pin: pinInput,
+          idempotencyKey: idemKey,
+          note: `WhatsApp Cross-Network to ${rec.displayName || targetPhone}`,
+          channel: 'whatsapp',
         });
-        if (!qRes.ok) {
-          if (qRes.insufficientBalance) {
+
+        if (!wRes.ok) {
+          if (wRes.code === 'INVALID_PIN' && !session.details.creatingPinForAction) {
+            return `⚠️ ${wRes.reason}\n\nJaribu tena kuweka PIN sahihi (au andika *Sitisha*):`;
+          }
+          if (/salio|halitoshi|insufficient/i.test(wRes.reason || '')) {
             await setInsufficientBalanceQuickTopup();
-            return `⚠️ ${qRes.reason} Bonyeza *📥 Weka Pesa* kuongeza salio lako sasa.`;
+            return `⚠️ ${wRes.reason} Bonyeza *📥 Weka Pesa* kuongeza salio lako sasa.`;
           }
           session.step = 'START';
           delete session.service;
           session.details = preserveCustomerFields(session.details, lang);
           await saveMetaSession(session, dbAdmin);
-          return `⚠️ Imeshindikana kutuma kwenda ${netLabel}: ${qRes.reason}`;
+          return `⚠️ Imeshindikana kutuma kwenda ${getMobileMoneyNetworkLabel(detectedNet)}: ${wRes.reason}`;
         }
 
         session.step = 'START';
@@ -12400,37 +13025,53 @@ async function routeToServiceFlow(
         session.details = preserveCustomerFields(session.details, lang);
         await saveMetaSession(session, dbAdmin);
 
-        await notifyAdminExternalPayout(
-          `📱 *OMBI LA KUTUMA KWENDA ${netLabel.toUpperCase()}* (#${qRes.refCode})\n\n` +
-            `- Mtumaji: *${custName}* (${payerPhone})\n` +
-            `- Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
-            `- Kiasi cha Kutuma: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Ada Iliyokatwa: *TZS ${momoFee.toLocaleString()}/=* (Jumla: TZS ${Number(qRes.totalDebit || 0).toLocaleString()})\n\n` +
-            `_Fedha zimeshikiliwa salama kwenye PapoWallet ya mtumaji. Kamilisha malipo au weka funguo za DaliPay kwa ulipaji wa moja kwa moja._`
-        );
+        if (wRes.status === 'pending') {
+          await notifyAdminExternalPayout(
+            `📱 *OMBI LA KUTOA/KUTUMA KWENDA ${wRes.networkLabel || detectedNet}* (#${wRes.refCode})\n\n` +
+              `• Mtumaji: *${custName}* (${payerPhone})\n` +
+              `• Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
+              `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(wRes.fee || 0).toLocaleString()})\n\n` +
+              `_Fedha zimehifadhiwa kwenye Reserved Escrow. Thibitisha kwenye Admin Treasury Dashboard._`
+          );
+          return (
+            `⏳ *OMBI LA KUTUMA KWENDA ${(wRes.networkLabel || detectedNet).toUpperCase()} LIMEPOKELEWA (PENDING)!*\n` +
+            `🔖 Rejea: *#${wRes.refCode}*\n\n` +
+            `• Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
+            `• Mtandao: *${wRes.networkLabel || detectedNet}*\n` +
+            `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(wRes.fee || 0).toLocaleString()})\n` +
+            `• Salio Linalopatikana: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*\n` +
+            `• Fedha Zinazosubiri (Reserved): *TZS ${Number(wRes.newReservedBalance || 0).toLocaleString()}/=*\n\n` +
+            `_${wRes.message || 'Muamala unashughulikiwa na Hazina na utapokea uthibitisho pindi ukikamilika.'}_`
+          );
+        }
 
         return (
-          `✅ *OMBI LA KUTUMA KWENDA ${netLabel.toUpperCase()} LIMEPOKELEWA!* 📱⏳\n` +
-          `🔖 Rejea: *#${qRes.refCode}*\n\n` +
-          `- Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
-          `- Mtandao: *${netLabel}*\n` +
-          `- Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${momoFee.toLocaleString()})\n` +
-          `- Salio Jipya PapoWallet: *TZS ${Number(qRes.newBalance || 0).toLocaleString()}/=*\n\n` +
-          `_Muamala wako unachakatwa kwenda ${netLabel} na utapokea uthibitisho pindi ukikamilika._`
+          `✅ *PESA IMETUMWA KWENDA ${(wRes.networkLabel || detectedNet).toUpperCase()}!* 📱💚\n` +
+          `🔖 Rejea: *#${wRes.refCode}*\n\n` +
+          `• Mpokeaji: *${rec.displayName}* (${targetPhone})\n` +
+          `• Mtandao: *${wRes.networkLabel}*\n` +
+          `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(wRes.fee || 0).toLocaleString()})\n` +
+          `• Salio Jipya: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*`
         );
       }
 
-      const res = await executePapoWalletTransfer(dbAdmin, {
-        payerPhone,
-        payerName: custName,
-        recipientQuery: rec.phone || rec.walletId || rec.displayName,
+      const res = await executeSecureP2PTransfer(dbAdmin, {
+        senderPhone: payerPhone,
+        recipientQuery: String(rec.recipientQuery || rec.username || rec.walletId || rec.phone || ''),
         amount: amt,
-        note: 'WhatsApp P2P Transfer',
+        pin: pinInput,
+        idempotencyKey: idemKey,
+        note: 'WhatsApp PapoPay Transfer',
+        channel: 'whatsapp',
       });
+
       if (!res.ok) {
+        if (res.code === 'INVALID_PIN') {
+          return `⚠️ ${res.reason}\n\nJaribu tena kuweka PIN sahihi (au andika *Sitisha*):`;
+        }
         if (/salio|halitoshi|haijawekewa|insufficient/i.test(res.reason || '')) {
           await setInsufficientBalanceQuickTopup();
-          return `⚠️ Imeshindikana kutuma pesa: ${res.reason}\n\n💡 Bonyeza *📥 Weka Pesa* hapa chini kuongeza salio kupitia M-Pesa / Mixx / Airtel / Lipa Namba.`;
+          return `⚠️ Imeshindikana kutuma pesa: ${res.reason}\n\n💡 Bonyeza *📥 Weka Pesa* hapa chini kuongeza salio.`;
         }
         session.step = 'START';
         delete session.service;
@@ -12438,13 +13079,14 @@ async function routeToServiceFlow(
         await saveMetaSession(session, dbAdmin);
         return `⚠️ Imeshindikana kutuma pesa: ${res.reason}`;
       }
+
       const paidCard = buildPaidOrderStatusPayload({
         refCode: res.refCode || 'TRF',
         merchantName: res.recipient?.displayName || rec.displayName,
-        itemTitle: 'Tuma Pesa PapoWallet (0% Ada)',
+        itemTitle: 'Tuma Pesa PapoPay',
         amount: amt,
-        methodLabel: 'PapoWallet P2P',
-        newBalance: res.newPayerBalance,
+        methodLabel: 'PapoPay Wallet',
+        newBalance: res.newSenderBalance,
       });
       session.step = 'START';
       delete session.service;
@@ -12454,18 +13096,18 @@ async function routeToServiceFlow(
       };
       await saveMetaSession(session, dbAdmin);
 
-      if (res.recipient?.phone) {
+      if (!res.duplicate && res.recipient?.phone) {
         const recDigits = res.recipient.phone.replace(/\D/g, '');
         if (recDigits.length >= 9) {
           sendMetaOutboundMessage({
             channel: 'whatsapp',
             recipientId: recDigits,
             text:
-              `💸 *UMEPOKEA PESA PAPOWALLET!*\n` +
+              `💸 *UMEPOKEA PESA PAPOPAY!*\n` +
               `🔖 Rejea: *#${res.refCode}*\n\n` +
-              `- Kutoka kwa: *${custName}* (${payerPhone})\n` +
-              `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
-              `- Ada: *TZS 0* ✅`,
+              `• Kutoka kwa: *${res.sender?.displayName || custName}*${res.sender?.username ? ` (${res.sender.username})` : ''}\n` +
+              `• Kiasi: *TZS ${amt.toLocaleString()}/=*\n` +
+              `• Ada: *TZS 0* ✅`,
           }).catch(() => {});
         }
       }
@@ -12473,9 +13115,11 @@ async function routeToServiceFlow(
       return (
         `✅ *PESA IMETUMWA PAPO HAPO!* 💚\n` +
         `🔖 Rejea: *#${res.refCode}*\n\n` +
-        `- Mpokeaji: *${res.recipient?.displayName || rec.displayName}*\n` +
-        `- Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS 0)\n` +
-        `- Salio Jipya: *TZS ${Number(res.newPayerBalance || 0).toLocaleString()}/=*`
+        `• Mpokeaji: *${res.recipient?.displayName || rec.displayName}*${res.recipient?.username ? ` (${res.recipient.username})` : ''}\n` +
+        `• Wallet ID: *${res.recipient?.maskedWalletId || rec.maskedWalletId || '-'}*\n` +
+        `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(res.fee || 0).toLocaleString()})\n` +
+        `• Jumla Iliyokatwa: *TZS ${Number(res.totalDebit || amt).toLocaleString()}/=*\n` +
+        `• Salio Jipya: *TZS ${Number(res.newSenderBalance || 0).toLocaleString()}/=*`
       );
     }
 
@@ -12971,39 +13615,38 @@ async function routeToServiceFlow(
       );
     }
 
-    // WAKALA CASH-OUT STEPS (Option 8)
+    // WAKALA & MOBILE MONEY WITHDRAWAL STEPS (Option 8)
     if (session.step === 'PAPOPAY_WITHDRAW_AMOUNT') {
       const amt = parseInt(input.replace(/\D/g, ''), 10);
-      if (!amt || amt < 1000) {
+      const settings = await getPapoPayTreasurySettings(dbAdmin);
+      if (!amt || amt < settings.withdrawalMinAmount) {
         return lang === 'en'
-          ? `[[EN_NATIVE]]⚠️ Minimum Wakala withdrawal amount is *TZS 1,000* (e.g. *10000*):`
-          : `⚠️ Kiasi cha chini cha kutoa kwa Wakala ni TZS 1,000 (Mfano: *10000*):`;
+          ? `[[EN_NATIVE]]⚠️ Minimum withdrawal amount is *TZS ${settings.withdrawalMinAmount.toLocaleString()}* (e.g. *10000*):`
+          : `⚠️ Kiasi cha chini cha kutoa ni TZS ${settings.withdrawalMinAmount.toLocaleString()} (Mfano: *10000*):`;
       }
-      const rawPctFee = Math.round(amt * 0.002);
-      const fee = Math.max(100, rawPctFee);
-      const minApplied = rawPctFee < 100;
+      const fee = computeWithdrawalFee(amt, settings);
       session.details.withdrawAmount = amt;
       session.details.withdrawFee = fee;
+      session.details.draftIdempotencyKey = `wa_wth_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
       session.step = 'PAPOPAY_WITHDRAW_CONFIRM';
       await saveMetaSession(session, dbAdmin);
-      const daliReady = isDaliPayConfigured();
       return lang === 'en'
         ? (
             `[[EN_NATIVE]]🏧 *Confirm Cash Withdrawal*\n\n` +
             `- Cash to Receive: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Fee (0.2%${minApplied ? ', min TZS 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
-            `- Total to be Deducted: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
+            `- Fee (${settings.withdrawalFeePercent}%): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Total Deduction: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
             `1. 🏪 *Wakala Cash-Out Code*\n` +
-            (daliReady ? `3. 📱 *Send to Mobile Money (DaliPay)*\n` : '') +
+            `3. 📱 *Mobile Money (M-Pesa / Tigo / Airtel / HaloPesa)*\n` +
             `2. ❌ *Cancel*`
           )
         : (
             `🏧 *Thibitisha Kutoa Pesa*\n\n` +
             `- Kiasi Unachopokea: *TZS ${amt.toLocaleString()}/=*\n` +
-            `- Ada (0.2%${minApplied ? ', kima cha chini 100' : ''}): *TZS ${fee.toLocaleString()}/=*\n` +
+            `- Ada (${settings.withdrawalFeePercent}%): *TZS ${fee.toLocaleString()}/=*\n` +
             `- Jumla Itakayokatwa: *TZS ${(amt + fee).toLocaleString()}/=*\n\n` +
             `1. 🏪 *Tengeneza Msimbo wa Wakala*\n` +
-            (daliReady ? `3. 📱 *Tuma Kwenda Simu (DaliPay)*\n` : '') +
+            `3. 📱 *Toa Kwenda Simu (M-Pesa / Tigo / Airtel / HaloPesa)*\n` +
             `2. ❌ *Sitisha*`
           );
     }
@@ -13038,8 +13681,8 @@ async function routeToServiceFlow(
 
       if (!isMobilePayout && !isWakalaPayout) {
         return lang === 'en'
-          ? `[[EN_NATIVE]]⚠️ Reply *1* for Wakala code${isDaliPayConfigured() ? ', *3* for Mobile Money,' : ''} or *2* to cancel:`
-          : `⚠️ Bonyeza *1* kupata msimbo wa wakala${isDaliPayConfigured() ? ', *3* kwenda simu,' : ''} au *2* kusitisha:`;
+          ? `[[EN_NATIVE]]⚠️ Reply *1* for Wakala code, *3* for Mobile Money, or *2* to cancel:`
+          : `⚠️ Bonyeza *1* kupata msimbo wa wakala, *3* kwenda simu, au *2* kusitisha:`;
       }
 
       const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
@@ -13051,54 +13694,16 @@ async function routeToServiceFlow(
       const amt = Number(session.details.withdrawAmount || 0);
 
       if (isMobilePayout) {
-        const mobRes = await executePapoWalletMobileDisbursement(dbAdmin, {
-          phone: payerPhone,
-          displayName: session.details.customerName || 'Mteja wa PapoPay',
-          amount: amt,
-        });
-        if (!mobRes.ok) {
-          session.step = 'START';
-          delete session.service;
-          session.details = preserveCustomerFields(session.details, lang);
-          await saveMetaSession(session, dbAdmin);
-          return lang === 'en'
-            ? `[[EN_NATIVE]]⚠️ Mobile payout failed: ${mobRes.reason}`
-            : `⚠️ Kutuma kwenda simu kulishindikana: ${mobRes.reason}`;
-        }
-        const paidCard = buildPaidOrderStatusPayload({
-          refCode: mobRes.refCode || 'DISB',
-          merchantName: `PapoPay Mobile Payout (${mobRes.network || 'MoMo'})`,
-          itemTitle: `To ${payerPhone} via DaliPay`,
-          amount: mobRes.totalDebit || amt,
-          methodLabel: 'DaliPay Disbursement',
-          newBalance: mobRes.newBalance,
-        });
-        session.step = 'START';
-        delete session.service;
-        session.details = {
-          ...preserveCustomerFields(session.details, lang),
-          paidOrderStatus: paidCard,
-        };
+        session.step = 'PAPOPAY_WITHDRAW_NETWORK';
         await saveMetaSession(session, dbAdmin);
-        return lang === 'en'
-          ? (
-              `[[EN_NATIVE]]✅ *MOBILE MONEY PAYOUT ${mobRes.status === 'completed' ? 'SENT' : 'INITIATED'}!* 📱\n` +
-              `🔖 Ref: *#${mobRes.refCode}*\n\n` +
-              `- Network: *${mobRes.network || 'Mobile Money'}*\n` +
-              `- Recipient Phone: *${payerPhone}*\n` +
-              `- Cash Sent: *TZS ${amt.toLocaleString()}/=*\n` +
-              `- Fee Deducted: TZS ${Number(mobRes.fee || 0).toLocaleString()}\n` +
-              `- New PapoWallet Balance: *TZS ${Number(mobRes.newBalance || 0).toLocaleString()}/=*`
-            )
-          : (
-              `✅ *OMBI LA KUTOA PESA KWENDA SIMU ${mobRes.status === 'completed' ? 'LIMETUMWA' : 'LIMEPOKELEWA'}!* 📱\n` +
-              `🔖 Rejea: *#${mobRes.refCode}*\n\n` +
-              `- Mtandao: *${mobRes.network || 'Mobile Money'}*\n` +
-              `- Simu ya Mpokeaji: *${payerPhone}*\n` +
-              `- Kiasi Kilichotumwa: *TZS ${amt.toLocaleString()}/=*\n` +
-              `- Ada Iliyokatwa: TZS ${Number(mobRes.fee || 0).toLocaleString()}\n` +
-              `- Salio Jipya la PapoWallet: *TZS ${Number(mobRes.newBalance || 0).toLocaleString()}/=*`
-            );
+        return (
+          `📱 *Chagua Mtandao wa Kupokea Pesa*\n\n` +
+          `1. Vodacom M-Pesa\n` +
+          `2. Tigo Pesa (Mixx by Yas)\n` +
+          `3. Airtel Money\n` +
+          `4. HaloPesa\n\n` +
+          `Chagua mtandao au andika namba (*1–4*):`
+        );
       }
 
       const res = await executePapoWalletWithdrawal(dbAdmin, {
@@ -13149,6 +13754,144 @@ async function routeToServiceFlow(
             `💰 *Salio Jipya:* *TZS ${Number(res.newBalance || 0).toLocaleString()}/=*\n\n` +
             `📍 Mwoneshe Wakala yeyote wa *PapoPay* msimbo *${res.withdrawCode}* upate pesa yako taslimu!`
           );
+    }
+
+    if (session.step === 'PAPOPAY_WITHDRAW_NETWORK') {
+      const raw = input.trim().toUpperCase();
+      let chosenNet = normalizeMobileMoneyNetwork(
+        raw === '1' || raw === 'NET:MPESA' ? 'MPESA'
+        : raw === '2' || raw === 'NET:TIGO' ? 'TIGO'
+        : raw === '3' || raw === 'NET:AIRTEL' ? 'AIRTEL'
+        : raw === '4' || raw === 'NET:HALOPESA' ? 'HALOPESA'
+        : raw.replace(/^NET:/, '')
+      );
+      if (!chosenNet) {
+        return `⚠️ Tafadhali chagua mtandao sahihi: *1* (M-Pesa), *2* (Tigo Pesa), *3* (Airtel Money), au *4* (HaloPesa):`;
+      }
+      const settings = await getPapoPayTreasurySettings(dbAdmin);
+      if (settings.enabledNetworks[chosenNet] === false) {
+        return `⚠️ Mtandao wa *${getMobileMoneyNetworkLabel(chosenNet)}* umezimwa kwa muda na Admin. Chagua mtandao mwingine:`;
+      }
+      const defaultPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      session.details.withdrawNetwork = chosenNet;
+      session.step = 'PAPOPAY_WITHDRAW_PHONE';
+      await saveMetaSession(session, dbAdmin);
+      return (
+        `📱 *Namba ya Simu ya Kupokea (${getMobileMoneyNetworkLabel(chosenNet)})*\n\n` +
+        `Andika namba ya simu ya mpokeaji (Mfano: *0754123456*)${defaultPhone ? `, au andika *1* kutumia namba yako (*${defaultPhone}*)` : ''}:`
+      );
+    }
+
+    if (session.step === 'PAPOPAY_WITHDRAW_PHONE') {
+      const defaultPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      const targetPhone = input.trim() === '1' && defaultPhone ? defaultPhone : input.trim();
+      if (targetPhone.replace(/\D/g, '').length < 9) {
+        return `⚠️ Weka namba sahihi ya simu yenye tarakimu angalau 9 (Mfano: *0754123456*):`;
+      }
+      const payerPhone = defaultPhone || targetPhone;
+      const payerSummary = await getPapoWalletSummaryAndStatement(dbAdmin, payerPhone);
+      const amt = Number(session.details.withdrawAmount || 0);
+      const fee = Number(session.details.withdrawFee || 0);
+      const netLabel = getMobileMoneyNetworkLabel(session.details.withdrawNetwork || 'MPESA');
+
+      session.details.withdrawRecipientPhone = targetPhone;
+      session.details.creatingPinForAction = !payerSummary.hasPinSet;
+      session.step = 'PAPOPAY_WITHDRAW_PIN';
+      await saveMetaSession(session, dbAdmin);
+
+      return payerSummary.hasPinSet
+        ? `🔐 *Thibitisha Kutoa Pesa kwenda ${netLabel}*\n\n• Simu: *${targetPhone}*\n• Kiasi: *TZS ${amt.toLocaleString()}* • Ada: *TZS ${fee.toLocaleString()}*\n• Jumla: *TZS ${(amt + fee).toLocaleString()}*\n\nAndika *Transaction PIN* yako (tarakimu 4–6) kuthibitisha:`
+        : `🔐 *Weka Transaction PIN yako kwanza*\n\nAndika PIN mpya ya tarakimu *4 hadi 6* (Mfano: *2580*) kulinda wallet yako na kuthibitisha kutoa *TZS ${amt.toLocaleString()}* kwenda *${netLabel}*:`;
+    }
+
+    if (session.step === 'PAPOPAY_WITHDRAW_PIN') {
+      const pinInput = input.trim();
+      if (/^(sitisha|cancel|0|00)$/i.test(pinInput)) {
+        session.step = 'START';
+        delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
+        await saveMetaSession(session, dbAdmin);
+        return `❌ Ombi la kutoa pesa limesitishwa. Andika *Menu* kuendelea.`;
+      }
+
+      const payerPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
+      const custName = session.details.customerName || 'Mteja wa PapoPay';
+      const amt = Number(session.details.withdrawAmount || 0);
+      const targetNet = String(session.details.withdrawNetwork || 'MPESA');
+      const recipientPhone = String(session.details.withdrawRecipientPhone || payerPhone);
+      const idemKey = String(session.details.draftIdempotencyKey || `wa_wth_${Date.now()}`);
+
+      if (session.details.creatingPinForAction) {
+        const setRes = await updateWalletSecurityProfile(dbAdmin, {
+          phone: payerPhone,
+          displayName: custName,
+          newPin: pinInput,
+        });
+        if (!setRes.ok) {
+          return `⚠️ ${setRes.error || 'Weka PIN halali ya tarakimu 4 hadi 6:'}`;
+        }
+        session.details.creatingPinForAction = false;
+      }
+
+      const wRes = await executeSecureMobileWithdrawal(dbAdmin, {
+        senderPhone: payerPhone,
+        network: targetNet,
+        recipientPhone,
+        amount: amt,
+        pin: pinInput,
+        idempotencyKey: idemKey,
+        note: `WhatsApp Mobile Money Withdrawal (${targetNet})`,
+        channel: 'whatsapp',
+      });
+
+      if (!wRes.ok) {
+        if (wRes.code === 'INVALID_PIN') {
+          return `⚠️ ${wRes.reason}\n\nJaribu tena kuweka PIN sahihi (au andika *Sitisha*):`;
+        }
+        if (/salio|halitoshi|insufficient/i.test(wRes.reason || '')) {
+          await setInsufficientBalanceQuickTopup();
+          return `⚠️ ${wRes.reason} Bonyeza *📥 Weka Pesa* kuongeza salio lako sasa.`;
+        }
+        session.step = 'START';
+        delete session.service;
+        session.details = preserveCustomerFields(session.details, lang);
+        await saveMetaSession(session, dbAdmin);
+        return `⚠️ Kutuma kwenda simu kulishindikana: ${wRes.reason}`;
+      }
+
+      session.step = 'START';
+      delete session.service;
+      session.details = preserveCustomerFields(session.details, lang);
+      await saveMetaSession(session, dbAdmin);
+
+      if (wRes.status === 'pending') {
+        await notifyAdminExternalPayout(
+          `📱 *OMBI JIPYA LA KUTOA PESA (${wRes.networkLabel || targetNet})* (#${wRes.refCode})\n\n` +
+            `• Mtumaji: *${custName}* (${payerPhone})\n` +
+            `• Namba ya Mpokeaji: *${wRes.recipientPhone}*\n` +
+            `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(wRes.fee || 0).toLocaleString()})\n\n` +
+            `_Fedha zimewekwa kwenye Reserved Escrow. Kamilisha kupitia Admin Dashboard -> Financial Treasury._`
+        );
+        return (
+          `⏳ *OMBI LA KUTOA PESA LIMEPOKELEWA (PENDING)!* 📱\n` +
+          `🔖 Rejea: *#${wRes.refCode}*\n\n` +
+          `• Mtandao: *${wRes.networkLabel || targetNet}*\n` +
+          `• Namba ya Simu: *${wRes.recipientPhone}*\n` +
+          `• Kiasi: *TZS ${amt.toLocaleString()}/=* (Ada: TZS ${Number(wRes.fee || 0).toLocaleString()})\n` +
+          `• Salio Linalopatikana: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*\n` +
+          `• Fedha Zinazosubiri (Reserved): *TZS ${Number(wRes.newReservedBalance || 0).toLocaleString()}/=*\n\n` +
+          `_${wRes.message || 'Malipo yako yanashughulikiwa na Hazina na utapokea ujumbe pindi yakikamilika.'}_`
+        );
+      }
+
+      return (
+        `✅ *PESA IMETUMWA KWENDA ${(wRes.networkLabel || targetNet).toUpperCase()}!* 📱💚\n` +
+        `🔖 Rejea: *#${wRes.refCode}*\n\n` +
+        `• Namba ya Simu: *${wRes.recipientPhone}*\n` +
+        `• Kiasi Kilichotumwa: *TZS ${amt.toLocaleString()}/=*\n` +
+        `• Ada: TZS ${Number(wRes.fee || 0).toLocaleString()}\n` +
+        `• Salio Jipya: *TZS ${Number(wRes.newAvailableBalance || 0).toLocaleString()}/=*`
+      );
     }
 
     // CARDS MENU & STUDENT NFC CARD (Option 9)
@@ -13307,14 +14050,15 @@ async function routeToServiceFlow(
       const requesterPhone = knownPhone || session.details.phone || (waDigitsFallback.length >= 9 ? `+${waDigitsFallback}` : '');
       const requesterName = session.details.customerName || 'Mfanyabiashara wa PapoPay';
       const linkRef = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
-      const payUrl = buildExpressPayUrl({
-        to: requesterPhone,
-        name: requesterName,
-        amount: amt,
-        ref: linkRef,
+      const storedLink = await createEnhancedPaymentLink(dbAdmin, {
+        refCode: linkRef,
         title,
+        amount: amt,
+        merchantName: requesterName,
+        merchantPhone: requesterPhone,
         purpose: 'payment_request',
       });
+      const payUrl = storedLink.checkoutUrl;
       const orderCard = buildOrderDetailsPayload({
         refCode: linkRef,
         merchantName: requesterName,
@@ -13334,7 +14078,7 @@ async function routeToServiceFlow(
       await saveMetaSession(session, dbAdmin);
 
       return (
-        `🔗 *KADI & LINK YA MALIPO IMEUNDWA!* (#${linkRef})\n\n` +
+        `🔗 *KADI & ENHANCED PAYMENT LINK IMEUNDWA!* (#${linkRef})\n\n` +
         `- Mpokeaji: *${requesterName}*\n` +
         `- Huduma: *${title}*\n` +
         `- Kiasi: *TZS ${amt.toLocaleString()}/=*\n\n` +
@@ -14962,26 +15706,36 @@ export async function sendMetaOutboundMessage(params: {
           const {
             fallbackInteractive: rawFbInteractive,
             papopayMeta: _unusedMeta,
+            papopayFlowMeta: _unusedFlowMeta,
             ...wireInteractive
           } = sanitizedInteractive as any;
-          // If full details on a CTA URL message exceed 1024 chars, send full text first then attach the CTA URL card
-          if (wireInteractive.type === 'cta_url' && text.length > 1024) {
-            await sendWaPlainText(text);
-            wireInteractive.body.text = clampMetaBodyText(
-              '👇 Bonyeza kitufe hapo chini kufungua kiungo:',
-              1024
-            );
+
+          const isLocalOnlyFlow =
+            wireInteractive?.type === 'flow' &&
+            String(wireInteractive?.action?.parameters?.flow_id || '').startsWith('local_');
+
+          if (!isLocalOnlyFlow) {
+            // If full details on a CTA URL message exceed 1024 chars, send full text first then attach the CTA URL card
+            if (wireInteractive.type === 'cta_url' && text.length > 1024) {
+              await sendWaPlainText(text);
+              wireInteractive.body.text = clampMetaBodyText(
+                '👇 Bonyeza kitufe hapo chini kufungua kiungo:',
+                1024
+              );
+            }
+
+            const intRes = await postWaInteractive(wireInteractive);
+            if (intRes.ok) {
+              console.log(`[Meta Outbound] WhatsApp interactive (${wireInteractive.type}) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
+              return { sent: true };
+            }
           }
 
-          const intRes = await postWaInteractive(wireInteractive);
-          if (intRes.ok) {
-            console.log(`[Meta Outbound] WhatsApp interactive (${wireInteractive.type}) sent to ${recipientId} via phoneNumberId=${resolvedPhoneId}`);
-            return { sent: true };
-          }
           if (rawFbInteractive) {
             const {
               fallbackInteractive: _nestedFb,
               papopayMeta: _nestedMeta,
+              papopayFlowMeta: _nestedFlowMeta,
               ...wireFallback
             } = rawFbInteractive as any;
             if (
@@ -15001,7 +15755,7 @@ export async function sendMetaOutboundMessage(params: {
               return { sent: true };
             }
           }
-          console.warn('[Meta Outbound] WhatsApp interactive send rejected, falling back to plain text:', intRes.status, JSON.stringify(intRes.data));
+          console.warn('[Meta Outbound] WhatsApp interactive send rejected, falling back to plain text');
         }
       }
 

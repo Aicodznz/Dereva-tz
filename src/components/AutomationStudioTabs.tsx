@@ -38,7 +38,10 @@ import {
   Trash2,
   Save,
   Plus,
-  Folder
+  Folder,
+  Link2,
+  Code2,
+  CreditCard
 } from 'lucide-react';
 
 export interface SavedFlow {
@@ -194,6 +197,144 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
       })
       .catch(() => {});
   }, []);
+
+  // WhatsApp Flows v6.0 & Enhanced Payment Links / Checkout Templates State
+  const [flowEnableNative, setFlowEnableNative] = useState(true);
+  const [flowHubId, setFlowHubId] = useState('');
+  const [flowPapoPayId, setFlowPapoPayId] = useState('');
+  const [flowCheckoutId, setFlowCheckoutId] = useState('');
+  const [flowRegisterId, setFlowRegisterId] = useState('');
+  const [flowPaymentConfig, setFlowPaymentConfig] = useState('');
+  const [flowDataEndpointUri, setFlowDataEndpointUri] = useState('');
+  const [flowSchemas, setFlowSchemas] = useState<Record<string, any>>({});
+  const [activeSchemaTab, setActiveSchemaTab] = useState<'hub' | 'papopay' | 'checkout'>('papopay');
+  const [isSavingFlows, setIsSavingFlows] = useState(false);
+  const [publishingFlowKey, setPublishingFlowKey] = useState<string | null>(null);
+
+  const [tplTestPhone, setTplTestPhone] = useState('');
+  const [tplTestTitle, setTplTestTitle] = useState('Papo Hapo Express Service');
+  const [tplTestAmount, setTplTestAmount] = useState('15000');
+  const [tplTestMode, setTplTestMode] = useState<'order_details' | 'url_button'>('order_details');
+  const [tplTestName, setTplTestName] = useState('papopay_checkout_prompt');
+  const [isTestingCheckoutTpl, setIsTestingCheckoutTpl] = useState(false);
+  const [checkoutTplResult, setCheckoutTplResult] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/meta/flows/config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.config) return;
+        const c = data.config;
+        setFlowEnableNative(c.enableNativeFlows !== false);
+        if (c.hubFlowId) setFlowHubId(c.hubFlowId);
+        if (c.papopayFlowId) setFlowPapoPayId(c.papopayFlowId);
+        if (c.checkoutFlowId) setFlowCheckoutId(c.checkoutFlowId);
+        if (c.registerFlowId) setFlowRegisterId(c.registerFlowId);
+        if (c.paymentConfiguration) setFlowPaymentConfig(c.paymentConfiguration);
+        if (data.dataEndpointUri) setFlowDataEndpointUri(data.dataEndpointUri);
+        if (data.schemas) setFlowSchemas(data.schemas);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveFlowsConfig = async () => {
+    setIsSavingFlows(true);
+    try {
+      const res = await fetch('/api/meta/flows/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enableNativeFlows: flowEnableNative,
+          hubFlowId: flowHubId.trim(),
+          papopayFlowId: flowPapoPayId.trim(),
+          checkoutFlowId: flowCheckoutId.trim(),
+          registerFlowId: flowRegisterId.trim(),
+          paymentConfiguration: flowPaymentConfig.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status !== 'ok') {
+        toast.error(data.error || 'Imeshindwa kuhifadhi mipangilio ya WhatsApp Flows.');
+        return;
+      }
+      toast.success('Mipangilio ya WhatsApp Flows v6.0 imehifadhiwa!');
+    } catch {
+      toast.error('Hitilafu ya mtandao wakati wa kuhifadhi Flows config.');
+    } finally {
+      setIsSavingFlows(false);
+    }
+  };
+
+  const handlePublishFlowToMeta = async (flowKey: 'hub' | 'papopay' | 'checkout') => {
+    setPublishingFlowKey(flowKey);
+    try {
+      const res = await fetch('/api/meta/flows/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowKey,
+          wabaId: metaWabaId.trim() || undefined,
+          accessToken: metaAccessToken.trim() || undefined,
+          dataEndpointUri: flowDataEndpointUri.trim() || undefined,
+          publish: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast.error(data.error || `Imeshindwa kuchapisha Flow (${flowKey}) kwenda Meta.`);
+        return;
+      }
+      if (data.flowId) {
+        if (flowKey === 'hub') setFlowHubId(data.flowId);
+        if (flowKey === 'papopay') setFlowPapoPayId(data.flowId);
+        if (flowKey === 'checkout') setFlowCheckoutId(data.flowId);
+      }
+      toast.success(`Flow (${flowKey}) imepandishwa & kuchapishwa Meta! ID: ${data.flowId}`);
+    } catch {
+      toast.error('Mtandao umeshindwa kuwasiliana na Meta Graph API.');
+    } finally {
+      setPublishingFlowKey(null);
+    }
+  };
+
+  const handleSendTestCheckoutTemplate = async () => {
+    if (tplTestPhone.replace(/\D/g, '').length < 9) {
+      toast.error('Weka namba ya WhatsApp ya mteja (mf. 0712345678).');
+      return;
+    }
+    const cleanAmt = Math.max(100, Math.round(Number(tplTestAmount || 0)));
+    setIsTestingCheckoutTpl(true);
+    try {
+      const res = await fetch('/api/payments/send-checkout-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientPhone: tplTestPhone.trim(),
+          itemTitle: tplTestTitle.trim() || 'PapoPay Order',
+          amount: cleanAmt,
+          templateName: tplTestName.trim() || 'papopay_checkout_prompt',
+          languageCode: tplLanguageCode || 'sw',
+          mode: tplTestMode,
+          paymentConfiguration: flowPaymentConfig.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        toast.error(data.error || 'Imeshindikana kutengeneza Checkout Button Template.');
+        return;
+      }
+      setCheckoutTplResult(data);
+      toast.success(
+        data.sent
+          ? 'Checkout Button Template imetumwa WhatsApp kikamilifu!'
+          : 'Enhanced Payment Link & Template payload imeundwa tayari!'
+      );
+    } catch {
+      toast.error('Hitilafu wakati wa kuunda Checkout Template.');
+    } finally {
+      setIsTestingCheckoutTpl(false);
+    }
+  };
 
   // Webhook Domain & Live Ping Test States
   const [selectedWebhookDomain, setSelectedWebhookDomain] = useState<'vercel' | 'cloudrun'>('vercel');
@@ -1579,6 +1720,263 @@ export const AutomationStudioTabs: React.FC<AutomationStudioTabsProps> = ({
                     {isSavingMeta ? "Inasave..." : "Save Config & Deploy Webhook Integrations"}
                   </Button>
                 </div>
+              </div>
+
+              {/* WhatsApp Flows v6.0 & Data Exchange Studio */}
+              <div className="bg-white dark:bg-neutral-950 border border-emerald-500/20 dark:border-emerald-800/60 rounded-2xl p-5 space-y-5 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div>
+                    <h5 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <Workflow className="w-4 h-4 text-emerald-500" />
+                      <span>WhatsApp Flows v6.0 Studio &amp; Data Exchange</span>
+                    </h5>
+                    <p className="text-[10.5px] text-neutral-500 mt-0.5">
+                      Chapisha Papo Hapo Super Hub &amp; PapoPay Flows kwenda Meta Graph API (au hariri Flow IDs zilizoidhinishwa).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFlowEnableNative(!flowEnableNative)}
+                    className={`px-3 py-1.5 rounded-xl text-[10.5px] font-black uppercase border transition-colors cursor-pointer ${
+                      flowEnableNative
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-neutral-100 dark:bg-neutral-900 text-neutral-500 border-neutral-200 dark:border-neutral-800'
+                    }`}
+                  >
+                    {flowEnableNative ? 'Native Flows: ON' : 'Native Flows: OFF'}
+                  </button>
+                </div>
+
+                {/* Data Exchange URI */}
+                <div className="space-y-1.5">
+                  <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block">
+                    Flows Data Exchange Endpoint URI (RSA-OAEP + AES-128-GCM)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={flowDataEndpointUri || `${customProductionDomain.replace(/\/$/, '')}/api/meta/flows/data`}
+                      className="text-xs font-mono bg-neutral-50 dark:bg-neutral-900 h-9"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const uri = flowDataEndpointUri || `${customProductionDomain.replace(/\/$/, '')}/api/meta/flows/data`;
+                        navigator.clipboard?.writeText(uri);
+                        toast.success('Flows Endpoint URI imenakiliwa!');
+                      }}
+                      className="h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1" /> Copy
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Flow IDs Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Papo Hapo Super Hub Flow ID
+                    </label>
+                    <Input
+                      value={flowHubId}
+                      onChange={(e) => setFlowHubId(e.target.value)}
+                      placeholder="e.g. 1029384756123"
+                      className="text-xs font-mono h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      PapoPay Wallet Flow ID
+                    </label>
+                    <Input
+                      value={flowPapoPayId}
+                      onChange={(e) => setFlowPapoPayId(e.target.value)}
+                      placeholder="e.g. 9988776655443"
+                      className="text-xs font-mono h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Payment Link Checkout Flow ID
+                    </label>
+                    <Input
+                      value={flowCheckoutId}
+                      onChange={(e) => setFlowCheckoutId(e.target.value)}
+                      placeholder="e.g. 5566778899001"
+                      className="text-xs font-mono h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Meta Payment Configuration Name (PG / Payments)
+                    </label>
+                    <Input
+                      value={flowPaymentConfig}
+                      onChange={(e) => setFlowPaymentConfig(e.target.value)}
+                      placeholder="Mf. papopay-live-pg (hiari)"
+                      className="text-xs font-mono h-9"
+                    />
+                  </div>
+                </div>
+
+                {/* Publish Buttons + Save Config */}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleSaveFlowsConfig}
+                    disabled={isSavingFlows}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black h-9 px-4"
+                  >
+                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                    {isSavingFlows ? 'Inahifadhi...' : 'Hifadhi Flow IDs'}
+                  </Button>
+                  {(['hub', 'papopay', 'checkout'] as const).map((k) => (
+                    <Button
+                      key={k}
+                      type="button"
+                      variant="outline"
+                      disabled={publishingFlowKey === k}
+                      onClick={() => handlePublishFlowToMeta(k)}
+                      className="h-9 text-xs font-bold border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                    >
+                      <Zap className="w-3.5 h-3.5 mr-1" />
+                      {publishingFlowKey === k ? `Inapublish ${k}...` : `Publish ${k.toUpperCase()} -> Meta`}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Official Flow JSON v6.0 Inspector */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl">
+                      {(['papopay', 'hub', 'checkout'] as const).map((tabKey) => (
+                        <button
+                          key={tabKey}
+                          type="button"
+                          onClick={() => setActiveSchemaTab(tabKey)}
+                          className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold uppercase cursor-pointer ${
+                            activeSchemaTab === tabKey
+                              ? 'bg-white dark:bg-neutral-800 text-emerald-600 shadow-2xs'
+                              : 'text-neutral-500'
+                          }`}
+                        >
+                          {tabKey === 'papopay' ? 'PapoPay JSON' : tabKey === 'hub' ? 'Papo Hub JSON' : 'Checkout JSON'}
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const schemaStr = JSON.stringify(flowSchemas[activeSchemaTab] || {}, null, 2);
+                        navigator.clipboard?.writeText(schemaStr);
+                        toast.success(`Flow JSON v6.0 (${activeSchemaTab}) imenakiliwa!`);
+                      }}
+                      className="h-7 text-[10.5px] font-bold"
+                    >
+                      <Code2 className="w-3.5 h-3.5 mr-1" /> Copy Flow JSON v6.0
+                    </Button>
+                  </div>
+                  <pre className="max-h-44 overflow-auto p-3 rounded-xl bg-neutral-950 text-emerald-300 text-[10.5px] font-mono leading-relaxed border border-neutral-800">
+                    {JSON.stringify(flowSchemas[activeSchemaTab] || { loading: true }, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Enhanced Payment Links & Checkout Button Templates Tester */}
+              <div className="bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/80 rounded-2xl p-5 space-y-4 shadow-xs">
+                <div>
+                  <h5 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-emerald-500" />
+                    <span>Enhanced Payment Links &amp; Checkout Button Templates</span>
+                  </h5>
+                  <p className="text-[10.5px] text-neutral-500 mt-0.5">
+                    Tengeneza Link ya Malipo (/pay?ref=...) na tuma WhatsApp Checkout Button Template (<code>order_details</code> au URL CTA).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Namba ya WhatsApp ya Mteja
+                    </label>
+                    <Input
+                      value={tplTestPhone}
+                      onChange={(e) => setTplTestPhone(e.target.value)}
+                      placeholder="255712345678"
+                      className="text-xs h-9 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Kiasi (TZS)
+                    </label>
+                    <Input
+                      type="number"
+                      value={tplTestAmount}
+                      onChange={(e) => setTplTestAmount(e.target.value)}
+                      placeholder="15000"
+                      className="text-xs h-9 font-mono font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Jina la Huduma / Bidhaa
+                    </label>
+                    <Input
+                      value={tplTestTitle}
+                      onChange={(e) => setTplTestTitle(e.target.value)}
+                      className="text-xs h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400">
+                      Jina la Meta Template &amp; Aina
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={tplTestName}
+                        onChange={(e) => setTplTestName(e.target.value)}
+                        className="text-xs h-9 font-mono flex-1"
+                      />
+                      <select
+                        value={tplTestMode}
+                        onChange={(e) => setTplTestMode(e.target.value as 'order_details' | 'url_button')}
+                        className="h-9 px-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-bold"
+                      >
+                        <option value="order_details">order_details</option>
+                        <option value="url_button">url_button</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  disabled={isTestingCheckoutTpl}
+                  onClick={handleSendTestCheckoutTemplate}
+                  className="bg-[#008069] hover:bg-[#006b57] text-white text-xs font-black h-9 px-4"
+                >
+                  <Link2 className="w-3.5 h-3.5 mr-1.5" />
+                  {isTestingCheckoutTpl ? 'Inatengeneza & Inatuma...' : 'Unda Payment Link & Tuma Checkout Template'}
+                </Button>
+
+                {checkoutTplResult?.link && (
+                  <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-300">
+                      <span>Rejea #{checkoutTplResult.link.refCode}</span>
+                      <span>{checkoutTplResult.sent ? 'Imetumwa Live WhatsApp ✅' : 'Wire Payload Tayari'}</span>
+                    </div>
+                    <p className="font-mono text-[11px] break-all text-neutral-800 dark:text-neutral-200">
+                      {checkoutTplResult.link.checkoutUrl}
+                    </p>
+                    <pre className="max-h-32 overflow-auto p-2 rounded-lg bg-neutral-950 text-sky-300 text-[10px] font-mono">
+                      {JSON.stringify(checkoutTplResult.wireTemplate, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
 
             </div>

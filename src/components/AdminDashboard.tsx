@@ -430,6 +430,158 @@ export default function AdminDashboard() {
   const [editedDriver, setEditedDriver] = useState<Partial<UserRecord>>({});
   const [isChangingDriverStatus, setIsChangingDriverStatus] = useState(false);
 
+  // PapoPay Treasury & Mobile Money Settlements State
+  const [treasurySubTab, setTreasurySubTab] = useState<'withdrawals' | 'ledger' | 'settings' | 'audit'>('withdrawals');
+  const [treasuryStatusFilter, setTreasuryStatusFilter] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
+  const [treasuryData, setTreasuryData] = useState<{
+    summary: {
+      totalAvailableFloat: number;
+      totalReservedFloat: number;
+      pendingCount: number;
+      pendingWithdrawalAmount: number;
+      collectedFees: number;
+    };
+    settings: any;
+    disbursements: any[];
+    transactions: any[];
+    auditLogs: any[];
+  } | null>(null);
+  const [isLoadingTreasury, setIsLoadingTreasury] = useState(false);
+  const [treasuryRefInputs, setTreasuryRefInputs] = useState<Record<string, string>>({});
+  const [treasuryReasonInputs, setTreasuryReasonInputs] = useState<Record<string, string>>({});
+  const [busyPayoutRef, setBusyPayoutRef] = useState<string | null>(null);
+  const [treasuryConfigDraft, setTreasuryConfigDraft] = useState<{
+    transferFeePercent: number;
+    transferFeeFlat: number;
+    withdrawalFeePercent: number;
+    withdrawalFeeMin: number;
+    enabledNetworks: Record<'MPESA' | 'TIGO' | 'AIRTEL' | 'HALOPESA', boolean>;
+  }>({
+    transferFeePercent: 0,
+    transferFeeFlat: 0,
+    withdrawalFeePercent: 0.2,
+    withdrawalFeeMin: 100,
+    enabledNetworks: { MPESA: true, TIGO: true, AIRTEL: true, HALOPESA: true },
+  });
+  const [isSavingTreasuryConfig, setIsSavingTreasuryConfig] = useState(false);
+
+  const loadTreasuryOverview = React.useCallback(async () => {
+    setIsLoadingTreasury(true);
+    try {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const resp = await fetch('/api/admin/wallet/overview', {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+      });
+      const json = await resp.json().catch(() => null);
+      if (resp.ok && json?.ok) {
+        setTreasuryData({
+          summary: json.summary,
+          settings: json.settings,
+          disbursements: Array.isArray(json.disbursements) ? json.disbursements : [],
+          transactions: Array.isArray(json.transactions) ? json.transactions : [],
+          auditLogs: Array.isArray(json.auditLogs) ? json.auditLogs : [],
+        });
+        if (json.settings) {
+          setTreasuryConfigDraft({
+            transferFeePercent: Number(json.settings.transferFeePercent || 0),
+            transferFeeFlat: Number(json.settings.transferFeeFlat || 0),
+            withdrawalFeePercent: Number(json.settings.withdrawalFeePercent ?? 0.2),
+            withdrawalFeeMin: Number(json.settings.withdrawalFeeMin ?? 100),
+            enabledNetworks: {
+              MPESA: json.settings.enabledNetworks?.MPESA !== false,
+              TIGO: json.settings.enabledNetworks?.TIGO !== false,
+              AIRTEL: json.settings.enabledNetworks?.AIRTEL !== false,
+              HALOPESA: json.settings.enabledNetworks?.HALOPESA !== false,
+            },
+          });
+        }
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Imeshindikana kupakia taarifa za Hazina.');
+    } finally {
+      setIsLoadingTreasury(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'payouts') {
+      loadTreasuryOverview();
+    }
+  }, [activeTab, loadTreasuryOverview]);
+
+  const handleTreasuryPayoutAction = async (
+    refCode: string,
+    action: 'mark_processing' | 'approve_complete' | 'reject_or_fail'
+  ) => {
+    const extRef = (treasuryRefInputs[refCode] || '').trim();
+    const reason = (treasuryReasonInputs[refCode] || '').trim();
+    if (action === 'approve_complete' && extRef.length < 5) {
+      toast.error('Weka Rejea ya Malipo ya Nje (externalReference, angalau herufi/tarakimu 5) kabla ya kukamilisha.');
+      return;
+    }
+
+    setBusyPayoutRef(refCode);
+    try {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const resp = await fetch('/api/admin/wallet/payout-action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          refCode,
+          action,
+          externalReference: extRef || undefined,
+          reason: reason || (action === 'reject_or_fail' ? 'Imesitishwa na Hazina' : undefined),
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        toast.error(json?.error || 'Imeshindikana kubadili hali ya muamala.');
+        return;
+      }
+      toast.success(
+        action === 'approve_complete'
+          ? `Muamala #${refCode} umekamilika na kuthibitishwa!`
+          : action === 'reject_or_fail'
+          ? `Muamala #${refCode} umesitishwa na fedha za mtumiaji zimerudishwa!`
+          : `Muamala #${refCode} sasa uko katika hali ya PROCESSING.`
+      );
+      await loadTreasuryOverview();
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu ya mtandao.');
+    } finally {
+      setBusyPayoutRef(null);
+    }
+  };
+
+  const handleSaveTreasuryConfig = async () => {
+    setIsSavingTreasuryConfig(true);
+    try {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const resp = await fetch('/api/admin/wallet/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify(treasuryConfigDraft),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        toast.error(json?.error || 'Imeshindikana kuhifadhi mipangilio ya ada.');
+        return;
+      }
+      toast.success('Mipangilio ya ada za PapoPay na mitandao imehifadhiwa!');
+      await loadTreasuryOverview();
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu ya mtandao.');
+    } finally {
+      setIsSavingTreasuryConfig(false);
+    }
+  };
+
   useEffect(() => {
     if (!selectedDriverForDetail?.id) {
       setSelectedDriverTrips([]);
@@ -1950,17 +2102,423 @@ export default function AdminDashboard() {
 
         {activeTab === 'payouts' && (
            <motion.div key="payouts" className="space-y-8">
-              <div className="flex justify-between items-center">
-                 <h3 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">Financial Treasury</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                 <div>
+                    <h3 className="text-3xl font-black italic uppercase tracking-tighter text-neutral-900 dark:text-white transition-colors">
+                       PapoPay Financial Treasury
+                    </h3>
+                    <p className="text-xs font-semibold text-neutral-500 mt-1">
+                       Dhibiti maombi ya Mobile Money Withdrawals (M-Pesa, Tigo Pesa, Airtel, HaloPesa), Reserved Escrow, Ada &amp; Ledger.
+                    </p>
+                 </div>
                  <div className="flex gap-2">
-                    <Button variant="outline" className="rounded-xl border-neutral-200 font-bold uppercase text-xs">Export CSV</Button>
+                    <Button
+                      variant="outline"
+                      onClick={loadTreasuryOverview}
+                      disabled={isLoadingTreasury}
+                      className="rounded-xl border-neutral-200 font-bold uppercase text-xs flex items-center gap-1.5"
+                    >
+                      {isLoadingTreasury ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5" />}
+                      Refresh Treasury
+                    </Button>
                  </div>
               </div>
 
+              {/* DaliPay B2C API Status Banner */}
+              {treasuryData?.settings?.daliPayDisbursementApiDisabled && (
+                <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      DaliPay Automated B2C Disbursement API Imezimwa na DaliPay (Dashboard-Only)
+                    </p>
+                    <p className="mt-1 leading-relaxed">
+                      DaliPay inarudisha: <em>&ldquo;Disbursements can only be created from the DaliPay merchant dashboard.&rdquo;</em> Mfumo umewekwa kwenye <strong>Manual Settlement Escrow</strong>: fedha zinahifadhiwa kwenye <code>reservedBalance</code> (hazifutwi bure) hadi utakapotuma kupitia DaliPay Dashboard na kuweka Rejea ya Malipo (<code>externalReference</code>) hapa.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* KPI Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="p-6 rounded-3xl border-none shadow-lg bg-teal-600 text-white">
+                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">Total User Wallet Float</p>
+                  <p className="text-2xl font-black font-mono mt-1">
+                    TZS {Number(treasuryData?.summary?.totalAvailableFloat ?? stats.totalRev * 0.065).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-white/70 mt-1">Available balances across PapoPay users</p>
+                </Card>
+
+                <Card className="p-6 rounded-3xl border-none shadow-lg bg-amber-500 text-white">
+                  <p className="text-white/80 text-[10px] font-black uppercase tracking-widest">Pending Withdrawals Queue</p>
+                  <p className="text-2xl font-black font-mono mt-1">
+                    {Number(treasuryData?.summary?.pendingCount || 0)} • TZS {Number(treasuryData?.summary?.pendingWithdrawalAmount || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-white/80 mt-1">Awaiting settlement confirmation</p>
+                </Card>
+
+                <Card className="p-6 rounded-3xl border-none shadow-lg bg-indigo-600 text-white">
+                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">Reserved Escrow Balance</p>
+                  <p className="text-2xl font-black font-mono mt-1">
+                    TZS {Number(treasuryData?.summary?.totalReservedFloat || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-white/70 mt-1">Protected user funds in flight</p>
+                </Card>
+
+                <Card className="p-6 rounded-3xl border-none shadow-lg bg-emerald-600 text-white">
+                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">Collected Fees</p>
+                  <p className="text-2xl font-black font-mono mt-1">
+                    TZS {Number(treasuryData?.summary?.collectedFees || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-white/70 mt-1">Completed withdrawal &amp; transfer fees</p>
+                </Card>
+              </div>
+
+              {/* Sub-Navigation Pills */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'withdrawals' as const, label: 'Mobile Money Withdrawals Queue' },
+                  { id: 'ledger' as const, label: 'Wallet Transfers & Ledger' },
+                  { id: 'settings' as const, label: 'Fee & Network Controls' },
+                  { id: 'audit' as const, label: 'Admin Audit Logs' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTreasurySubTab(t.id)}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wide transition-all cursor-pointer ${
+                      treasurySubTab === t.id
+                        ? 'bg-orange-600 text-white shadow-md'
+                        : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {treasurySubTab === 'withdrawals' && (
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden">
+                  <div className="p-6 sm:p-8 space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400 underline decoration-orange-600 decoration-4 underline-offset-8">
+                        Mobile Money Disbursements &amp; Settlements
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(['all', 'pending', 'processing', 'completed', 'failed'] as const).map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => setTreasuryStatusFilter(st)}
+                            className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase cursor-pointer ${
+                              treasuryStatusFilter === st
+                                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                            }`}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {(treasuryData?.disbursements || [])
+                        .filter((d) => {
+                          if (treasuryStatusFilter === 'all') return true;
+                          if (treasuryStatusFilter === 'pending') {
+                            return (
+                              d.status === 'pending' ||
+                              d.status === 'pending_admin_settlement' ||
+                              d.status === 'pending_provider_webhook'
+                            );
+                          }
+                          return d.status === treasuryStatusFilter;
+                        })
+                        .map((d) => {
+                          const refCode = String(d.refCode || d.id);
+                          const isSettled = d.status === 'completed' || d.status === 'failed';
+                          const isBusy = busyPayoutRef === refCode;
+                          return (
+                            <div
+                              key={refCode}
+                              className="p-5 rounded-3xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 space-y-4"
+                            >
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-mono font-black text-sm text-neutral-900 dark:text-white">
+                                      #{refCode}
+                                    </span>
+                                    <Badge className="bg-blue-100 text-blue-700 font-black text-[10px] uppercase">
+                                      {d.networkLabel || d.network || 'MOBILE MONEY'}
+                                    </Badge>
+                                    <Badge
+                                      className={`font-black text-[10px] uppercase ${
+                                        d.status === 'completed'
+                                          ? 'bg-emerald-100 text-emerald-700'
+                                          : d.status === 'failed'
+                                          ? 'bg-red-100 text-red-700'
+                                          : d.status === 'processing'
+                                          ? 'bg-indigo-100 text-indigo-700'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}
+                                    >
+                                      {String(d.status || 'pending').toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs font-bold text-neutral-700 dark:text-neutral-200">
+                                    Mtumaji: {d.payerName || d.senderName || d.payerPhone || d.senderPhone || d.payerUid || d.senderUid} • Mpokeaji: <span className="font-mono">{d.recipientPhone}</span>
+                                  </p>
+                                  <p className="text-[11px] text-neutral-500 font-mono">
+                                    Tarehe: {d.createdAt ? new Date(d.createdAt).toLocaleString() : '-'}
+                                    {d.externalReference ? ` • Ext Ref: ${d.externalReference}` : ''}
+                                    {d.failureReason ? ` • Sababu: ${d.failureReason}` : ''}
+                                  </p>
+                                </div>
+
+                                <div className="text-left md:text-right shrink-0">
+                                  <p className="text-xl font-black font-mono text-neutral-900 dark:text-white">
+                                    TZS {Number(d.amount || 0).toLocaleString()}
+                                  </p>
+                                  <p className="text-[11px] font-bold text-amber-600 font-mono">
+                                    Fee: TZS {Number(d.fee || 0).toLocaleString()} • Escrow Total: TZS {Number(d.totalDebit || d.amount || 0).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {!isSettled && (
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                                  <div className="lg:col-span-4">
+                                    <Input
+                                      placeholder="External Tx Ref (lazima >= 5 chars)"
+                                      value={treasuryRefInputs[refCode] || ''}
+                                      onChange={(e) =>
+                                        setTreasuryRefInputs((prev) => ({ ...prev, [refCode]: e.target.value }))
+                                      }
+                                      className="rounded-xl text-xs font-mono"
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-3">
+                                    <Input
+                                      placeholder="Sababu (kama unakataa/fail)"
+                                      value={treasuryReasonInputs[refCode] || ''}
+                                      onChange={(e) =>
+                                        setTreasuryReasonInputs((prev) => ({ ...prev, [refCode]: e.target.value }))
+                                      }
+                                      className="rounded-xl text-xs"
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-5 flex flex-wrap gap-2 justify-end">
+                                    {d.status === 'pending' && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={isBusy}
+                                        onClick={() => handleTreasuryPayoutAction(refCode, 'mark_processing')}
+                                        className="rounded-xl font-black text-[10px] uppercase"
+                                      >
+                                        Mark Processing
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      disabled={isBusy}
+                                      onClick={() => handleTreasuryPayoutAction(refCode, 'approve_complete')}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] uppercase"
+                                    >
+                                      Approve &amp; Complete
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      disabled={isBusy}
+                                      onClick={() => handleTreasuryPayoutAction(refCode, 'reject_or_fail')}
+                                      className="text-red-600 hover:bg-red-50 rounded-xl font-black text-[10px] uppercase"
+                                    >
+                                      Fail &amp; Release Funds
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                      {(!treasuryData?.disbursements ||
+                        treasuryData.disbursements.filter((d) => treasuryStatusFilter === 'all' || d.status === treasuryStatusFilter).length === 0) && (
+                        <p className="text-center py-8 text-xs font-bold text-neutral-400 italic">
+                          Hakuna maombi ya kutoa pesa kwenda mtandao wa simu kwa kichujio hiki.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {treasurySubTab === 'ledger' && (
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden">
+                  <div className="p-6 sm:p-8 space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400">
+                      Immutable Wallet Transaction Ledger
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-neutral-200 dark:border-neutral-800 text-neutral-400 uppercase text-[10px]">
+                            <th className="py-2 pr-3">Tx ID</th>
+                            <th className="py-2 pr-3">Type</th>
+                            <th className="py-2 pr-3">Sender ➔ Recipient</th>
+                            <th className="py-2 pr-3">Amount / Fee</th>
+                            <th className="py-2 pr-3">Status</th>
+                            <th className="py-2">Method</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                          {(treasuryData?.transactions || []).map((tx) => (
+                            <tr key={tx.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                              <td className="py-3 pr-3 font-mono font-bold">{tx.transactionId || tx.refCode || tx.id}</td>
+                              <td className="py-3 pr-3 font-bold">{tx.typeLabel || tx.type}</td>
+                              <td className="py-3 pr-3">
+                                {tx.senderName || tx.senderUsername || '-'} ➔ {tx.recipientName || tx.recipientUsername || '-'}
+                              </td>
+                              <td className="py-3 pr-3 font-mono font-black">
+                                TZS {Number(tx.amount || 0).toLocaleString()}
+                                {Number(tx.fee || 0) > 0 && <span className="text-amber-600 ml-1">(Fee {Number(tx.fee).toLocaleString()})</span>}
+                              </td>
+                              <td className="py-3 pr-3 uppercase font-black text-[10px]">{tx.status}</td>
+                              <td className="py-3">{tx.paymentMethod || 'PapoPay Wallet'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {treasurySubTab === 'settings' && (
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden">
+                  <div className="p-6 sm:p-8 space-y-6">
+                    <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400">
+                      Transfer &amp; Withdrawal Fee Configuration + Network Controls
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <Label className="text-[11px] font-bold uppercase text-neutral-500">Transfer Fee (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={treasuryConfigDraft.transferFeePercent}
+                          onChange={(e) =>
+                            setTreasuryConfigDraft((prev) => ({ ...prev, transferFeePercent: Number(e.target.value) }))
+                          }
+                          className="mt-1 rounded-xl font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] font-bold uppercase text-neutral-500">Transfer Flat Fee (TZS)</Label>
+                        <Input
+                          type="number"
+                          value={treasuryConfigDraft.transferFeeFlat}
+                          onChange={(e) =>
+                            setTreasuryConfigDraft((prev) => ({ ...prev, transferFeeFlat: Number(e.target.value) }))
+                          }
+                          className="mt-1 rounded-xl font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] font-bold uppercase text-neutral-500">Withdrawal Fee (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={treasuryConfigDraft.withdrawalFeePercent}
+                          onChange={(e) =>
+                            setTreasuryConfigDraft((prev) => ({ ...prev, withdrawalFeePercent: Number(e.target.value) }))
+                          }
+                          className="mt-1 rounded-xl font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] font-bold uppercase text-neutral-500">Withdrawal Min Fee (TZS)</Label>
+                        <Input
+                          type="number"
+                          value={treasuryConfigDraft.withdrawalFeeMin}
+                          onChange={(e) =>
+                            setTreasuryConfigDraft((prev) => ({ ...prev, withdrawalFeeMin: Number(e.target.value) }))
+                          }
+                          className="mt-1 rounded-xl font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                      {(['MPESA', 'TIGO', 'AIRTEL', 'HALOPESA'] as const).map((net) => (
+                        <div
+                          key={net}
+                          className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-between"
+                        >
+                          <span className="font-black text-xs">{net}</span>
+                          <Switch
+                            checked={treasuryConfigDraft.enabledNetworks[net]}
+                            onCheckedChange={(checked) =>
+                              setTreasuryConfigDraft((prev) => ({
+                                ...prev,
+                                enabledNetworks: { ...prev.enabledNetworks, [net]: Boolean(checked) },
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button
+                      disabled={isSavingTreasuryConfig}
+                      onClick={handleSaveTreasuryConfig}
+                      className="bg-orange-600 hover:bg-orange-700 text-white font-black uppercase text-xs rounded-xl px-6 py-3"
+                    >
+                      {isSavingTreasuryConfig ? 'Inahifadhi...' : 'Save Treasury Configuration'}
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {treasurySubTab === 'audit' && (
+                <Card className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 overflow-hidden">
+                  <div className="p-6 sm:p-8 space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400">
+                      Admin Audit Logs
+                    </h4>
+                    <div className="space-y-3">
+                      {(treasuryData?.auditLogs || []).map((log) => (
+                        <div
+                          key={log.id}
+                          className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                        >
+                          <div>
+                            <span className="font-black uppercase text-orange-600">{log.action}</span>
+                            <p className="text-neutral-600 dark:text-neutral-300 mt-0.5">
+                              Actor: {log.actorEmail || log.actorUid} {log.refCode ? `• Ref: #${log.refCode}` : ''} {log.externalReference ? `• ExtRef: ${log.externalReference}` : ''}
+                            </p>
+                          </div>
+                          <span className="font-mono text-[10px] text-neutral-400">
+                            {log.createdAt ? new Date(log.createdAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                      ))}
+                      {(!treasuryData?.auditLogs || treasuryData.auditLogs.length === 0) && (
+                        <p className="text-center py-6 text-xs text-neutral-400 italic">No audit logs recorded yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Legacy Vendor & Driver Payouts Queue Preserved Below */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                  <Card className="lg:col-span-2 rounded-[2.5rem] border-none shadow-xl transition-colors bg-white dark:bg-neutral-900 overflow-hidden">
                     <div className="p-8">
-                       <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400 mb-6 underline decoration-orange-600 decoration-4 underline-offset-8">Pending Withdrawals</h4>
+                       <h4 className="text-xs font-black uppercase tracking-[0.2rem] text-neutral-400 mb-6 underline decoration-orange-600 decoration-4 underline-offset-8">Vendor &amp; Driver Pending Withdrawals</h4>
                        <div className="space-y-4">
                           {payouts.filter(p => p.status === 'pending').map((p, idx) => {
                              const recipientUser = allUsers.find(u => u.id === p.recipientId);
@@ -2014,39 +2572,26 @@ export default function AdminDashboard() {
                              );
                           })}
                           {payouts.filter(p => p.status === 'pending').length === 0 && (
-                             <p className="text-center py-10 text-neutral-400 font-bold italic">No pending payouts found.</p>
+                             <p className="text-center py-10 text-neutral-400 font-bold italic">No pending vendor/driver payouts found.</p>
                           )}
                        </div>
                     </div>
                  </Card>
 
-                 <div className="space-y-6">
-                    <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-teal-600 text-white relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                          <Coins className="w-24 h-24" />
-                       </div>
-                       <CardHeader className="p-0">
-                          <CardTitle className="text-white/60 text-[10px] font-black uppercase tracking-widest mb-2">Platform Float</CardTitle>
-                          <div className="text-3xl font-black tracking-tighter">TZS {(stats.totalRev * 0.065).toLocaleString()}</div>
-                          <p className="opacity-60 text-[8px] font-bold mt-2 uppercase">Estimated liquid cash in hand</p>
-                       </CardHeader>
-                    </Card>
-
-                    <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 transition-colors">
-                       <h4 className="text-xs font-black uppercase tracking-[0.1rem] mb-6">Recent History</h4>
-                       <div className="space-y-4">
-                          {payouts.filter(p => p.status !== 'pending').slice(0, 5).map((p, idx) => (
-                             <div key={p.id || `payout-hist-${idx}`} className="flex items-center justify-between opacity-60">
-                                <div>
-                                   <p className="font-bold text-xs uppercase leading-none">{p.id.slice(0, 8)}</p>
-                                   <p className="text-[10px] font-black text-neutral-400 mt-1 uppercase italic">{p.status}</p>
-                                </div>
-                                <p className="font-black text-xs">TZS {p.amount.toLocaleString()}</p>
+                 <Card className="p-8 rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-neutral-900 transition-colors">
+                    <h4 className="text-xs font-black uppercase tracking-[0.1rem] mb-6">Recent Payout History</h4>
+                    <div className="space-y-4">
+                       {payouts.filter(p => p.status !== 'pending').slice(0, 5).map((p, idx) => (
+                          <div key={p.id || `payout-hist-${idx}`} className="flex items-center justify-between opacity-60">
+                             <div>
+                                <p className="font-bold text-xs uppercase leading-none">{p.id.slice(0, 8)}</p>
+                                <p className="text-[10px] font-black text-neutral-400 mt-1 uppercase italic">{p.status}</p>
                              </div>
-                          ))}
-                       </div>
-                    </Card>
-                 </div>
+                             <p className="font-black text-xs">TZS {p.amount.toLocaleString()}</p>
+                          </div>
+                       ))}
+                    </div>
+                 </Card>
               </div>
             </motion.div>
          )}

@@ -14,6 +14,7 @@ import {
   deleteDoc as firestoreDeleteDoc,
   addDoc as firestoreAddDoc, 
   writeBatch as firestoreWriteBatch,
+  runTransaction as firestoreRunTransaction,
   query as firestoreQuery, 
   where as firestoreWhere, 
   orderBy as firestoreOrderBy, 
@@ -115,7 +116,70 @@ interface OrderRule {
   direction: 'asc' | 'desc';
 }
 
-export function getFirestoreDb() {
+function isConnectivityError(err: any): boolean {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const code = String(err?.code || '').toLowerCase();
+  return (
+    code === 'unavailable' ||
+    code === 'deadline-exceeded' ||
+    msg.includes('timed out') ||
+    msg.includes('unavailable') ||
+    msg.includes('offline') ||
+    msg.includes('network') ||
+    msg.includes('econnreset') ||
+    msg.includes('fetch failed')
+  );
+}
+
+function getStoreCollection(store: Map<string, Map<string, any>>, colPath: string): Map<string, any> {
+  let col = store.get(colPath);
+  if (!col) {
+    col = new Map<string, any>();
+    store.set(colPath, col);
+  }
+  return col;
+}
+
+function createDbClient(
+  store: Map<string, Map<string, any>>,
+  activeRealDb: any,
+  activeAuthPromise: Promise<any> | null
+) {
+  let txMutex: Promise<void> = Promise.resolve();
+
+  const enqueueMutex = <T>(work: () => Promise<T>): Promise<T> => {
+    const run = txMutex.then(work, work);
+    txMutex = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  };
+
+  const applyMemoryOp = (
+    targetStore: Map<string, Map<string, any>>,
+    op: { type: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any }
+  ) => {
+    const segs: string[] | undefined = op.ref?._pathSegments;
+    if (!Array.isArray(segs) || segs.length < 2) return;
+    const docId = segs[segs.length - 1];
+    const parentColPath = segs.slice(0, -1).join('/');
+    const col = getStoreCollection(targetStore, parentColPath);
+    if (op.type === 'delete') {
+      col.delete(docId);
+    } else if (op.type === 'set') {
+      const cleanData = cleanUndefined(op.data);
+      if (op.options?.merge && col.has(docId)) {
+        col.set(docId, { ...col.get(docId), ...cleanData });
+      } else {
+        col.set(docId, { ...cleanData });
+      }
+    } else if (op.type === 'update') {
+      const cleanData = cleanUndefined(op.data);
+      col.set(docId, { ...(col.get(docId) || {}), ...cleanData });
+    }
+  };
+
   const buildRef = (
     pathSegments: string[],
     whereRules: QueryRule[] = [],
@@ -128,11 +192,11 @@ export function getFirestoreDb() {
     // Helper to run in-memory get
     const getInMemory = () => {
       if (isCollection) {
-        const col = getMemoryCollection(colPath);
+        const col = getStoreCollection(store, colPath);
         let docs = Array.from(col.entries()).map(([id, data]) => ({
           id,
           ref: buildRef([...pathSegments, id]),
-          data: () => data
+          data: () => ({ ...data })
         }));
 
         for (const rule of whereRules) {
@@ -172,7 +236,7 @@ export function getFirestoreDb() {
       } else {
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
-        const col = getMemoryCollection(parentColPath);
+        const col = getStoreCollection(store, parentColPath);
         const data = col.get(docId);
         const exists = data !== undefined;
 
@@ -198,17 +262,17 @@ export function getFirestoreDb() {
         buildRef(pathSegments, whereRules, orderRules, n),
 
       get: async () => {
-        if (authPromise) {
+        if (activeAuthPromise) {
           try {
-            await authPromise;
+            await activeAuthPromise;
           } catch (e: any) {
             console.warn("[getFirestoreDb] Failed awaiting authPromise in get(), continuing:", e?.message || e);
           }
         }
-        if (realDb) {
+        if (activeRealDb) {
           try {
             if (isCollection) {
-              const colRef = firestoreCollection(realDb, colPath);
+              const colRef = firestoreCollection(activeRealDb, colPath);
               const queryParams = [];
               for (const r of whereRules) {
                 queryParams.push(firestoreWhere(r.field, r.op as any, r.value));
@@ -219,11 +283,11 @@ export function getFirestoreDb() {
               if (limitNum !== null) {
                 queryParams.push(firestoreLimit(limitNum));
               }
-              
-              const q = queryParams.length > 0 
+
+              const q = queryParams.length > 0
                 ? firestoreQuery(colRef, ...queryParams)
                 : colRef;
-                
+
               const snap = await withTimeout(firestoreGetDocs(q), 2500, `getDocs(${colPath})`);
               const docs = snap.docs.map((doc: any) => ({
                 id: doc.id,
@@ -238,7 +302,7 @@ export function getFirestoreDb() {
                 data: () => ({ chats: docs.map(d => d.data()) })
               };
             } else {
-              const docRef = firestoreDoc(realDb, colPath);
+              const docRef = firestoreDoc(activeRealDb, colPath);
               const snap = await withTimeout(firestoreGetDoc(docRef), 2500, `getDoc(${colPath})`);
               return {
                 id: snap.id,
@@ -256,27 +320,25 @@ export function getFirestoreDb() {
 
       set: async (data: any, options?: any) => {
         const cleanData = cleanUndefined(data);
-        // Sync in-memory first
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
-        const col = getMemoryCollection(parentColPath);
+        const col = getStoreCollection(store, parentColPath);
         if (options && options.merge && col.has(docId)) {
           col.set(docId, { ...col.get(docId), ...cleanData });
         } else {
           col.set(docId, { ...cleanData });
         }
 
-        // Try real DB
-        if (authPromise) {
+        if (activeAuthPromise) {
           try {
-            await authPromise;
+            await activeAuthPromise;
           } catch (e: any) {
             console.warn("[getFirestoreDb] Failed awaiting authPromise in set():", e?.message || e);
           }
         }
-        if (realDb) {
+        if (activeRealDb) {
           try {
-            const docRef = firestoreDoc(realDb, colPath);
+            const docRef = firestoreDoc(activeRealDb, colPath);
             await withTimeout(firestoreSetDoc(docRef, cleanData, options), 2500, `setDoc(${colPath})`);
           } catch (err: any) {
             console.warn(`[getFirestoreDb] Real DB set() failed for ${colPath}/${docId}:`, err?.message || err);
@@ -286,24 +348,22 @@ export function getFirestoreDb() {
 
       update: async (data: any) => {
         const cleanData = cleanUndefined(data);
-        // Sync in-memory first
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
-        const col = getMemoryCollection(parentColPath);
+        const col = getStoreCollection(store, parentColPath);
         const current = col.get(docId) || {};
         col.set(docId, { ...current, ...cleanData });
 
-        // Try real DB
-        if (authPromise) {
+        if (activeAuthPromise) {
           try {
-            await authPromise;
+            await activeAuthPromise;
           } catch (e: any) {
             console.warn("[getFirestoreDb] Failed awaiting authPromise in update():", e?.message || e);
           }
         }
-        if (realDb) {
+        if (activeRealDb) {
           try {
-            const docRef = firestoreDoc(realDb, colPath);
+            const docRef = firestoreDoc(activeRealDb, colPath);
             await withTimeout(firestoreUpdateDoc(docRef, cleanData), 2500, `updateDoc(${colPath})`);
           } catch (err: any) {
             console.warn(`[getFirestoreDb] Real DB update() failed for ${colPath}/${docId}:`, err?.message || err);
@@ -314,24 +374,22 @@ export function getFirestoreDb() {
       add: async (data: any) => {
         const cleanData = cleanUndefined(data);
         const autoId = `m-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-        
-        // Sync in-memory first
-        const col = getMemoryCollection(colPath);
+
+        const col = getStoreCollection(store, colPath);
         col.set(autoId, { id: autoId, ...cleanData });
 
         let finalId = autoId;
 
-        // Try real DB
-        if (authPromise) {
+        if (activeAuthPromise) {
           try {
-            await authPromise;
+            await activeAuthPromise;
           } catch (e: any) {
             console.warn("[getFirestoreDb] Failed awaiting authPromise in add():", e?.message || e);
           }
         }
-        if (realDb) {
+        if (activeRealDb) {
           try {
-            const colRef = firestoreCollection(realDb, colPath);
+            const colRef = firestoreCollection(activeRealDb, colPath);
             const docRef = await withTimeout(firestoreAddDoc(colRef, cleanData), 2500, `addDoc(${colPath})`);
             finalId = docRef.id;
             col.delete(autoId);
@@ -357,19 +415,19 @@ export function getFirestoreDb() {
         }
         const docId = pathSegments[pathSegments.length - 1];
         const parentColPath = pathSegments.slice(0, -1).join('/');
-        const col = getMemoryCollection(parentColPath);
+        const col = getStoreCollection(store, parentColPath);
         col.delete(docId);
 
-        if (authPromise) {
+        if (activeAuthPromise) {
           try {
-            await authPromise;
+            await activeAuthPromise;
           } catch (e: any) {
             console.warn("[getFirestoreDb] Failed awaiting authPromise in delete():", e?.message || e);
           }
         }
-        if (realDb) {
+        if (activeRealDb) {
           try {
-            const docRef = firestoreDoc(realDb, colPath);
+            const docRef = firestoreDoc(activeRealDb, colPath);
             await withTimeout(firestoreDeleteDoc(docRef), 2500, `deleteDoc(${colPath})`);
           } catch (err: any) {
             console.warn(`[getFirestoreDb] Real DB delete() failed for ${colPath}:`, err?.message || err);
@@ -384,6 +442,120 @@ export function getFirestoreDb() {
 
   return {
     collection: (colName: string) => buildRef([colName]),
+
+    /**
+     * Atomic database transaction with in-process mutex serialization, staged rollback,
+     * and native Firestore optimistic concurrency control when online.
+     */
+    runTransaction: async <T>(updateFn: (tx: any) => Promise<T>): Promise<T> => {
+      return enqueueMutex(async () => {
+        if (activeAuthPromise) {
+          try {
+            await activeAuthPromise;
+          } catch {}
+        }
+
+        const runMemoryTx = async (): Promise<T> => {
+          const stagedOps: Array<{ type: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any }> = [];
+          const txObj = {
+            get: async (ref: any) => {
+              const docPath = String(ref?._colPath || '');
+              const segs: string[] = Array.isArray(ref?._pathSegments)
+                ? ref._pathSegments
+                : docPath.split('/').filter(Boolean);
+              const docId = segs[segs.length - 1];
+              const parentColPath = segs.slice(0, -1).join('/');
+              const col = getStoreCollection(store, parentColPath);
+              const existingVal = col.get(docId);
+              const exists = existingVal !== undefined;
+              return {
+                id: docId,
+                exists,
+                data: () => (exists ? { ...existingVal } : null),
+              };
+            },
+            set: (ref: any, data: any, options?: any) => {
+              stagedOps.push({ type: 'set', ref, data, options });
+            },
+            update: (ref: any, data: any) => {
+              stagedOps.push({ type: 'update', ref, data });
+            },
+            delete: (ref: any) => {
+              stagedOps.push({ type: 'delete', ref });
+            },
+          };
+
+          const result = await updateFn(txObj);
+          // Only commit staged operations after updateFn completes cleanly without throwing
+          for (const op of stagedOps) {
+            applyMemoryOp(store, op);
+          }
+          return result;
+        };
+
+        if (activeRealDb) {
+          let latestStagedOps: Array<{ type: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any }> = [];
+          try {
+            const txResult = await withTimeout(
+              firestoreRunTransaction(activeRealDb, async (realTx) => {
+                latestStagedOps = [];
+                const txWrapper = {
+                  get: async (ref: any) => {
+                    const docPath = String(ref?._colPath || '');
+                    const docRef = firestoreDoc(activeRealDb, docPath);
+                    const snap = await realTx.get(docRef);
+                    return {
+                      id: snap.id,
+                      exists: snap.exists(),
+                      data: () => snap.data(),
+                    };
+                  },
+                  set: (ref: any, data: any, options?: any) => {
+                    const cleanData = cleanUndefined(data);
+                    const docRef = firestoreDoc(activeRealDb, String(ref?._colPath || ''));
+                    if (options?.merge) {
+                      realTx.set(docRef, cleanData, { merge: true });
+                    } else {
+                      realTx.set(docRef, cleanData);
+                    }
+                    latestStagedOps.push({ type: 'set', ref, data: cleanData, options });
+                  },
+                  update: (ref: any, data: any) => {
+                    const cleanData = cleanUndefined(data);
+                    const docRef = firestoreDoc(activeRealDb, String(ref?._colPath || ''));
+                    realTx.update(docRef, cleanData);
+                    latestStagedOps.push({ type: 'update', ref, data: cleanData });
+                  },
+                  delete: (ref: any) => {
+                    const docRef = firestoreDoc(activeRealDb, String(ref?._colPath || ''));
+                    realTx.delete(docRef);
+                    latestStagedOps.push({ type: 'delete', ref });
+                  },
+                };
+                return await updateFn(txWrapper);
+              }),
+              5000,
+              'runTransaction'
+            );
+
+            for (const op of latestStagedOps) {
+              applyMemoryOp(store, op);
+            }
+            return txResult;
+          } catch (err: any) {
+            // Re-throw business/validation aborts immediately so transactions roll back cleanly
+            if (!isConnectivityError(err)) {
+              throw err;
+            }
+            console.warn('[getFirestoreDb] Real DB runTransaction offline fallback:', err?.message || err);
+            return await runMemoryTx();
+          }
+        }
+
+        return await runMemoryTx();
+      });
+    },
+
     batch: () => {
       const ops: Array<{ type: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any }> = [];
       return {
@@ -397,41 +569,22 @@ export function getFirestoreDb() {
           ops.push({ type: 'delete', ref });
         },
         commit: async () => {
-          // 1. Apply to in-memory store immediately
           for (const op of ops) {
-            const segs: string[] | undefined = op.ref?._pathSegments;
-            if (!Array.isArray(segs) || segs.length < 2) continue;
-            const docId = segs[segs.length - 1];
-            const parentColPath = segs.slice(0, -1).join('/');
-            const col = getMemoryCollection(parentColPath);
-            if (op.type === 'delete') {
-              col.delete(docId);
-            } else if (op.type === 'set') {
-              const cleanData = cleanUndefined(op.data);
-              if (op.options?.merge && col.has(docId)) {
-                col.set(docId, { ...col.get(docId), ...cleanData });
-              } else {
-                col.set(docId, { ...cleanData });
-              }
-            } else if (op.type === 'update') {
-              const cleanData = cleanUndefined(op.data);
-              col.set(docId, { ...(col.get(docId) || {}), ...cleanData });
-            }
+            applyMemoryOp(store, op);
           }
 
-          // 2. Apply to real Firestore
-          if (authPromise) {
+          if (activeAuthPromise) {
             try {
-              await authPromise;
+              await activeAuthPromise;
             } catch {}
           }
-          if (realDb && ops.length > 0) {
+          if (activeRealDb && ops.length > 0) {
             try {
-              const b = firestoreWriteBatch(realDb);
+              const b = firestoreWriteBatch(activeRealDb);
               for (const op of ops) {
                 const docPath = op.ref?._colPath;
                 if (!docPath) continue;
-                const docRef = firestoreDoc(realDb, docPath);
+                const docRef = firestoreDoc(activeRealDb, docPath);
                 if (op.type === 'delete') b.delete(docRef);
                 else if (op.type === 'set') b.set(docRef, cleanUndefined(op.data), op.options);
                 else if (op.type === 'update') b.update(docRef, cleanUndefined(op.data));
@@ -445,6 +598,25 @@ export function getFirestoreDb() {
       };
     }
   };
+}
+
+let cachedDefaultClient: any = null;
+
+export function getFirestoreDb() {
+  if (process.env.TEST_FORCE_MEMORY_DB === '1') {
+    if (!cachedDefaultClient) {
+      cachedDefaultClient = createDbClient(memoryStore, null, null);
+    }
+    return cachedDefaultClient;
+  }
+  if (!cachedDefaultClient) {
+    cachedDefaultClient = createDbClient(memoryStore, realDb, authPromise);
+  }
+  return cachedDefaultClient;
+}
+
+export function createIsolatedMemoryDb() {
+  return createDbClient(new Map<string, Map<string, any>>(), null, null);
 }
 
 export function subscribeCollectionChanges(

@@ -100,7 +100,7 @@ export async function findOrEnsureWalletUser(
   if (phoneVariants.length > 0 && opts.createIfMissing && digits.length >= 9) {
     const last9 = digits.slice(-9);
     const waDocId = `meta-whatsapp-${digits}`;
-    const fallbackDoc = cleanUndefined({
+    const created = cleanUndefined({
       uid: waDocId,
       displayName: opts.displayName || `Mteja ${digits.slice(-4)}`,
       fullName: opts.displayName || `Mteja ${digits.slice(-4)}`,
@@ -111,13 +111,20 @@ export async function findOrEnsureWalletUser(
       role: 'customer',
       status: 'active',
       walletBalance: 0,
+      reservedBalance: 0,
       points: 0,
       source: 'whatsapp_papopay',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-    await dbAdmin.collection('users').doc(waDocId).set(fallbackDoc, { merge: true });
-    return { uid: waDocId, data: fallbackDoc };
+    await Promise.allSettled([
+      dbAdmin.collection('users').doc(waDocId).set(created, { merge: true }),
+      dbAdmin.collection('wallet_ids').doc(`PP${digits.slice(-7)}`).set(
+        { uid: waDocId, walletId: `PP${digits.slice(-7)}`, updatedAt: new Date().toISOString() },
+        { merge: true }
+      ),
+    ]);
+    return { uid: waDocId, data: created };
   }
 
   return null;
@@ -344,22 +351,52 @@ export async function settlePaidMongikeOrder(
         { merge: true }
       );
 
-      await dbAdmin.collection('payments').add(
-        cleanUndefined({
-          uid: userRec.uid,
-          phone: rec.customerPhone || userRec.data?.phone || '',
-          title: `Weka Pesa PapoWallet (${String(rec.paymentMethod || 'Mongike').toUpperCase()})`,
-          subtitle: `MONGIKE USSD PUSH • COMPLETED`,
-          amount: paidAmount,
-          type: 'credit',
-          category: 'topup',
-          status: 'completed',
-          refCode: gatewayRef || rec.bookingCode || targetId,
-          orderId: targetId,
-          createdAt: new Date().toISOString(),
-          createdAtMs: Date.now(),
-        })
-      );
+      const depRef = gatewayRef || rec.bookingCode || targetId;
+      await Promise.allSettled([
+        dbAdmin.collection('payments').add(
+          cleanUndefined({
+            uid: userRec.uid,
+            phone: rec.customerPhone || userRec.data?.phone || '',
+            title: `Weka Pesa PapoWallet (${String(rec.paymentMethod || 'Mongike').toUpperCase()})`,
+            subtitle: `MONGIKE USSD PUSH • COMPLETED`,
+            amount: paidAmount,
+            type: 'credit',
+            txType: 'WALLET_DEPOSIT',
+            category: 'topup',
+            status: 'completed',
+            refCode: depRef,
+            orderId: targetId,
+            paymentMethod: String(rec.paymentMethod || 'Mobile Money Deposit').toUpperCase(),
+            createdAt: new Date().toISOString(),
+            createdAtMs: Date.now(),
+          })
+        ),
+        dbAdmin.collection('wallet_transactions').doc(`DEP-${targetId}`).set(
+          cleanUndefined({
+            id: `DEP-${targetId}`,
+            transactionId: depRef,
+            refCode: depRef,
+            ownerUid: userRec.uid,
+            type: 'WALLET_DEPOSIT',
+            typeLabel: 'Wallet Deposit',
+            direction: 'credit',
+            amount: paidAmount,
+            fee: 0,
+            totalAmount: paidAmount,
+            status: 'completed',
+            paymentMethod: String(rec.paymentMethod || 'Mobile Money Deposit').toUpperCase(),
+            senderName: rec.customerPhone || 'Mobile Money Deposit',
+            recipientUid: userRec.uid,
+            recipientName: userRec.data?.displayName || 'PapoWallet',
+            title: `Wallet Deposit (${String(rec.paymentMethod || 'Mongike').toUpperCase()})`,
+            subtitle: `${depRef} • COMPLETED`,
+            currency: 'TZS',
+            createdAt: new Date().toISOString(),
+            createdAtMs: Date.now(),
+          }),
+          { merge: true }
+        ),
+      ]);
 
       await dbAdmin.collection(targetType).doc(String(targetId)).set(
         cleanUndefined({
@@ -596,25 +633,180 @@ export async function executeDirectPapoWalletPayment(
 }
 
 /**
- * Resolves a P2P recipient by phone number, 9-digit PapoPay Wallet ID, or name.
+ * Resolves a P2P recipient by @username, PapoPay Wallet ID (e.g. PP4225358), or phone number.
+ * Never fabricates phantom accounts for @username or Wallet ID queries, and validates exact phone match.
  */
 export async function resolveP2PRecipient(
   dbAdmin: any,
-  rawRecipient: string
+  rawRecipient: string,
+  options?: { allowAutoCreateForPhone?: boolean }
 ): Promise<{
   uid: string | null;
   displayName: string;
   phone: string;
   walletId?: string;
+  username?: string | null;
+  photoURL?: string | null;
+  verified?: boolean;
 }> {
   const clean = String(rawRecipient || '').trim();
+  const compact = clean.replace(/\s+/g, '');
   const { digits, phoneVariants } = buildSettlementPhoneVariants(clean);
+  const tzPrefixes = ['61', '62', '65', '67', '68', '69', '71', '73', '74', '75', '76', '77', '78', '79'];
 
   if (dbAdmin && clean) {
+    const looksLikeWalletId = /^PP\d{6,}$/i.test(compact);
+    const looksLikePhone = /^\+?\d[\d\s-]{7,}$/.test(clean) && !compact.startsWith('@');
+
+    // 1. Try @username lookup first
+    if (compact.startsWith('@') || (!looksLikeWalletId && !looksLikePhone && /^[a-zA-Z0-9_]{3,24}$/.test(compact))) {
+      const unameLower = compact.replace(/^@+/, '').toLowerCase();
+      try {
+        const idxSnap = await dbAdmin.collection('usernames').doc(unameLower).get();
+        if (idxSnap?.exists && idxSnap.data()?.uid) {
+          const uSnap = await dbAdmin.collection('users').doc(String(idxSnap.data().uid)).get();
+          if (uSnap?.exists) {
+            const d = uSnap.data() || {};
+            return {
+              uid: uSnap.id,
+              displayName: d.displayName || d.fullName || `@${unameLower}`,
+              phone: d.phoneNumber || d.phone || '',
+              walletId: d.walletId || undefined,
+              username: `@${unameLower}`,
+              photoURL: d.photoURL || null,
+              verified: true,
+            };
+          }
+        }
+      } catch {}
+      try {
+        const uQuery = await dbAdmin.collection('users').where('usernameLower', '==', unameLower).limit(2).get();
+        if (!uQuery.empty) {
+          const docSnap = uQuery.docs[0];
+          const d = docSnap.data() || {};
+          return {
+            uid: docSnap.id,
+            displayName: d.displayName || d.fullName || `@${unameLower}`,
+            phone: d.phoneNumber || d.phone || '',
+            walletId: d.walletId || undefined,
+            username: `@${unameLower}`,
+            photoURL: d.photoURL || null,
+            verified: true,
+          };
+        }
+      } catch {}
+      if (compact.startsWith('@') || /[a-zA-Z_]/.test(compact)) {
+        return { uid: null, displayName: clean, phone: '' };
+      }
+    }
+
+    // 2. Try matching by walletId (wallet_ids index + case-insensitive users query + PPxxxxxxx prefix suffix lookup)
+    const upperWallet = compact.toUpperCase();
+    if (looksLikeWalletId || (!looksLikePhone && /^[A-Z0-9]{6,16}$/i.test(compact))) {
+      try {
+        const widIdx = await dbAdmin.collection('wallet_ids').doc(upperWallet).get();
+        if (widIdx?.exists && widIdx.data()?.uid) {
+          const uSnap = await dbAdmin.collection('users').doc(String(widIdx.data().uid)).get();
+          if (uSnap?.exists) {
+            const d = uSnap.data() || {};
+            return {
+              uid: uSnap.id,
+              displayName: d.displayName || d.fullName || d.name || `Wallet ${upperWallet}`,
+              phone: d.phoneNumber || d.phone || '',
+              walletId: upperWallet,
+              username: d.username ? `@${String(d.username).replace(/^@+/, '')}` : null,
+              photoURL: d.photoURL || null,
+              verified: true,
+            };
+          }
+        }
+      } catch {}
+
+      try {
+        const wVariants = Array.from(new Set([upperWallet, compact, upperWallet.toLowerCase()]));
+        const wSnap = await dbAdmin.collection('users').where('walletId', 'in', wVariants).limit(3).get();
+        if (!wSnap.empty) {
+          const docSnap = wSnap.docs[0];
+          const d = docSnap.data() || {};
+          return {
+            uid: docSnap.id,
+            displayName: d.displayName || d.fullName || d.name || `Wallet ${upperWallet}`,
+            phone: d.phoneNumber || d.phone || '',
+            walletId: upperWallet,
+            username: d.username ? `@${String(d.username).replace(/^@+/, '')}` : null,
+            photoURL: d.photoURL || null,
+            verified: true,
+          };
+        }
+      } catch {}
+
+      const ppMatch = upperWallet.match(/^PP(\d{7})$/);
+      if (ppMatch) {
+        const last7 = ppMatch[1];
+        const normPhones = tzPrefixes.map((p) => `255${p}${last7}`);
+        const plusPhones = tzPrefixes.map((p) => `+255${p}${last7}`);
+        const foundMap = new Map<string, any>();
+
+        for (const [field, vals] of [
+          ['normalizedPhone', normPhones.slice(0, 10)],
+          ['normalizedPhone', normPhones.slice(10)],
+          ['phoneNumber', plusPhones.slice(0, 10)],
+          ['phoneNumber', plusPhones.slice(10)],
+        ] as Array<[string, string[]]>) {
+          if (vals.length === 0) continue;
+          try {
+            const snap = await dbAdmin.collection('users').where(field, 'in', vals).limit(5).get();
+            for (const docItem of snap.docs || []) {
+              if (!foundMap.has(docItem.id)) foundMap.set(docItem.id, docItem.data() || {});
+            }
+          } catch {}
+        }
+
+        if (foundMap.size === 0) {
+          await Promise.all(
+            tzPrefixes.flatMap((p) => [
+              dbAdmin.collection('users').doc(`meta-whatsapp-255${p}${last7}`).get().then((s: any) => {
+                if (s?.exists) foundMap.set(s.id, s.data() || {});
+              }).catch(() => {}),
+              dbAdmin.collection('users').doc(`meta-whatsapp-0${p}${last7}`).get().then((s: any) => {
+                if (s?.exists) foundMap.set(s.id, s.data() || {});
+              }).catch(() => {}),
+            ])
+          );
+        }
+
+        if (foundMap.size > 0) {
+          const [uidFound, dFound] = Array.from(foundMap.entries()).sort(
+            (a, b) => Number(b[1]?.walletBalance || 0) - Number(a[1]?.walletBalance || 0)
+          )[0];
+          await Promise.allSettled([
+            dbAdmin.collection('users').doc(uidFound).set({ walletId: upperWallet }, { merge: true }),
+            dbAdmin.collection('wallet_ids').doc(upperWallet).set(
+              { uid: uidFound, walletId: upperWallet, updatedAt: new Date().toISOString() },
+              { merge: true }
+            ),
+          ]);
+          return {
+            uid: uidFound,
+            displayName: dFound.displayName || dFound.fullName || dFound.name || `Wallet ${upperWallet}`,
+            phone: dFound.phoneNumber || dFound.phone || '',
+            walletId: upperWallet,
+            username: dFound.username ? `@${String(dFound.username).replace(/^@+/, '')}` : null,
+            photoURL: dFound.photoURL || null,
+            verified: true,
+          };
+        }
+      }
+
+      if (looksLikeWalletId) {
+        return { uid: null, displayName: upperWallet, phone: '' };
+      }
+    }
+
+    // 3. Strictly match existing user by exact primary phone (prevents returning wrong user phone!)
     const queryLast9 = digits.length >= 9 ? digits.slice(-9) : '';
-    // 1. Try matching existing user by phone
-    if (phoneVariants.length > 0) {
-      for (const field of ['phone', 'phoneNumber', 'normalizedPhone']) {
+    if (queryLast9 && phoneVariants.length > 0) {
+      for (const field of ['phoneNumber', 'phone', 'normalizedPhone']) {
         try {
           const snap = await dbAdmin
             .collection('users')
@@ -622,67 +814,44 @@ export async function resolveP2PRecipient(
             .limit(5)
             .get();
           if (!snap.empty) {
-            const docs = snap.docs || [];
-            const exactDoc =
-              docs.find((docItem: any) => {
-                const u = docItem.data() || {};
-                const primaryLast9 = String(u.phoneNumber || u.phone || '').replace(/\D/g, '').slice(-9);
-                return queryLast9 && primaryLast9 === queryLast9;
-              }) || docs[0];
-            const d = exactDoc.data() || {};
-            const docPhoneRaw = String(d.phoneNumber || d.phone || '').trim();
-            const docLast9 = docPhoneRaw.replace(/\D/g, '').slice(-9);
-            const canonicalPhone =
-              queryLast9 && docLast9 !== queryLast9
-                ? `+255${queryLast9}`
-                : docPhoneRaw || (queryLast9 ? `+255${queryLast9}` : clean);
-            return {
-              uid: exactDoc.id,
-              displayName: d.displayName || d.fullName || d.name || clean,
-              phone: canonicalPhone,
-              walletId: d.walletId || undefined,
-            };
+            const exactDoc = (snap.docs || []).find((docItem: any) => {
+              const u = docItem.data() || {};
+              const primaryLast9 = String(u.phoneNumber || u.phone || '').replace(/\D/g, '').slice(-9);
+              const normLast9 = String(u.normalizedPhone || '').replace(/\D/g, '').slice(-9);
+              return (primaryLast9 && primaryLast9 === queryLast9) || (!primaryLast9 && normLast9 === queryLast9);
+            });
+            if (exactDoc) {
+              const d = exactDoc.data() || {};
+              return {
+                uid: exactDoc.id,
+                displayName: d.displayName || d.fullName || d.name || clean,
+                phone: d.phoneNumber || d.phone || `+255${queryLast9}`,
+                walletId: d.walletId || `PP${digits.slice(-7)}`,
+                username: d.username ? `@${String(d.username).replace(/^@+/, '')}` : null,
+                photoURL: d.photoURL || null,
+                verified: true,
+              };
+            }
           }
         } catch {}
       }
-    }
 
-    // 2. Try matching by walletId (e.g. 118504625)
-    const compact = clean.replace(/\s+/g, '');
-    if (compact.length >= 6) {
-      try {
-        const wSnap = await dbAdmin
-          .collection('users')
-          .where('walletId', '==', compact)
-          .limit(1)
-          .get();
-        if (!wSnap.empty) {
-          const docSnap = wSnap.docs[0];
-          const d = docSnap.data() || {};
+      if (options?.allowAutoCreateForPhone) {
+        const ensured = await findOrEnsureWalletUser(dbAdmin, {
+          phone: `+255${queryLast9}`,
+          displayName: `Mteja ${digits.slice(-4)}`,
+          createIfMissing: true,
+        });
+        if (ensured) {
           return {
-            uid: docSnap.id,
-            displayName: d.displayName || d.fullName || d.name || `Wallet ${compact}`,
-            phone: d.phoneNumber || d.phone || '',
-            walletId: compact,
+            uid: ensured.uid,
+            displayName: ensured.data?.displayName || `Mteja ${digits.slice(-4)}`,
+            phone: ensured.data?.phone || `+255${queryLast9}`,
+            walletId: ensured.data?.walletId,
+            username: ensured.data?.username ? `@${ensured.data.username}` : null,
+            verified: true,
           };
         }
-      } catch {}
-    }
-
-    // 3. Fallback create/ensure wallet account when a valid phone number is provided
-    if (digits.length >= 9) {
-      const ensured = await findOrEnsureWalletUser(dbAdmin, {
-        phone: `+255${digits.slice(-9)}`,
-        displayName: `Mteja ${digits.slice(-4)}`,
-        createIfMissing: true,
-      });
-      if (ensured) {
-        return {
-          uid: ensured.uid,
-          displayName: ensured.data?.displayName || `Mteja ${digits.slice(-4)}`,
-          phone: ensured.data?.phone || `+255${digits.slice(-9)}`,
-          walletId: ensured.data?.walletId,
-        };
       }
     }
   }
@@ -690,7 +859,7 @@ export async function resolveP2PRecipient(
   return {
     uid: null,
     displayName: clean,
-    phone: digits.length >= 9 ? `+255${digits.slice(-9)}` : '',
+    phone: '',
   };
 }
 
@@ -960,16 +1129,26 @@ export async function getPapoWalletSummaryAndStatement(
   uid?: string;
   walletId: string;
   walletBalance: number;
+  reservedBalance: number;
   points: number;
   isCardFrozen: boolean;
   displayName?: string;
+  username?: string | null;
+  hasPinSet?: boolean;
+  verified?: boolean;
   phone?: string;
   transactions: Array<{
     id: string;
     title: string;
     subtitle: string;
     amount: number;
+    fee?: number;
     type: 'credit' | 'debit';
+    txType?: string;
+    status?: string;
+    paymentMethod?: string;
+    sender?: string;
+    recipient?: string;
     refCode: string;
     createdAtMs: number;
   }>;
@@ -985,61 +1164,127 @@ export async function getPapoWalletSummaryAndStatement(
       found: false,
       walletId: digits.length >= 9 ? `PP${digits.slice(-7)}` : '',
       walletBalance: 0,
+      reservedBalance: 0,
       points: 0,
       isCardFrozen: false,
       displayName: undefined,
+      username: null,
+      hasPinSet: false,
+      verified: false,
       phone: digits.length >= 9 ? `+255${digits.slice(-9)}` : undefined,
       transactions: [],
     };
   }
 
   let txs: any[] = [];
+  const seenRef = new Set<string>();
+  try {
+    const wtSnap = await dbAdmin
+      .collection('wallet_transactions')
+      .where('ownerUid', '==', userRec.uid)
+      .limit(20)
+      .get();
+    for (const d of wtSnap.docs || []) {
+      const w = d.data() || {};
+      const ms = Number(w.createdAtMs || Date.parse(String(w.createdAt || '')) || 0);
+      const refCode = String(w.transactionId || w.refCode || d.id.slice(-8).toUpperCase());
+      seenRef.add(refCode);
+      txs.push({
+        id: d.id,
+        title: String(w.title || w.typeLabel || 'PapoPay Transaction'),
+        subtitle: String(w.subtitle || ''),
+        amount: Number(w.amount || 0),
+        fee: Number(w.fee || 0),
+        type: (w.direction === 'credit' ? 'credit' : 'debit') as 'credit' | 'debit',
+        txType: String(w.type || ''),
+        status: String(w.status || 'completed'),
+        paymentMethod: String(w.paymentMethod || 'PapoPay Wallet'),
+        sender: String(w.senderName || w.senderUsername || ''),
+        recipient: String(w.recipientName || w.recipientUsername || ''),
+        refCode,
+        createdAtMs: ms,
+      });
+    }
+  } catch {}
+
   try {
     const pSnap = await dbAdmin
       .collection('payments')
       .where('uid', '==', userRec.uid)
       .limit(25)
       .get();
-    txs = (pSnap.docs || [])
-      .map((d: any) => {
-        const p = d.data() || {};
-        const ms =
-          Number(p.createdAtMs || 0) ||
-          (typeof p.createdAt?.toMillis === 'function'
-            ? p.createdAt.toMillis()
-            : Date.parse(String(p.createdAt || '')) || 0);
-        return {
-          id: d.id,
-          title: String(p.title || 'Muamala wa PapoPay'),
-          subtitle: String(p.subtitle || ''),
-          amount: Number(p.amount || 0),
-          type: (p.type === 'debit' ? 'debit' : 'credit') as 'credit' | 'debit',
-          refCode: String(p.refCode || d.id.slice(-8).toUpperCase()),
-          createdAtMs: ms,
-        };
-      })
-      .sort((a: any, b: any) => b.createdAtMs - a.createdAtMs)
-      .slice(0, 8);
+    for (const d of pSnap.docs || []) {
+      const p = d.data() || {};
+      const refCode = String(p.refCode || d.id.slice(-8).toUpperCase());
+      if (seenRef.has(refCode)) continue;
+      const ms =
+        Number(p.createdAtMs || 0) ||
+        (typeof p.createdAt?.toMillis === 'function'
+          ? p.createdAt.toMillis()
+          : Date.parse(String(p.createdAt || '')) || 0);
+      txs.push({
+        id: d.id,
+        title: String(p.title || 'Muamala wa PapoPay'),
+        subtitle: String(p.subtitle || ''),
+        amount: Number(p.amount || 0),
+        fee: Number(p.fee || 0),
+        type: (p.type === 'debit' ? 'debit' : 'credit') as 'credit' | 'debit',
+        txType: String(p.txType || ''),
+        status: String(p.status || 'completed'),
+        paymentMethod: String(p.paymentMethod || 'PapoPay Wallet'),
+        sender: String(p.senderName || ''),
+        recipient: String(p.recipientName || ''),
+        refCode,
+        createdAtMs: ms,
+      });
+    }
   } catch {}
+
+  txs = txs.sort((a: any, b: any) => b.createdAtMs - a.createdAtMs).slice(0, 12);
 
   const userPhoneDigits = String(
     userRec.data?.phoneNumber || userRec.data?.phone || phone || ''
   ).replace(/\D/g, '');
   const idSourceDigits = userPhoneDigits.length >= 9 ? userPhoneDigits : digits;
-  const derivedWalletId =
+  const derivedWalletId = String(
     userRec.data?.walletId ||
-    (idSourceDigits.length >= 9
-      ? `PP${idSourceDigits.slice(-7)}`
-      : `PP${userRec.uid.slice(-7).toUpperCase()}`);
+      (idSourceDigits.length >= 9
+        ? `PP${idSourceDigits.slice(-7)}`
+        : `PP${userRec.uid.slice(-7).toUpperCase()}`)
+  ).toUpperCase();
+
+  if (!userRec.data?.walletId) {
+    Promise.allSettled([
+      dbAdmin.collection('users').doc(userRec.uid).set({ walletId: derivedWalletId }, { merge: true }),
+      dbAdmin.collection('wallet_ids').doc(derivedWalletId).set(
+        { uid: userRec.uid, walletId: derivedWalletId, updatedAt: new Date().toISOString() },
+        { merge: true }
+      ),
+    ]).catch(() => {});
+  }
 
   return {
     found: true,
     uid: userRec.uid,
     walletId: derivedWalletId,
     walletBalance: Number(userRec.data?.walletBalance || 0),
+    reservedBalance: Number(userRec.data?.reservedBalance || 0),
     points: Number(userRec.data?.points || 0),
     isCardFrozen: Boolean(userRec.data?.virtualCardFrozen),
     displayName: userRec.data?.displayName || userRec.data?.fullName || undefined,
+    username: userRec.data?.username
+      ? `@${String(userRec.data.username).replace(/^@+/, '')}`
+      : userRec.data?.usernameLower
+      ? `@${userRec.data.usernameLower}`
+      : null,
+    hasPinSet: Boolean(userRec.data?.walletPinHash || userRec.data?.walletPin || userRec.data?.pin),
+    verified: Boolean(
+      userRec.data?.kycVerified ||
+        userRec.data?.status === 'active' ||
+        userRec.data?.walletPinHash ||
+        userRec.data?.phoneNumber ||
+        userRec.data?.phone
+    ),
     phone:
       userRec.data?.phoneNumber ||
       userRec.data?.phone ||

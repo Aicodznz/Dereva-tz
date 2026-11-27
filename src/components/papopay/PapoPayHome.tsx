@@ -26,7 +26,7 @@ import {
   serverTimestamp,
   where,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { auth, db } from '../../firebase';
 import { useAuth } from '../../AuthContext';
 import { useLanguage } from '../../LanguageContext';
 import { FacePaymentModal } from '../tegex/FacePaymentModal';
@@ -76,16 +76,50 @@ interface StudentCard {
 
 interface TransactionItem {
   id: string;
+  transactionId?: string;
   title: string;
   subtitle: string;
   amount: number;
+  fee?: number;
   type: 'debit' | 'credit';
+  txType?: string;
+  typeLabel?: string;
   category: 'transit' | 'student' | 'bill' | 'transfer' | 'topup' | 'merchant' | 'restaurant' | 'withdraw' | 'deposit' | 'service';
   date: string;
   time: string;
   refCode: string;
-  status: 'completed' | 'pending';
+  status: 'completed' | 'pending' | 'processing' | 'failed';
+  sender?: string;
+  recipient?: string;
+  paymentMethod?: string;
+  externalReference?: string | null;
   meta?: any;
+}
+
+interface VerifiedRecipientCard {
+  found: boolean;
+  uid: string | null;
+  displayName: string;
+  username: string | null;
+  photoURL: string | null;
+  walletId: string | null;
+  maskedWalletId: string | null;
+  phone: string | null;
+  verified: boolean;
+  matchedBy?: 'username' | 'walletId' | 'phone';
+}
+
+interface WalletSettingsPayload {
+  transferFeePercent: number;
+  transferFeeFlat: number;
+  transferFeeMin: number;
+  withdrawalFeePercent: number;
+  withdrawalFeeMin: number;
+  withdrawalMinAmount: number;
+  withdrawalMaxAmount: number;
+  enabledNetworks: Record<'MPESA' | 'TIGO' | 'AIRTEL' | 'HALOPESA', boolean>;
+  b2cProvider?: string;
+  daliPayDisbursementApiDisabled?: boolean;
 }
 
 export default function PapoPayHome() {
@@ -154,6 +188,24 @@ export default function PapoPayHome() {
     if (typeof profile?.walletBalance === 'number') return profile.walletBalance;
     return 0;
   });
+  const [reservedBalanceTZS, setReservedBalanceTZS] = useState<number>(() => {
+    if (typeof profile?.reservedBalance === 'number') return profile.reservedBalance;
+    return 0;
+  });
+  const [usernameHandle, setUsernameHandle] = useState<string | null>(() =>
+    profile?.username ? `@${String(profile.username).replace(/^@+/, '')}` : null
+  );
+  const [hasPinSet, setHasPinSet] = useState<boolean>(() => Boolean(profile?.hasPinSet));
+  const [walletSettings, setWalletSettings] = useState<WalletSettingsPayload>({
+    transferFeePercent: 0,
+    transferFeeFlat: 0,
+    transferFeeMin: 0,
+    withdrawalFeePercent: 0.2,
+    withdrawalFeeMin: 100,
+    withdrawalMinAmount: 1000,
+    withdrawalMaxAmount: 5000000,
+    enabledNetworks: { MPESA: true, TIGO: true, AIRTEL: true, HALOPESA: true },
+  });
 
   const [coinsBalance, setCoinsBalance] = useState<number>(() => {
     if (typeof profile?.points === 'number') return profile.points;
@@ -162,6 +214,12 @@ export default function PapoPayHome() {
 
   const [showBalance, setShowBalance] = useState(true);
   const [isKycBannerVisible, setIsKycBannerVisible] = useState(true);
+
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [securityUsernameInput, setSecurityUsernameInput] = useState('');
+  const [securityNewPin, setSecurityNewPin] = useState('');
+  const [securityCurrentPin, setSecurityCurrentPin] = useState('');
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
 
   // Clear legacy fake demo balance/transactions cache if user is not authenticated
   useEffect(() => {
@@ -195,33 +253,68 @@ export default function PapoPayHome() {
           phone: json.phone || (digits.length >= 9 ? `+255${digits.slice(-9)}` : null),
         });
 
+        if (typeof json.reservedBalance === 'number') {
+          setReservedBalanceTZS(Number(json.reservedBalance || 0));
+        }
+        if (json.username) {
+          setUsernameHandle(String(json.username));
+        }
+        if (typeof json.hasPinSet === 'boolean') {
+          setHasPinSet(json.hasPinSet);
+        }
+
         if (!uidStr || (Number(json.walletBalance || 0) > 0 && Number(profile?.walletBalance || 0) === 0)) {
           setBalanceTZS(Number(json.walletBalance || 0));
           setCoinsBalance(Number(json.points || 0));
         }
 
-        if (Array.isArray(json.transactions) && (!uidStr || json.transactions.length > 0)) {
-          const mapped: TransactionItem[] = json.transactions.map((t: any) => {
-            const ms = Number(t.createdAtMs || 0);
+        // Fetch unified 8-type ledger alongside summary
+        const txResp = await fetch(`/api/wallet/transactions?${qs.toString()}&limit=60`).catch(() => null);
+        const txJson = txResp ? await txResp.json().catch(() => null) : null;
+        const serverRows = Array.isArray(txJson?.transactions) && txJson.transactions.length > 0
+          ? txJson.transactions
+          : Array.isArray(json.transactions)
+          ? json.transactions
+          : [];
+
+        if (serverRows.length > 0) {
+          const mapped: TransactionItem[] = serverRows.map((t: any) => {
+            const ms = Number(t.createdAtMs || Date.parse(String(t.createdAt || '')) || 0);
             const dt = ms ? new Date(ms) : new Date();
             return {
               id: String(t.id || `tx_${ms}`),
-              title: String(t.title || 'Muamala wa PapoPay'),
+              transactionId: String(t.transactionId || t.refCode || t.id),
+              title: String(t.title || t.typeLabel || 'Muamala wa PapoPay'),
               subtitle: String(t.subtitle || 'PAPOWALLET • COMPLETED'),
               amount: Number(t.amount || 0),
-              type: t.type === 'debit' ? 'debit' : 'credit',
-              category: 'topup',
+              fee: Number(t.fee || 0),
+              type: t.direction === 'credit' || t.type === 'credit' ? 'credit' : 'debit',
+              txType: t.type && typeof t.type === 'string' && t.type !== 'credit' && t.type !== 'debit' ? t.type : t.txType,
+              typeLabel: t.typeLabel || undefined,
+              category: t.txType === 'WALLET_DEPOSIT' ? 'deposit' : t.txType?.includes('WITHDRAWAL') ? 'withdraw' : 'transfer',
               date: dt.toLocaleDateString(),
               time: dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              refCode: t.refCode ? `TRX: ${t.refCode}` : 'TRX: PAPO',
-              status: 'completed',
+              refCode: t.transactionId || t.refCode ? `TRX: ${t.transactionId || t.refCode}` : 'TRX: PAPO',
+              status:
+                t.status === 'failed'
+                  ? 'failed'
+                  : t.status === 'processing'
+                  ? 'processing'
+                  : t.status === 'pending'
+                  ? 'pending'
+                  : 'completed',
+              sender: t.sender || undefined,
+              recipient: t.recipient || undefined,
+              paymentMethod: t.paymentMethod || 'PapoPay Wallet',
+              externalReference: t.externalReference || null,
               meta: { createdMs: ms },
             };
           });
           setTransactions((prev) => {
-            if (!uidStr) return mapped;
-            const seen = new Set(mapped.map((r) => r.id));
-            return [...mapped, ...prev.filter((p) => !seen.has(p.id))].slice(0, 60);
+            const seen = new Set(mapped.map((r) => r.transactionId || r.id));
+            return [...mapped, ...prev.filter((p) => !seen.has(p.transactionId || p.id))]
+              .sort((a, b) => Number(b.meta?.createdMs || 0) - Number(a.meta?.createdMs || 0))
+              .slice(0, 80);
           });
         } else if (!uidStr) {
           setTransactions([]);
@@ -234,6 +327,18 @@ export default function PapoPayHome() {
     [profile?.walletBalance]
   );
 
+  // Load Treasury settings (fees & enabled mobile money networks)
+  useEffect(() => {
+    fetch('/api/wallet/settings')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.ok && json?.settings) {
+          setWalletSettings(json.settings);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Sync WhatsApp / phone wallet when not signed in with Firebase Auth
   useEffect(() => {
     if (user?.uid) return;
@@ -241,13 +346,14 @@ export default function PapoPayHome() {
       syncWalletFromServer(linkedPhone);
     } else {
       setBalanceTZS(0);
+      setReservedBalanceTZS(0);
       setCoinsBalance(0);
       setLinkedWalletInfo(null);
       setTransactions([]);
     }
   }, [user?.uid, linkedPhone, syncWalletFromServer]);
 
-  // Live Firestore sync for logged-in user's PapoWallet & points
+  // Live Firestore sync for logged-in user's PapoWallet, reservedBalance, username, PIN & points
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = onSnapshot(
@@ -257,13 +363,16 @@ export default function PapoPayHome() {
         const d = snap.data() as any;
         const bal = typeof d.walletBalance === 'number' ? d.walletBalance : 0;
         setBalanceTZS(bal);
+        setReservedBalanceTZS(typeof d.reservedBalance === 'number' ? d.reservedBalance : 0);
+        if (d.username) {
+          setUsernameHandle(`@${String(d.username).replace(/^@+/, '')}`);
+        }
+        setHasPinSet(Boolean(d.walletPinHash || d.walletPin || d.pin));
         if (typeof d.points === 'number') {
           setCoinsBalance(d.points);
         }
         const phoneToCheck = d.phoneNumber || d.phone || linkedPhone;
-        if (bal === 0 && String(phoneToCheck || '').replace(/\D/g, '').length >= 9) {
-          syncWalletFromServer(phoneToCheck, user.uid);
-        }
+        syncWalletFromServer(phoneToCheck || '', user.uid);
       },
       () => {}
     );
@@ -351,6 +460,20 @@ export default function PapoPayHome() {
     message?: string;
   } | null>(null);
 
+  // Enhanced Payment Link Creator & WhatsApp Checkout Template State
+  const [isPayLinkModalOpen, setIsPayLinkModalOpen] = useState(false);
+  const [payLinkTitle, setPayLinkTitle] = useState('');
+  const [payLinkAmount, setPayLinkAmount] = useState('15000');
+  const [payLinkCustomerPhone, setPayLinkCustomerPhone] = useState('');
+  const [payLinkCreating, setPayLinkCreating] = useState(false);
+  const [createdPayLink, setCreatedPayLink] = useState<{
+    refCode: string;
+    checkoutUrl: string;
+    title: string;
+    amount: number;
+    whatsappSent?: boolean;
+  } | null>(null);
+
   useEffect(() => {
     const p = profile?.phoneNumber || profile?.phone || user?.phoneNumber || linkedPhone || '';
     if (p && !expressBuyerPhone) {
@@ -367,6 +490,8 @@ export default function PapoPayHome() {
     const titleParam = (searchParams.get('title') || '').trim();
     const purposeParam = (searchParams.get('purpose') || '').trim();
     const modeParam = (searchParams.get('mode') || '').trim();
+
+    let cancelled = false;
 
     if (
       Number.isFinite(amountRaw) &&
@@ -386,7 +511,125 @@ export default function PapoPayHome() {
       setExpressReceipt(null);
       setExpressCheckoutOpen(true);
     }
+
+    // Resolve Enhanced Payment Link by ?ref=... (works even without ?amount= in query string)
+    if (refParam) {
+      fetch(`/api/payments/payment-link/${encodeURIComponent(refParam)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data?.ok || !data?.link) return;
+          const link = data.link;
+          setExpressAmount(Number(link.amount || amountRaw || 0));
+          setExpressRecipientPhone(link.merchantPhone || toParam || '');
+          setExpressRecipientName(link.merchantName || nameParam || 'PapoPay Merchant');
+          setExpressRef(link.refCode || refParam);
+          setExpressOrderId(link.orderId || orderIdParam || '');
+          setExpressTitle(link.title || titleParam || 'Malipo ya PapoPay');
+          setExpressPurpose(link.purpose || purposeParam || 'payment_request');
+          setExpressError('');
+          if (link.status === 'paid') {
+            setExpressReceipt({
+              referenceId: link.refCode || refParam,
+              amount: Number(link.amount || 0),
+              merchantName: link.merchantName || 'PapoPay Merchant',
+              methodLabel: link.paidMethod || 'PapoPay',
+              status: 'paid',
+              message: 'Link hii ya malipo imeshalipwa tayari ✅',
+            });
+            setExpressStep('paid');
+          } else {
+            setExpressReceipt(null);
+            setExpressStep('review');
+          }
+          setExpressCheckoutOpen(true);
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
+
+  const handleCreateEnhancedPaymentLink = async (sendToWhatsApp: boolean) => {
+    const cleanAmt = Math.max(0, Math.round(Number(String(payLinkAmount || '0').replace(/\D/g, '')) || 0));
+    if (cleanAmt < 100) {
+      toast.error('Weka kiasi kuanzia TZS 100.');
+      return;
+    }
+    const cleanTitle = payLinkTitle.trim() || 'Ombi la Malipo PapoPay';
+    const merchantName = profile?.displayName || profile?.fullName || user?.displayName || 'Mteja wa PapoPay';
+    const merchantPhone = profile?.phoneNumber || profile?.phone || user?.phoneNumber || linkedPhone || '';
+    const custPhone = payLinkCustomerPhone.trim();
+
+    if (sendToWhatsApp && custPhone.replace(/\D/g, '').length < 9) {
+      toast.error('Weka namba ya WhatsApp ya mteja unayemtumia ombi.');
+      return;
+    }
+
+    setPayLinkCreating(true);
+    try {
+      if (sendToWhatsApp) {
+        const res = await fetch('/api/payments/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: cleanTitle,
+            amount: cleanAmt,
+            merchantName,
+            merchantPhone,
+            purpose: 'payment_request',
+            sendToWhatsapp: custPhone,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          toast.error(data.error || 'Imeshindikana kutuma link kwenda WhatsApp.');
+          return;
+        }
+        setCreatedPayLink({
+          refCode: data.link?.refCode || '',
+          checkoutUrl: data.link?.checkoutUrl || '',
+          title: cleanTitle,
+          amount: cleanAmt,
+          whatsappSent: Boolean(data.whatsappDispatched),
+        });
+        toast.success(
+          data.whatsappDispatched
+            ? 'Enhanced Payment Link imeundwa na kutumwa WhatsApp!'
+            : 'Enhanced Payment Link imeundwa! Nakili link hapa chini.'
+        );
+      } else {
+        const res = await fetch('/api/payments/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: cleanTitle,
+            amount: cleanAmt,
+            merchantName,
+            merchantPhone,
+            purpose: 'payment_request',
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          toast.error(data.error || 'Imeshindikana kuunda link ya malipo.');
+          return;
+        }
+        setCreatedPayLink({
+          refCode: data.link.refCode,
+          checkoutUrl: data.link.checkoutUrl,
+          title: cleanTitle,
+          amount: cleanAmt,
+        });
+        toast.success(`Link ya malipo #${data.link.refCode} imeundwa!`);
+      }
+    } catch {
+      toast.error('Hitilafu ya mtandao wakati wa kuunda link.');
+    } finally {
+      setPayLinkCreating(false);
+    }
+  };
 
   const handleExpressCheckoutSubmit = async (pinOverride?: string) => {
     const cleanPhone = expressBuyerPhone.trim();
@@ -397,8 +640,8 @@ export default function PapoPayHome() {
 
     const needsPin = expressMethod === 'papowallet' || expressMethod === 'card';
     const activePin = (pinOverride ?? expressPin).trim();
-    if (needsPin && !/^\d{4}$/.test(activePin)) {
-      setExpressError('Ingiza PIN yako ya tarakimu 4.');
+    if (needsPin && !/^\d{4,6}$/.test(activePin)) {
+      setExpressError('Ingiza PIN yako ya tarakimu 4 hadi 6.');
       return;
     }
 
@@ -526,13 +769,22 @@ export default function PapoPayHome() {
   const [isNfcWithdrawing, setIsNfcWithdrawing] = useState(false);
   const [isNfcDepositing, setIsNfcDepositing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('50000');
-  const [withdrawPhone, setWithdrawPhone] = useState(profile?.phoneNumber || '0754 123 456');
+  const [withdrawPhone, setWithdrawPhone] = useState(profile?.phoneNumber || profile?.phone || '');
+  const [withdrawMode, setWithdrawMode] = useState<'mobile_money' | 'wakala'>('mobile_money');
+  const [withdrawNetwork, setWithdrawNetwork] = useState<'MPESA' | 'TIGO' | 'AIRTEL' | 'HALOPESA'>('MPESA');
+  const [withdrawPin, setWithdrawPin] = useState('');
+  const [isMobileWithdrawing, setIsMobileWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState('Wakala Mussa Telecomm (Kariakoo Sokoni)');
 
-  // Transfer & P2P State
+  // Transfer & P2P State ("Send Money to PapoPay User")
   const [transferRecipient, setTransferRecipient] = useState('');
+  const [lookupResult, setLookupResult] = useState<VerifiedRecipientCard | null>(null);
+  const [isLookingUpRecipient, setIsLookingUpRecipient] = useState(false);
   const [transferAmount, setTransferAmount] = useState('10000');
-  const [transferNote, setTransferNote] = useState('Gawana Nauli ya Daladala');
+  const [transferNote, setTransferNote] = useState('');
+  const [transferPin, setTransferPin] = useState('');
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
 
   // Split Fare Calculator state
@@ -906,7 +1158,104 @@ export default function PapoPayHome() {
     }, 1200);
   };
 
-  // Wakala Withdraw Handler
+  // Auto-search verified PapoPay recipient by @username, Wallet ID, or Phone
+  useEffect(() => {
+    const q = transferRecipient.trim();
+    if (q.length < 2) {
+      setLookupResult(null);
+      setIsLookingUpRecipient(false);
+      return;
+    }
+    setIsLookingUpRecipient(true);
+    const timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(`/api/wallet/recipient-lookup?q=${encodeURIComponent(q)}`);
+        const json = await resp.json().catch(() => null);
+        if (json && json.found) {
+          setLookupResult(json as VerifiedRecipientCard);
+        } else {
+          setLookupResult({
+            found: false,
+            uid: null,
+            displayName: '',
+            username: null,
+            photoURL: null,
+            walletId: null,
+            maskedWalletId: null,
+            phone: null,
+            verified: false,
+          });
+        }
+      } catch {
+        setLookupResult(null);
+      } finally {
+        setIsLookingUpRecipient(false);
+      }
+    }, 320);
+    return () => clearTimeout(timer);
+  }, [transferRecipient]);
+
+  // Save @username & Transaction PIN securely on backend
+  const handleSaveSecurityProfile = async () => {
+    setIsSavingSecurity(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      if (idToken) headers.Authorization = `Bearer ${idToken}`;
+
+      const phoneForReq = profile?.phoneNumber || profile?.phone || linkedPhone || linkedWalletInfo?.phone || '';
+      const resp = await fetch('/api/wallet/profile', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          uid: user?.uid || linkedWalletInfo?.uid || undefined,
+          phone: phoneForReq || undefined,
+          username: securityUsernameInput.trim() || undefined,
+          newPin: securityNewPin.trim() || undefined,
+          currentPin: securityCurrentPin.trim() || undefined,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        toast.error(json?.error || 'Imeshindikana kuhifadhi mipangilio ya usalama.');
+        return;
+      }
+      if (json.username) setUsernameHandle(json.username);
+      if (typeof json.hasPinSet === 'boolean') setHasPinSet(json.hasPinSet);
+      setSecurityNewPin('');
+      setSecurityCurrentPin('');
+      setIsSecurityModalOpen(false);
+      toast.success('Mipangilio ya @username na Transaction PIN imehifadhiwa salama!');
+      if (user?.uid || phoneForReq) {
+        syncWalletFromServer(phoneForReq || '', user?.uid);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Hitilafu ya mtandao.');
+    } finally {
+      setIsSavingSecurity(false);
+    }
+  };
+
+  // Server-computed fees for preview
+  const transferAmtNum = Math.max(0, Math.round(Number(transferAmount || 0)));
+  const computedP2PFee = React.useMemo(() => {
+    if (!transferAmtNum || transferAmtNum < 100) return 0;
+    const pct = Number(walletSettings.transferFeePercent || 0);
+    const flat = Number(walletSettings.transferFeeFlat || 0);
+    const minFee = Number(walletSettings.transferFeeMin || 0);
+    if (pct <= 0 && flat <= 0) return 0;
+    return Math.max(minFee, Math.round((transferAmtNum * pct) / 100) + flat);
+  }, [transferAmtNum, walletSettings]);
+
+  const withdrawAmtNum = Math.max(0, Math.round(Number(withdrawAmount || 0)));
+  const computedWithdrawFee = React.useMemo(() => {
+    if (!withdrawAmtNum || withdrawAmtNum <= 0) return 0;
+    const pct = Number(walletSettings.withdrawalFeePercent ?? 0.2);
+    const minFee = Number(walletSettings.withdrawalFeeMin ?? 100);
+    return Math.max(minFee, Math.round((withdrawAmtNum * pct) / 100));
+  }, [withdrawAmtNum, walletSettings]);
+
+  // Wakala Cash-Out Handler
   const handleNfcWithdrawCash = (agentName: string, amount: number) => {
     if (balanceTZS < amount) {
       toast.error(`Salio lako halitoshi kutoa TZS ${amount.toLocaleString()}.`);
@@ -922,60 +1271,246 @@ export default function PapoPayHome() {
         subtitle: `${agentName} • Fedha Taslimu Mkononi`,
         amount: amount,
         type: 'debit',
+        txType: 'MOBILE_MONEY_WITHDRAWAL',
+        typeLabel: 'Wakala Withdrawal',
         category: 'withdraw',
         date: 'Leo',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         refCode: `TRX: PAPO-WDR-${Math.floor(100000 + Math.random() * 900000)}`,
-        status: 'completed'
+        status: 'completed',
+        paymentMethod: 'Wakala Cash-Out',
       };
 
       setTransactions(prev => [newTx, ...prev]);
       setIsNfcWithdrawing(false);
       setSelectedReceipt(newTx);
       setIsReceiptModalOpen(true);
-      toast.success(`💵 TZS ${amount.toLocaleString()} zimetolewa kwa ufanisi! Wakala amekukabidhi fedha taslimu.`);
-    }, 1200);
+      toast.success(`TZS ${amount.toLocaleString()} zimetolewa kwa ufanisi! Wakala amekukabidhi fedha taslimu.`);
+    }, 1000);
   };
 
-  // Transfer Money Handler
-  const handleExecuteTransfer = () => {
-    const amt = Number(transferAmount);
-    if (!amt || amt <= 0) {
-      toast.error('Tafadhali weka kiasi sahihi.');
+  // Real Backend Mobile Money Withdrawal Handler (M-Pesa / Tigo Pesa / Airtel Money / HaloPesa)
+  const handleExecuteMobileWithdrawal = async () => {
+    setWithdrawError(null);
+    const amt = Math.round(Number(withdrawAmount || 0));
+    if (!amt || amt < Number(walletSettings.withdrawalMinAmount || 1000)) {
+      const msg = `Kiwango cha chini cha kutoa kwenda mtandao wa simu ni TZS ${Number(walletSettings.withdrawalMinAmount || 1000).toLocaleString()}.`;
+      setWithdrawError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!withdrawPhone || withdrawPhone.replace(/\D/g, '').length < 9) {
+      const msg = 'Weka namba sahihi ya simu ya mpokeaji (mf. 0712345678).';
+      setWithdrawError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!/^\d{4,6}$/.test(withdrawPin.trim())) {
+      const msg = hasPinSet
+        ? 'Weka Transaction PIN yako (tarakimu 4 hadi 6) kuthibitisha.'
+        : 'Tafadhali weka Transaction PIN yako kwanza kwenye "PIN & @username".';
+      setWithdrawError(msg);
+      toast.error(msg);
+      if (!hasPinSet) setIsSecurityModalOpen(true);
+      return;
+    }
+    if (balanceTZS < amt + computedWithdrawFee) {
+      const msg = `Salio halitoshi (Una TZS ${balanceTZS.toLocaleString()}, unahitaji TZS ${(amt + computedWithdrawFee).toLocaleString()} pamoja na ada).`;
+      setWithdrawError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setIsMobileWithdrawing(true);
+    try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `wth-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      if (idToken) headers.Authorization = `Bearer ${idToken}`;
+
+      const senderPhone = profile?.phoneNumber || profile?.phone || linkedPhone || linkedWalletInfo?.phone || '';
+      const resp = await fetch('/api/wallet/withdraw', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          senderUid: user?.uid || linkedWalletInfo?.uid || undefined,
+          senderPhone: senderPhone || undefined,
+          network: withdrawNetwork,
+          recipientPhone: withdrawPhone.trim(),
+          amount: amt,
+          pin: withdrawPin.trim(),
+          idempotencyKey,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        const errMsg = json?.reason || json?.error || 'Imeshindikana kuanzisha ombi la kutoa pesa.';
+        setWithdrawError(errMsg);
+        toast.error(errMsg);
+        return;
+      }
+
+      if (typeof json.newAvailableBalance === 'number') setBalanceTZS(json.newAvailableBalance);
+      if (typeof json.newReservedBalance === 'number') setReservedBalanceTZS(json.newReservedBalance);
+      setWithdrawPin('');
+
+      const newTx: TransactionItem = {
+        id: json.transactionId || `tx_${Date.now()}`,
+        transactionId: json.refCode || json.transactionId,
+        title:
+          json.status === 'pending'
+            ? `Pending Withdrawal (${json.networkLabel || withdrawNetwork})`
+            : `Mobile Money Withdrawal (${json.networkLabel || withdrawNetwork})`,
+        subtitle: `${json.recipientPhone || withdrawPhone} • ${String(json.status || 'pending').toUpperCase()}`,
+        amount: Number(json.amount || amt),
+        fee: Number(json.fee || computedWithdrawFee),
+        type: 'debit',
+        txType: json.status === 'completed' ? 'MOBILE_MONEY_WITHDRAWAL' : 'PENDING_WITHDRAWAL',
+        typeLabel: json.status === 'completed' ? 'Mobile Money Withdrawal' : 'Pending Withdrawal',
+        category: 'withdraw',
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        refCode: `TRX: ${json.refCode || 'WTH'}`,
+        status: json.status === 'completed' ? 'completed' : 'pending',
+        sender: profile?.displayName || linkedWalletInfo?.displayName || 'PapoPay Wallet',
+        recipient: json.recipientPhone || withdrawPhone,
+        paymentMethod: `${json.networkLabel || withdrawNetwork}`,
+      };
+
+      setTransactions((prev) => [newTx, ...prev]);
+      setSelectedReceipt(newTx);
+      setIsReceiptModalOpen(true);
+      toast.success(
+        json.status === 'completed'
+          ? `TZS ${amt.toLocaleString()} zimetumwa kwenda ${json.networkLabel}!`
+          : `Ombi #${json.refCode} limehifadhiwa (PENDING) na fedha zimetengwa salama kusubiri utumaji.`
+      );
+      syncWalletFromServer(senderPhone || '', user?.uid || linkedWalletInfo?.uid || undefined);
+    } catch (err: any) {
+      const msg = err?.message || 'Hitilafu ya mtandao.';
+      setWithdrawError(msg);
+      toast.error(msg);
+    } finally {
+      setIsMobileWithdrawing(false);
+    }
+  };
+
+  // Real Backend PapoPay-to-PapoPay Transfer Handler (@username, Wallet ID, or Phone + PIN)
+  const handleExecuteTransfer = async () => {
+    setTransferError(null);
+    const amt = Math.round(Number(transferAmount || 0));
+    if (!amt || amt < 100) {
+      const msg = 'Kiasi cha chini cha kutuma ni TZS 100.';
+      setTransferError(msg);
+      toast.error(msg);
       return;
     }
     if (!transferRecipient.trim()) {
-      toast.error('Tafadhali weka namba ya simu au PapoPay ID ya mpokeaji.');
+      const msg = 'Weka @username, Wallet ID, au namba ya simu ya mpokeaji.';
+      setTransferError(msg);
+      toast.error(msg);
       return;
     }
-    if (balanceTZS < amt) {
-      toast.error('Salio lako halitoshi kufanya muamala huu.');
+    if (lookupResult && !lookupResult.found) {
+      const msg = 'Mpokeaji hakupatikana kwenye PapoPay. Hakiki @username, Wallet ID, au namba ya simu.';
+      setTransferError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!/^\d{4,6}$/.test(transferPin.trim())) {
+      const msg = hasPinSet
+        ? 'Weka Transaction PIN yako (tarakimu 4 hadi 6) kuthibitisha.'
+        : 'Weka Transaction PIN yako kwanza kwenye "PIN & @username" kabla ya kutuma pesa.';
+      setTransferError(msg);
+      toast.error(msg);
+      if (!hasPinSet) setIsSecurityModalOpen(true);
+      return;
+    }
+    if (balanceTZS < amt + computedP2PFee) {
+      const msg = `Salio lako halitoshi (Una TZS ${balanceTZS.toLocaleString()}, unahitaji TZS ${(amt + computedP2PFee).toLocaleString()}).`;
+      setTransferError(msg);
+      toast.error(msg);
       return;
     }
 
     setIsTransferring(true);
-    setTimeout(() => {
-      setBalanceTZS(prev => prev - amt);
+    try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `trf-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      if (idToken) headers.Authorization = `Bearer ${idToken}`;
+
+      const senderPhone = profile?.phoneNumber || profile?.phone || linkedPhone || linkedWalletInfo?.phone || '';
+      const resp = await fetch('/api/wallet/transfer', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          senderUid: user?.uid || linkedWalletInfo?.uid || undefined,
+          senderPhone: senderPhone || undefined,
+          recipientQuery: transferRecipient.trim(),
+          amount: amt,
+          pin: transferPin.trim(),
+          idempotencyKey,
+          note: transferNote.trim() || 'PapoPay Transfer',
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json?.ok) {
+        const errMsg = json?.reason || json?.error || 'Imeshindikana kutuma pesa.';
+        setTransferError(errMsg);
+        toast.error(errMsg);
+        return;
+      }
+
+      if (typeof json.newSenderBalance === 'number') {
+        setBalanceTZS(json.newSenderBalance);
+      }
+
+      const recName = json.recipient?.displayName || lookupResult?.displayName || transferRecipient.trim();
+      const recHandle = json.recipient?.username || lookupResult?.username || json.recipient?.maskedWalletId || '';
       const newTx: TransactionItem = {
-        id: `tx_${Date.now()}`,
-        title: `Tuma Pesa kwa ${transferRecipient}`,
-        subtitle: `PAPO-TO-PAPO (0% ADA) • ${transferNote}`,
-        amount: amt,
+        id: json.transactionId || `tx_${Date.now()}`,
+        transactionId: json.refCode || json.transactionId,
+        title: `Money Sent to ${recName}`,
+        subtitle: `${recHandle ? `${recHandle} • ` : ''}PapoPay Wallet`,
+        amount: Number(json.amount || amt),
+        fee: Number(json.fee || 0),
         type: 'debit',
+        txType: 'MONEY_SENT',
+        typeLabel: 'Money Sent',
         category: 'transfer',
-        date: 'Leo',
+        date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        refCode: `TRX: PAPO-TRF-${Math.floor(100000 + Math.random() * 900000)}`,
-        status: 'completed'
+        refCode: `TRX: ${json.refCode || 'TRF'}`,
+        status: 'completed',
+        sender: json.sender?.displayName || userDisplayName,
+        recipient: `${recName}${recHandle ? ` (${recHandle})` : ''}`,
+        paymentMethod: 'PapoPay Wallet',
       };
 
-      setTransactions(prev => [newTx, ...prev]);
-      setIsTransferring(false);
+      setTransactions((prev) => [newTx, ...prev]);
       setSelectedReceipt(newTx);
       setIsReceiptModalOpen(true);
-      toast.success(`✅ TZS ${amt.toLocaleString()} zimetumwa kwa ${transferRecipient} bila makato!`);
+      setTransferPin('');
       setTransferRecipient('');
-    }, 1100);
+      setLookupResult(null);
+      toast.success(`TZS ${amt.toLocaleString()} zimetumwa kwa ${recName}!`);
+      syncWalletFromServer(senderPhone || '', user?.uid || linkedWalletInfo?.uid || undefined);
+    } catch (err: any) {
+      const msg = err?.message || 'Hitilafu ya mtandao.';
+      setTransferError(msg);
+      toast.error(msg);
+    } finally {
+      setIsTransferring(false);
+    }
   };
 
   // LUKU Purchase Handler
@@ -1297,25 +1832,45 @@ export default function PapoPayHome() {
                   </div>
                 </div>
 
-                {/* Wallet ID with Copy Icon */}
-                <div className="flex items-center gap-1.5 text-xs text-blue-100 font-mono">
-                  <span className="opacity-80">Wallet ID:</span>
-                  <span className="font-bold">{activeWalletId || 'Haijaunganishwa'}</span>
-                  {activeWalletId && (
-                    <button 
+                {/* Wallet ID & @username with Security Setup */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-xs text-blue-100 font-mono">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="opacity-80">ID:</span>
+                      <span className="font-bold truncate">{activeWalletId || 'Haijaunganishwa'}</span>
+                      {activeWalletId && (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(activeWalletId);
+                            toast.success(`Wallet ID ${activeWalletId} imenakiliwa!`);
+                          }}
+                          className="p-1 hover:text-white transition-colors"
+                          title="Copy ID"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <button
                       onClick={() => {
-                        navigator.clipboard.writeText(activeWalletId);
-                        toast.success(`Wallet ID ${activeWalletId} imenakiliwa!`);
+                        setSecurityUsernameInput(usernameHandle ? usernameHandle.replace(/^@+/, '') : '');
+                        setIsSecurityModalOpen(true);
                       }}
-                      className="p-1 hover:text-white transition-colors"
-                      title="Copy ID"
+                      className="px-2 py-0.5 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] font-sans font-bold text-white shrink-0 flex items-center gap-1 cursor-pointer"
                     >
-                      <Copy className="w-3 h-3" />
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>{hasPinSet ? 'PIN & @user' : 'Weka PIN'}</span>
                     </button>
+                  </div>
+                  {usernameHandle && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-200">
+                      <span>{usernameHandle}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-400/20 text-[9px] uppercase">Verified</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Available Balance + Eye Toggle + Holographic Chip */}
+                {/* Available Balance + Reserved Escrow Balance */}
                 <div className="flex items-end justify-between pt-1">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-blue-200 block">
@@ -1323,17 +1878,23 @@ export default function PapoPayHome() {
                     </span>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-2xl xl:text-3xl font-black font-mono tracking-tight">
-                        {showBalance 
+                        {showBalance
                           ? (currency === 'TZS' ? `TZS ${(balanceTZS).toLocaleString()}` : `$${(balanceTZS / 2600).toFixed(2)}`)
                           : '••••••••'}
                       </span>
-                      <button 
+                      <button
                         onClick={() => setShowBalance(!showBalance)}
                         className="p-1 hover:text-white transition-colors opacity-90"
                       >
                         {showBalance ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
                     </div>
+                    {reservedBalanceTZS > 0 && showBalance && (
+                      <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-100 text-[10px] font-bold font-mono">
+                        <Clock className="w-3 h-3" />
+                        <span>Reserved Pending: {formatAmount(reservedBalanceTZS)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Holographic Card Chip Graphic */}
@@ -2056,9 +2617,23 @@ export default function PapoPayHome() {
                       </p>
                     </div>
                   </div>
-                  <div className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-white text-[#075E54] font-black text-xs flex items-center justify-center gap-2 shrink-0 group-hover:bg-emerald-50 transition-colors">
-                    <span>Fungua PapoPay WhatsApp</span>
-                    <ArrowUpRight className="w-4 h-4" />
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCreatedPayLink(null);
+                        setIsPayLinkModalOpen(true);
+                      }}
+                      className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white border border-white/25 font-bold text-xs flex items-center justify-center gap-1.5 backdrop-blur-xs cursor-pointer"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      <span>Unda Link ya Malipo</span>
+                    </button>
+                    <div className="min-h-[44px] px-4 py-2.5 rounded-2xl bg-white text-[#075E54] font-black text-xs flex items-center justify-center gap-2 group-hover:bg-emerald-50 transition-colors">
+                      <span>Fungua PapoPay WhatsApp</span>
+                      <ArrowUpRight className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
 
@@ -2352,82 +2927,238 @@ export default function PapoPayHome() {
                 </div>
               </div>
 
-              {/* Right Column: Toa Pesa kwa Wakala (Withdrawal via NFC or Code) */}
+              {/* Right Column: Withdraw Money (Mobile Money & Wakala Cash-Out) */}
               <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center font-bold">
-                    <ArrowUpRight className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                      Toa Fedha kwa Wakala (NFC POS / Wakala Code)
-                    </h3>
-                    <p className="text-xs text-neutral-500">Toa pesa taslimu papo hapo kwa wakala yeyote aliye karibu</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-neutral-400 block mb-2">
-                      Mawakala wa PapoPay Walio Karibu (Dar es Salaam)
-                    </label>
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {[
-                        { name: 'Wakala Mussa Telecomm (Kariakoo Sokoni)', dist: '120m', status: 'Inapatikana' },
-                        { name: 'Papo Agent Mary (Posta Mpya Mnara)', dist: '250m', status: 'Inapatikana' },
-                        { name: 'Kivukoni Ferry Point Wakala', dist: '400m', status: 'Inapatikana' },
-                        { name: 'Mwenge Stendi Papo Hub', dist: '1.2km', status: 'Inapatikana' },
-                        { name: 'Ubungo Simu 2000 Wakala', dist: '2.5km', status: 'Inapatikana' }
-                      ].map((ag) => (
-                        <div
-                          key={ag.name}
-                          onClick={() => setSelectedAgent(ag.name)}
-                          className={`p-3 rounded-2xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
-                            selectedAgent === ag.name
-                              ? 'bg-blue-50 dark:bg-blue-950/40 border-[#3b66f5] font-bold text-neutral-900 dark:text-white'
-                              : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-emerald-500" />
-                            <span>{ag.name}</span>
-                          </div>
-                          <span className="font-mono text-[11px] text-blue-600">{ag.dist}</span>
-                        </div>
-                      ))}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center font-bold">
+                      <ArrowUpRight className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                        Withdraw Money (Toa Pesa)
+                      </h3>
+                      <p className="text-xs text-neutral-500">M-Pesa, Tigo Pesa, Airtel Money, HaloPesa au Wakala</p>
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
-                      Kiasi cha Kutoa (TZS)
-                    </label>
-                    <input
-                      type="number"
-                      value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
-                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>Ada ya kutoa kwa wakala wa PapoPay ni 0.2% pekee (Nusu ya makato ya kawaida ya mawakala wa mitandao).</span>
-                  </div>
-
+                {/* Channel Toggle: Mobile Money Networks vs Wakala Cash-Out */}
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-neutral-100 dark:bg-neutral-800">
                   <button
-                    disabled={isNfcWithdrawing}
-                    onClick={() => handleNfcWithdrawCash(selectedAgent, Number(withdrawAmount || 0))}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    type="button"
+                    onClick={() => setWithdrawMode('mobile_money')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      withdrawMode === 'mobile_money'
+                        ? 'bg-white dark:bg-neutral-900 text-rose-600 shadow-xs'
+                        : 'text-neutral-600 dark:text-neutral-400'
+                    }`}
                   >
-                    {isNfcWithdrawing ? (
-                      <RefreshCw className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Radio className="w-5 h-5" />
-                    )}
-                    <span>Gusisha Simu / Toa TZS {Number(withdrawAmount || 0).toLocaleString()}</span>
+                    📱 Mobile Money (M-Pesa / Tigo...)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWithdrawMode('wakala')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                      withdrawMode === 'wakala'
+                        ? 'bg-white dark:bg-neutral-900 text-blue-600 shadow-xs'
+                        : 'text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >
+                    🏪 Wakala Cash-Out (NFC)
                   </button>
                 </div>
+
+                {withdrawMode === 'mobile_money' ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-2">
+                        Chagua Mtandao wa Simu
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'MPESA' as const, label: 'M-Pesa (Vodacom)' },
+                          { id: 'TIGO' as const, label: 'Tigo Pesa (Mixx)' },
+                          { id: 'AIRTEL' as const, label: 'Airtel Money' },
+                          { id: 'HALOPESA' as const, label: 'HaloPesa' },
+                        ].map((net) => {
+                          const enabled = walletSettings.enabledNetworks?.[net.id] !== false;
+                          return (
+                            <button
+                              key={net.id}
+                              type="button"
+                              disabled={!enabled}
+                              onClick={() => setWithdrawNetwork(net.id)}
+                              className={`p-3 rounded-2xl border text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                                !enabled
+                                  ? 'opacity-45 cursor-not-allowed bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-400'
+                                  : withdrawNetwork === net.id
+                                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-500 text-rose-700 dark:text-rose-300 shadow-xs'
+                                  : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
+                              }`}
+                            >
+                              <span>{net.label}</span>
+                              {!enabled && <span className="text-[9px] uppercase text-red-500">Zimwa</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Namba ya Simu ya Mpokeaji
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Mfano: 0754123456"
+                        value={withdrawPhone}
+                        onChange={(e) => setWithdrawPhone(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Kiasi cha Kutoa (TZS)
+                      </label>
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    {/* Fee & Total Summary */}
+                    <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700 text-xs space-y-1.5">
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Kiasi cha Kutoa:</span>
+                        <span className="font-mono font-bold">TZS {withdrawAmtNum.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Ada ya Mtandao ({walletSettings.withdrawalFeePercent}%):</span>
+                        <span className="font-mono font-bold text-amber-600">TZS {computedWithdrawFee.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between pt-1.5 border-t border-neutral-200 dark:border-neutral-700 font-black">
+                        <span>Jumla Itakayotengwa:</span>
+                        <span className="font-mono text-rose-600">TZS {(withdrawAmtNum + computedWithdrawFee).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold uppercase text-neutral-400">
+                          Transaction PIN (Tarakimu 4–6)
+                        </label>
+                        {!hasPinSet && (
+                          <button
+                            type="button"
+                            onClick={() => setIsSecurityModalOpen(true)}
+                            className="text-[11px] font-bold text-[#3b66f5] underline cursor-pointer"
+                          >
+                            Weka PIN Kwanza
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="••••"
+                        value={withdrawPin}
+                        onChange={(e) => setWithdrawPin(e.target.value.replace(/\D/g, ''))}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold tracking-widest focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    {withdrawError && (
+                      <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-xs font-semibold text-red-600 dark:text-red-300 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{withdrawError}</span>
+                      </div>
+                    )}
+
+                    <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                      <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        Kwa usalama wa fedha zako, kiasi kinachotolewa kinahifadhiwa kwenye <strong>Reserved Escrow (PENDING)</strong> hadi malipo yatakapothibitishwa kukamilika na mtandao. Kikishindikana, kinarudishwa kiotomatiki.
+                      </span>
+                    </div>
+
+                    <button
+                      disabled={isMobileWithdrawing}
+                      onClick={handleExecuteMobileWithdrawal}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-60 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                    >
+                      {isMobileWithdrawing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <ArrowUpRight className="w-5 h-5" />}
+                      <span>Thibitisha &amp; Toa TZS {withdrawAmtNum.toLocaleString()}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-2">
+                        Mawakala wa PapoPay Walio Karibu (Dar es Salaam)
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {[
+                          { name: 'Wakala Mussa Telecomm (Kariakoo Sokoni)', dist: '120m', status: 'Inapatikana' },
+                          { name: 'Papo Agent Mary (Posta Mpya Mnara)', dist: '250m', status: 'Inapatikana' },
+                          { name: 'Kivukoni Ferry Point Wakala', dist: '400m', status: 'Inapatikana' },
+                          { name: 'Mwenge Stendi Papo Hub', dist: '1.2km', status: 'Inapatikana' },
+                          { name: 'Ubungo Simu 2000 Wakala', dist: '2.5km', status: 'Inapatikana' }
+                        ].map((ag) => (
+                          <div
+                            key={ag.name}
+                            onClick={() => setSelectedAgent(ag.name)}
+                            className={`p-3 rounded-2xl border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                              selectedAgent === ag.name
+                                ? 'bg-blue-50 dark:bg-blue-950/40 border-[#3b66f5] font-bold text-neutral-900 dark:text-white'
+                                : 'bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-emerald-500" />
+                              <span>{ag.name}</span>
+                            </div>
+                            <span className="font-mono text-[11px] text-blue-600">{ag.dist}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
+                        Kiasi cha Kutoa (TZS)
+                      </label>
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Ada ya kutoa kwa wakala wa PapoPay ni 0.2% pekee (Nusu ya makato ya kawaida ya mawakala wa mitandao).</span>
+                    </div>
+
+                    <button
+                      disabled={isNfcWithdrawing}
+                      onClick={() => handleNfcWithdrawCash(selectedAgent, Number(withdrawAmount || 0))}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
+                    >
+                      {isNfcWithdrawing ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Radio className="w-5 h-5" />
+                      )}
+                      <span>Gusisha Simu / Toa TZS {Number(withdrawAmount || 0).toLocaleString()}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -3312,32 +4043,99 @@ export default function PapoPayHome() {
           {activeSection === 'transfer_exchange' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
-              {/* Tuma Pesa (0% Ada) */}
+              {/* Send Money to PapoPay User (@username, Wallet ID, or Phone) */}
               <div className="p-6 rounded-3xl bg-white dark:bg-[#111625] border border-neutral-200/80 dark:border-neutral-800 space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#3b66f5] flex items-center justify-center font-bold">
-                    <Send className="w-6 h-6" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#3b66f5] flex items-center justify-center font-bold">
+                      <Send className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-neutral-900 dark:text-white">
+                        Send Money to PapoPay User
+                      </h3>
+                      <p className="text-xs text-neutral-500">Tuma kwa @username (mf. @amourrashid), Wallet ID (PP...), au Simu</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-neutral-900 dark:text-white">
-                      Tuma Pesa Papo kwa Papo (0% Makato)
-                    </h3>
-                    <p className="text-xs text-neutral-500">Tuma kwenda namba yoyote ya simu au PapoPay Wallet ID</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSecurityUsernameInput(usernameHandle ? usernameHandle.replace(/^@+/, '') : '');
+                      setIsSecurityModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-[11px] font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 cursor-pointer shrink-0"
+                  >
+                    {hasPinSet ? '🔐 PIN / @user' : '⚠️ Weka PIN'}
+                  </button>
                 </div>
 
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
-                      Mpokeaji (Simu au Wallet ID)
+                      Mpokeaji (@username, Wallet ID au Namba ya Simu)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Mfano: 0754 000 111 au 118504625"
-                      value={transferRecipient}
-                      onChange={(e) => setTransferRecipient(e.target.value)}
-                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Mfano: @jumamohamed, PP4225358 au 0712345678"
+                        value={transferRecipient}
+                        onChange={(e) => setTransferRecipient(e.target.value)}
+                        className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-sm font-mono font-bold pr-10"
+                      />
+                      {isLookingUpRecipient && (
+                        <RefreshCw className="w-4 h-4 animate-spin text-[#3b66f5] absolute right-3.5 top-1/2 -translate-y-1/2" />
+                      )}
+                    </div>
+
+                    {/* Auto-Verified Recipient Profile Card */}
+                    {lookupResult && (
+                      <div
+                        className={`mt-2.5 p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                          lookupResult.found
+                            ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                            : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
+                        }`}
+                      >
+                        {lookupResult.found ? (
+                          <>
+                            <div className="flex items-center gap-3 min-w-0">
+                              {lookupResult.photoURL ? (
+                                <img
+                                  src={lookupResult.photoURL}
+                                  alt={lookupResult.displayName}
+                                  className="w-10 h-10 rounded-xl object-cover border border-emerald-300 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-black text-sm flex items-center justify-center shrink-0">
+                                  {lookupResult.displayName.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-black text-sm text-neutral-900 dark:text-white truncate">
+                                    {lookupResult.displayName}
+                                  </span>
+                                  {lookupResult.verified && (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                                      <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] font-mono text-neutral-600 dark:text-neutral-300 truncate">
+                                  {lookupResult.username ? `${lookupResult.username} • ` : ''}
+                                  ID: {lookupResult.maskedWalletId || 'PP****'}
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs font-bold text-rose-600 dark:text-rose-300">
+                            <UserX className="w-4 h-4 shrink-0" />
+                            <span>Mtumiaji hakupatikana kwenye PapoPay. Hakikisha @username au Wallet ID ni sahihi.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -3354,27 +4152,79 @@ export default function PapoPayHome() {
 
                   <div>
                     <label className="text-xs font-bold uppercase text-neutral-400 block mb-1">
-                      Ujumbe / Sababu
+                      Ujumbe / Sababu (Hiari)
                     </label>
                     <input
                       type="text"
+                      placeholder="Mfano: Malipo ya bidhaa"
                       value={transferNote}
                       onChange={(e) => setTransferNote(e.target.value)}
                       className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-xs font-medium"
                     />
                   </div>
 
+                  {/* Fee & Total Summary */}
+                  <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Transfer Amount:</span>
+                      <span className="font-mono font-bold">TZS {transferAmtNum.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Transaction Fee:</span>
+                      <span className="font-mono font-bold text-emerald-600">
+                        {computedP2PFee === 0 ? 'TZS 0 (FREE)' : `TZS ${computedP2PFee.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between pt-1.5 border-t border-neutral-200 dark:border-neutral-700 font-black">
+                      <span>Total to be Deducted:</span>
+                      <span className="font-mono text-[#3b66f5]">TZS {(transferAmtNum + computedP2PFee).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold uppercase text-neutral-400">
+                        Transaction PIN (Tarakimu 4–6)
+                      </label>
+                      {!hasPinSet && (
+                        <button
+                          type="button"
+                          onClick={() => setIsSecurityModalOpen(true)}
+                          className="text-[11px] font-bold text-[#3b66f5] underline cursor-pointer"
+                        >
+                          Weka PIN Kwanza
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="••••"
+                      value={transferPin}
+                      onChange={(e) => setTransferPin(e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-4 py-3 rounded-2xl text-base font-mono font-bold tracking-widest"
+                    />
+                  </div>
+
+                  {transferError && (
+                    <div className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-xs font-semibold text-red-600 dark:text-red-300 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{transferError}</span>
+                    </div>
+                  )}
+
                   <button
-                    disabled={isTransferring}
+                    disabled={isTransferring || (Boolean(lookupResult) && !lookupResult?.found)}
                     onClick={handleExecuteTransfer}
-                    className="w-full py-4 rounded-2xl bg-[#3b66f5] hover:bg-[#2f55e0] text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    className="w-full py-4 rounded-2xl bg-[#3b66f5] hover:bg-[#2f55e0] disabled:opacity-60 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
                   >
                     {isTransferring ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
                     ) : (
                       <Send className="w-5 h-5" />
                     )}
-                    <span>Tuma TZS {Number(transferAmount || 0).toLocaleString()} (0% Ada)</span>
+                    <span>Thibitisha &amp; Tuma TZS {(transferAmtNum + computedP2PFee).toLocaleString()}</span>
                   </button>
                 </div>
               </div>
@@ -3831,51 +4681,92 @@ export default function PapoPayHome() {
 
               {/* Transactions List */}
               <div className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
-                {filteredTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    onClick={() => {
-                      setSelectedReceipt(tx);
-                      setIsReceiptModalOpen(true);
-                    }}
-                    className="py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 px-2 rounded-2xl cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
-                        tx.type === 'credit'
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600'
-                          : 'bg-rose-50 dark:bg-rose-950/40 text-rose-500'
-                      }`}>
-                        {tx.type === 'credit' ? <Download className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
-                      </div>
+                {filteredTransactions.length === 0 ? (
+                  <p className="py-8 text-center text-xs text-neutral-400 font-semibold">
+                    Bado hakuna miamala iliyorekodiwa kwenye akaunti hii.
+                  </p>
+                ) : (
+                  filteredTransactions.map((tx) => {
+                    const statusBadgeClass =
+                      tx.status === 'failed'
+                        ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                        : tx.status === 'pending' || tx.status === 'processing'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
+                    const statusText =
+                      tx.status === 'failed'
+                        ? 'FAILED'
+                        : tx.status === 'processing'
+                        ? 'PROCESSING'
+                        : tx.status === 'pending'
+                        ? 'PENDING'
+                        : 'COMPLETED';
+                    return (
+                      <div
+                        key={tx.id}
+                        onClick={() => {
+                          setSelectedReceipt(tx);
+                          setIsReceiptModalOpen(true);
+                        }}
+                        className="py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 px-2 rounded-2xl cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+                            tx.status === 'failed'
+                              ? 'bg-red-50 dark:bg-red-950/40 text-red-600'
+                              : tx.status === 'pending' || tx.status === 'processing'
+                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600'
+                              : tx.type === 'credit'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600'
+                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-500'
+                          }`}>
+                            {tx.type === 'credit' ? <Download className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                          </div>
 
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-bold text-neutral-900 dark:text-white truncate">
-                          {tx.title}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-mono">
-                            {tx.subtitle.includes('COMPLETED') ? 'MALIPO' : 'NFC TAP'}
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-neutral-900 dark:text-white truncate">
+                              {tx.title}
+                            </h4>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono">
+                                {tx.typeLabel || tx.txType || (tx.type === 'credit' ? 'Money Received' : 'Money Sent')}
+                              </span>
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${statusBadgeClass}`}>
+                                {statusText}
+                              </span>
+                              {tx.paymentMethod && (
+                                <span className="text-[10px] font-semibold text-neutral-500 dark:text-neutral-400">
+                                  {tx.paymentMethod}
+                                </span>
+                              )}
+                            </div>
+                            {(tx.sender || tx.recipient) && (
+                              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                                {tx.sender ? `Kutoka: ${tx.sender}` : ''}{tx.sender && tx.recipient ? ' ➔ ' : ''}{tx.recipient ? `Kwenda: ${tx.recipient}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className={`text-sm sm:text-base font-black font-mono block ${
+                            tx.type === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-900 dark:text-white'
+                          }`}>
+                            {tx.type === 'credit' ? '+' : '-'}{formatAmount(tx.amount)}
                           </span>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                            IMETHIBITISHWA
+                          {Number(tx.fee || 0) > 0 && (
+                            <span className="text-[10px] font-mono text-amber-600 block">
+                              Ada: {formatAmount(Number(tx.fee || 0))}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-mono text-neutral-400 block mt-0.5">
+                            {tx.refCode} • {tx.date} {tx.time}
                           </span>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className={`text-sm sm:text-base font-black font-mono block ${
-                        tx.type === 'credit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-900 dark:text-white'
-                      }`}>
-                        {tx.type === 'credit' ? '+' : '-'}{formatAmount(tx.amount)}
-                      </span>
-                      <span className="text-[10px] font-mono text-neutral-400 block mt-0.5">
-                        {tx.refCode} • {tx.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })
+                )}
               </div>
 
             </div>
@@ -4072,14 +4963,53 @@ export default function PapoPayHome() {
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800 text-center">
-                <span className="text-[10px] uppercase font-bold text-neutral-400 block">Kiasi Kilicholipwa</span>
-                <span className="text-2xl font-black font-mono text-neutral-900 dark:text-white">
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800 text-center space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block">
+                  {selectedReceipt.typeLabel || 'Kiasi cha Muamala'}
+                </span>
+                <span className="text-2xl font-black font-mono text-neutral-900 dark:text-white block">
                   {formatAmount(selectedReceipt.amount)}
                 </span>
-                <span className="text-[10px] text-emerald-600 block mt-0.5 font-bold">
-                  ✓ Imethibitishwa na PapoPay &amp; BOT Compliance
+                <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-black uppercase ${
+                  selectedReceipt.status === 'failed'
+                    ? 'bg-red-100 text-red-700'
+                    : selectedReceipt.status === 'pending' || selectedReceipt.status === 'processing'
+                    ? 'bg-amber-100 text-amber-800'
+                    : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  {selectedReceipt.status === 'failed'
+                    ? '✗ Imeshindikana (Failed)'
+                    : selectedReceipt.status === 'pending' || selectedReceipt.status === 'processing'
+                    ? '⏳ Inasubiri (Pending)'
+                    : '✓ Imekamilika (Completed)'}
                 </span>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 text-xs space-y-1.5">
+                <div className="flex justify-between gap-2">
+                  <span className="text-neutral-400">Tarehe &amp; Muda:</span>
+                  <span className="font-mono font-semibold">{selectedReceipt.date} {selectedReceipt.time}</span>
+                </div>
+                {selectedReceipt.sender && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-400">Mtumaji:</span>
+                    <span className="font-bold text-right">{selectedReceipt.sender}</span>
+                  </div>
+                )}
+                {selectedReceipt.recipient && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-neutral-400">Mpokeaji:</span>
+                    <span className="font-bold text-right">{selectedReceipt.recipient}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-neutral-400">Ada:</span>
+                  <span className="font-mono font-bold">{formatAmount(Number(selectedReceipt.fee || 0))}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-neutral-400">Njia ya Malipo:</span>
+                  <span className="font-bold">{selectedReceipt.paymentMethod || 'PapoPay Wallet'}</span>
+                </div>
               </div>
 
               <div className="flex flex-col items-center justify-center p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl">
@@ -4258,26 +5188,29 @@ export default function PapoPayHome() {
                   <div className="p-5 space-y-5">
                     <div className="text-center space-y-1">
                       <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                        Ingiza PIN ya PapoPay (Tarakimu 4)
+                        Ingiza PIN ya PapoPay (Tarakimu 4–6)
                       </p>
                       <p className="text-[11px] text-neutral-400">
-                        Namba: {expressBuyerPhone || '—'}
+                        Namba: {expressBuyerPhone || '—'} · Bonyeza ✓ ukimaliza
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-center gap-3">
-                      {[0, 1, 2, 3].map((idx) => (
-                        <div
-                          key={idx}
-                          className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center text-xl font-black transition-all ${
-                            expressPin.length > idx
-                              ? 'border-[#008069] bg-emerald-50 dark:bg-emerald-950/40 text-neutral-900 dark:text-white'
-                              : 'border-neutral-300 dark:border-neutral-700 text-neutral-300'
-                          }`}
-                        >
-                          {expressPin.length > idx ? '•' : ''}
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-center gap-2.5">
+                      {[0, 1, 2, 3, 4, 5].map((idx) => {
+                        if (idx >= 4 && expressPin.length <= 4) return null;
+                        return (
+                          <div
+                            key={idx}
+                            className={`w-11 h-12 rounded-2xl border-2 flex items-center justify-center text-xl font-black transition-all ${
+                              expressPin.length > idx
+                                ? 'border-[#008069] bg-emerald-50 dark:bg-emerald-950/40 text-neutral-900 dark:text-white'
+                                : 'border-neutral-300 dark:border-neutral-700 text-neutral-300'
+                            }`}
+                          >
+                            {expressPin.length > idx ? '•' : ''}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {expressError && (
@@ -4293,13 +5226,10 @@ export default function PapoPayHome() {
                           type="button"
                           disabled={expressSubmitting}
                           onClick={() => {
-                            if (expressPin.length >= 4) return;
+                            if (expressPin.length >= 6) return;
                             const next = expressPin + digit;
                             setExpressPin(next);
                             setExpressError('');
-                            if (next.length === 4) {
-                              handleExpressCheckoutSubmit(next);
-                            }
                           }}
                           className="min-h-[52px] rounded-2xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-lg font-black text-neutral-900 dark:text-white tabular-nums transition-colors cursor-pointer"
                         >
@@ -4319,13 +5249,10 @@ export default function PapoPayHome() {
                         type="button"
                         disabled={expressSubmitting}
                         onClick={() => {
-                          if (expressPin.length >= 4) return;
+                          if (expressPin.length >= 6) return;
                           const next = expressPin + '0';
                           setExpressPin(next);
                           setExpressError('');
-                          if (next.length === 4) {
-                            handleExpressCheckoutSubmit(next);
-                          }
                         }}
                         className="min-h-[52px] rounded-2xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-lg font-black text-neutral-900 dark:text-white tabular-nums transition-colors cursor-pointer"
                       >
@@ -4529,6 +5456,135 @@ export default function PapoPayHome() {
         )}
       </AnimatePresence>
 
+      {/* MODAL 2C: ENHANCED PAYMENT LINK CREATOR & WHATSAPP SENDER */}
+      <AnimatePresence>
+        {isPayLinkModalOpen && (
+          <div className="fixed inset-0 z-[225] flex items-end sm:items-center justify-center sm:p-4 bg-black/75 backdrop-blur-sm">
+            <motion.div
+              initial={{ y: 36, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 36, opacity: 0 }}
+              className="bg-white dark:bg-[#111625] rounded-t-3xl sm:rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-neutral-200 dark:border-neutral-800"
+            >
+              <div className="bg-[#075E54] text-white px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
+                    <Link2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black">Enhanced Payment Link</h3>
+                    <p className="text-[11px] text-emerald-100">Unda link au tuma Review & Pay WhatsApp</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPayLinkModalOpen(false)}
+                  className="min-h-[40px] min-w-[40px] flex items-center justify-center text-white/80 hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1.5">
+                    Jina la Huduma / Bidhaa
+                  </label>
+                  <input
+                    type="text"
+                    value={payLinkTitle}
+                    onChange={(e) => setPayLinkTitle(e.target.value)}
+                    placeholder="Mf. Oda ya Viatu / Chakula"
+                    className="w-full min-h-[42px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 rounded-xl text-xs font-semibold text-neutral-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1.5">
+                    Kiasi cha Malipo (TZS)
+                  </label>
+                  <input
+                    type="number"
+                    value={payLinkAmount}
+                    onChange={(e) => setPayLinkAmount(e.target.value)}
+                    placeholder="15000"
+                    className="w-full min-h-[42px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 rounded-xl text-sm font-black font-mono tabular-nums text-neutral-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1.5">
+                    Namba ya WhatsApp ya Mteja (Hiari kutuma moja kwa moja)
+                  </label>
+                  <input
+                    type="tel"
+                    value={payLinkCustomerPhone}
+                    onChange={(e) => setPayLinkCustomerPhone(e.target.value)}
+                    placeholder="0712345678"
+                    className="w-full min-h-[42px] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 rounded-xl text-xs font-mono font-bold text-neutral-900 dark:text-white"
+                  />
+                </div>
+
+                {createdPayLink && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                      <span>Rejea #{createdPayLink.refCode}</span>
+                      <span>TZS {createdPayLink.amount.toLocaleString()}</span>
+                    </div>
+                    <p className="text-[11px] font-mono break-all text-emerald-800 dark:text-emerald-300">
+                      {createdPayLink.checkoutUrl}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(createdPayLink.checkoutUrl);
+                          toast.success('Link imenakiliwa!');
+                        }}
+                        className="flex-1 min-h-[36px] rounded-xl bg-white dark:bg-neutral-900 border border-emerald-300 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Nakili Link</span>
+                      </button>
+                      <a
+                        href={`https://wa.me/${payLinkCustomerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                          `💳 *Ombi la Malipo PapoPay* (#${createdPayLink.refCode})\n• Huduma: ${createdPayLink.title}\n• Kiasi: TZS ${createdPayLink.amount.toLocaleString()}/=\n\n👉 Lipa sasa: ${createdPayLink.checkoutUrl}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 min-h-[36px] rounded-xl bg-[#008069] text-white text-xs font-bold flex items-center justify-center gap-1"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Shiriki WA</span>
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    disabled={payLinkCreating}
+                    onClick={() => handleCreateEnhancedPaymentLink(false)}
+                    className="min-h-[44px] rounded-2xl border border-[#008069] text-[#008069] hover:bg-emerald-50 font-black text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {payLinkCreating ? 'Inaunda...' : 'Unda Link Tu'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={payLinkCreating}
+                    onClick={() => handleCreateEnhancedPaymentLink(true)}
+                    className="min-h-[44px] rounded-2xl bg-[#008069] hover:bg-[#006b57] text-white font-black text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {payLinkCreating ? 'Inatuma...' : 'Tuma Order WhatsApp'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* PapoPay Kwenye WhatsApp Interactive Modal */}
       <WhatsAppAIAssistantModal
         isOpen={isWhatsAppModalOpen}
@@ -4668,6 +5724,107 @@ export default function PapoPayHome() {
           setIsReceiptModalOpen(true);
         }}
       />
+
+      {/* Security Settings Modal (@username & Transaction PIN) */}
+      <AnimatePresence>
+        {isSecurityModalOpen && (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-[#111625] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 dark:border-neutral-800 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-[#3b66f5] flex items-center justify-center">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-neutral-900 dark:text-white">
+                      Usalama wa PapoPay &amp; @username
+                    </h3>
+                    <p className="text-[11px] text-neutral-500">Weka @username ya malipo na Transaction PIN</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSecurityModalOpen(false)}
+                  className="p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold uppercase text-neutral-400 block mb-1">
+                    PapoPay @username (mf. amourrashid)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="amourrashid"
+                    value={securityUsernameInput}
+                    onChange={(e) => setSecurityUsernameInput(e.target.value)}
+                    className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold"
+                  />
+                </div>
+
+                {hasPinSet && (
+                  <div>
+                    <label className="text-[11px] font-bold uppercase text-neutral-400 block mb-1">
+                      Transaction PIN ya Sasa
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="••••"
+                      value={securityCurrentPin}
+                      onChange={(e) => setSecurityCurrentPin(e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold tracking-widest"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase text-neutral-400 block mb-1">
+                    {hasPinSet ? 'Transaction PIN Mpya (hiari kubadili, tarakimu 4–6)' : 'Weka Transaction PIN Mpya (tarakimu 4–6)'}
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Mfano: 2580"
+                    value={securityNewPin}
+                    onChange={(e) => setSecurityNewPin(e.target.value.replace(/\D/g, ''))}
+                    className="w-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSecurityModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-bold cursor-pointer"
+                >
+                  Funga
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingSecurity}
+                  onClick={handleSaveSecurityProfile}
+                  className="flex-1 py-3 rounded-xl bg-[#3b66f5] hover:bg-[#2f55e0] text-white text-xs font-black uppercase cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isSavingSecurity ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  <span>Hifadhi Salama</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

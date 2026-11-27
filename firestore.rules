@@ -2,7 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // -------------------------------------------------------------------------
-    // PHASE 1: REUSABLE HELPERS
+    // DEFAULT DENY CATCH-ALL
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // REUSABLE IDENTITY & VALIDATION HELPERS
     // -------------------------------------------------------------------------
 
     function isSignedIn() {
@@ -14,7 +21,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128;
+      return id is string && id.size() >= 1 && id.size() <= 128;
     }
 
     function incoming() {
@@ -25,187 +32,308 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Backend Express / WhatsApp Bot service account signed into Firebase client SDK.
+    // Do NOT require email_verified == true here because this password account
+    // is provisioned without verified email status in Firebase Auth.
+    function isServerWorker() {
+      return isSignedIn() && request.auth.token.email == 'guest_staff@mabasi.com';
+    }
+
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'aicodtznation@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        (request.auth.token.email == 'aicodtznation@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
+    function isPrivileged() {
+      return isServerWorker() || isAdmin();
+    }
+
+    // Protected financial & security fields on /users/{userId} that client SDKs
+    // must NEVER modify directly. Only the atomic backend walletEngine / server
+    // service worker (or verified admin) may mutate these fields.
+    function touchesProtectedWalletFields() {
+      return incoming().diff(existing()).affectedKeys().hasAny([
+        'walletBalance',
+        'reservedBalance',
+        'walletPinHash',
+        'walletPinSalt',
+        'pinFailedAttempts',
+        'pinLockedUntilMs',
+        'walletPin',
+        'pinUpdatedAt',
+        'totalEarnings',
+        'role',
+        'kycVerified'
+      ]);
+    }
+
+    function isSafeUserCreate(userId) {
+      return isOwner(userId) &&
+        incoming().uid == userId &&
+        incoming().get('walletBalance', 0) == 0 &&
+        incoming().get('reservedBalance', 0) == 0 &&
+        !incoming().keys().hasAny([
+          'walletPinHash',
+          'walletPinSalt',
+          'pinFailedAttempts',
+          'pinLockedUntilMs',
+          'walletPin',
+          'totalEarnings',
+          'kycVerified'
+        ]) &&
+        incoming().get('role', 'customer') in ['customer', 'vendor', 'driver', 'rider', 'partner'];
+    }
+
     // -------------------------------------------------------------------------
-    // PHASE 2: COLLECTION RULES
+    // CORE WALLET, USER & LEDGER COLLECTIONS (STRICTLY HARDENED)
     // -------------------------------------------------------------------------
 
     // 1. USERS COLLECTION
     match /users/{userId} {
-      allow read: if true;
-      allow create, update, delete: if true;
+      allow read: if isPrivileged() || isOwner(userId) || isSignedIn();
+      allow create: if isValidId(userId) && (isPrivileged() || isSafeUserCreate(userId));
+      allow update: if isValidId(userId) && (
+        isPrivileged() ||
+        (isOwner(userId) && !touchesProtectedWalletFields() &&
+          incoming().get('walletBalance', existing().get('walletBalance', 0)) == existing().get('walletBalance', 0) &&
+          incoming().get('reservedBalance', existing().get('reservedBalance', 0)) == existing().get('reservedBalance', 0))
+      );
+      allow delete: if isValidId(userId) && isPrivileged();
     }
 
-    // 2. VENDORS COLLECTION
+    // 2. IMMUTABLE WALLET TRANSACTIONS LEDGER
+    match /wallet_transactions/{txId} {
+      allow get: if isValidId(txId) && (
+        isPrivileged() ||
+        (isSignedIn() && (existing().ownerUid == request.auth.uid || existing().senderUid == request.auth.uid || existing().recipientUid == request.auth.uid))
+      );
+      allow list: if isPrivileged() || (isSignedIn() && existing().ownerUid == request.auth.uid);
+      allow create: if isValidId(txId) && isServerWorker() &&
+        incoming().amount is number && incoming().amount >= 0 &&
+        incoming().fee is number && incoming().fee >= 0;
+      allow update, delete: if false; // Strictly immutable ledger
+    }
+
+    // 3. MOBILE MONEY DISBURSEMENTS & ESCROW RESERVES
+    match /disbursements/{refCode} {
+      allow get: if isValidId(refCode) && (
+        isPrivileged() ||
+        (isSignedIn() && existing().senderUid == request.auth.uid)
+      );
+      allow list: if isPrivileged() || (isSignedIn() && existing().senderUid == request.auth.uid);
+      allow create: if isValidId(refCode) && isServerWorker() &&
+        incoming().amount is number && incoming().amount > 0 &&
+        incoming().fee is number && incoming().fee >= 0;
+      allow update: if isValidId(refCode) && isServerWorker();
+      allow delete: if false;
+    }
+
+    // 4. UNIQUE USERNAME & WALLET ID INDEXES (Atomic uniqueness enforced by server)
+    match /usernames/{usernameLower} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow create, update, delete: if isValidId(usernameLower) && isServerWorker();
+    }
+
+    match /wallet_ids/{walletId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow create, update, delete: if isValidId(walletId) && isServerWorker();
+    }
+
+    // 5. SERVER-SIDE IDEMPOTENCY LOCKS & AUDIT LOGS
+    match /idempotency_keys/{keyId} {
+      allow read, write: if isServerWorker();
+    }
+
+    match /admin_audit_logs/{logId} {
+      allow read: if isPrivileged();
+      allow create: if isValidId(logId) && isServerWorker();
+      allow update, delete: if false;
+    }
+
+    // 6. PLATFORM & PAPOPAY TREASURY CONFIG
+    match /config/{configId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isValidId(configId) && isPrivileged();
+    }
+
+    // -------------------------------------------------------------------------
+    // EXISTING PLATFORM COLLECTIONS (SECURED AGAINST UNAUTHENTICATED WRITES)
+    // -------------------------------------------------------------------------
+
+    match /admins/{adminId} {
+      allow read: if isPrivileged() || isOwner(adminId);
+      allow write: if isPrivileged();
+    }
+
     match /vendors/{vendorId} {
-      allow read: if true; // Public access to browse stores
-      allow create, update, delete: if true;
+      allow read: if true;
+      allow create: if isValidId(vendorId) && (isPrivileged() || (isSignedIn() && incoming().ownerUid == request.auth.uid));
+      allow update: if isValidId(vendorId) && (isPrivileged() || (isSignedIn() && existing().ownerUid == request.auth.uid));
+      allow delete: if isValidId(vendorId) && isPrivileged();
 
       match /sections/{sectionId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow write: if isPrivileged() || isSignedIn();
+      }
+
+      match /loyalty_cards/{cardId} {
+        allow read: if isPrivileged() || isSignedIn();
+        allow write: if isPrivileged() || isSignedIn();
       }
     }
 
-    // 3. STAFF COLLECTION
     match /staff/{staffId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged() || isSignedIn();
     }
 
-    // 4. RIDES COLLECTION
     match /rides/{rideId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() || isServerWorker();
+      allow create, update: if isSignedIn() || isServerWorker();
+      allow delete: if isPrivileged() || (isSignedIn() && existing().customerId == request.auth.uid);
     }
 
-    // 5. ORDERS COLLECTION
     match /orders/{orderId} {
-      allow read, write: if true;
+      allow read: if isPrivileged() || isSignedIn();
+      allow create: if isSignedIn() || isServerWorker();
+      allow update: if isPrivileged() || isSignedIn();
+      allow delete: if isPrivileged();
     }
 
-    // 6. PRODUCTS COLLECTION
     match /products/{productId} {
-      allow read, write: if true;
-    }
-
-    // 7. DRIVERS COLLECTION
-    match /drivers/{driverId} {
-      allow read, write: if true;
-    }
-
-    // 8. NOTIFICATIONS
-    match /notifications/{notifId} {
-      allow read, write: if true;
-    }
-
-    // 9. MESSAGES
-    match /messages/{msgId} {
-      allow read, write: if true;
-    }
-
-    // 10. DRIVER POIS / LOCAL SERVICES
-    match /pois/{poiId} {
-      allow read, write: if true;
-    }
-
-    // 10b. MASTER GEOCODING PLACES
-    match /places/{placeId} {
-      allow read, write: if true;
-    }
-
-    // 11. TABLES
-    match /tables/{tableId} {
-      allow read, write: if true;
-    }
-
-    // 12. BRANCHES
-    match /branches/{branchId} {
-      allow read, write: if true;
-    }
-
-    // 13. REVIEWS
-    match /reviews/{reviewId} {
-      allow read, write: if true;
-    }
-
-    // 14. REVIEW REPLIES
-    match /review_replies/{replyId} {
-      allow read, write: if true;
-    }
-
-    // 15. BANNERS
-    match /banners/{bannerId} {
-      allow read, write: if true;
-    }
-
-    // 16. COUPONS
-    match /coupons/{couponId} {
-      allow read, write: if true;
-    }
-
-    // 17. PAYOUTS
-    match /payouts/{payoutId} {
-      allow read, write: if true;
-    }
-
-    // 18. PAYMENTS
-    match /payments/{paymentId} {
-      allow read, write: if true;
-    }
-
-    // 19. PARCELS
-    match /parcels/{parcelId} {
-      allow read, write: if true;
-    }
-
-    // 20. PARTNERS
-    match /partners/{partnerId} {
-      allow read, write: if true;
-    }
-
-    // 21. CONFIG
-    match /config/{configId} {
-      allow read, write: if true;
-    }
-
-    // 22. BUS SEAT BOOKINGS
-    match /bus_seat_bookings/{bookingId} {
-      allow read, write: if true;
-    }
-
-    // 23. META CHATS & SESSIONS
-    match /meta_chats/{chatId} {
-      allow read, write: if true;
-    }
-    match /meta_sessions/{sessionId} {
-      allow read, write: if true;
-    }
-    match /sms_chats/{chatId} {
-      allow read, write: if true;
-    }
-    match /sms_sessions/{sessionId} {
-      allow read, write: if true;
-    }
-    match /payment_callbacks/{id} {
-      allow read, write: if true;
-    }
-    match /test/{docId} {
-      allow read, write: if true;
-    }
-    // 24. STAND POOLING ROUTES (PAPOSHARE STENDI)
-    match /stand_pooling_routes/{routeId} {
-      // Anyone can browse routes to view available seats and departure schedule
       allow read: if true;
-      // Drivers publish and update status/seats; riders reserve seats via transaction
-      allow create, update: if true;
-      // Driver or admin can close/remove route
-      allow delete: if isSignedIn() && (request.auth.uid == routeId || isAdmin());
+      allow write: if isPrivileged() || isSignedIn();
     }
 
-    // 25. WEBRTC AUDIO & VIDEO CALLS (CODEWITHKAEL PATTERN)
+    match /drivers/{driverId} {
+      allow read: if true;
+      allow create, update: if isValidId(driverId) && (isPrivileged() || isOwner(driverId) || isSignedIn());
+      allow delete: if isValidId(driverId) && isPrivileged();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isPrivileged() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /messages/{msgId} {
+      allow read, write: if isPrivileged() || isSignedIn();
+    }
+
+    match /pois/{poiId} {
+      allow read: if true;
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /places/{placeId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    match /tables/{tableId} {
+      allow read: if true;
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /branches/{branchId} {
+      allow read: if true;
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /review_replies/{replyId} {
+      allow read: if true;
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    match /coupons/{couponId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /payouts/{payoutId} {
+      allow read: if isPrivileged() || isSignedIn();
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isPrivileged() || (isSignedIn() && (existing().uid == request.auth.uid || existing().customerId == request.auth.uid));
+      allow create, update: if isPrivileged() || isSignedIn();
+      allow delete: if isPrivileged();
+    }
+
+    match /parcels/{parcelId} {
+      allow read, write: if isPrivileged() || isSignedIn();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /bus_seat_bookings/{bookingId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged() || isSignedIn();
+    }
+
+    match /meta_chats/{chatId} {
+      allow read, write: if isPrivileged();
+    }
+
+    match /meta_sessions/{sessionId} {
+      allow read, write: if isPrivileged();
+    }
+
+    match /sms_chats/{chatId} {
+      allow read, write: if isPrivileged();
+    }
+
+    match /sms_sessions/{sessionId} {
+      allow read, write: if isPrivileged();
+    }
+
+    match /payment_callbacks/{id} {
+      allow read, write: if isPrivileged();
+    }
+
+    match /test/{docId} {
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged();
+    }
+
+    match /stand_pooling_routes/{routeId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() || isServerWorker();
+      allow delete: if isPrivileged() || isOwner(routeId);
+    }
+
     match /calls/{callId} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn() || isServerWorker();
       match /{sub=**} {
-        allow read, write: if true;
+        allow read, write: if isSignedIn() || isServerWorker();
       }
     }
 
-    // 26. LIVE USER PRESENCE & IN-APP ACTIVITY AUDIT LOGS
     match /user_presence/{uid} {
-      allow read, write: if true;
-    }
-    match /user_activity_logs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() || isServerWorker();
+      allow write: if isPrivileged() || isOwner(uid);
     }
 
-    // Default deny for safety
-    match /{document=**} {
-      allow read, write: if isSignedIn() && isAdmin();
+    match /user_activity_logs/{logId} {
+      allow read: if isPrivileged() || isOwner(logId);
+      allow create: if isSignedIn() || isServerWorker();
+      allow update, delete: if isPrivileged();
     }
   }
 }

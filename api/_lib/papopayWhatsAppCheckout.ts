@@ -6,6 +6,8 @@ import {
   findOrEnsureWalletUser,
   resolvePayeeTarget,
 } from '../_lib/papoWalletSettlement.js';
+import { verifyTransactionPinRecord } from '../_lib/userAuth.js';
+import { markEnhancedPaymentLinkPaid } from '../_lib/whatsappFlows.js';
 
 export interface PapoPayWhatsAppCheckoutInput {
   amount?: number | string;
@@ -153,10 +155,10 @@ export async function processPapoPayWhatsAppCheckout(
   // Wallet / Card PIN-protected instant payment
   if (rawMethod === 'papowallet' || rawMethod === 'card') {
     const cleanPin = String(body?.pin || '').trim();
-    if (!/^\d{4}$/.test(cleanPin)) {
+    if (!/^\d{4,6}$/.test(cleanPin)) {
       return {
         statusCode: 400,
-        payload: { ok: false, error: 'Tafadhali weka PIN yako ya tarakimu 4 kuthibitisha malipo.' },
+        payload: { ok: false, error: 'Tafadhali weka PIN yako ya tarakimu 4–6 kuthibitisha malipo.' },
       };
     }
 
@@ -187,11 +189,15 @@ export async function processPapoPayWhatsAppCheckout(
     }
 
     const storedPin = payerUser.data?.walletPin ? String(payerUser.data.walletPin) : '';
-    if (storedPin && storedPin !== cleanPin) {
-      return {
-        statusCode: 401,
-        payload: { ok: false, error: 'PIN ya PapoPay uliyoingiza si sahihi.' },
-      };
+    const hasHashedPin = Boolean(payerUser.data?.walletPinHash || storedPin);
+    if (hasHashedPin) {
+      const pinCheck = verifyTransactionPinRecord(payerUser.data, cleanPin);
+      if (!pinCheck.ok) {
+        return {
+          statusCode: 401,
+          payload: { ok: false, error: pinCheck.error || 'PIN ya PapoPay uliyoingiza si sahihi.' },
+        };
+      }
     }
 
     const execRes = await executeDirectPapoWalletPayment(dbAdmin, {
@@ -235,6 +241,13 @@ export async function processPapoPayWhatsAppCheckout(
         { merge: true }
       );
     } catch {}
+
+    await markEnhancedPaymentLinkPaid(dbAdmin, finalRef, {
+      status: 'paid',
+      methodLabel,
+      transactionRef: finalRef,
+      orderId: finalOrderId,
+    }).catch(() => {});
 
     // Notify recipient on WhatsApp when phone exists
     const targetNotifyDigits = (resolvedPayee.phone || recipientPhone || '').replace(/\D/g, '');

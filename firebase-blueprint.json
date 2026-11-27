@@ -2,17 +2,192 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "User profile data",
+      "description": "User profile and PapoPay wallet account",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "displayName": { "type": "string" },
-        "role": { "type": "string", "enum": ["customer", "vendor", "driver", "admin"] },
+        "fullName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "phone": { "type": "string" },
+        "normalizedPhone": { "type": "string" },
+        "username": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-zA-Z0-9_]{3,24}$" },
+        "usernameLower": { "type": "string", "minLength": 3, "maxLength": 24, "pattern": "^[a-z0-9_]{3,24}$" },
+        "walletId": { "type": "string", "pattern": "^PP[0-9]{4,16}$" },
+        "role": { "type": "string", "enum": ["customer", "vendor", "driver", "rider", "admin", "partner"] },
         "walletBalance": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "reservedBalance": { "type": "number" },
+        "points": { "type": "number" },
+        "kycVerified": { "type": "boolean" },
+        "approvalStatus": { "type": "string" },
+        "pinUpdatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "role"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable PapoPay wallet double-entry ledger record",
+      "type": "object",
+      "properties": {
+        "txId": { "type": "string" },
+        "reference": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerUsername": { "type": "string" },
+        "ownerWalletId": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "MONEY_RECEIVED",
+            "MONEY_SENT",
+            "MOBILE_MONEY_WITHDRAWAL",
+            "WALLET_DEPOSIT",
+            "TRANSACTION_FEE",
+            "REVERSAL",
+            "PENDING_WITHDRAWAL",
+            "FAILED_WITHDRAWAL"
+          ]
+        },
+        "direction": { "type": "string", "enum": ["CREDIT", "DEBIT", "HOLD", "INFO"] },
+        "amount": { "type": "number" },
+        "fee": { "type": "number" },
+        "totalDeducted": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["COMPLETED", "PENDING", "PROCESSING", "FAILED", "REVERSED"] },
+        "paymentMethod": { "type": "string" },
+        "channel": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderUsername": { "type": "string" },
+        "senderWalletId": { "type": "string" },
+        "recipientUid": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "recipientUsername": { "type": "string" },
+        "recipientWalletId": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "balanceBefore": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "reservedAfter": { "type": "number" },
+        "note": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "relatedRef": { "type": "string" },
+        "createdAtMs": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["txId", "reference", "ownerUid", "type", "direction", "amount", "fee", "status", "paymentMethod", "createdAtMs"]
+    },
+    "Disbursement": {
+      "title": "Disbursement",
+      "description": "Mobile money withdrawal request and reserved escrow tracking record",
+      "type": "object",
+      "properties": {
+        "refCode": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "senderPhone": { "type": "string" },
+        "senderName": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "network": { "type": "string", "enum": ["MPESA", "TIGO", "AIRTEL", "HALOPESA"] },
+        "amount": { "type": "number" },
+        "fee": { "type": "number" },
+        "totalDebit": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "REVERSED"] },
+        "provider": { "type": "string" },
+        "providerMode": { "type": "string" },
+        "externalReference": { "type": "string" },
+        "failureReason": { "type": "string" },
+        "reservedFunds": { "type": "boolean" },
+        "fundsReleased": { "type": "boolean" },
+        "fundsFinalized": { "type": "boolean" },
+        "idempotencyKey": { "type": "string" },
+        "createdAtMs": { "type": "number" },
+        "updatedAtMs": { "type": "number" },
+        "settledAtMs": { "type": "number" },
+        "settledByAdminUid": { "type": "string" }
+      },
+      "required": ["refCode", "senderUid", "recipientPhone", "network", "amount", "fee", "totalDebit", "status", "createdAtMs"]
+    },
+    "UsernameIndex": {
+      "title": "UsernameIndex",
+      "description": "Unique lowercase PapoPay username index mapping to owner UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "usernameLower": { "type": "string" },
+        "updatedAtMs": { "type": "number" }
+      },
+      "required": ["uid", "username", "usernameLower"]
+    },
+    "WalletIdIndex": {
+      "title": "WalletIdIndex",
+      "description": "Unique PapoPay Wallet ID index mapping to owner UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "walletId": { "type": "string" },
+        "updatedAtMs": { "type": "number" }
+      },
+      "required": ["uid", "walletId"]
+    },
+    "IdempotencyKey": {
+      "title": "IdempotencyKey",
+      "description": "Atomic idempotency lock preventing duplicate wallet transfers or withdrawals",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "kind": { "type": "string", "enum": ["P2P_TRANSFER", "MOBILE_WITHDRAWAL"] },
+        "ownerUid": { "type": "string" },
+        "status": { "type": "string" },
+        "txRef": { "type": "string" },
+        "resultSnapshot": { "type": "object" },
+        "createdAtMs": { "type": "number" }
+      },
+      "required": ["key", "kind", "ownerUid", "status", "txRef", "createdAtMs"]
+    },
+    "AdminAuditLog": {
+      "title": "AdminAuditLog",
+      "description": "Audit trail for admin treasury, withdrawal settlement, and fee configuration actions",
+      "type": "object",
+      "properties": {
+        "logId": { "type": "string" },
+        "action": { "type": "string" },
+        "adminUid": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "targetRef": { "type": "string" },
+        "externalReference": { "type": "string" },
+        "note": { "type": "string" },
+        "metadata": { "type": "object" },
+        "createdAtMs": { "type": "number" }
+      },
+      "required": ["logId", "action", "adminUid", "createdAtMs"]
+    },
+    "PapoPaySettings": {
+      "title": "PapoPaySettings",
+      "description": "Admin-managed PapoPay fees, payout provider mode, and enabled mobile money networks",
+      "type": "object",
+      "properties": {
+        "p2pFeeType": { "type": "string", "enum": ["flat", "percent"] },
+        "p2pFeeValue": { "type": "number" },
+        "withdrawalFeeType": { "type": "string", "enum": ["flat", "percent"] },
+        "withdrawalFeeValue": { "type": "number" },
+        "withdrawalMinFee": { "type": "number" },
+        "withdrawalMaxFee": { "type": "number" },
+        "minWithdrawalAmount": { "type": "number" },
+        "maxWithdrawalAmount": { "type": "number" },
+        "payoutProviderMode": { "type": "string", "enum": ["manual_settlement", "dalipay_api", "custom_b2c"] },
+        "daliPayDisbursementApiDisabled": { "type": "boolean" },
+        "daliPayDisableReason": { "type": "string" },
+        "enabledNetworks": { "type": "array" },
+        "updatedAtMs": { "type": "number" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["payoutProviderMode", "enabledNetworks"]
     },
     "Vendor": {
       "title": "Vendor",
@@ -122,7 +297,35 @@
     },
     "/users/{userId}": {
       "schema": "User",
-      "description": "Individual user profiles"
+      "description": "Individual user profiles and PapoPay wallets"
+    },
+    "/wallet_transactions/{txId}": {
+      "schema": "WalletTransaction",
+      "description": "Immutable PapoPay wallet transaction ledger entries"
+    },
+    "/disbursements/{refCode}": {
+      "schema": "Disbursement",
+      "description": "Mobile money withdrawal requests and reserved escrow state"
+    },
+    "/usernames/{usernameLower}": {
+      "schema": "UsernameIndex",
+      "description": "Unique lowercase PapoPay username reservation index"
+    },
+    "/wallet_ids/{walletId}": {
+      "schema": "WalletIdIndex",
+      "description": "Unique PapoPay Wallet ID lookup index"
+    },
+    "/idempotency_keys/{keyId}": {
+      "schema": "IdempotencyKey",
+      "description": "Server-side idempotency locks for atomic transfers and withdrawals"
+    },
+    "/admin_audit_logs/{logId}": {
+      "schema": "AdminAuditLog",
+      "description": "Immutable admin financial audit log records"
+    },
+    "/config/{configId}": {
+      "schema": "PapoPaySettings",
+      "description": "Platform and PapoPay treasury fee & network configuration"
     },
     "/vendors/{vendorId}": {
       "schema": "Vendor",

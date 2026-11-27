@@ -744,68 +744,37 @@ export async function processDaliPayWebhook(
         const disbSnap = await disbRef.get().catch(() => null);
         const disbData = disbSnap?.exists ? disbSnap.data() || {} : {};
         const payerUid = String(disbData.payerUid || '').trim();
-        const refundAmt = Number(disbData.totalDebit || disbData.amount || numericAmount || 0);
+        const holdAmt = Number(disbData.holdAmount ?? disbData.totalDebit ?? disbData.amount ?? numericAmount ?? 0);
         let refundedAmount = 0;
 
-        if (isFailed && payerUid && refundAmt > 0 && disbData.refundedOnFailure !== true) {
+        if (isFailed && payerUid && holdAmt > 0 && disbData.refundedOnFailure !== true) {
           try {
-            if (typeof dbAdmin.runTransaction === 'function') {
-              await dbAdmin.runTransaction(async (tx: any) => {
-                const freshDisb = await tx.get(disbRef);
-                if (freshDisb.data()?.refundedOnFailure === true) return;
-                const userRef = dbAdmin.collection('users').doc(payerUid);
-                const userSnap = await tx.get(userRef);
-                const curBal = Number(userSnap.data()?.walletBalance || 0);
-                tx.set(userRef, { walletBalance: curBal + refundAmt, updatedAt: nowIso }, { merge: true });
-                tx.set(
-                  disbRef,
-                  cleanUndefined({
-                    status: 'failed',
-                    refundedOnFailure: true,
-                    refundedAmount: refundAmt,
-                    gatewayRef: gatewayRef || null,
-                    webhookPayload: payload,
-                    updatedAt: nowIso,
-                  }),
-                  { merge: true }
-                );
-              });
-            } else {
-              const userRef = dbAdmin.collection('users').doc(payerUid);
-              const userSnap = await userRef.get();
-              const curBal = Number(userSnap.data()?.walletBalance || 0);
-              await userRef.set({ walletBalance: curBal + refundAmt, updatedAt: nowIso }, { merge: true });
-              await disbRef.set(
-                cleanUndefined({
-                  status: 'failed',
-                  refundedOnFailure: true,
-                  refundedAmount: refundAmt,
-                  gatewayRef: gatewayRef || null,
-                  webhookPayload: payload,
-                  updatedAt: nowIso,
-                }),
-                { merge: true }
-              );
+            const { releaseReservedPayoutFunds } = await import('./walletEngine.js');
+            const relRes = await releaseReservedPayoutFunds(dbAdmin, {
+              refCode: realOrderId,
+              reason: String(dataObj?.reason || dataObj?.message || 'Payout failed at DaliPay webhook'),
+              actorUid: 'dalipay_webhook',
+              actorEmail: 'dalipay_webhook',
+              externalReference: gatewayRef || undefined,
+            });
+            if (relRes.ok) {
+              refundedAmount = Number(relRes.refundedAmount || holdAmt);
             }
-            refundedAmount = refundAmt;
-            await dbAdmin.collection('payments').add(
-              cleanUndefined({
-                uid: payerUid,
-                phone: disbData.recipientPhone || '',
-                title: `Rejesho la Toa Pesa (${realOrderId})`,
-                subtitle: `DaliPay ilishindikana — fedha zimerudishwa`,
-                amount: refundAmt,
-                type: 'credit',
-                category: 'refund',
-                status: 'completed',
-                refCode: `REV-${realOrderId}`,
-                gatewayRef: gatewayRef || realOrderId,
-                createdAt: nowIso,
-                createdAtMs: Date.now(),
-              })
-            );
           } catch (refundErr) {
             console.warn('[DaliPay Webhook] Disbursement auto-refund warning:', refundErr);
+          }
+        } else if (isPaid && payerUid && disbData.settledOnCompletion !== true) {
+          try {
+            const { finalizeCompletedPayout } = await import('./walletEngine.js');
+            await finalizeCompletedPayout(dbAdmin, {
+              refCode: realOrderId,
+              externalReference: gatewayRef || realOrderId,
+              actorUid: 'dalipay_webhook',
+              actorEmail: 'dalipay_webhook',
+              note: 'Settled automatically via DaliPay webhook',
+            });
+          } catch (settleErr) {
+            console.warn('[DaliPay Webhook] Disbursement settle warning:', settleErr);
           }
         } else {
           await disbRef.set(
@@ -908,6 +877,8 @@ export async function executePapoWalletMobileDisbursement(
     recipientPhone?: string;
     recipientName?: string;
     amount: number;
+    pin?: string;
+    idempotencyKey?: string;
   }
 ): Promise<{
   ok: boolean;
@@ -919,19 +890,11 @@ export async function executePapoWalletMobileDisbursement(
   fee?: number;
   totalDebit?: number;
   newBalance?: number;
+  newReservedBalance?: number;
 }> {
   const amt = Math.round(Number(params.amount || 0));
   if (!dbAdmin || !Number.isFinite(amt) || amt < 1000) {
     return { ok: false, reason: 'Kiasi cha chini cha kutoa ni TZS 1,000.' };
-  }
-
-  const cfg = getDaliPayConfig();
-  if (!cfg.configured) {
-    return {
-      ok: false,
-      reason:
-        'Kutoa pesa moja kwa moja kwenda simu (DaliPay Disbursements) kunahitaji funguo za DaliPay kwenye seva. Tumia Msimbo wa Wakala kupata pesa taslimu.',
-    };
   }
 
   const userRec = await findOrEnsureWalletUser(dbAdmin, {
@@ -945,44 +908,109 @@ export async function executePapoWalletMobileDisbursement(
   }
 
   const targetRecipientPhone = String(params.recipientPhone || params.phone).trim();
-  const targetRecipientName = String(params.recipientName || params.displayName || targetRecipientPhone).trim();
-  const isThirdPartySend =
-    Boolean(params.recipientPhone) &&
-    params.recipientPhone!.replace(/\D/g, '').slice(-9) !== params.phone.replace(/\D/g, '').slice(-9);
+  const network = detectTanzaniaMobileNetwork(targetRecipientPhone);
+  const {
+    computeWithdrawalFee,
+    dispatchModularMobileMoneyPayout,
+    getMobileMoneyNetworkLabel,
+    getPapoPayTreasurySettings,
+    normalizeMobileMoneyNetwork,
+  } = await import('./payoutProviders.js');
+  const { finalizeCompletedPayout, releaseReservedPayoutFunds } = await import('./walletEngine.js');
 
-  const fee = Math.max(100, Math.round(amt * 0.002));
+  const settings = await getPapoPayTreasurySettings(dbAdmin);
+  const cleanNet = normalizeMobileMoneyNetwork(network, targetRecipientPhone) || 'MPESA';
+  if (settings.enabledNetworks[cleanNet] === false) {
+    return {
+      ok: false,
+      reason: `Huduma ya ${getMobileMoneyNetworkLabel(cleanNet)} imezimwa kwa muda na Admin.`,
+    };
+  }
+
+  const fee = computeWithdrawalFee(amt, settings);
   const totalDebit = amt + fee;
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const refCode = `DISB-${code}`;
+  const refCode = `MMW-${code}`;
   const nowIso = new Date().toISOString();
+  const nowMs = Date.now();
+  const targetRecipientName = String(params.recipientName || params.displayName || targetRecipientPhone).trim();
+  const cleanPhone = normalizePhoneForDaliPay(targetRecipientPhone);
+  const formattedPhone = `+${cleanPhone}`;
+
   let newBalance = 0;
+  let newReservedBalance = 0;
 
   try {
-    if (typeof dbAdmin.runTransaction === 'function') {
-      await dbAdmin.runTransaction(async (tx: any) => {
-        const ref = dbAdmin.collection('users').doc(userRec.uid);
-        const snap = await tx.get(ref);
-        const curBal = Number(snap.data()?.walletBalance || 0);
-        if (curBal < totalDebit) {
-          throw new Error(`INSUFFICIENT:${curBal}`);
-        }
-        newBalance = curBal - totalDebit;
-        tx.set(ref, { walletBalance: newBalance, updatedAt: nowIso }, { merge: true });
-      });
-    } else {
-      const curBal = Number(userRec.data?.walletBalance || 0);
-      if (curBal < totalDebit) {
-        return {
-          ok: false,
-          reason: `Salio halitoshi kutoa TZS ${amt.toLocaleString()} + Ada TZS ${fee.toLocaleString()} (Una TZS ${curBal.toLocaleString()}).`,
-        };
+    await dbAdmin.runTransaction(async (tx: any) => {
+      const ref = dbAdmin.collection('users').doc(userRec.uid);
+      const snap = await tx.get(ref);
+      const curBal = Number(snap.data()?.walletBalance || 0);
+      const curRes = Number(snap.data()?.reservedBalance || 0);
+      if (curBal < totalDebit || curBal - totalDebit < 0) {
+        throw new Error(`INSUFFICIENT:${curBal}`);
       }
       newBalance = curBal - totalDebit;
-      await dbAdmin.collection('users').doc(userRec.uid).set(
-        { walletBalance: newBalance, updatedAt: nowIso },
+      newReservedBalance = curRes + totalDebit;
+      tx.set(
+        ref,
+        { walletBalance: newBalance, reservedBalance: newReservedBalance, updatedAt: nowIso },
         { merge: true }
       );
-    }
+      tx.set(
+        dbAdmin.collection('disbursements').doc(refCode),
+        cleanUndefined({
+          reference: refCode,
+          transactionId: refCode,
+          provider: settings.b2cProvider,
+          channel: 'mobile_money',
+          network: cleanNet,
+          networkLabel: getMobileMoneyNetworkLabel(cleanNet),
+          recipientPhone: formattedPhone,
+          recipientName: targetRecipientName,
+          payerUid: userRec.uid,
+          payerName: params.displayName,
+          payerPhone: params.phone,
+          amount: amt,
+          fee,
+          totalDebit,
+          holdAmount: totalDebit,
+          status: 'pending_admin_settlement',
+          refundedOnFailure: false,
+          settledOnCompletion: false,
+          createdAt: nowIso,
+          createdAtMs: nowMs,
+          updatedAt: nowIso,
+        })
+      );
+      tx.set(
+        dbAdmin.collection('wallet_transactions').doc(`${refCode}-PND`),
+        cleanUndefined({
+          id: `${refCode}-PND`,
+          transactionId: refCode,
+          refCode,
+          ownerUid: userRec.uid,
+          type: 'PENDING_WITHDRAWAL',
+          typeLabel: 'Pending Withdrawal',
+          direction: 'debit',
+          amount: amt,
+          fee,
+          totalAmount: totalDebit,
+          status: 'pending',
+          paymentMethod: getMobileMoneyNetworkLabel(cleanNet),
+          network: cleanNet,
+          senderUid: userRec.uid,
+          senderName: params.displayName,
+          senderPhone: params.phone,
+          recipientName: `${targetRecipientName} (${formattedPhone})`,
+          recipientPhone: formattedPhone,
+          title: `Pending Withdrawal: ${getMobileMoneyNetworkLabel(cleanNet)} (${formattedPhone})`,
+          subtitle: `${refCode} • Funds reserved awaiting settlement`,
+          currency: 'TZS',
+          createdAt: nowIso,
+          createdAtMs: nowMs,
+        })
+      );
+    });
   } catch (err: any) {
     const msg = String(err?.message || '');
     if (msg.startsWith('INSUFFICIENT:')) {
@@ -995,68 +1023,85 @@ export async function executePapoWalletMobileDisbursement(
     return { ok: false, reason: 'Imeshindwa kuhakiki salio la PapoWallet.' };
   }
 
-  const disbRes = await initiateDaliPayDisbursement(
-    {
-      reference: refCode,
-      amount: amt,
+  const dispatch = await dispatchModularMobileMoneyPayout(dbAdmin, settings, {
+    reference: refCode,
+    amount: amt,
+    fee,
+    totalDebit,
+    network: cleanNet,
+    recipientPhone: cleanPhone,
+    recipientName: targetRecipientName,
+    payerUid: userRec.uid,
+    reason: `PapoPay Mobile Money #${refCode}`,
+  });
+
+  if (dispatch.outcome === 'completed') {
+    await finalizeCompletedPayout(dbAdmin, {
+      refCode,
+      externalReference: dispatch.gatewayRef || refCode,
+      actorUid: 'system_b2c',
+      actorEmail: dispatch.provider,
+    });
+    return {
+      ok: true,
+      refCode,
+      gatewayRef: dispatch.gatewayRef,
+      network: cleanNet,
+      status: 'completed',
       fee,
       totalDebit,
-      recipientPhone: targetRecipientPhone,
-      recipientName: targetRecipientName,
-      reason: isThirdPartySend
-        ? `PapoWallet Bulk Send kwenda ${targetRecipientPhone} #${refCode}`
-        : `PapoWallet Cash-Out #${refCode}`,
-      payerUid: userRec.uid,
-    },
-    dbAdmin
-  );
-
-  if (!disbRes.ok) {
-    // Refund atomically so customer funds are never lost when gateway declines
-    try {
-      const ref = dbAdmin.collection('users').doc(userRec.uid);
-      const snap = await ref.get();
-      const curBal = Number(snap.data()?.walletBalance || 0);
-      await ref.set(
-        { walletBalance: curBal + totalDebit, updatedAt: new Date().toISOString() },
-        { merge: true }
-      );
-    } catch {}
-    return {
-      ok: false,
-      reason: `${disbRes.message} (Salio lako limerudishwa salama).`,
+      newBalance,
+      newReservedBalance: Math.max(0, newReservedBalance - totalDebit),
     };
   }
 
-  await dbAdmin.collection('payments').add(
+  if (dispatch.outcome === 'definitive_failure') {
+    const rel = await releaseReservedPayoutFunds(dbAdmin, {
+      refCode,
+      reason: dispatch.message,
+      actorUid: 'system_b2c',
+      actorEmail: dispatch.provider,
+    });
+    return {
+      ok: false,
+      reason: `${dispatch.message} (Fedha zimerudishwa salama kwenye wallet yako).`,
+      newBalance: rel.newAvailableBalance,
+      newReservedBalance: rel.newReservedBalance,
+    };
+  }
+
+  // Safely reserved pending settlement (including DaliPay dashboard-only mode)
+  await dbAdmin.collection('payments').doc(`${refCode}-PND`).set(
     cleanUndefined({
       uid: userRec.uid,
       phone: params.phone,
-      recipientPhone: targetRecipientPhone,
+      recipientPhone: formattedPhone,
       recipientName: targetRecipientName,
-      title: isThirdPartySend
-        ? `Tuma kwenda ${targetRecipientName} (${disbRes.network || targetRecipientPhone})`
-        : `Toa Pesa kwenda ${disbRes.network || 'Simu'} (DaliPay)`,
-      subtitle: `${refCode} • Ada (TZS ${fee.toLocaleString()})`,
+      title: `Toa Pesa kwenda ${getMobileMoneyNetworkLabel(cleanNet)} (${formattedPhone})`,
+      subtitle: `${refCode} • PENDING • Ada TZS ${fee.toLocaleString()}`,
       amount: totalDebit,
+      fee,
       type: 'debit',
-      category: isThirdPartySend ? 'transfer' : 'withdraw',
-      status: disbRes.status === 'completed' ? 'completed' : 'pending',
+      txType: 'PENDING_WITHDRAWAL',
+      category: 'withdraw',
+      status: 'pending',
       refCode,
-      gatewayRef: disbRes.gatewayRef,
+      paymentMethod: getMobileMoneyNetworkLabel(cleanNet),
       createdAt: nowIso,
-      createdAtMs: Date.now(),
-    })
+      createdAtMs: nowMs,
+    }),
+    { merge: true }
   );
 
   return {
     ok: true,
     refCode,
-    gatewayRef: disbRes.gatewayRef,
-    network: disbRes.network,
-    status: disbRes.status === 'completed' ? 'completed' : 'pending',
+    gatewayRef: dispatch.gatewayRef,
+    network: cleanNet,
+    status: 'pending',
     fee,
     totalDebit,
     newBalance,
+    newReservedBalance,
   };
 }

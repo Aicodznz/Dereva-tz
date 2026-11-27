@@ -34,7 +34,12 @@ export interface UserProfile {
   rating?: number;
   category?: VendorCategory;
   walletBalance?: number;
+  reservedBalance?: number;
   walletId?: string;
+  username?: string;
+  usernameLower?: string;
+  hasPinSet?: boolean;
+  kycVerified?: boolean;
   points?: number;
   businessName?: string;
   tinNumber?: string;

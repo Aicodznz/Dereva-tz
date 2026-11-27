@@ -11,8 +11,39 @@ import { initiateMongikePayment, isMongikeLiveConfigured, MONGIKE_TANZANIA_MOMO_
 import { getDaliPayConfig, getPublicWebhookCallbackUrl, processDaliPayWebhook, verifyDaliPaySignature } from "./api/_lib/dalipay";
 import { verifyAdminRequest } from "./api/_lib/adminAuth";
 import { processPapoPayWhatsAppCheckout } from "./api/_lib/papopayWhatsAppCheckout";
-import { getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
+import { findOrEnsureWalletUser, getPapoWalletSummaryAndStatement } from "./api/_lib/papoWalletSettlement";
+import { verifyUserBearerToken } from "./api/_lib/userAuth";
+import {
+  computeTransferFee,
+  computeWithdrawalFee,
+  getMobileMoneyNetworkLabel,
+  getPapoPayTreasurySettings,
+  SUPPORTED_MOBILE_MONEY_NETWORKS,
+} from "./api/_lib/payoutProviders";
+import {
+  adminProcessPayoutAction,
+  executeSecureMobileWithdrawal,
+  executeSecureP2PTransfer,
+  getUserWalletTransactions,
+  lookupP2PRecipientVerified,
+  updatePapoPayTreasuryConfig,
+  updateWalletSecurityProfile,
+} from "./api/_lib/walletEngine";
 import { buildAdminOpsBriefing, dispatchOpsWebhookEvent, getOpsAutomationSettings, normalizeAdminPhoneForWhatsApp, pollRealtimeOpsEvents, processScheduledOpsBriefing, resolveWhatsAppPhoneNumberId, saveOpsAutomationSettings, verifyOpsOrAdminRequest } from "./api/_lib/opsBriefing";
+import {
+  buildCheckoutButtonTemplateWirePayload,
+  buildPapoHapoSuperHubFlowJson,
+  buildPapoPayWalletFlowJson,
+  buildPaymentLinkCheckoutFlowJson,
+  createEnhancedPaymentLink,
+  getEnhancedPaymentLink,
+  getPublicAppBaseUrl,
+  getWhatsAppFlowsConfig,
+  handleWhatsAppFlowDataExchange,
+  publishWhatsAppFlowToMeta,
+  saveWhatsAppFlowsConfig,
+  verifyMetaXHubSignature,
+} from "./api/_lib/whatsappFlows";
 
 dotenv.config();
 
@@ -886,6 +917,75 @@ async function startServer() {
     }
   });
 
+  // Meta WhatsApp Flows Encrypted Data Exchange Endpoint (v3.0 Data Channel)
+  app.post("/api/meta/flows/data", async (req: any, res) => {
+    try {
+      const sig = String(req.headers["x-hub-signature-256"] || "");
+      const hasSecret = Boolean(String(process.env.META_APP_SECRET || "").trim());
+      if (hasSecret && sig && req.rawBody && !verifyMetaXHubSignature(req.rawBody, sig)) {
+        return res.status(432).json({ error: "Invalid X-Hub-Signature-256" });
+      }
+      const result = await handleWhatsAppFlowDataExchange(dbAdmin, req.body || {});
+      if (result.encryptedText) {
+        return res.status(result.statusCode || 200).type("text/plain").send(result.encryptedText);
+      }
+      return res.status(result.statusCode || 200).json(result.json || { data: { status: "active" } });
+    } catch (error: any) {
+      console.error("[Meta Flows Data Exchange] Error:", error);
+      return res.status(500).json({ error: error?.message || "Flows data exchange failed" });
+    }
+  });
+
+  // WhatsApp Flows Config & Official Meta Flow JSON v6.0 Export
+  app.get("/api/meta/flows/config", async (_req, res) => {
+    try {
+      const config = await getWhatsAppFlowsConfig(dbAdmin);
+      const dataEndpointUri = `${getPublicAppBaseUrl()}/api/meta/flows/data`;
+      return res.json({
+        status: "ok",
+        config,
+        dataEndpointUri,
+        schemas: {
+          hub: buildPapoHapoSuperHubFlowJson(dataEndpointUri),
+          papopay: buildPapoPayWalletFlowJson(dataEndpointUri),
+          checkout: buildPaymentLinkCheckoutFlowJson(dataEndpointUri),
+        },
+      });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || "Failed to load WhatsApp Flows config" });
+    }
+  });
+
+  app.post("/api/meta/flows/config", async (req, res) => {
+    try {
+      const config = await saveWhatsAppFlowsConfig(req.body || {}, dbAdmin);
+      return res.json({ status: "ok", config });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || "Failed to save WhatsApp Flows config" });
+    }
+  });
+
+  app.post("/api/meta/flows/publish", async (req, res) => {
+    try {
+      const flowKey =
+        req.body?.flowKey === "papopay" || req.body?.flowKey === "checkout" ? req.body.flowKey : "hub";
+      const result = await publishWhatsAppFlowToMeta({
+        flowKey,
+        wabaId: req.body?.wabaId,
+        accessToken: req.body?.accessToken,
+        dataEndpointUri: req.body?.dataEndpointUri,
+        publish: req.body?.publish !== false,
+        dbAdmin,
+      });
+      if (!result.ok) {
+        return res.status(400).json({ status: "error", ...result });
+      }
+      return res.json({ status: "ok", ...result });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || "Failed to publish WhatsApp Flow to Meta" });
+    }
+  });
+
   // Resilient helper to call Gemini generateContent with retries and fallback models
   async function generateContentWithRetry(client: any, params: any, maxRetries = 2) {
     let attempt = 0;
@@ -1370,6 +1470,198 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
     }
   });
 
+  // Create Enhanced Payment Link (Shareable /pay?ref=... + WhatsApp order_details / Checkout Template)
+  app.post("/api/payments/create-payment-link", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const amount = Math.round(Number(body.amount || 0));
+      if (!Number.isFinite(amount) || amount < 100 || amount > 50_000_000) {
+        return res.status(400).json({ ok: false, error: "Weka kiasi halisi kati ya TZS 100 na TZS 50,000,000." });
+      }
+      const title = String(body.title || "Malipo ya PapoPay").trim();
+      const merchantName = String(body.merchantName || body.name || "PapoPay Merchant").trim();
+      const merchantPhone = String(body.merchantPhone || body.phone || "").trim();
+      const flowsCfg = await getWhatsAppFlowsConfig(dbAdmin).catch(() => null);
+
+      const link = await createEnhancedPaymentLink(dbAdmin, {
+        refCode: body.refCode,
+        title,
+        description: body.description,
+        amount,
+        merchantName,
+        merchantPhone,
+        merchantUid: body.merchantUid || null,
+        merchantWalletId: body.merchantWalletId || null,
+        purpose: body.purpose || "payment_request",
+        items: Array.isArray(body.items) ? body.items : undefined,
+        paymentType: body.paymentType || "payment_link",
+        paymentConfiguration: body.paymentConfiguration || flowsCfg?.paymentConfiguration || undefined,
+        expiresInHours: body.expiresInHours,
+      });
+
+      const recipientWhatsapp = String(body.sendToWhatsapp || "").replace(/\D/g, "");
+      let whatsappDispatched = false;
+      if (recipientWhatsapp.length >= 9) {
+        const orderInteractive: any = {
+          type: "order_details",
+          body: {
+            text:
+              `💳 *${link.merchantName}* — Ombi la Malipo\n` +
+              `📦 *${link.title}*\n` +
+              `💰 Jumla: *TZS ${link.amount.toLocaleString()}/=*`,
+          },
+          footer: { text: `PapoPay • Rejea #${link.refCode}` },
+          action: {
+            name: "review_and_pay",
+            parameters: {
+              reference_id: link.refCode,
+              type: "digital-goods",
+              ...(link.paymentConfiguration
+                ? { payment_configuration: link.paymentConfiguration }
+                : {
+                    payment_settings: [
+                      {
+                        type: "payment_link",
+                        payment_link: { uri: link.checkoutUrl },
+                      },
+                    ],
+                  }),
+              currency: "TZS",
+              total_amount: { value: link.amount, offset: 1 },
+              order: {
+                status: "pending",
+                items: (link.items || []).map((it) => ({
+                  retailer_id: link.refCode,
+                  name: it.name,
+                  amount: { value: it.price, offset: 1 },
+                  quantity: it.quantity,
+                })),
+                subtotal: { value: link.amount, offset: 1 },
+              },
+            },
+          },
+          fallbackInteractive: {
+            type: "cta_url",
+            body: {
+              text:
+                `💳 *${link.merchantName}* anakudai *TZS ${link.amount.toLocaleString()}/=*\n` +
+                `📦 Huduma: *${link.title}*\n` +
+                `🔖 Rejea: *#${link.refCode}*`,
+            },
+            action: {
+              name: "cta_url",
+              parameters: {
+                display_text: "💳 Lipa Sasa",
+                url: link.checkoutUrl,
+              },
+            },
+          },
+        };
+        const sent = await sendMetaOutboundMessage({
+          channel: "whatsapp",
+          recipientId: recipientWhatsapp,
+          text:
+            `💳 *${link.merchantName}* anakudai *TZS ${link.amount.toLocaleString()}/=*\n` +
+            `📦 ${link.title}\n👉 ${link.checkoutUrl}`,
+          interactive: orderInteractive,
+        }).catch(() => ({ sent: false }));
+        whatsappDispatched = Boolean(sent?.sent);
+      }
+
+      return res.status(201).json({
+        ok: true,
+        link,
+        whatsappDispatched,
+      });
+    } catch (err: any) {
+      console.error("[Create Payment Link] Error:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Imeshindwa kutengeneza Link ya Malipo." });
+    }
+  });
+
+  // Lookup Enhanced Payment Link by refCode (used by /pay?ref=...)
+  app.get("/api/payments/payment-link/:refCode", async (req, res) => {
+    try {
+      const refCode = String(req.params.refCode || "").trim();
+      if (!refCode) return res.status(400).json({ ok: false, error: "refCode is required" });
+      const link = await getEnhancedPaymentLink(dbAdmin, refCode);
+      if (!link) return res.status(404).json({ ok: false, error: "Link ya malipo haikupatikana." });
+      return res.json({ ok: true, link });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Imeshindwa kusoma link ya malipo." });
+    }
+  });
+
+  // Send WhatsApp Checkout Button Template (order_details or URL CTA button)
+  app.post("/api/payments/send-checkout-template", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const toDigits = String(body.recipientPhone || body.to || "").replace(/\D/g, "");
+      if (toDigits.length < 9) {
+        return res.status(400).json({ ok: false, error: "Weka namba sahihi ya WhatsApp ya mteja." });
+      }
+      const amount = Math.max(100, Math.round(Number(body.amount || 0)));
+      const itemTitle = String(body.itemTitle || body.title || "Oda ya PapoPay").trim();
+      const merchantName = String(body.merchantName || "PapoPay Merchant").trim();
+      const templateName = String(body.templateName || "papopay_checkout_prompt").trim();
+      const languageCode = String(body.languageCode || "sw").trim();
+      const mode = body.mode === "order_details" ? "order_details" : "url_button";
+
+      const link = await createEnhancedPaymentLink(dbAdmin, {
+        refCode: body.refCode,
+        title: itemTitle,
+        amount,
+        merchantName,
+        merchantPhone: body.merchantPhone,
+        purpose: body.purpose || "payment_request",
+        paymentConfiguration: body.paymentConfiguration,
+      });
+
+      const wireTemplate = buildCheckoutButtonTemplateWirePayload({
+        recipientId: toDigits,
+        templateName,
+        languageCode,
+        customerName: body.customerName || "Mteja",
+        itemTitle: link.title,
+        amountTZS: link.amount,
+        refCode: link.refCode,
+        checkoutUrl: link.checkoutUrl,
+        mode,
+        paymentConfiguration: link.paymentConfiguration,
+      });
+
+      const phoneNumberId = resolveWhatsAppPhoneNumberId(toDigits);
+      const token = String(
+        process.env.META_WHATSAPP_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || ""
+      ).trim();
+
+      let graphResponse: any = null;
+      let sent = false;
+      if (phoneNumberId && token) {
+        const resp = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(wireTemplate),
+        });
+        graphResponse = await resp.json().catch(() => ({}));
+        sent = resp.ok;
+      }
+
+      return res.json({
+        ok: true,
+        sent,
+        link,
+        wireTemplate,
+        ...(graphResponse ? { graphResponse } : {}),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Checkout template dispatch failed" });
+    }
+  });
+
   // Admin Manual Confirmation for Lipa Namba 5656565 / Pending Payments
   app.post("/api/payments/confirm-manual", async (req, res) => {
     try {
@@ -1423,9 +1715,13 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
         uid: summary.uid || null,
         walletId: summary.walletId,
         walletBalance: summary.walletBalance,
+        reservedBalance: summary.reservedBalance || 0,
         points: summary.points,
         isCardFrozen: summary.isCardFrozen,
         displayName: summary.displayName || null,
+        username: summary.username || null,
+        hasPinSet: Boolean(summary.hasPinSet),
+        verified: Boolean(summary.verified),
         phone: summary.phone || null,
         transactions: summary.transactions || [],
       });
@@ -1434,10 +1730,429 @@ Return ONLY clean valid JSON. Do not include markdown code block syntax.`;
         found: false,
         walletId: "",
         walletBalance: 0,
+        reservedBalance: 0,
         points: 0,
         isCardFrozen: false,
+        username: null,
+        hasPinSet: false,
+        verified: false,
         transactions: [],
       });
+    }
+  });
+
+  // Public Treasury Settings & Supported Mobile Money Networks
+  app.get("/api/wallet/settings", async (_req, res) => {
+    try {
+      const settings = await getPapoPayTreasurySettings(dbAdmin);
+      return res.json({
+        ok: true,
+        settings: {
+          transferFeePercent: settings.transferFeePercent,
+          transferFeeFlat: settings.transferFeeFlat,
+          transferFeeMin: settings.transferFeeMin,
+          withdrawalFeePercent: settings.withdrawalFeePercent,
+          withdrawalFeeMin: settings.withdrawalFeeMin,
+          withdrawalMinAmount: settings.withdrawalMinAmount,
+          withdrawalMaxAmount: settings.withdrawalMaxAmount,
+          enabledNetworks: settings.enabledNetworks,
+          b2cProvider: settings.b2cProvider,
+          daliPayDisbursementApiDisabled: settings.daliPayDisbursementApiDisabled,
+          networks: SUPPORTED_MOBILE_MONEY_NETWORKS.map((n) => ({
+            ...n,
+            enabled: settings.enabledNetworks[n.id] !== false,
+          })),
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to load settings" });
+    }
+  });
+
+  // Verified Recipient Lookup (@username, Wallet ID, or Phone)
+  app.get("/api/wallet/recipient-lookup", async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (!q || q.length < 2) {
+        return res.json({ ok: true, found: false });
+      }
+      const profile = await lookupP2PRecipientVerified(dbAdmin, q);
+      return res.json({
+        ok: true,
+        ...profile,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, found: false, error: err?.message || "Lookup failed" });
+    }
+  });
+
+  // Set or Update @username and Transaction PIN (backend scrypt hashing)
+  app.post("/api/wallet/profile", async (req, res) => {
+    try {
+      let boundUid: string | undefined;
+      if (req.headers.authorization) {
+        const authRes = await verifyUserBearerToken(req.headers.authorization);
+        if ('error' in authRes) {
+          return res.status(authRes.status).json({ ok: false, error: authRes.error });
+        }
+        boundUid = authRes.user.uid;
+      }
+
+      const body = req.body || {};
+      const uid = boundUid || (typeof body.uid === "string" && body.uid.trim() ? body.uid.trim() : undefined);
+      const phone = typeof body.phone === "string" ? body.phone.trim() : undefined;
+
+      if (!uid && (!phone || phone.replace(/\D/g, "").length < 9)) {
+        return res.status(401).json({ ok: false, error: "Ingia kwenye akaunti au unganisha namba yako ya simu kwanza." });
+      }
+
+      const result = await updateWalletSecurityProfile(dbAdmin, {
+        uid,
+        phone,
+        displayName: typeof body.displayName === "string" ? body.displayName : undefined,
+        username: typeof body.username === "string" ? body.username : undefined,
+        newPin: typeof body.newPin === "string" ? body.newPin : undefined,
+        currentPin: typeof body.currentPin === "string" ? body.currentPin : undefined,
+      });
+
+      if (!result.ok) {
+        return res.status(400).json(result);
+      }
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Profile update failed" });
+    }
+  });
+
+  // Atomic, PIN-verified, Idempotent PapoPay-to-PapoPay Transfer (@username, Wallet ID, or Phone)
+  app.post("/api/wallet/transfer", async (req, res) => {
+    try {
+      let boundUid: string | undefined;
+      if (req.headers.authorization) {
+        const authRes = await verifyUserBearerToken(req.headers.authorization);
+        if ('error' in authRes) {
+          return res.status(authRes.status).json({ ok: false, error: authRes.error });
+        }
+        boundUid = authRes.user.uid;
+      }
+
+      const body = req.body || {};
+      const senderUid = boundUid || (typeof body.senderUid === "string" ? body.senderUid.trim() : undefined);
+      const senderPhone = typeof body.senderPhone === "string" ? body.senderPhone.trim() : undefined;
+
+      if (!senderUid && (!senderPhone || senderPhone.replace(/\D/g, "").length < 9)) {
+        return res.status(401).json({ ok: false, error: "Tafadhali ingia kwenye akaunti yako ya PapoPay." });
+      }
+
+      const result = await executeSecureP2PTransfer(dbAdmin, {
+        senderUid,
+        senderPhone,
+        recipientQuery: String(body.recipientQuery || body.recipient || ""),
+        amount: Number(body.amount || 0),
+        pin: String(body.pin || ""),
+        idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : undefined,
+        note: typeof body.note === "string" ? body.note.trim().slice(0, 140) : undefined,
+        channel: "web",
+      });
+
+      if (!result.ok) {
+        const status =
+          result.code === "LOCKED"
+            ? 429
+            : result.code === "INVALID_PIN" || result.code === "PIN_NOT_SET" || result.code === "PIN_REQUIRED"
+            ? 403
+            : result.code === "RECIPIENT_NOT_FOUND"
+            ? 404
+            : 400;
+        return res.status(status).json(result);
+      }
+
+      // Notify recipient & sender via WhatsApp if not a replay duplicate
+      if (!result.duplicate) {
+        const recDigits = String(result.recipient?.phone || "").replace(/\D/g, "");
+        if (recDigits.length >= 9) {
+          sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: recDigits,
+            text:
+              `💸 *UMEPOKEA PESA PAPOPAY!*\n` +
+              `🔖 Rejea: *#${result.refCode}*\n\n` +
+              `• Kutoka kwa: *${result.sender?.displayName || "PapoPay User"}*${result.sender?.username ? ` (${result.sender.username})` : ""}\n` +
+              `• Kiasi: *TZS ${Number(result.amount || 0).toLocaleString()}/=*\n` +
+              `• Ada: *TZS 0* ✅`,
+          }).catch(() => {});
+        }
+      }
+
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, reason: err?.message || "Transfer failed" });
+    }
+  });
+
+  // Atomic, PIN-verified, Idempotent Mobile Money Withdrawal (M-Pesa / Tigo / Airtel / HaloPesa)
+  app.post("/api/wallet/withdraw", async (req, res) => {
+    try {
+      let boundUid: string | undefined;
+      if (req.headers.authorization) {
+        const authRes = await verifyUserBearerToken(req.headers.authorization);
+        if ('error' in authRes) {
+          return res.status(authRes.status).json({ ok: false, error: authRes.error });
+        }
+        boundUid = authRes.user.uid;
+      }
+
+      const body = req.body || {};
+      const senderUid = boundUid || (typeof body.senderUid === "string" ? body.senderUid.trim() : undefined);
+      const senderPhone = typeof body.senderPhone === "string" ? body.senderPhone.trim() : undefined;
+
+      if (!senderUid && (!senderPhone || senderPhone.replace(/\D/g, "").length < 9)) {
+        return res.status(401).json({ ok: false, error: "Tafadhali ingia kwenye akaunti yako ya PapoPay." });
+      }
+
+      const result = await executeSecureMobileWithdrawal(dbAdmin, {
+        senderUid,
+        senderPhone,
+        network: String(body.network || ""),
+        recipientPhone: String(body.recipientPhone || ""),
+        amount: Number(body.amount || 0),
+        pin: String(body.pin || ""),
+        idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : undefined,
+        note: typeof body.note === "string" ? body.note.trim().slice(0, 140) : undefined,
+        channel: "web",
+      });
+
+      if (!result.ok) {
+        const status =
+          result.code === "LOCKED"
+            ? 429
+            : result.code === "INVALID_PIN" || result.code === "PIN_NOT_SET" || result.code === "PIN_REQUIRED"
+            ? 403
+            : 400;
+        return res.status(status).json(result);
+      }
+
+      // Notify treasury admin via WhatsApp for pending settlements if configured
+      if (!result.duplicate && result.status === "pending") {
+        let adminPhone = (process.env.ADMIN_WHATSAPP_PHONE || process.env.OWNER_WHATSAPP_PHONE || "").trim();
+        if (!adminPhone) {
+          const opsSettings = await getOpsAutomationSettings(dbAdmin).catch(() => null);
+          adminPhone = String(opsSettings?.adminPhone || "").trim();
+        }
+        const adminDigits = adminPhone.replace(/\D/g, "");
+        if (adminDigits.length >= 9) {
+          sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: adminDigits,
+            text:
+              `📱 *OMBI JIPYA LA KUTOA PESA (${result.networkLabel || result.network})*\n` +
+              `🔖 Rejea: *#${result.refCode}*\n\n` +
+              `• Simu ya Mpokeaji: *${result.recipientPhone}*\n` +
+              `• Kiasi: *TZS ${Number(result.amount || 0).toLocaleString()}/=*\n` +
+              `• Ada: *TZS ${Number(result.fee || 0).toLocaleString()}/=*\n\n` +
+              `_Fedha zimewekwa kwenye Reserved Escrow. Kamilisha kupitia Admin Dashboard -> Financial Treasury._`,
+          }).catch(() => {});
+        }
+      }
+
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, reason: err?.message || "Withdrawal failed" });
+    }
+  });
+
+  // Unified Wallet Ledger History (8 Fintech Types)
+  app.get("/api/wallet/transactions", async (req, res) => {
+    try {
+      let boundUid: string | undefined;
+      if (req.headers.authorization) {
+        const authRes = await verifyUserBearerToken(req.headers.authorization);
+        if (authRes.ok) {
+          boundUid = authRes.user.uid;
+        }
+      }
+      const uid = boundUid || (typeof req.query.uid === "string" ? req.query.uid.trim() : undefined);
+      const phone = typeof req.query.phone === "string" ? req.query.phone.trim() : undefined;
+      const limitNum = Number(req.query.limit || 50);
+
+      if (!uid && (!phone || phone.replace(/\D/g, "").length < 9)) {
+        return res.json({ ok: true, transactions: [] });
+      }
+
+      const transactions = await getUserWalletTransactions(dbAdmin, { uid, phone, limit: limitNum });
+      return res.json({ ok: true, transactions });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, transactions: [], error: err?.message || "Failed to load transactions" });
+    }
+  });
+
+  // Admin Treasury Overview (Pending Withdrawals, Ledger, Audit Logs, Settings & Fees)
+  app.get("/api/admin/wallet/overview", async (req, res) => {
+    try {
+      const authRes = await verifyAdminRequest(req.headers.authorization, dbAdmin);
+      if ('error' in authRes) {
+        return res.status(authRes.status).json({ ok: false, error: authRes.error });
+      }
+      const settings = await getPapoPayTreasurySettings(dbAdmin);
+
+      const [disbSnap, txSnap, auditSnap, usersSnap] = await Promise.all([
+        dbAdmin.collection("disbursements").limit(120).get().catch(() => ({ docs: [] })),
+        dbAdmin.collection("wallet_transactions").limit(150).get().catch(() => ({ docs: [] })),
+        dbAdmin.collection("admin_audit_logs").limit(80).get().catch(() => ({ docs: [] })),
+        dbAdmin.collection("users").limit(250).get().catch(() => ({ docs: [] })),
+      ]);
+
+      const disbursements = (disbSnap.docs || [])
+        .map((d: any) => ({ id: d.id, ...(d.data() || {}) }))
+        .sort((a: any, b: any) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0));
+
+      const transactions = (txSnap.docs || [])
+        .map((d: any) => ({ id: d.id, ...(d.data() || {}) }))
+        .sort((a: any, b: any) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0));
+
+      const auditLogs = (auditSnap.docs || [])
+        .map((d: any) => ({ id: d.id, ...(d.data() || {}) }))
+        .sort((a: any, b: any) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0));
+
+      let totalAvailableFloat = 0;
+      let totalReservedFloat = 0;
+      for (const u of usersSnap.docs || []) {
+        const ud = u.data() || {};
+        totalAvailableFloat += Number(ud.walletBalance || 0);
+        totalReservedFloat += Number(ud.reservedBalance || 0);
+      }
+
+      const pendingDisbursements = disbursements.filter(
+        (d: any) =>
+          d.status === "pending" ||
+          d.status === "pending_admin_settlement" ||
+          d.status === "pending_provider_webhook" ||
+          d.status === "processing"
+      );
+      const pendingWithdrawalAmount = pendingDisbursements.reduce(
+        (sum: number, d: any) => sum + Number(d.amount || 0),
+        0
+      );
+      const collectedFees = transactions
+        .filter((t: any) => t.type === "TRANSACTION_FEE" || (t.type === "MOBILE_MONEY_WITHDRAWAL" && t.status === "completed"))
+        .reduce((sum: number, t: any) => sum + Number(t.type === "TRANSACTION_FEE" ? t.amount || 0 : t.fee || 0), 0);
+
+      return res.json({
+        ok: true,
+        summary: {
+          totalAvailableFloat,
+          totalReservedFloat,
+          pendingCount: pendingDisbursements.length,
+          pendingWithdrawalAmount,
+          collectedFees,
+        },
+        settings,
+        disbursements,
+        transactions,
+        auditLogs,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to load treasury overview" });
+    }
+  });
+
+  // Admin Action on Mobile Money Disbursement (Mark Processing, Approve & Complete, Reject/Fail & Release Funds)
+  app.post("/api/admin/wallet/payout-action", async (req, res) => {
+    try {
+      const authRes = await verifyAdminRequest(req.headers.authorization, dbAdmin);
+      if ('error' in authRes) {
+        return res.status(authRes.status).json({ ok: false, error: authRes.error });
+      }
+      const body = req.body || {};
+      const refCode = String(body.refCode || "").trim();
+      const action = String(body.action || "").trim() as "mark_processing" | "approve_complete" | "reject_or_fail";
+      const externalReference = typeof body.externalReference === "string" ? body.externalReference.trim() : "";
+      const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+
+      if (!refCode || !["mark_processing", "approve_complete", "reject_or_fail"].includes(action)) {
+        return res.status(400).json({ ok: false, error: "Tafadhali taja refCode na hatua sahihi." });
+      }
+
+      const beforeSnap = await dbAdmin.collection("disbursements").doc(refCode).get().catch(() => null);
+      const beforeData = beforeSnap?.exists ? beforeSnap.data() || {} : null;
+
+      const result = await adminProcessPayoutAction(dbAdmin, {
+        refCode,
+        action,
+        externalReference,
+        reason,
+        actorUid: authRes.admin.uid,
+        actorEmail: authRes.admin.email,
+      });
+
+      if (!result.ok) {
+        return res.status(400).json(result);
+      }
+
+      // Send WhatsApp notification on final approval or reversal
+      const notifyPhone = String(beforeData?.payerPhone || beforeData?.senderPhone || beforeData?.recipientPhone || "").replace(/\D/g, "");
+      if (notifyPhone.length >= 9) {
+        if (action === "approve_complete") {
+          sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: notifyPhone,
+            text:
+              `✅ *UTOAJI PESA UMEKAMILIKA (#${refCode})*\n\n` +
+              `• Kiasi: *TZS ${Number(beforeData?.amount || 0).toLocaleString()}/=*\n` +
+              `• Mtandao: *${beforeData?.networkLabel || beforeData?.network || "Mobile Money"}*\n` +
+              `• Namba: *${beforeData?.recipientPhone || "-"}*\n` +
+              `• Rejea ya Malipo: *${externalReference}*\n\n` +
+              `Asante kwa kutumia PapoPay!`,
+          }).catch(() => {});
+        } else if (action === "reject_or_fail") {
+          sendMetaOutboundMessage({
+            channel: "whatsapp",
+            recipientId: notifyPhone,
+            text:
+              `⚠️ *UTOAJI PESA UMESHINDIKANA & SALIO LIMERUDISHWA (#${refCode})*\n\n` +
+              `• Sababu: *${reason || "Imesitishwa na Hazina"}*\n` +
+              `💰 *Jumla ya TZS ${Number(beforeData?.totalDebit || beforeData?.amount || 0).toLocaleString()}/= imerudishwa kwenye Salio lako la PapoWallet.*`,
+          }).catch(() => {});
+        }
+      }
+
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to process payout action" });
+    }
+  });
+
+  // Admin Treasury Config (Fees & Network Enable/Disable Toggles)
+  app.post("/api/admin/wallet/config", async (req, res) => {
+    try {
+      const authRes = await verifyAdminRequest(req.headers.authorization, dbAdmin);
+      if ('error' in authRes) {
+        return res.status(authRes.status).json({ ok: false, error: authRes.error });
+      }
+      const body = req.body || {};
+      const result = await updatePapoPayTreasuryConfig(dbAdmin, {
+        actorUid: authRes.admin.uid,
+        actorEmail: authRes.admin.email,
+        transferFeePercent: body.transferFeePercent !== undefined ? Number(body.transferFeePercent) : undefined,
+        transferFeeFlat: body.transferFeeFlat !== undefined ? Number(body.transferFeeFlat) : undefined,
+        transferFeeMin: body.transferFeeMin !== undefined ? Number(body.transferFeeMin) : undefined,
+        withdrawalFeePercent: body.withdrawalFeePercent !== undefined ? Number(body.withdrawalFeePercent) : undefined,
+        withdrawalFeeMin: body.withdrawalFeeMin !== undefined ? Number(body.withdrawalFeeMin) : undefined,
+        withdrawalMinAmount: body.withdrawalMinAmount !== undefined ? Number(body.withdrawalMinAmount) : undefined,
+        withdrawalMaxAmount: body.withdrawalMaxAmount !== undefined ? Number(body.withdrawalMaxAmount) : undefined,
+        enabledNetworks: body.enabledNetworks,
+        b2cProvider: body.b2cProvider,
+        daliPayDisbursementApiDisabled:
+          typeof body.daliPayDisbursementApiDisabled === "boolean"
+            ? body.daliPayDisbursementApiDisabled
+            : undefined,
+      });
+      if (!result.ok) {
+        return res.status(400).json(result);
+      }
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: err?.message || "Failed to update treasury config" });
     }
   });
 
